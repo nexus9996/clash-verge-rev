@@ -123,7 +123,7 @@ const Layout = () => {
       <Paper
         square
         elevation={0}
-        className={`${OS} layout${navCollapsed ? ' layout--nav-collapsed' : ''}`}
+        className={`${OS} layout${showCustomTitlebar ? ' layout--custom-frame' : ' layout--native-frame'}${navCollapsed ? ' layout--nav-collapsed' : ''}`}
         style={{
           borderTopLeftRadius: '0px',
           borderTopRightRadius: '0px',
