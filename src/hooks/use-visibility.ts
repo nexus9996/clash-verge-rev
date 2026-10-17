@@ -41,7 +41,11 @@ export const useVisibility = () => {
     window.addEventListener('focus', handleVisibleEvent)
 
     const unlistenFocusChanged = appWindow.onFocusChanged(updateVisibleSoon)
-    const unlistenCloseRequested = appWindow.onCloseRequested(() => {
+    const unlistenCloseRequested = appWindow.onCloseRequested((event) => {
+      // The API wrapper calls window.destroy() when the JS default is left
+      // untouched; Rust already prevents the close and hides to tray, and
+      // core:window:allow-destroy is intentionally not granted.
+      event.preventDefault()
       setVisible(false)
       updateVisibleSoon()
     })
