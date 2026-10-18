@@ -67,6 +67,36 @@ fn record_state_and_log(state: LightweightState) {
     }
 }
 
+/// Keeps the exit transition recoverable if an async exit is cancelled mid-flight.
+struct ExitTransition {
+    completed: bool,
+}
+
+impl ExitTransition {
+    fn begin() -> Option<Self> {
+        if !try_transition(LightweightState::In, LightweightState::Exiting) {
+            return None;
+        }
+        record_state_and_log(LightweightState::Exiting);
+        Some(Self { completed: false })
+    }
+
+    fn complete(mut self) {
+        self.completed = true;
+        record_state_and_log(LightweightState::Normal);
+    }
+}
+
+impl Drop for ExitTransition {
+    fn drop(&mut self) {
+        if self.completed {
+            return;
+        }
+        LIGHTWEIGHT_STATE.store(LightweightState::Normal.as_u8(), Ordering::Release);
+        logging!(warn, Type::Lightweight, "轻量模式退出被中断，状态回滚为普通模式");
+    }
+}
+
 #[inline]
 pub fn is_in_lightweight_mode() -> bool {
     get_state() == LightweightState::In
@@ -122,7 +152,7 @@ pub async fn entry_lightweight_mode() -> bool {
 }
 
 pub async fn exit_lightweight_mode() -> bool {
-    if !try_transition(LightweightState::In, LightweightState::Exiting) {
+    let Some(exit) = ExitTransition::begin() else {
         logging!(
             debug,
             Type::Lightweight,
@@ -130,8 +160,7 @@ pub async fn exit_lightweight_mode() -> bool {
         );
         refresh_lightweight_tray_state().await;
         return false;
-    }
-    record_state_and_log(LightweightState::Exiting);
+    };
     WindowManager::show_main_window().await;
     let enable_auto_light_weight_mode = Config::verge()
         .await
@@ -143,7 +172,7 @@ pub async fn exit_lightweight_mode() -> bool {
         setup_webview_focus_listener();
     }
     cancel_light_weight_timer();
-    record_state_and_log(LightweightState::Normal);
+    exit.complete();
     refresh_lightweight_tray_state().await;
     true
 }
@@ -251,5 +280,51 @@ fn cancel_light_weight_timer() {
     if let Some(tx) = cancel_tx_guard.take() {
         let _ = tx.send(());
         logging!(debug, Type::Timer, "Timer cancelled");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    fn set_state(state: LightweightState) {
+        LIGHTWEIGHT_STATE.store(state.as_u8(), Ordering::Release);
+    }
+
+    #[test]
+    fn an_abandoned_exit_restores_a_usable_state() {
+        let _lock = TEST_LOCK.lock();
+        set_state(LightweightState::In);
+
+        let exit = ExitTransition::begin();
+        assert_eq!(get_state(), LightweightState::Exiting);
+        drop(exit);
+
+        assert_eq!(get_state(), LightweightState::Normal);
+        assert!(try_transition(LightweightState::Normal, LightweightState::In));
+        set_state(LightweightState::Normal);
+    }
+
+    #[test]
+    fn a_completed_exit_stays_normal() {
+        let _lock = TEST_LOCK.lock();
+        set_state(LightweightState::In);
+
+        if let Some(exit) = ExitTransition::begin() {
+            exit.complete();
+        }
+
+        assert_eq!(get_state(), LightweightState::Normal);
+    }
+
+    #[test]
+    fn an_exit_outside_lightweight_mode_takes_no_transition() {
+        let _lock = TEST_LOCK.lock();
+        set_state(LightweightState::Normal);
+
+        assert!(ExitTransition::begin().is_none());
+        assert_eq!(get_state(), LightweightState::Normal);
     }
 }
