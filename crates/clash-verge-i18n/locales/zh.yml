@@ -34,6 +34,15 @@ notifications:
     body: 新版本 (v{version}) 已下载完成，是否立即安装？
     installNow: 立即安装
     later: 稍后
+  subscriptionImport:
+    title: 导入外部订阅？
+    body: |-
+      将从以下地址下载订阅「{name}」：
+      {url}
+      订阅配置可以决定代理流量的路由。若当前没有已选配置，导入后可能立即启用。仅在信任此来源时继续。
+    import: 导入
+    cancel: 取消
+    unnamed: 未命名订阅
 service:
   adminInstallPrompt: 安装 Clash Verge 服务需要管理员权限
   adminUninstallPrompt: 卸载 Clash Verge 服务需要管理员权限

@@ -49,11 +49,15 @@ impl AutoBackupTrigger {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct AutoBackupSettings {
     schedule_enabled: bool,
     interval_hours: u64,
     change_enabled: bool,
+}
+
+fn schedule_settings_changed(previous: AutoBackupSettings, next: AutoBackupSettings) -> bool {
+    previous.schedule_enabled != next.schedule_enabled || previous.interval_hours != next.interval_hours
 }
 
 impl AutoBackupSettings {
@@ -109,17 +113,22 @@ impl AutoBackupManager {
         {
             *self.settings.write() = settings;
         }
-        let _ = self.settings_tx.send(settings);
+        self.settings_tx.send_replace(settings);
         self.maybe_start_runner(settings);
         Ok(())
     }
 
     pub async fn refresh_settings(&self) -> Result<()> {
         let settings = Self::load_settings().await;
-        {
-            *self.settings.write() = settings;
+        let schedule_changed = {
+            let mut current = self.settings.write();
+            let changed = schedule_settings_changed(*current, settings);
+            *current = settings;
+            changed
+        };
+        if schedule_changed {
+            self.settings_tx.send_replace(settings);
         }
-        let _ = self.settings_tx.send(settings);
         self.maybe_start_runner(settings);
         Ok(())
     }
@@ -309,4 +318,50 @@ async fn cleanup_auto_backups() -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{AutoBackupSettings, schedule_settings_changed};
+    use tokio::sync::watch;
+
+    #[test]
+    fn schedule_updates_ignore_backup_on_change_setting() {
+        let previous = AutoBackupSettings::default();
+        let next = AutoBackupSettings {
+            change_enabled: !previous.change_enabled,
+            ..previous
+        };
+
+        assert!(!schedule_settings_changed(previous, next));
+    }
+
+    #[test]
+    fn schedule_updates_track_enablement_and_interval() {
+        let previous = AutoBackupSettings::default();
+        let enabled = AutoBackupSettings {
+            schedule_enabled: true,
+            ..previous
+        };
+        let interval = AutoBackupSettings {
+            interval_hours: previous.interval_hours + 1,
+            ..previous
+        };
+
+        assert!(schedule_settings_changed(previous, enabled));
+        assert!(schedule_settings_changed(previous, interval));
+    }
+
+    #[test]
+    fn settings_sent_before_a_receiver_are_available_to_later_subscribers() {
+        let (sender, receiver) = watch::channel(AutoBackupSettings::default());
+        drop(receiver);
+        let settings = AutoBackupSettings {
+            schedule_enabled: true,
+            ..AutoBackupSettings::default()
+        };
+
+        sender.send_replace(settings);
+        assert_eq!(*sender.subscribe().borrow(), settings);
+    }
 }

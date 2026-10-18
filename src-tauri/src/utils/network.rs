@@ -1,14 +1,43 @@
 use crate::config::MixedPort;
 use anyhow::Result;
 use base64::{Engine as _, engine::general_purpose};
+use encoding_rs::{Encoding, UTF_8};
 use reqwest::{
     Client, Proxy, StatusCode,
-    header::{HeaderMap, HeaderValue, USER_AGENT},
+    header::{CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT},
 };
 use smartstring::alias::String;
 use std::{sync::Arc, time::Duration};
 use sysproxy::Sysproxy;
 use tauri::Url;
+
+const MAX_TEXT_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
+
+fn append_limited_chunk(body: &mut Vec<u8>, chunk: &[u8], max_bytes: usize) -> Result<()> {
+    if body.len().saturating_add(chunk.len()) > max_bytes {
+        anyhow::bail!("response exceeded the {max_bytes} byte limit");
+    }
+    body.extend_from_slice(chunk);
+    Ok(())
+}
+
+fn decode_text_response(body: &[u8], headers: &HeaderMap) -> String {
+    let encoding = headers
+        .get(CONTENT_TYPE)
+        .and_then(|content_type| content_type.to_str().ok())
+        .and_then(|content_type| {
+            content_type.split(';').skip(1).find_map(|parameter| {
+                let (name, value) = parameter.split_once('=')?;
+                name.trim()
+                    .eq_ignore_ascii_case("charset")
+                    .then(|| value.trim().trim_matches(['"', '\'']))
+            })
+        })
+        .and_then(|label| Encoding::for_label(label.as_bytes()))
+        .unwrap_or(UTF_8);
+
+    encoding.decode(body).0.into_owned().into()
+}
 
 #[derive(Debug)]
 pub struct HttpResponse {
@@ -199,7 +228,7 @@ impl NetworkManager {
             request_builder = request_builder.header(key, value);
         }
 
-        let response = match request_builder.send().await {
+        let mut response = match request_builder.send().await {
             Ok(resp) => resp,
             Err(e) => {
                 return Err(Self::context_reqwest_error(e, "Request failed"));
@@ -208,12 +237,15 @@ impl NetworkManager {
 
         let status = response.status();
         let headers = response.headers().to_owned();
-        let body = match response.text().await {
-            Ok(text) => text.into(),
-            Err(e) => {
-                return Err(Self::context_reqwest_error(e, "Failed to read response body"));
-            }
-        };
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response
+            .chunk()
+            .await
+            .map_err(|e| Self::context_reqwest_error(e, "Failed to read response body"))?
+        {
+            append_limited_chunk(&mut bytes, &chunk, MAX_TEXT_RESPONSE_BYTES)?;
+        }
+        let body = decode_text_response(&bytes, &headers).into();
 
         Ok(HttpResponse::new(status, headers, body))
     }
@@ -354,5 +386,35 @@ impl NetworkManager {
                 }),
             Err(err) => Err(err),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{append_limited_chunk, decode_text_response};
+    use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue};
+
+    #[test]
+    fn text_response_limit_rejects_oversized_chunks_without_appending_them() {
+        let mut body = Vec::new();
+        assert!(append_limited_chunk(&mut body, b"abc", 2).is_err());
+        assert!(body.is_empty());
+
+        assert!(append_limited_chunk(&mut body, b"ab", 2).is_ok());
+        assert_eq!(body, b"ab");
+    }
+
+    #[test]
+    fn text_response_keeps_declared_charset_decoding() {
+        let mut headers = HeaderMap::new();
+        assert!(
+            headers
+                .insert(
+                    CONTENT_TYPE,
+                    HeaderValue::from_static("text/plain; charset=windows-1252")
+                )
+                .is_none()
+        );
+        assert_eq!(decode_text_response(&[0x80], &headers), "€");
     }
 }

@@ -1,9 +1,40 @@
+use anyhow::{Context as _, Result};
+use granit_parser::{Event, Parser, ScalarStyle};
 use serde::Serialize;
-use serde_yaml_ng::Result;
 
 pub fn to_mihomo_config_string<T: Serialize>(data: &T) -> Result<String> {
-    let yaml = serde_yaml_ng::to_string(data)?;
+    let yaml = to_runtime_config_string(data)?;
     Ok(quote_fake_ip_filter_wildcards(&yaml))
+}
+
+pub fn to_runtime_config_string<T: Serialize>(data: &T) -> Result<String> {
+    quote_date_like_strings(&serde_yaml_ng::to_string(data)?)
+}
+
+fn quote_date_like_strings(yaml: &str) -> Result<String> {
+    let mut result = String::with_capacity(yaml.len());
+    let mut copied = 0;
+
+    for event in Parser::new_from_str(yaml) {
+        let (Event::Scalar(value, ScalarStyle::Plain, _, None), span) = event? else {
+            continue;
+        };
+        if !value
+            .as_bytes()
+            .get(..5)
+            .is_some_and(|prefix| prefix[4] == b'-' && prefix[..4].iter().all(u8::is_ascii_digit))
+        {
+            continue;
+        }
+
+        let range = span.byte_range().context("missing YAML scalar byte range")?;
+        result.push_str(&yaml[copied..range.start]);
+        result.push_str(&serde_json::to_string(value.as_ref())?);
+        copied = range.end;
+    }
+
+    result.push_str(&yaml[copied..]);
+    Ok(result)
 }
 
 fn quote_fake_ip_filter_wildcards(yaml: &str) -> String {
@@ -65,7 +96,7 @@ fn contains_wildcard(value: &str) -> bool {
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
-    use super::to_mihomo_config_string;
+    use super::{to_mihomo_config_string, to_runtime_config_string};
 
     fn roundtrip(input: &str) {
         let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(input).expect("input yaml should parse");
@@ -109,6 +140,48 @@ items:
       line1
       line2
 ",
+        );
+    }
+
+    #[test]
+    fn quotes_date_like_strings_without_changing_other_yaml_values() {
+        let input = r#"
+name: 香港🚀
+proxies:
+  - password: '2026-9-14'
+  - password: '2026-09-14'
+  - password: '2026-09-14T12:34:56Z'
+  - password: '2026-9-14t12:34:56.123+08:00'
+  - password: '2026-09-14 12:34:56'
+'2026-09-14': 7897
+enabled: true
+script: |
+  password: 2026-9-14
+  fake-ip-filter:
+  - *.lan
+explicit: !custom 2026-9-14
+"#;
+        let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(input).expect("input should parse");
+        let output = to_runtime_config_string(&value).expect("runtime yaml should serialize");
+
+        for date in [
+            "2026-9-14",
+            "2026-09-14",
+            "2026-09-14T12:34:56Z",
+            "2026-9-14t12:34:56.123+08:00",
+            "2026-09-14 12:34:56",
+        ] {
+            assert!(output.contains(&format!("\"{date}\"")), "{output}");
+        }
+        assert!(output.contains("\"2026-09-14\": 7897"));
+        assert!(output.contains("script: |\n  password: 2026-9-14\n  fake-ip-filter:\n  - *.lan\n"));
+        assert!(output.contains("explicit: !custom 2026-9-14"));
+
+        let reparsed: serde_yaml_ng::Value = serde_yaml_ng::from_str(&output).expect("output should parse");
+        assert_eq!(reparsed, value);
+        assert_eq!(
+            to_runtime_config_string(&reparsed).expect("yaml should serialize"),
+            output
         );
     }
 }
