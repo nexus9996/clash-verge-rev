@@ -5,10 +5,21 @@ use serde::Serialize;
 #[tracing::instrument(name = "yaml_mihomo_serialize", skip_all, level = "debug")]
 pub fn to_mihomo_config_string<T: Serialize>(data: &T) -> Result<String> {
     let yaml = to_runtime_config_string(data)?;
+    Ok(to_mihomo_config_string_from_yaml(&yaml))
+}
+
+/// Applies only the mihomo-specific rewrite to an already runtime-serialized document.
+#[tracing::instrument(
+    name = "yaml_mihomo_rewrite",
+    skip_all,
+    level = "debug",
+    fields(bytes = yaml.len())
+)]
+pub fn to_mihomo_config_string_from_yaml(yaml: &str) -> String {
     if !yaml.contains("fake-ip-filter:") {
-        return Ok(yaml);
+        return yaml.to_owned();
     }
-    Ok(quote_fake_ip_filter_wildcards(&yaml))
+    quote_fake_ip_filter_wildcards(yaml)
 }
 
 #[tracing::instrument(name = "yaml_runtime_serialize", skip_all, level = "debug")]
@@ -123,9 +134,28 @@ fn contains_wildcard(value: &str) -> bool {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
+#[allow(clippy::expect_used, clippy::needless_raw_string_hashes)]
 mod tests {
-    use super::{may_contain_date_like_scalar, to_mihomo_config_string, to_runtime_config_string};
+    use super::{
+        may_contain_date_like_scalar, to_mihomo_config_string, to_mihomo_config_string_from_yaml,
+        to_runtime_config_string,
+    };
+
+    #[test]
+    fn rewriting_a_runtime_document_matches_the_value_path() {
+        for input in [
+            "dns: {enable: true, enhanced-mode: fake-ip}\n",
+            "dns:\n  fake-ip-filter:\n    - '*.lan'\n    - '+.market.xiaomi.com'\n",
+        ] {
+            let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(input).expect("input yaml should parse");
+            let runtime = to_runtime_config_string(&value).expect("runtime yaml should serialize");
+
+            assert_eq!(
+                to_mihomo_config_string_from_yaml(&runtime),
+                to_mihomo_config_string(&value).expect("mihomo yaml should serialize")
+            );
+        }
+    }
 
     #[test]
     fn detects_only_prefixed_date_like_scalars() {

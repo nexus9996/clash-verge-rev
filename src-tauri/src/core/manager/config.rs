@@ -364,7 +364,7 @@ impl CoreManager {
         let run_path = Config::write_runtime_file(&yaml).await?;
         let runtime = Config::runtime().await.latest_arc();
         let previous = self.current_core_readiness_generation();
-        let result = self.apply_config(run_path, runtime).await;
+        let result = self.apply_config(run_path, runtime, yaml).await;
         self.retain_applied_runtime(&Config::runtime().await, previous, &result);
         result?;
         // Under the lifecycle lock, so a stop for exit waits for this write instead of outrunning it.
@@ -392,7 +392,7 @@ impl CoreManager {
     }
 
     /// Applies a generated configuration through the active core owner.
-    async fn apply_config(&self, path: PathBuf, runtime: SharedDraft<IRuntime>) -> Result<()> {
+    async fn apply_config(&self, path: PathBuf, runtime: SharedDraft<IRuntime>, yaml: Arc<str>) -> Result<()> {
         if matches!(*self.get_running_mode(), RunningMode::Service) {
             let _lifecycle = self.lifecycle_lock.lock().await;
             if !matches!(*self.get_running_mode(), RunningMode::Service) {
@@ -402,7 +402,7 @@ impl CoreManager {
                 .config
                 .clone()
                 .ok_or_else(|| anyhow!("runtime configuration is unavailable"))?;
-            return self.apply_config_by_service(&path, config).await;
+            return self.apply_config_by_service(&path, config, yaml).await;
         }
 
         let path = dirs::path_to_str(&path)?;
@@ -412,8 +412,8 @@ impl CoreManager {
     /// Applies through the service, replacing the core when in-place staging is unavailable.
     /// Caller must hold `lifecycle_lock`.
     #[tracing::instrument(skip_all, level = "info", fields(path = %path.display(), outcome = tracing::field::Empty))]
-    async fn apply_config_by_service(&self, path: &std::path::Path, config: Mapping) -> Result<()> {
-        match plan_config_application(&self.attempt_staging(path, config).await) {
+    async fn apply_config_by_service(&self, path: &std::path::Path, config: Mapping, yaml: Arc<str>) -> Result<()> {
+        match plan_config_application(&self.attempt_staging(path, config, yaml).await) {
             ConfigApplication::Fail(message) => {
                 // Replacement would hand the service the same rejected bundle.
                 logging!(
@@ -443,11 +443,11 @@ impl CoreManager {
         Ok(())
     }
 
-    async fn attempt_staging(&self, path: &std::path::Path, config: Mapping) -> StageAttempt {
+    async fn attempt_staging(&self, path: &std::path::Path, config: Mapping, yaml: Arc<str>) -> StageAttempt {
         if !crate::core::service::active_service_supports_runtime_staging() {
             return StageAttempt::Unsupported;
         }
-        let runtime = match crate::core::service::collect_service_runtime_bundle_from_config(config, path).await {
+        let runtime = match crate::core::service::collect_service_runtime_bundle_from_config(config, path, yaml).await {
             Ok(runtime) => Arc::new(runtime),
             Err(error) => return StageAttempt::Unanswered(format!("{error:#}").into()),
         };

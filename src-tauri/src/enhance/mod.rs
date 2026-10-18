@@ -31,6 +31,7 @@ use std::collections::{HashMap, HashSet};
 use tokio::fs;
 
 type ResultLog = Vec<(String, String)>;
+type EnhancedProfile = (Mapping, HashSet<String>, HashMap<String, ResultLog>, DnsOverrideState);
 #[derive(Debug)]
 struct ConfigValues {
     clash_config: Mapping,
@@ -873,9 +874,7 @@ async fn apply_dns_settings(config: Mapping, enable_dns_settings: bool) -> (Mapp
 
 /// Returns the enhanced profile, its original keys, script logs, and DNS override decision.
 #[tracing::instrument(name = "enhance", skip_all, level = "debug")]
-pub async fn enhance(
-    profiles: &IProfiles,
-) -> Result<(Mapping, HashSet<String>, HashMap<String, ResultLog>, DnsOverrideState)> {
+pub async fn enhance(profiles: &IProfiles) -> Result<EnhancedProfile> {
     let profile_uid = profiles.current.as_deref().unwrap_or_default();
     let cfg_vals = get_config_values(profile_uid).await;
     let ConfigValues {

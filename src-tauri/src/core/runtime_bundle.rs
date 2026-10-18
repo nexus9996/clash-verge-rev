@@ -28,6 +28,8 @@ struct RuntimeParts {
     config: Value,
     assets: Vec<RuntimeAsset>,
     remote_providers: Vec<RemoteProviderRef>,
+    /// Whether a provider path was actually changed.
+    rewritten: bool,
 }
 
 #[tracing::instrument(
@@ -45,7 +47,7 @@ pub(crate) async fn collect_runtime_bundle(config_file: &Path, core_path: &Path)
     let config_root = config_file
         .parent()
         .ok_or_else(|| anyhow::anyhow!("runtime config has no parent directory"))?;
-    runtime_bundle_from_parts(config, config_root, core_path)
+    runtime_bundle_from_parts(config, config_root, core_path, Some(&yaml))
 }
 
 /// Builds the same bundle from the already generated mapping, skipping the file read and parse.
@@ -53,15 +55,25 @@ pub(crate) fn collect_runtime_bundle_from_config(
     config: Mapping,
     config_root: &Path,
     core_path: &Path,
+    validated_yaml: Option<&str>,
 ) -> Result<RuntimeBundle> {
-    runtime_bundle_from_parts(Value::Mapping(config), config_root, core_path)
+    runtime_bundle_from_parts(Value::Mapping(config), config_root, core_path, validated_yaml)
 }
 
-fn runtime_bundle_from_parts(config: Value, config_root: &Path, core_path: &Path) -> Result<RuntimeBundle> {
+fn runtime_bundle_from_parts(
+    config: Value,
+    config_root: &Path,
+    core_path: &Path,
+    validated_yaml: Option<&str>,
+) -> Result<RuntimeBundle> {
     let parts = collect_runtime_parts(config, config_root)?;
-    Ok(RuntimeBundle {
-        yaml: yaml_emitter::to_runtime_config_string(&parts.config)
+    let yaml = match validated_yaml {
+        Some(yaml) if !parts.rewritten => yaml.to_owned(),
+        _ => yaml_emitter::to_runtime_config_string(&parts.config)
             .context("failed to serialize service runtime config")?,
+    };
+    Ok(RuntimeBundle {
+        yaml,
         assets: parts.assets,
         remote_providers: parts
             .remote_providers
@@ -229,6 +241,7 @@ fn collect_runtime_parts(mut config: Value, config_root: &Path) -> Result<Runtim
     let mut assets = Vec::new();
     let mut destinations = HashSet::new();
     let mut remote_providers = Vec::new();
+    let mut rewritten = false;
 
     collect_provider_assets(
         &mut config,
@@ -237,6 +250,7 @@ fn collect_runtime_parts(mut config: Value, config_root: &Path) -> Result<Runtim
         &mut destinations,
         &mut assets,
         &mut remote_providers,
+        &mut rewritten,
     )?;
     collect_provider_assets(
         &mut config,
@@ -245,6 +259,7 @@ fn collect_runtime_parts(mut config: Value, config_root: &Path) -> Result<Runtim
         &mut destinations,
         &mut assets,
         &mut remote_providers,
+        &mut rewritten,
     )?;
     for filename in GEO_ASSETS {
         let source = config_root.join(filename);
@@ -260,6 +275,7 @@ fn collect_runtime_parts(mut config: Value, config_root: &Path) -> Result<Runtim
         config,
         assets,
         remote_providers,
+        rewritten,
     })
 }
 
@@ -272,6 +288,7 @@ fn collect_provider_assets(
     destinations: &mut HashSet<String>,
     assets: &mut Vec<RuntimeAsset>,
     remote_providers: &mut Vec<RemoteProviderRef>,
+    rewritten: &mut bool,
 ) -> Result<()> {
     let Some(providers) = config
         .as_mapping_mut()
@@ -346,7 +363,10 @@ fn collect_provider_assets(
                 destination
             }
         };
-        provider.insert(Value::String("path".to_owned()), Value::String(destination));
+        let previous = provider.insert(Value::String("path".to_owned()), Value::String(destination.clone()));
+        if previous.as_ref().and_then(Value::as_str) != Some(destination.as_str()) {
+            *rewritten = true;
+        }
     }
     Ok(())
 }
@@ -438,12 +458,29 @@ mod tests {
             "proxy-providers:\n  Alpha:\n    type: http\n    url: https://one.example/alpha.yaml\n    path: ./providers/alpha.yaml\n",
         )?;
         let file = root.join("config.yaml");
-        std::fs::write(&file, serde_yaml_ng::to_string(&config)?)?;
+        let yaml = serde_yaml_ng::to_string(&config)?;
+        std::fs::write(&file, &yaml)?;
         let core = root.join("mihomo");
 
         let from_file = collect_runtime_bundle(&file, &core).await?;
-        let from_memory = collect_runtime_bundle_from_config(config, &root, &core)?;
+        let from_memory = collect_runtime_bundle_from_config(config, &root, &core, Some(&yaml))?;
         assert_eq!(from_memory, from_file);
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn validated_yaml_is_reused_when_no_provider_path_changes() -> anyhow::Result<()> {
+        let root = std::env::temp_dir().join(format!("clash-verge-yaml-reuse-{}", std::process::id()));
+        std::fs::create_dir_all(&root)?;
+        let config: serde_yaml_ng::Mapping =
+            serde_yaml_ng::from_str("mixed-port: 7897\nproxies:\n  - {name: one, type: ss}\nrules:\n  - MATCH,one\n")?;
+        let yaml = serde_yaml_ng::to_string(&config)?;
+        let core = root.join("mihomo");
+
+        let from_memory = collect_runtime_bundle_from_config(config, &root, &core, Some(&yaml))?;
+        assert_eq!(from_memory.yaml, yaml);
 
         std::fs::remove_dir_all(root)?;
         Ok(())

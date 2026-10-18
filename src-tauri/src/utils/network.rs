@@ -245,7 +245,7 @@ impl NetworkManager {
         {
             append_limited_chunk(&mut bytes, &chunk, MAX_TEXT_RESPONSE_BYTES)?;
         }
-        let body = decode_text_response(&bytes, &headers).into();
+        let body = decode_text_response(&bytes, &headers);
 
         Ok(HttpResponse::new(status, headers, body))
     }

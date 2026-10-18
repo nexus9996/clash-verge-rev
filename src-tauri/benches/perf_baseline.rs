@@ -96,6 +96,7 @@ fn yaml_benchmarks(criterion: &mut Criterion) {
         let dated = fixture(proxy_count, true, false);
         let fake_ip = fixture(proxy_count, false, true);
         let plain_yaml = rendered(&plain);
+        let runtime_yaml = yaml_emitter::to_runtime_config_string(&plain).unwrap_or_default();
         let mut group = criterion.benchmark_group(format!("yaml-{proxy_count}"));
         group.throughput(Throughput::Bytes(plain_yaml.len() as u64));
 
@@ -113,6 +114,9 @@ fn yaml_benchmarks(criterion: &mut Criterion) {
         });
         group.bench_function(BenchmarkId::new("mihomo_serialize_plain", proxy_count), |bencher| {
             bencher.iter(|| yaml_emitter::to_mihomo_config_string(black_box(&plain)).ok())
+        });
+        group.bench_function(BenchmarkId::new("mihomo_rewrite_cached", proxy_count), |bencher| {
+            bencher.iter(|| yaml_emitter::to_mihomo_config_string_from_yaml(black_box(&runtime_yaml)))
         });
         group.bench_function(BenchmarkId::new("mihomo_serialize_fake_ip", proxy_count), |bencher| {
             bencher.iter(|| yaml_emitter::to_mihomo_config_string(black_box(&fake_ip)).ok())

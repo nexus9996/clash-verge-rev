@@ -833,15 +833,19 @@ async fn collect_service_runtime_bundle(config_file: &Path) -> Result<RuntimeBun
 pub(super) async fn collect_service_runtime_bundle_from_config(
     config: Mapping,
     config_file: &Path,
+    yaml: Arc<str>,
 ) -> Result<RuntimeBundle> {
     let bin_path = service_core_bin_path().await?;
     let config_root = config_file
         .parent()
         .ok_or_else(|| anyhow!("runtime config has no parent directory"))?
         .to_path_buf();
-    AsyncHandler::spawn_blocking(move || collect_runtime_bundle_from_config(config, &config_root, &bin_path))
-        .await
-        .map_err(|join| anyhow!("service runtime bundle task failed: {join}"))?
+    let yaml = Config::runtime_yaml_body(&yaml).to_owned();
+    AsyncHandler::spawn_blocking(move || {
+        collect_runtime_bundle_from_config(config, &config_root, &bin_path, Some(&yaml))
+    })
+    .await
+    .map_err(|join| anyhow!("service runtime bundle task failed: {join}"))?
 }
 
 /// A staging response whose refusal code tells callers whether a fresh start can help.

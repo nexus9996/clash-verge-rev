@@ -116,6 +116,27 @@ Deflate reduces the archive by about 12–13x for roughly 0.5–5.4 ms per
 fixture. Archive work already runs on the blocking pool, so backups now use
 `CompressionMethod::Deflated`.
 
+### Phase 5 cached viewer path
+
+`get_runtime_yaml` now reuses the cached runtime document and only applies the
+mihomo fake-ip rewrite instead of serializing the mapping again:
+
+| Fixture | Cached rewrite | Full mihomo serialization |
+| --- | ---: | ---: |
+| 1k proxies | 12.15 µs | 3.275 ms |
+| 10k proxies | 117.67 µs | 33.020 ms |
+
+The cached path still copies the returned string, but drops the YAML
+serialization pass entirely.
+
+### Phase 6 service staging YAML
+
+Service staging now reuses the validated runtime YAML when provider path
+normalization changed nothing. When a provider path is rewritten, it still
+serializes the rewritten mapping so the service receives the canonical paths.
+The no-provider case therefore skips both the file read and a full YAML
+serialization.
+
 Application-level timings (startup to core ready, config apply p50/p95, peak
 RSS) are captured from the Chrome trace on the large fixture and belong in the
 same table when collected. The trace setup above keeps those measurements

@@ -56,7 +56,7 @@ struct AutoBackupSettings {
     change_enabled: bool,
 }
 
-fn schedule_settings_changed(previous: AutoBackupSettings, next: AutoBackupSettings) -> bool {
+const fn schedule_settings_changed(previous: AutoBackupSettings, next: AutoBackupSettings) -> bool {
     previous.schedule_enabled != next.schedule_enabled || previous.interval_hours != next.interval_hours
 }
 
