@@ -13,6 +13,7 @@
 
 **🍎 macOS**
 
+- 修复旧版 macOS WebView 缺少 `Array.prototype.at` 导致首页渲染失败的问题
 - macOS：修复主窗口失焦后 ⌘W、⌘Q 偶尔仍被占用的问题
 
 **🐧 Linux**
