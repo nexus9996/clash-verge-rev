@@ -64,7 +64,12 @@ pub async fn upgrade_core(force: bool) -> Result<CoreUpgradeReport> {
     }
 
     let package = download_package(proxy, alpha, &latest).await?;
-    let staged = stage_core(&target, &package, &latest)?;
+    let stage_target = target.clone();
+    let stage_version = latest.clone();
+    let staged =
+        crate::process::AsyncHandler::spawn_blocking(move || stage_core(&stage_target, &package, &stage_version))
+            .await
+            .map_err(|join| anyhow!("core staging task failed: {join}"))??;
 
     // A hard link keeps the previous core reachable without touching the inode the running
     // core executes from, so publishing below stays one atomic rename.

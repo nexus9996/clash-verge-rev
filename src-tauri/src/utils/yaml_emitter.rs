@@ -2,15 +2,38 @@ use anyhow::{Context as _, Result};
 use granit_parser::{Event, Parser, ScalarStyle};
 use serde::Serialize;
 
+#[tracing::instrument(name = "yaml_mihomo_serialize", skip_all, level = "debug")]
 pub fn to_mihomo_config_string<T: Serialize>(data: &T) -> Result<String> {
     let yaml = to_runtime_config_string(data)?;
+    if !yaml.contains("fake-ip-filter:") {
+        return Ok(yaml);
+    }
     Ok(quote_fake_ip_filter_wildcards(&yaml))
 }
 
+#[tracing::instrument(name = "yaml_runtime_serialize", skip_all, level = "debug")]
 pub fn to_runtime_config_string<T: Serialize>(data: &T) -> Result<String> {
-    quote_date_like_strings(&serde_yaml_ng::to_string(data)?)
+    let yaml = serde_yaml_ng::to_string(data)?;
+    if !may_contain_date_like_scalar(&yaml) {
+        return Ok(yaml);
+    }
+    quote_date_like_strings(&yaml)
 }
 
+/// A plain date-like scalar is the only shape the rewrite below can match, so documents
+/// without one do not need a second full parse.
+fn may_contain_date_like_scalar(yaml: &str) -> bool {
+    yaml.as_bytes()
+        .windows(5)
+        .any(|window| window[4] == b'-' && window[..4].iter().all(u8::is_ascii_digit))
+}
+
+#[tracing::instrument(
+    name = "yaml_quote_date_like",
+    skip_all,
+    level = "debug",
+    fields(bytes = yaml.len())
+)]
 fn quote_date_like_strings(yaml: &str) -> Result<String> {
     let mut result = String::with_capacity(yaml.len());
     let mut copied = 0;
@@ -37,6 +60,12 @@ fn quote_date_like_strings(yaml: &str) -> Result<String> {
     Ok(result)
 }
 
+#[tracing::instrument(
+    name = "yaml_quote_fake_ip_filter",
+    skip_all,
+    level = "debug",
+    fields(bytes = yaml.len())
+)]
 fn quote_fake_ip_filter_wildcards(yaml: &str) -> String {
     let mut result = String::with_capacity(yaml.len());
     let mut in_fake_ip_filter = false;
@@ -96,7 +125,31 @@ fn contains_wildcard(value: &str) -> bool {
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
-    use super::{to_mihomo_config_string, to_runtime_config_string};
+    use super::{may_contain_date_like_scalar, to_mihomo_config_string, to_runtime_config_string};
+
+    #[test]
+    fn detects_only_prefixed_date_like_scalars() {
+        assert!(!may_contain_date_like_scalar("password: baseline\n"));
+        assert!(!may_contain_date_like_scalar("202-09-14\n"));
+        assert!(may_contain_date_like_scalar("password: 2026-09-14\n"));
+        assert!(may_contain_date_like_scalar("2026-09-14: value\n"));
+    }
+
+    #[test]
+    fn plain_documents_are_returned_unchanged() {
+        let input = "proxies:\n  - name: p1\n    password: baseline\n";
+        let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(input).expect("input yaml should parse");
+        let serialized = serde_yaml_ng::to_string(&value).expect("yaml should serialize");
+
+        assert_eq!(
+            to_runtime_config_string(&value).expect("runtime yaml should serialize"),
+            serialized
+        );
+        assert_eq!(
+            to_mihomo_config_string(&value).expect("mihomo yaml should serialize"),
+            serialized
+        );
+    }
 
     fn roundtrip(input: &str) {
         let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(input).expect("input yaml should parse");

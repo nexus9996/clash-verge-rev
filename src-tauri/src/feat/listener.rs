@@ -82,7 +82,7 @@ pub async fn save_proxy_ports(settings: ProxyPortSettings) -> Result<SaveProxyPo
         bail!("candidate proxy port configuration is invalid: {validation}");
     }
 
-    let snapshots = capture_config_files().await?;
+    let snapshots = capture_config_files(true, true, true).await?;
     // Once files change, failures must restore both files and drafts.
     if let Err(error) = Config::write_runtime_file(&yaml).await {
         transaction.rollback();

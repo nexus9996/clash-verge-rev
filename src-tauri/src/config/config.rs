@@ -205,6 +205,7 @@ impl Config {
         Self::write_runtime_file(&yaml).await
     }
 
+    #[tracing::instrument(name = "config_runtime_yaml", skip_all, level = "debug")]
     pub(crate) async fn runtime_config_yaml() -> Result<std::string::String> {
         let runtime = Self::runtime().await;
         AsyncHandler::spawn_blocking(move || {
@@ -222,17 +223,25 @@ impl Config {
         .map_err(|join| anyhow!("runtime serialization task failed: {join}"))?
     }
 
+    #[tracing::instrument(
+        name = "config_write_runtime",
+        skip_all,
+        level = "debug",
+        fields(bytes = yaml.len())
+    )]
     pub(crate) async fn write_runtime_file(yaml: &str) -> Result<PathBuf> {
         let path = dirs::app_home_dir()?.join(files::RUNTIME_CONFIG);
         help::save_yaml_str(&path, yaml).await?;
         Ok(path)
     }
 
+    #[tracing::instrument(name = "config_generate", skip_all, level = "debug")]
     pub async fn generate() -> Result<()> {
         let profiles = Self::profiles().await.latest_arc();
         Self::generate_with_profiles(&profiles).await
     }
 
+    #[tracing::instrument(name = "config_generate_with_profiles", skip_all, level = "debug")]
     pub(crate) async fn generate_with_profiles(profiles: &IProfiles) -> Result<()> {
         let (mut config, exists_keys, logs, dns_override) = enhance::enhance(profiles).await?;
 

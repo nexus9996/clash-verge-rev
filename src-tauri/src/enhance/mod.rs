@@ -872,6 +872,7 @@ async fn apply_dns_settings(config: Mapping, enable_dns_settings: bool) -> (Mapp
 }
 
 /// Returns the enhanced profile, its original keys, script logs, and DNS override decision.
+#[tracing::instrument(name = "enhance", skip_all, level = "debug")]
 pub async fn enhance(
     profiles: &IProfiles,
 ) -> Result<(Mapping, HashSet<String>, HashMap<String, ResultLog>, DnsOverrideState)> {

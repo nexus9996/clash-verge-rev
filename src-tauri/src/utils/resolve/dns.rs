@@ -77,6 +77,10 @@ pub async fn restore_public_dns() -> anyhow::Result<()> {
     unset_public_dns().await
 }
 
+fn has_saved_dns_state(dir: &Path) -> bool {
+    dir.join(DNS_STATE_FILE).exists() || dir.join(DNS_BACKUP_DIR).exists()
+}
+
 async fn set_public_dns() {
     logging!(debug, Type::Config, "try to set system dns");
     let result = async {
@@ -95,6 +99,10 @@ async fn unset_public_dns() -> anyhow::Result<()> {
     let result = async {
         let resource_dir = crate::utils::dirs::app_resources_dir()?;
         let state_dir = restore_dns_state_dir(&resource_dir, dns_state_dir()?);
+        if !has_saved_dns_state(&state_dir) {
+            logging!(debug, Type::Config, "no saved system DNS state; skipping restore");
+            return Ok(());
+        }
         run_dns_script(&resource_dir.join("unset_dns.sh"), state_dir).await
     }
     .await;
@@ -148,6 +156,24 @@ async fn run_dns_script(script: &Path, dir: PathBuf) -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    #[allow(clippy::expect_used)]
+    fn saved_dns_state_requires_the_original_file_or_backup_directory() {
+        use super::has_saved_dns_state;
+
+        let root = std::env::temp_dir().join(format!("clash-verge-dns-state-{}", nanoid::nanoid!()));
+        std::fs::create_dir_all(&root).expect("create test state directory");
+        assert!(!has_saved_dns_state(&root));
+
+        std::fs::write(root.join(".original_dns.txt"), "empty").expect("create DNS state file");
+        assert!(has_saved_dns_state(&root));
+        std::fs::remove_file(root.join(".original_dns.txt")).expect("remove DNS state file");
+
+        std::fs::create_dir(root.join(".original_dns")).expect("create DNS backup directory");
+        assert!(has_saved_dns_state(&root));
+
+        std::fs::remove_dir_all(root).expect("remove test state directory");
+    }
 
     #[test]
     #[allow(clippy::expect_used)]

@@ -346,6 +346,12 @@ impl CoreConfigValidator {
         Self::validate_config_internal_outcome(config_path).await
     }
 
+    #[tracing::instrument(
+        name = "validate_config_core_process",
+        skip_all,
+        level = "debug",
+        fields(path = %config_path)
+    )]
     async fn validate_config_internal_outcome(config_path: &str) -> Result<ValidationOutcome> {
         if handle::Handle::global().is_exiting() {
             logging!(info, Type::Validate, "应用正在退出，跳过验证");
@@ -415,6 +421,12 @@ impl CoreConfigValidator {
     }
 
     /// Skips the subprocess when these bytes were already accepted by the same core build.
+    #[tracing::instrument(
+        name = "validate_config_with_core",
+        skip_all,
+        level = "debug",
+        fields(bytes = yaml.len())
+    )]
     pub async fn validate_config_outcome_with(&self, yaml: &str) -> Result<ValidationOutcome> {
         if !self.try_start() {
             logging!(info, Type::Validate, "验证已在进行中，跳过新的验证请求");

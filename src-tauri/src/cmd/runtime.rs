@@ -6,6 +6,7 @@ use std::collections::HashMap;
 
 #[tauri::command]
 #[specta::specta]
+#[tracing::instrument(name = "ipc_get_runtime_config", skip_all, level = "debug")]
 pub async fn get_runtime_config() -> CmdResult<Option<crate::ipc::YamlMapping>> {
     Ok(Config::runtime()
         .await
@@ -17,15 +18,21 @@ pub async fn get_runtime_config() -> CmdResult<Option<crate::ipc::YamlMapping>> 
 
 #[tauri::command]
 #[specta::specta]
+#[tracing::instrument(name = "ipc_get_runtime_yaml", skip_all, level = "debug")]
 pub async fn get_runtime_yaml() -> CmdResult<std::string::String> {
-    let runtime = Config::runtime().await;
-    let runtime = runtime.latest_arc();
+    let runtime = Config::runtime().await.latest_arc();
 
-    let config = runtime.config.as_ref();
-    config
-        .ok_or_else(|| anyhow!("failed to parse config to yaml file"))
-        .and_then(|config| yaml_emitter::to_mihomo_config_string(config).context("failed to convert config to yaml"))
-        .stringify_err()
+    crate::process::AsyncHandler::spawn_blocking(move || {
+        let config = runtime
+            .config
+            .as_ref()
+            .ok_or_else(|| anyhow!("failed to parse config to yaml file"))?;
+        yaml_emitter::to_mihomo_config_string(config).context("failed to convert config to yaml")
+    })
+    .await
+    .map_err(|join| anyhow!("runtime yaml task failed: {join}"))
+    .and_then(|result| result)
+    .stringify_err()
 }
 
 #[tauri::command]

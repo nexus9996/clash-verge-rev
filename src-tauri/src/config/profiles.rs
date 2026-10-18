@@ -379,6 +379,7 @@ impl IProfiles {
     }
 
     /// 获取current指向的订阅内容
+    #[tracing::instrument(name = "profile_current_mapping", skip_all, level = "debug")]
     pub async fn current_mapping(&self) -> Result<Mapping> {
         match (self.current.as_ref(), self.items.as_ref()) {
             (Some(current), Some(items)) => {

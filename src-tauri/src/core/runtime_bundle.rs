@@ -30,6 +30,12 @@ struct RuntimeParts {
     remote_providers: Vec<RemoteProviderRef>,
 }
 
+#[tracing::instrument(
+    name = "collect_runtime_bundle",
+    skip_all,
+    level = "debug",
+    fields(config = %config_file.display(), core = %core_path.display())
+)]
 pub(crate) async fn collect_runtime_bundle(config_file: &Path, core_path: &Path) -> Result<RuntimeBundle> {
     let yaml = tokio::fs::read_to_string(config_file)
         .await
@@ -145,6 +151,7 @@ fn allocate_provider_destination(destination: &str, url: &str, reserved: &mut Ha
     }
 }
 
+#[tracing::instrument(name = "collect_runtime_parts", skip_all, level = "debug")]
 fn collect_runtime_parts(mut config: Value, config_root: &Path) -> Result<RuntimeParts> {
     let config_root = std::fs::canonicalize(config_root)?;
     let mut assets = Vec::new();

@@ -45,7 +45,13 @@ impl SilentUpdater {
         Ok(dirs::app_home_dir()?.join("update_cache"))
     }
 
-    fn write_cache(bytes: &[u8], version: &str) -> Result<()> {
+    async fn write_cache(bytes: Vec<u8>, version: String) -> Result<()> {
+        crate::process::AsyncHandler::spawn_blocking(move || Self::write_cache_sync(&bytes, &version))
+            .await
+            .map_err(|join| anyhow::anyhow!("update cache write task failed: {join}"))?
+    }
+
+    fn write_cache_sync(bytes: &[u8], version: &str) -> Result<()> {
         let cache_dir = Self::cache_dir()?;
         std::fs::create_dir_all(&cache_dir)
             .with_context(|| format!("failed to create update cache directory {}", cache_dir.display()))?;
@@ -101,15 +107,32 @@ impl SilentUpdater {
     }
 
     /// Returns the cached installer for `update`, deleting a cache that does not match it.
-    fn verified_cache(app_handle: &tauri::AppHandle, update: &Update) -> Option<Vec<u8>> {
+    async fn verified_cache(app_handle: &tauri::AppHandle, update: &Update) -> Option<Vec<u8>> {
+        let app_handle = app_handle.clone();
+        let version = update.version.clone();
+        let signature = update.signature.clone();
+        match crate::process::AsyncHandler::spawn_blocking(move || {
+            Self::verified_cache_sync(&app_handle, &version, &signature)
+        })
+        .await
+        {
+            Ok(bytes) => bytes,
+            Err(error) => {
+                logging!(warn, Type::System, "Update cache verification task failed: {error}");
+                None
+            }
+        }
+    }
+
+    fn verified_cache_sync(app_handle: &tauri::AppHandle, version: &str, signature: &str) -> Option<Vec<u8>> {
         let meta = Self::read_cache_meta().ok()?;
-        let bytes = if meta.version == update.version {
+        let bytes = if meta.version == version {
             Self::read_cache_bytes().and_then(|bytes| {
-                verify_signature(app_handle, &bytes, &update.signature, &update.version)?;
+                verify_signature(app_handle, &bytes, signature, version)?;
                 Ok(bytes)
             })
         } else {
-            Err(anyhow::anyhow!("server offers v{}", update.version))
+            Err(anyhow::anyhow!("server offers v{version}"))
         };
         match bytes {
             Ok(bytes) => Some(bytes),
@@ -391,7 +414,7 @@ impl SilentUpdater {
             }
         };
 
-        let Some(bytes) = Self::verified_cache(app_handle, &update) else {
+        let Some(bytes) = Self::verified_cache(app_handle, &update).await else {
             return false;
         };
 
@@ -460,7 +483,7 @@ impl SilentUpdater {
             .await?
             .filter(|update| update.version == version)
             .with_context(|| format!("v{version} is no longer offered"))?;
-        let bytes = match Self::verified_cache(app_handle, &update) {
+        let bytes = match Self::verified_cache(app_handle, &update).await {
             Some(bytes) => bytes,
             None => download(&update, on_event).await?,
         };
@@ -641,7 +664,7 @@ impl SilentUpdater {
             return Ok(());
         }
 
-        if Self::verified_cache(app_handle, &update).is_some() {
+        if Self::verified_cache(app_handle, &update).await.is_some() {
             logging!(info, Type::System, "Silent updater: v{version} already cached");
         } else {
             logging!(info, Type::System, "Silent updater: downloading v{version}...");
@@ -655,7 +678,7 @@ impl SilentUpdater {
             };
             let bytes = bytes?;
             logging!(info, Type::System, "Silent updater: download complete");
-            Self::write_cache(&bytes, &version)?;
+            Self::write_cache(bytes, version.clone()).await?;
         }
 
         // Serialized with `discard_pending` in the verge patch, which holds the same lock.

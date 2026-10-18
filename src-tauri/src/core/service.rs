@@ -808,6 +808,7 @@ pub(crate) fn run_privileged_service_action(action: PendingAction) -> Result<()>
 }
 
 /// Builds the same runtime bundle description for both service start and staging.
+#[tracing::instrument(name = "collect_service_runtime_bundle", skip_all, level = "debug")]
 async fn collect_service_runtime_bundle(config_file: &Path) -> Result<RuntimeBundle> {
     let verge_config = Config::verge().await;
     let clash_core = verge_config.latest_arc().get_valid_clash_core();
@@ -832,6 +833,7 @@ impl StageRequest {
 }
 
 /// Requests in-place staging. `Err` means no answer; refusals are returned for caller policy.
+#[tracing::instrument(name = "stage_runtime_by_service", skip_all, level = "debug")]
 pub(super) async fn stage_runtime_by_service(config_file: &Path) -> Result<StageRequest> {
     let session = active_service_session()?;
     let credentials = current_owner_credentials()?;

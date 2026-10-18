@@ -268,19 +268,26 @@ fn parse_webdav_list(xml: &str) -> Result<Vec<ListEntity>, reqwest_dav::Error> {
     multi_status.responses.into_iter().map(ListEntity::try_from).collect()
 }
 
+#[tracing::instrument(name = "create_backup", skip_all, level = "debug")]
 pub async fn create_backup() -> Result<(String, PathBuf), Error> {
+    AsyncHandler::spawn_blocking(create_backup_sync)
+        .await
+        .map_err(|join| anyhow::anyhow!("backup task failed: {join}"))?
+}
+
+fn create_backup_sync() -> Result<(String, PathBuf), Error> {
     let now = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S").to_string();
     let zip_file_name: String = format!("{OS}-backup-{now}.zip").into();
     let zip_path = temp_dir().join(zip_file_name.as_str());
 
-    let value = zip_path.clone();
-    let file = AsyncHandler::spawn_blocking(move || std::fs::File::create(&value)).await??;
+    let file = std::fs::File::create(&zip_path)?;
     let mut zip = zip::ZipWriter::new(file);
     zip.add_directory("profiles/", SimpleFileOptions::default())?;
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
-    if let Ok(mut entries) = fs::read_dir(dirs::app_profiles_dir()?).await {
-        while let Some(entry) = entries.next_entry().await? {
+    if let Ok(entries) = std::fs::read_dir(dirs::app_profiles_dir()?) {
+        for entry in entries {
+            let entry = entry?;
             let path = entry.path();
             if path.is_file() {
                 let file_name_os = entry.file_name();
@@ -289,15 +296,14 @@ pub async fn create_backup() -> Result<(String, PathBuf), Error> {
                     .ok_or_else(|| anyhow::Error::msg("Invalid file name encoding"))?;
                 let backup_path = format!("profiles/{}", file_name);
                 zip.start_file(backup_path, options)?;
-                let file_content = fs::read(&path).await?;
-                zip.write_all(&file_content)?;
+                zip.write_all(&std::fs::read(&path)?)?;
             }
         }
     }
     zip.start_file(dirs::CLASH_CONFIG, options)?;
-    zip.write_all(fs::read(dirs::clash_path()?).await?.as_slice())?;
+    zip.write_all(&std::fs::read(dirs::clash_path()?)?)?;
 
-    let verge_text = fs::read_to_string(dirs::verge_path()?).await?;
+    let verge_text = std::fs::read_to_string(dirs::verge_path()?)?;
     let mut verge_config: serde_json::Value = serde_yaml_ng::from_str(&verge_text)?;
     if let Some(obj) = verge_config.as_object_mut() {
         obj.remove("webdav_username");
@@ -310,11 +316,11 @@ pub async fn create_backup() -> Result<(String, PathBuf), Error> {
     let dns_config_path = dirs::app_home_dir()?.join(DNS_CONFIG);
     if dns_config_path.exists() {
         zip.start_file(DNS_CONFIG, options)?;
-        zip.write_all(fs::read(&dns_config_path).await?.as_slice())?;
+        zip.write_all(&std::fs::read(&dns_config_path)?)?;
     }
 
     zip.start_file(dirs::PROFILE_YAML, options)?;
-    zip.write_all(fs::read(dirs::profiles_path()?).await?.as_slice())?;
+    zip.write_all(&std::fs::read(dirs::profiles_path()?)?)?;
     zip.finish()?;
     Ok((zip_file_name, zip_path))
 }
