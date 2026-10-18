@@ -35,8 +35,56 @@ pub(super) async fn resolve_scheme(param: &str) -> Result<()> {
         return Ok(());
     };
 
+    if !confirm_subscription_import(&url, name.as_ref()).await {
+        logging!(
+            info,
+            Type::Config,
+            "cancelled deep link subscription import: {}",
+            help::mask_url(&url)
+        );
+        return Ok(());
+    }
+
     import_subscription(&url, name.as_ref()).await;
     Ok(())
+}
+
+async fn confirm_subscription_import(url: &str, name: Option<&String>) -> bool {
+    use tauri_plugin_dialog::{DialogExt as _, MessageDialogButtons, MessageDialogKind};
+
+    let display_name = name
+        .map(|name| sanitize_dialog_value(name))
+        .unwrap_or_else(|| clash_verge_i18n::t!("notifications.subscriptionImport.unnamed").into_owned());
+    let display_url = help::mask_url(url);
+    let title = clash_verge_i18n::t!("notifications.subscriptionImport.title");
+    let body = clash_verge_i18n::t!(
+        "notifications.subscriptionImport.body",
+        name = display_name,
+        url = display_url
+    );
+    let import = clash_verge_i18n::t!("notifications.subscriptionImport.import").into_owned();
+    let cancel = clash_verge_i18n::t!("notifications.subscriptionImport.cancel").into_owned();
+    let (tx, rx) = tokio::sync::oneshot::channel();
+
+    crate::core::handle::Handle::app_handle()
+        .dialog()
+        .message(body)
+        .title(title)
+        .buttons(MessageDialogButtons::OkCancelCustom(import, cancel))
+        .kind(MessageDialogKind::Warning)
+        .show(move |confirmed| {
+            let _ = tx.send(confirmed);
+        });
+
+    rx.await.unwrap_or(false)
+}
+
+fn sanitize_dialog_value(value: &str) -> std::string::String {
+    value
+        .chars()
+        .take(160)
+        .map(|character| if character.is_control() { ' ' } else { character })
+        .collect()
 }
 
 fn extract_subscription_info(link_parsed: &Url) -> Option<(std::string::String, Option<String>)> {
