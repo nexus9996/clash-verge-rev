@@ -1113,6 +1113,7 @@ dependencies = [
  "deelevate",
  "dirs 7.0.0",
  "dunce",
+ "encoding_rs",
  "flate2",
  "futures",
  "gethostname",
