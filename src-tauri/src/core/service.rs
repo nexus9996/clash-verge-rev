@@ -13,7 +13,9 @@ use crate::{
             CORE_REJECTED_PREFIX, OwnerRecoveryReason, OwnerSample, OwnerStep, OwnerWatch, PendingAction, RUN_STATE,
             ReadyWaitError, RunState, RunStateEnv, RunStateStore, ServiceHealth,
         },
-        runtime_bundle::{RemoteProviderRef, collect_runtime_bundle, remote_providers_of},
+        runtime_bundle::{
+            RemoteProviderRef, collect_runtime_bundle, collect_runtime_bundle_from_config, remote_providers_of,
+        },
         tray::Tray,
     },
     process::AsyncHandler,
@@ -27,13 +29,17 @@ use clash_verge_service_ipc::{
     StageRuntimeOutcome, StartClashRequest, WriterConfig,
 };
 use parking_lot::Mutex;
+use serde_yaml_ng::Mapping;
 use std::{
     collections::HashMap,
     env::current_exe,
     future::Future,
     path::{Path, PathBuf},
     process::Command as StdCommand,
-    sync::atomic::{AtomicBool, AtomicU64, Ordering},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -807,16 +813,35 @@ pub(crate) fn run_privileged_service_action(action: PendingAction) -> Result<()>
     tokio::task::block_in_place(operation).with_context(|| format!("{label} failed"))
 }
 
-/// Builds the same runtime bundle description for both service start and staging.
-#[tracing::instrument(name = "collect_service_runtime_bundle", skip_all, level = "debug")]
-async fn collect_service_runtime_bundle(config_file: &Path) -> Result<RuntimeBundle> {
+async fn service_core_bin_path() -> Result<PathBuf> {
     let verge_config = Config::verge().await;
     let clash_core = verge_config.latest_arc().get_valid_clash_core();
     drop(verge_config);
 
     let bin_ext = if cfg!(windows) { ".exe" } else { "" };
-    let bin_path = service_core_path(&clash_core, bin_ext)?;
+    service_core_path(&clash_core, bin_ext)
+}
+
+/// Builds the same runtime bundle description for both service start and staging.
+#[tracing::instrument(name = "collect_service_runtime_bundle", skip_all, level = "debug")]
+async fn collect_service_runtime_bundle(config_file: &Path) -> Result<RuntimeBundle> {
+    let bin_path = service_core_bin_path().await?;
     collect_runtime_bundle(config_file, &bin_path).await
+}
+
+/// Builds the staging bundle from the generated config instead of reading the runtime file back.
+pub(super) async fn collect_service_runtime_bundle_from_config(
+    config: Mapping,
+    config_file: &Path,
+) -> Result<RuntimeBundle> {
+    let bin_path = service_core_bin_path().await?;
+    let config_root = config_file
+        .parent()
+        .ok_or_else(|| anyhow!("runtime config has no parent directory"))?
+        .to_path_buf();
+    AsyncHandler::spawn_blocking(move || collect_runtime_bundle_from_config(config, &config_root, &bin_path))
+        .await
+        .map_err(|join| anyhow!("service runtime bundle task failed: {join}"))?
 }
 
 /// A staging response whose refusal code tells callers whether a fresh start can help.
@@ -832,14 +857,13 @@ impl StageRequest {
     }
 }
 
-/// Requests in-place staging. `Err` means no answer; refusals are returned for caller policy.
+/// Requests in-place staging. `Err` means no answer; refusals are returned by the response.
 #[tracing::instrument(name = "stage_runtime_by_service", skip_all, level = "debug")]
-pub(super) async fn stage_runtime_by_service(config_file: &Path) -> Result<StageRequest> {
+pub(super) async fn stage_runtime_by_service(runtime: Arc<RuntimeBundle>) -> Result<StageRequest> {
     let session = active_service_session()?;
     let credentials = current_owner_credentials()?;
-    let runtime = collect_service_runtime_bundle(config_file).await?;
 
-    let response = clash_verge_service_ipc::stage_runtime(&credentials, &session, &runtime)
+    let response = clash_verge_service_ipc::stage_runtime(&credentials, &session, runtime.as_ref())
         .await
         .context("无法连接到Clash Verge Service")?;
     if response.code > 0 {

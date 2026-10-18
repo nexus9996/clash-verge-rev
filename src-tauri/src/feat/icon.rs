@@ -4,9 +4,37 @@ use crate::{
 };
 use clash_verge_logging::{Type, logging};
 use smartstring::alias::String;
-use std::path::{Component, Path, PathBuf};
+use std::{
+    path::{Component, Path, PathBuf},
+    sync::OnceLock,
+    time::Duration,
+};
 use tokio::fs;
 use tokio::io::AsyncWriteExt as _;
+
+const ICON_TIMEOUT: Duration = Duration::from_secs(15);
+const MAX_ICON_BYTES: usize = 4 * 1024 * 1024;
+
+static ICON_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+
+fn icon_client() -> CmdResult<&'static reqwest::Client> {
+    if let Some(client) = ICON_CLIENT.get() {
+        return Ok(client);
+    }
+    let client = reqwest::Client::builder()
+        .timeout(ICON_TIMEOUT)
+        .connect_timeout(Duration::from_secs(5))
+        .build()
+        .map_err(|error| format!("Failed to create icon HTTP client: {error}"))?;
+    let _ = ICON_CLIENT.set(client);
+    ICON_CLIENT
+        .get()
+        .ok_or_else(|| "Failed to initialize icon HTTP client".into())
+}
+
+const fn exceeds_icon_limit(current: usize, incoming: usize) -> bool {
+    current.saturating_add(incoming) > MAX_ICON_BYTES
+}
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct IconInfo {
@@ -89,9 +117,27 @@ pub async fn download_icon_cache(url: String, name: String) -> CmdResult<String>
     let temp_name = format!("{icon_name}.downloading");
     let temp_path = ensure_icon_cache_target(&icon_cache_dir, temp_name.as_str())?;
 
-    let response = reqwest::get(url.as_str()).await.stringify_err()?;
-    let response = response.error_for_status().stringify_err()?;
-    let content = response.bytes().await.stringify_err()?;
+    let mut response = icon_client()?
+        .get(url.as_str())
+        .send()
+        .await
+        .stringify_err()?
+        .error_for_status()
+        .stringify_err()?;
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_ICON_BYTES as u64)
+    {
+        return Err(format!("Icon exceeds {MAX_ICON_BYTES} bytes: {}", url.as_str()).into());
+    }
+    let mut content =
+        Vec::with_capacity(response.content_length().unwrap_or_default().min(MAX_ICON_BYTES as u64) as usize);
+    while let Some(chunk) = response.chunk().await.stringify_err()? {
+        if exceeds_icon_limit(content.len(), chunk.len()) {
+            return Err(format!("Icon exceeds {MAX_ICON_BYTES} bytes: {}", url.as_str()).into());
+        }
+        content.extend_from_slice(&chunk);
+    }
 
     if !is_supported_icon_content(&content) {
         let _ = temp_path.remove_if_exists().await;
@@ -168,5 +214,17 @@ pub async fn copy_icon_file(path: String, icon_info: IconInfo) -> CmdResult<Stri
         }
     } else {
         Err("file not found".into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{MAX_ICON_BYTES, exceeds_icon_limit};
+
+    #[test]
+    fn icon_stream_limit_accepts_the_boundary_and_rejects_growth() {
+        assert!(!exceeds_icon_limit(MAX_ICON_BYTES - 1, 1));
+        assert!(exceeds_icon_limit(MAX_ICON_BYTES, 1));
+        assert!(exceeds_icon_limit(usize::MAX, 1));
     }
 }

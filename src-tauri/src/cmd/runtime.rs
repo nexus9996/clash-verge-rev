@@ -1,19 +1,35 @@
 use super::CmdResult;
-use crate::{cmd::StringifyErr as _, config::Config, core::CoreManager, utils::yaml_emitter};
+use crate::{
+    cmd::StringifyErr as _,
+    config::{Config, runtime::IRuntime},
+    core::CoreManager,
+    utils::yaml_emitter,
+};
 use anyhow::{Context as _, anyhow};
+use clash_verge_draft::SharedDraft;
 use smartstring::alias::String;
 use std::collections::HashMap;
+
+/// Serializes only `IRuntime::config`, borrowing the committed snapshot instead of copying it.
+#[derive(specta::Type)]
+#[specta(inline, type = crate::ipc::YamlMapping)]
+pub struct RuntimeConfigView(SharedDraft<IRuntime>);
+
+impl serde::Serialize for RuntimeConfigView {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.config.serialize(serializer)
+    }
+}
 
 #[tauri::command]
 #[specta::specta]
 #[tracing::instrument(name = "ipc_get_runtime_config", skip_all, level = "debug")]
-pub async fn get_runtime_config() -> CmdResult<Option<crate::ipc::YamlMapping>> {
-    Ok(Config::runtime()
-        .await
-        .latest_arc()
-        .config
-        .clone()
-        .map(crate::ipc::YamlMapping))
+pub async fn get_runtime_config() -> CmdResult<Option<RuntimeConfigView>> {
+    let runtime = Config::runtime().await.latest_arc();
+    if runtime.config.is_none() {
+        return Ok(None);
+    }
+    Ok(Some(RuntimeConfigView(runtime)))
 }
 
 #[tauri::command]

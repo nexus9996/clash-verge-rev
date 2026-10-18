@@ -51,7 +51,7 @@ impl AsyncChainItemFrom for Option<ChainItem> {
             }),
             "merge" => Some(ChainItem {
                 uid,
-                data: ChainType::Merge(help::read_mapping(&path).await.ok()?),
+                data: ChainType::Merge(help::read_mapping_cached(&path).await.ok()?),
             }),
             "rules" => {
                 let seq_map = help::read_yaml::<SeqMap>(&path).await.ok()?;

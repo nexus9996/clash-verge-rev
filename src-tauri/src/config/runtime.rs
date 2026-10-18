@@ -1,6 +1,9 @@
 use serde_yaml_ng::{Mapping, Value};
 use smartstring::alias::String;
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use crate::enhance::field::use_keys;
 
@@ -14,14 +17,25 @@ pub struct IRuntime {
     pub exists_keys: HashSet<String>,
     // TODO 或许可以用 FixMap 来存储以提升效率
     pub chain_logs: HashMap<String, Vec<(String, String)>>,
+    /// Last serialization of `config`, invalidated by every config mutation.
+    pub(crate) yaml: Option<Arc<str>>,
+    pub(crate) revision: u64,
 }
 
 impl IRuntime {
     #[inline]
+    pub(crate) fn invalidate_yaml(&mut self) {
+        self.revision = self.revision.wrapping_add(1);
+        self.yaml = None;
+    }
+
+    #[inline]
     pub fn patch_config(&mut self, patch: &Mapping) {
-        let config = if let Some(config) = self.config.as_mut() {
-            config
-        } else {
+        if self.config.is_none() {
+            return;
+        }
+        self.invalidate_yaml();
+        let Some(config) = self.config.as_mut() else {
             return;
         };
 
@@ -53,9 +67,11 @@ impl IRuntime {
     /// Rebuilds `dialer-proxy` links from an ordered proxy chain, or removes them for `None`.
     #[inline]
     pub fn update_proxy_chain_config(&mut self, proxy_chain_config: Option<Value>) {
-        let config = if let Some(config) = self.config.as_mut() {
-            config
-        } else {
+        if self.config.is_none() {
+            return;
+        }
+        self.invalidate_yaml();
+        let Some(config) = self.config.as_mut() else {
             return;
         };
 
@@ -82,5 +98,27 @@ impl IRuntime {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::IRuntime;
+    use serde_yaml_ng::Mapping;
+    use std::sync::Arc;
+
+    #[test]
+    fn mutating_config_invalidates_cached_yaml() {
+        let mut runtime = IRuntime {
+            config: Some(Mapping::new()),
+            yaml: Some(Arc::from("cached")),
+            revision: 7,
+            ..IRuntime::default()
+        };
+
+        runtime.patch_config(&Mapping::new());
+
+        assert!(runtime.yaml.is_none());
+        assert_eq!(runtime.revision, 8);
     }
 }

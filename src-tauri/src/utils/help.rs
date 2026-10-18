@@ -7,10 +7,25 @@ use scopeguard::{ScopeGuard, guard};
 use serde::{Serialize, de::DeserializeOwned};
 use serde_yaml_ng::{Mapping, Value};
 use std::{
+    collections::VecDeque,
+    hash::{DefaultHasher, Hash as _, Hasher as _},
     path::{Path, PathBuf},
     str::FromStr,
+    sync::{Arc, LazyLock},
 };
 use tokio::io::AsyncWriteExt as _;
+
+const MAPPING_CACHE_CAPACITY: usize = 8;
+const MAPPING_CACHE_MAX_BYTES: usize = 8 * 1024 * 1024;
+
+struct CachedMapping {
+    path: PathBuf,
+    hash: u64,
+    mapping: Arc<Mapping>,
+}
+
+static MAPPING_CACHE: LazyLock<parking_lot::Mutex<VecDeque<CachedMapping>>> =
+    LazyLock::new(|| parking_lot::Mutex::new(VecDeque::new()));
 
 pub async fn read_yaml<T: DeserializeOwned>(path: &Path) -> Result<T> {
     if !tokio::fs::try_exists(path).await.unwrap_or(false) {
@@ -42,6 +57,61 @@ pub async fn read_mapping(path: &Path) -> Result<Mapping> {
     AsyncHandler::spawn_blocking(move || parse_mapping(yaml_str, label))
         .await
         .map_err(|join| anyhow!("yaml parse task failed: {join}"))?
+}
+
+/// Reads a mapping while reusing a parse of identical bytes.
+///
+/// The hash is the cache identity, so an external edit that preserves size and
+/// timestamp still cannot serve a stale mapping.
+pub async fn read_mapping_cached(path: &Path) -> Result<Mapping> {
+    if !tokio::fs::try_exists(path).await.unwrap_or(false) {
+        bail!("file not found \"{}\"", path.display());
+    }
+
+    let bytes = tokio::fs::read(path)
+        .await
+        .with_context(|| format!("failed to read the file \"{}\"", path.display()))?;
+    let mut hasher = DefaultHasher::new();
+    bytes.hash(&mut hasher);
+    let hash = hasher.finish();
+
+    if let Some(mapping) = cached_mapping(path, hash) {
+        return Ok((*mapping).clone());
+    }
+
+    let yaml_str =
+        String::from_utf8(bytes).with_context(|| format!("failed to read the file \"{}\"", path.display()))?;
+    let cacheable = yaml_str.len() <= MAPPING_CACHE_MAX_BYTES;
+    let label = path.to_path_buf();
+
+    let mapping = AsyncHandler::spawn_blocking(move || parse_mapping(yaml_str, label))
+        .await
+        .map_err(|join| anyhow!("yaml parse task failed: {join}"))??;
+    if cacheable {
+        store_mapping(path.to_path_buf(), hash, Arc::new(mapping.clone()));
+    }
+    Ok(mapping)
+}
+
+fn cached_mapping(path: &Path, hash: u64) -> Option<Arc<Mapping>> {
+    let mut cache = MAPPING_CACHE.lock();
+    let index = cache
+        .iter()
+        .position(|entry| entry.path == path && entry.hash == hash)?;
+    let entry = cache.remove(index)?;
+    let mapping = Arc::clone(&entry.mapping);
+    cache.push_front(entry);
+    drop(cache);
+    Some(mapping)
+}
+
+fn store_mapping(path: PathBuf, hash: u64, mapping: Arc<Mapping>) {
+    let mut cache = MAPPING_CACHE.lock();
+    cache.retain(|entry| entry.path != path);
+    while cache.len() >= MAPPING_CACHE_CAPACITY {
+        cache.pop_back();
+    }
+    cache.push_front(CachedMapping { path, hash, mapping });
 }
 
 fn parse_mapping(yaml_str: String, path: PathBuf) -> Result<Mapping> {
@@ -318,4 +388,27 @@ pub fn snapshot_path(original_path: &Path) -> Result<PathBuf> {
     })?;
 
     Ok(temp_path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::read_mapping_cached;
+
+    #[tokio::test]
+    async fn cached_mapping_reparses_changed_bytes_even_at_the_same_size() -> anyhow::Result<()> {
+        let root = std::env::temp_dir().join(format!("clash-verge-mapping-cache-{}", nanoid::nanoid!()));
+        tokio::fs::create_dir_all(&root).await?;
+        let path = root.join("profile.yaml");
+
+        tokio::fs::write(&path, "mode: rule\n").await?;
+        let first = read_mapping_cached(&path).await?;
+        assert_eq!(first["mode"].as_str(), Some("rule"));
+
+        tokio::fs::write(&path, "mode: glob\n").await?;
+        let second = read_mapping_cached(&path).await?;
+        assert_eq!(second["mode"].as_str(), Some("glob"));
+
+        tokio::fs::remove_dir_all(root).await?;
+        Ok(())
+    }
 }

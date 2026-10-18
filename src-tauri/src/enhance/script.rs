@@ -1,10 +1,11 @@
 use crate::{process::AsyncHandler, utils::tmpl};
 
-use super::field::{use_lowercase, use_lowercase_owned};
+use super::field::use_lowercase_owned;
 use anyhow::{Error, Result};
 use boa_engine::{Context, JsString, JsValue, Source, js_string, native_function::NativeFunction, property::Attribute};
 use clash_verge_logging::{Type, logging};
 use parking_lot::Mutex;
+use serde::ser::SerializeMap as _;
 use serde_yaml_ng::Mapping;
 use smartstring::alias::String;
 use std::sync::Arc;
@@ -18,6 +19,22 @@ const SCRIPT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 type ScriptResult = (Mapping, Vec<String>, Vec<(String, String)>);
 type EvalOutcome = (Result<Mapping, std::string::String>, Vec<(String, String)>);
 
+/// Serializes the script input with lowercased top-level keys without cloning the values.
+struct LowercaseKeys<'a>(&'a Mapping);
+
+impl serde::Serialize for LowercaseKeys<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut map = serializer.serialize_map(Some(self.0.len()))?;
+        for (key, value) in self.0 {
+            let Some(key) = key.as_str() else {
+                continue;
+            };
+            map.serialize_entry(&key.to_ascii_lowercase(), value)?;
+        }
+        map.end()
+    }
+}
+
 /// Never fails: exceptions are logged and the input config is returned unchanged.
 pub(super) async fn use_script(script: String, config: Mapping, name: String) -> ScriptResult {
     // The template is identity-plus-lowercasing; skip the Boa round-trip.
@@ -25,7 +42,7 @@ pub(super) async fn use_script(script: String, config: Mapping, name: String) ->
         return (use_lowercase_owned(config), vec![], vec![]);
     }
 
-    let json = match serde_json::to_string(&use_lowercase(&config)) {
+    let json = match serde_json::to_string(&LowercaseKeys(&config)) {
         Ok(json) if json.len() <= MAX_JSON_SIZE => json,
         Ok(_) => {
             let message = "Configuration size exceeds maximum allowed size";
@@ -221,4 +238,23 @@ fn escape_js_string_for_single_quote(s: &str) -> String {
         .replace('\n', "\\n") // 添加换行符转义
         .replace('\r', "\\r") // 添加回车转义
         .into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::LowercaseKeys;
+    use crate::enhance::field::use_lowercase;
+    use serde_yaml_ng::Mapping;
+
+    #[test]
+    fn lowercased_script_input_matches_the_owned_mapping() -> anyhow::Result<()> {
+        let config: Mapping =
+            serde_yaml_ng::from_str("Mode: rule\nmode: global\nRules:\n  - one\nnested:\n  Key: 1\n")?;
+
+        assert_eq!(
+            serde_json::to_value(LowercaseKeys(&config))?,
+            serde_json::to_value(use_lowercase(&config))?
+        );
+        Ok(())
+    }
 }

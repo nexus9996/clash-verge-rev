@@ -45,6 +45,19 @@ pub(crate) async fn collect_runtime_bundle(config_file: &Path, core_path: &Path)
     let config_root = config_file
         .parent()
         .ok_or_else(|| anyhow::anyhow!("runtime config has no parent directory"))?;
+    runtime_bundle_from_parts(config, config_root, core_path)
+}
+
+/// Builds the same bundle from the already generated mapping, skipping the file read and parse.
+pub(crate) fn collect_runtime_bundle_from_config(
+    config: Mapping,
+    config_root: &Path,
+    core_path: &Path,
+) -> Result<RuntimeBundle> {
+    runtime_bundle_from_parts(Value::Mapping(config), config_root, core_path)
+}
+
+fn runtime_bundle_from_parts(config: Value, config_root: &Path, core_path: &Path) -> Result<RuntimeBundle> {
     let parts = collect_runtime_parts(config, config_root)?;
     Ok(RuntimeBundle {
         yaml: yaml_emitter::to_runtime_config_string(&parts.config)
@@ -59,8 +72,67 @@ pub(crate) async fn collect_runtime_bundle(config_file: &Path, core_path: &Path)
     })
 }
 
+/// Reads the remote providers without cloning or rewriting the runtime config.
 pub(crate) fn remote_providers_of(config: &Mapping, config_root: &Path) -> Result<Vec<RemoteProviderRef>> {
-    Ok(collect_runtime_parts(Value::Mapping(config.clone()), config_root)?.remote_providers)
+    let config_root = std::fs::canonicalize(config_root)?;
+    let mut destinations: HashSet<String> = GEO_ASSETS.iter().map(|name| (*name).to_owned()).collect();
+    let mut remote_providers = Vec::new();
+
+    for section in ["proxy-providers", "rule-providers"] {
+        let Some(providers) = config.get(section).and_then(Value::as_mapping) else {
+            continue;
+        };
+        for (name, provider) in providers {
+            let Some(provider) = provider.as_mapping() else {
+                continue;
+            };
+            let Some(raw_path) = provider.get("path").and_then(Value::as_str) else {
+                continue;
+            };
+            let is_remote = provider.get("type").and_then(Value::as_str) == Some("http");
+
+            if !is_remote {
+                if let Ok(source) = local_provider_source(&config_root, raw_path)
+                    && let Ok(destination) = destination_below_root(&config_root, &source)
+                {
+                    destinations.insert(destination);
+                }
+                continue;
+            }
+
+            let Some(url) = provider.get("url").and_then(Value::as_str) else {
+                logging!(
+                    warn,
+                    Type::Config,
+                    "remote provider {name:?} declares no url; leaving its path to the core"
+                );
+                continue;
+            };
+            let destination = provider_destination(&config_root, raw_path)?;
+            match remote_providers
+                .iter()
+                .find(|declared: &&RemoteProviderRef| declared.provider.destination == destination)
+            {
+                Some(declared) if declared.provider.url == url => {}
+                Some(_) => bail!("runtime provider destination {destination:?} is declared for two different sources"),
+                None => {
+                    if !destinations.insert(destination.clone()) {
+                        bail!("runtime provider destination {destination:?} is claimed more than once");
+                    }
+                    remote_providers.push(RemoteProviderRef {
+                        section,
+                        name: name.as_str().unwrap_or_default().to_owned(),
+                        provider: RemoteProvider {
+                            destination,
+                            url: url.to_owned(),
+                        },
+                    });
+                }
+            }
+        }
+    }
+
+    Ok(remote_providers)
 }
 
 #[derive(Default)]
@@ -353,7 +425,44 @@ fn normalized_destination(relative: &Path) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{collect_runtime_bundle, remote_providers_of, resolve_provider_path_conflicts};
+    use super::{
+        collect_runtime_bundle, collect_runtime_bundle_from_config, collect_runtime_parts, remote_providers_of,
+        resolve_provider_path_conflicts,
+    };
+
+    #[tokio::test]
+    async fn in_memory_bundle_matches_the_file_bundle() -> anyhow::Result<()> {
+        let root = std::env::temp_dir().join(format!("clash-verge-memory-bundle-{}", std::process::id()));
+        std::fs::create_dir_all(&root)?;
+        let config: serde_yaml_ng::Mapping = serde_yaml_ng::from_str(
+            "proxy-providers:\n  Alpha:\n    type: http\n    url: https://one.example/alpha.yaml\n    path: ./providers/alpha.yaml\n",
+        )?;
+        let file = root.join("config.yaml");
+        std::fs::write(&file, serde_yaml_ng::to_string(&config)?)?;
+        let core = root.join("mihomo");
+
+        let from_file = collect_runtime_bundle(&file, &core).await?;
+        let from_memory = collect_runtime_bundle_from_config(config, &root, &core)?;
+        assert_eq!(from_memory, from_file);
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn read_only_remote_provider_readback_matches_the_bundle() -> anyhow::Result<()> {
+        let root = std::env::temp_dir().join(format!("clash-verge-remote-readback-{}", std::process::id()));
+        std::fs::create_dir_all(&root)?;
+        let config: serde_yaml_ng::Mapping = serde_yaml_ng::from_str(
+            "proxy-providers:\n  Alpha:\n    type: http\n    url: https://one.example/alpha.yaml\n    path: ./providers/alpha.yaml\n  Beta:\n    type: http\n    url: https://two.example/beta.yaml\n    path: providers/beta.yaml\n",
+        )?;
+        let root = std::fs::canonicalize(root)?;
+        let expected = collect_runtime_parts(serde_yaml_ng::Value::Mapping(config.clone()), &root)?.remote_providers;
+
+        assert_eq!(remote_providers_of(&config, &root)?, expected);
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
 
     #[tokio::test]
     async fn conflicting_sources_get_separate_paths_in_config_bundle_and_readback() -> anyhow::Result<()> {
