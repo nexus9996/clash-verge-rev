@@ -2,6 +2,8 @@
 use super::claim_core_readiness_generation;
 use super::{CoreManager, PROFILE_SELECTIONS_PENDING_COMMIT, RunningMode};
 use crate::utils::retry::{RetryError, RetryPolicy, retry};
+#[cfg(target_os = "windows")]
+use crate::utils::yaml_emitter;
 use crate::{
     AsyncHandler,
     config::Config,
@@ -40,7 +42,7 @@ fn sidecar_config_without_tun(yaml: &str) -> Result<std::string::String> {
     tun.as_mapping_mut()
         .context("invalid Sidecar TUN configuration")?
         .insert(Value::from("enable"), Value::Bool(false));
-    Ok(serde_yaml_ng::to_string(&config)?)
+    yaml_emitter::to_runtime_config_string(&config)
 }
 
 const SIDECAR_READINESS_ATTEMPTS: usize = 30;
