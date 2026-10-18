@@ -2,10 +2,14 @@ use crate::config::{Config, IVerge};
 use anyhow::Result;
 use clash_verge_draft::SharedDraft;
 use serde_yaml_ng::Mapping;
+use std::time::Duration;
 use tokio::sync::MutexGuard;
 
+/// Give a just-finished transaction a chance to release the write lock before rejecting a patch.
+const CONFIG_WRITE_WAIT: Duration = Duration::from_secs(2);
+
 pub async fn patch_clash(patch: &Mapping) -> Result<()> {
-    let config_write = Config::try_lock_config_write()?;
+    let config_write = Config::lock_config_write_bounded(CONFIG_WRITE_WAIT).await?;
     super::executor::apply(
         &config_write,
         super::executor::Patch::Clash(patch),
@@ -27,7 +31,7 @@ pub async fn patch_verge(patch: &IVerge, not_save_file: bool) -> Result<()> {
 
 /// Apply a patch without post-update reconciliation.
 pub(super) async fn apply_verge_patch(patch: &IVerge, not_save_file: bool) -> Result<()> {
-    let config_write = Config::try_lock_config_write()?;
+    let config_write = Config::lock_config_write_bounded(CONFIG_WRITE_WAIT).await?;
     apply_verge_patch_locked(&config_write, patch, not_save_file).await
 }
 

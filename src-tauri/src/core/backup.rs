@@ -283,7 +283,7 @@ fn create_backup_sync() -> Result<(String, PathBuf), Error> {
     let file = std::fs::File::create(&zip_path)?;
     let mut zip = zip::ZipWriter::new(file);
     zip.add_directory("profiles/", SimpleFileOptions::default())?;
-    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
     if let Ok(entries) = std::fs::read_dir(dirs::app_profiles_dir()?) {
         for entry in entries {

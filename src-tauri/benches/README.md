@@ -6,7 +6,7 @@ fixtures instead of an anecdote.
 
 ## Instrumentation
 
-The following spans are emitted at `debug` level:
+The following spans are emitted at `debug` level, except the startup spans:
 
 - `config_apply`: one Verge/Clash patch transaction.
 - `capture_config_files`: rollback snapshot reads.
@@ -20,6 +20,8 @@ The following spans are emitted at `debug` level:
   `collect_runtime_parts`, `stage_runtime_by_service`: service staging.
 - `ipc_get_runtime_config`, `ipc_get_runtime_yaml`: IPC reads.
 - `create_backup`: backup archive creation.
+- `app_setup`, `config_init`, `core_init`, `window_init` (`info`): startup phases,
+  so `startup to core ready` can be read without enabling debug logging.
 
 Capture a Chrome trace from a development build:
 
@@ -100,6 +102,19 @@ parses documents that cannot contain a date-like plain scalar. The dated
 fixture still takes the rewrite path by design; its difference is rerun noise.
 The service-bundle path drops by about 24% because it still parses the runtime,
 then serializes through the faster path.
+
+### Phase 3 backup compression
+
+The same fixture data written as a single profile entry:
+
+| Fixture | YAML bytes | Stored zip | Deflated zip | Stored time | Deflated time |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1k proxies | 207,652 | 207,792 | 17,416 | 32 µs | 517 µs |
+| 10k proxies | 2,102,216 | 2,102,356 | 158,729 | 303 µs | 5.42 ms |
+
+Deflate reduces the archive by about 12–13x for roughly 0.5–5.4 ms per
+fixture. Archive work already runs on the blocking pool, so backups now use
+`CompressionMethod::Deflated`.
 
 Application-level timings (startup to core ready, config apply p50/p95, peak
 RSS) are captured from the Chrome trace on the large fixture and belong in the

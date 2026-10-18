@@ -21,9 +21,16 @@ use clash_verge_draft::Draft;
 use clash_verge_logging::{Type, logging, logging_error};
 use serde_yaml_ng::{Mapping, Value};
 use smartstring::alias::String;
-use std::{collections::HashSet, path::PathBuf, sync::Arc};
+use std::{collections::HashSet, path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::{Mutex, MutexGuard, OnceCell};
 use tokio::time::sleep;
+
+async fn wait_for_lock<T>(timeout: Duration, acquire: impl std::future::Future<Output = T>) -> Result<T> {
+    match tokio::time::timeout(timeout, acquire).await {
+        Ok(acquired) => Ok(acquired),
+        Err(_) => Err(anyhow!("configuration update is already running")),
+    }
+}
 
 pub(crate) struct Config {
     clash_config: Draft<IClashTemp>,
@@ -70,10 +77,9 @@ impl Config {
         CONFIG_WRITE_LOCK.lock().await
     }
 
-    pub(crate) fn try_lock_config_write() -> Result<MutexGuard<'static, ()>> {
-        CONFIG_WRITE_LOCK
-            .try_lock()
-            .map_err(|_| anyhow!("configuration update is already running"))
+    /// Waits briefly for a configuration transaction to finish instead of failing the patch.
+    pub(crate) async fn lock_config_write_bounded(timeout: Duration) -> Result<MutexGuard<'static, ()>> {
+        wait_for_lock(timeout, Self::lock_config_write()).await
     }
 
     pub async fn init_config_before_window() -> Result<()> {
@@ -391,5 +397,22 @@ fn collect_names(config: &Mapping, list_key: &str, out: &mut HashSet<String>) {
         {
             out.insert(n.into());
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::wait_for_lock;
+    use std::time::Duration;
+
+    #[tokio::test(start_paused = true)]
+    async fn bounded_write_wait_times_out_then_acquires_after_release() {
+        let lock = tokio::sync::Mutex::new(());
+        let guard = lock.lock().await;
+
+        assert!(wait_for_lock(Duration::from_millis(10), lock.lock()).await.is_err());
+
+        drop(guard);
+        assert!(wait_for_lock(Duration::from_millis(10), lock.lock()).await.is_ok());
     }
 }

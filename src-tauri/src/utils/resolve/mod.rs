@@ -49,7 +49,7 @@ pub(crate) fn resolve_setup_async() {
     AsyncHandler::spawn(resolve_setup);
 }
 
-#[tracing::instrument(skip_all, level = "info")]
+#[tracing::instrument(name = "app_setup", skip_all, level = "info")]
 async fn resolve_setup() {
     logging!(info, Type::ClashVergeRev, "Version: {}", env!("CARGO_PKG_VERSION"));
 
@@ -189,6 +189,7 @@ async fn init_tray() {
     logging_error!(Type::Setup, Tray::global().init().await);
 }
 
+#[tracing::instrument(name = "config_init", skip_all, level = "info")]
 async fn init_verge_config() {
     logging_error!(Type::Setup, Config::init_runtime_config().await);
 }
@@ -206,6 +207,7 @@ async fn init_service_manager() {
     SERVICE_MANAGER.detect_startup_status().await;
 }
 
+#[tracing::instrument(name = "core_init", skip_all, level = "info")]
 async fn init_core_manager() -> bool {
     match CoreManager::global().init().await {
         Ok(initialized) => initialized,
@@ -222,6 +224,7 @@ async fn refresh_tray_menu() {
     logging_error!(Type::Setup, Tray::global().update_part().await);
 }
 
+#[tracing::instrument(name = "window_init", skip_all, level = "info")]
 async fn init_window() {
     let is_silent_start = Config::verge().await.data_arc().enable_silent_start.unwrap_or(false);
     WindowManager::create_window(!is_silent_start).await;

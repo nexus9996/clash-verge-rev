@@ -3,12 +3,19 @@
 //! Run with:
 //! `cargo bench -p clash-verge --bench perf_baseline -- --sample-size 10`
 
-use std::hint::black_box;
-use std::time::Duration;
+use std::{
+    hint::black_box,
+    io::{Cursor, Write as _},
+    time::Duration,
+};
 
 use app_lib::utils::yaml_emitter;
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use serde_yaml_ng::{Mapping, Value};
+use zip::{
+    CompressionMethod,
+    write::{SimpleFileOptions, ZipWriter},
+};
 
 const PROXY_COUNTS: [usize; 2] = [1_000, 10_000];
 
@@ -121,12 +128,47 @@ fn yaml_benchmarks(criterion: &mut Criterion) {
     }
 }
 
+fn zip_profile(yaml: &str, method: CompressionMethod) -> Option<usize> {
+    let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
+    writer
+        .start_file(
+            "profiles/profile.yaml",
+            SimpleFileOptions::default().compression_method(method),
+        )
+        .ok()?;
+    writer.write_all(yaml.as_bytes()).ok()?;
+    Some(writer.finish().ok()?.into_inner().len())
+}
+
+fn backup_benchmarks(criterion: &mut Criterion) {
+    for proxy_count in PROXY_COUNTS {
+        let config = fixture(proxy_count, false, true);
+        let yaml = rendered(&config);
+        let stored = zip_profile(&yaml, CompressionMethod::Stored).unwrap_or_default();
+        let deflated = zip_profile(&yaml, CompressionMethod::Deflated).unwrap_or_default();
+        eprintln!(
+            "backup zip {proxy_count}: yaml={} stored={stored} deflated={deflated}",
+            yaml.len()
+        );
+
+        let mut group = criterion.benchmark_group(format!("backup-zip-{proxy_count}"));
+        group.throughput(Throughput::Bytes(yaml.len() as u64));
+        group.bench_function("stored", |bencher| {
+            bencher.iter(|| zip_profile(black_box(&yaml), CompressionMethod::Stored))
+        });
+        group.bench_function("deflated", |bencher| {
+            bencher.iter(|| zip_profile(black_box(&yaml), CompressionMethod::Deflated))
+        });
+        group.finish();
+    }
+}
+
 criterion_group! {
     name = benches;
     config = Criterion::default()
         .sample_size(10)
         .warm_up_time(Duration::from_secs(1))
         .measurement_time(Duration::from_secs(5));
-    targets = yaml_benchmarks
+    targets = yaml_benchmarks, backup_benchmarks
 }
 criterion_main!(benches);
