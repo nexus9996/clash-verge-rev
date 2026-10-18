@@ -34,6 +34,15 @@ notifications:
     body: Eine neue Version (v{version}) wurde heruntergeladen und kann installiert werden.
     installNow: Jetzt installieren
     later: Später
+  subscriptionImport:
+    title: Import an external subscription?
+    body: |-
+      Download subscription "{name}" from:
+      {url}
+      Its configuration can control where proxied traffic is routed. If no profile is selected, it may become active immediately. Continue only if you trust this source.
+    import: Import
+    cancel: Cancel
+    unnamed: Unnamed subscription
 service:
   adminInstallPrompt: Für die Installation des Clash-Verge-Dienstes sind Administratorrechte erforderlich.
   adminUninstallPrompt: Für die Deinstallation des Clash-Verge-Dienstes sind Administratorrechte erforderlich.

@@ -34,6 +34,15 @@ notifications:
     body: Uma nova versão (v{version}) foi baixada e está pronta para instalar.
     installNow: Instalar agora
     later: Depois
+  subscriptionImport:
+    title: Import an external subscription?
+    body: |-
+      Download subscription "{name}" from:
+      {url}
+      Its configuration can control where proxied traffic is routed. If no profile is selected, it may become active immediately. Continue only if you trust this source.
+    import: Import
+    cancel: Cancel
+    unnamed: Unnamed subscription
 service:
   adminInstallPrompt: A instalação do serviço do Clash Verge requer privilégios de administrador.
   adminUninstallPrompt: A desinstalação do serviço do Clash Verge requer privilégios de administrador.

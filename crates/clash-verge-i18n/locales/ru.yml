@@ -34,6 +34,15 @@ notifications:
     body: Новая версия (v{version}) скачана и готова к установке.
     installNow: Установить сейчас
     later: Позже
+  subscriptionImport:
+    title: Import an external subscription?
+    body: |-
+      Download subscription "{name}" from:
+      {url}
+      Its configuration can control where proxied traffic is routed. If no profile is selected, it may become active immediately. Continue only if you trust this source.
+    import: Import
+    cancel: Cancel
+    unnamed: Unnamed subscription
 service:
   adminInstallPrompt: Для установки службы Clash Verge требуются права администратора.
   adminUninstallPrompt: Для удаления службы Clash Verge требуются права администратора.
