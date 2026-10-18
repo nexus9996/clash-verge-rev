@@ -148,7 +148,6 @@ const ProxyPage = () => {
         isChainMode ? (
           <Box
             component="span"
-            data-tauri-drag-region="true"
             sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}
           >
             {t('proxies.page.title.chainMode')}

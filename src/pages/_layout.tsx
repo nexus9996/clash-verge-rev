@@ -34,7 +34,6 @@ import 'dayjs/locale/zh-cn'
 dayjs.extend(relativeTime)
 
 const OS = getSystem()
-
 const Layout = () => {
   const mode = useThemeMode()
   const isDark = mode !== 'light'
@@ -159,7 +158,6 @@ const Layout = () => {
           <LayoutSidebar isDark={isDark} isCollapsed={navCollapsed} />
 
           <div className="layout-content__right">
-            <div className="the-bar"></div>
             <div className="the-content">
               <BaseErrorBoundary>
                 <Outlet />

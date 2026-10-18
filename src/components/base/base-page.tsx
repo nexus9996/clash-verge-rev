@@ -2,6 +2,8 @@ import { Typography } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import React, { ReactNode } from 'react'
 
+import { startWindowDragging } from '@/utils/window-drag'
+
 import { BaseErrorBoundary } from './base-error-boundary'
 
 interface Props {
@@ -21,11 +23,11 @@ export const BasePage: React.FC<Props> = (props) => {
   return (
     <BaseErrorBoundary>
       <div className="base-page">
-        <header data-tauri-drag-region="true" style={{ userSelect: 'none' }}>
-          <Typography
-            sx={{ fontSize: '20px', fontWeight: '700 ' }}
-            data-tauri-drag-region="true"
-          >
+        <header
+          onMouseDown={startWindowDragging}
+          style={{ userSelect: 'none' }}
+        >
+          <Typography sx={{ fontSize: '20px', fontWeight: '700 ' }}>
             {title}
           </Typography>
 

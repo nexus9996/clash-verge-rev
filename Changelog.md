@@ -1,3 +1,27 @@
+## v(Version Goes Here)
+
+<details>
+<summary><strong> 🐞 修复问题 </strong></summary>
+
+
+**🍎 macOS**
+
+- macOS：修复窗口无法拖动，支持从左上角图标、页面标题栏和左下角流量视图拖动窗口，双击这些区域可缩放窗口
+
+</details>
+
+<details>
+<summary><strong> ✨ 新增功能 </strong></summary>
+
+
+</details>
+
+<details>
+<summary><strong> 🚀 优化改进 </strong></summary>
+
+
+</details>
+
 ## v2.5.9
 
 <details>

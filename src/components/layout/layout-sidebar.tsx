@@ -9,6 +9,7 @@ import LogoSvg from '@/assets/image/logo.svg?react'
 import { useVerge } from '@/hooks/use-verge'
 import { useNavMenuOrder } from '@/pages/_layout/hooks'
 import { navItems } from '@/pages/_navigation'
+import { startWindowDragging } from '@/utils/window-drag'
 
 import { SortableItem } from '../base'
 
@@ -123,13 +124,9 @@ export const LayoutSidebar = (props: LayoutSidebarProps) => {
 
   return (
     <div className="layout-content__left">
-      {/* macOS overlay title bar: reserve the row the native traffic
-          lights occupy and keep it draggable like the title bar area */}
-      <div className="the-traffic-light-space" data-tauri-drag-region="true" />
       {/* Logo */}
-      <div className="the-logo" data-tauri-drag-region="false">
+      <div className="the-logo" onMouseDown={startWindowDragging}>
         <div
-          data-tauri-drag-region="true"
           style={{
             height: '27px',
             display: 'flex',
@@ -226,7 +223,7 @@ export const LayoutSidebar = (props: LayoutSidebarProps) => {
       </Menu>
 
       {/* Traffic */}
-      <div className="the-traffic">
+      <div className="the-traffic" onMouseDown={startWindowDragging}>
         <LayoutTraffic />
       </div>
     </div>

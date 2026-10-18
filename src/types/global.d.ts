@@ -104,30 +104,6 @@ type IProxyGroupItem = Omit<IProxyItem, 'all'> & {
   all: IProxyItem[]
 }
 
-interface IProxyProviderItem {
-  name: string
-  type: string
-  proxies: IProxyItem[]
-  updatedAt: string
-  vehicleType: string
-  subscriptionInfo?: {
-    Upload: number
-    Download: number
-    Total: number
-    Expire: number
-  }
-}
-
-interface IRuleProviderItem {
-  name: string
-  behavior: string
-  format: string
-  ruleCount: number
-  type: string
-  updatedAt: string
-  vehicleType: string
-}
-
 interface ITrafficItem {
   up: number
   down: number
@@ -136,21 +112,6 @@ interface ITrafficItem {
   last_updated?: number
   upTotal?: number
   downTotal?: number
-}
-
-interface IFormattedTrafficData {
-  up_rate_formatted: string
-  down_rate_formatted: string
-  total_up_formatted: string
-  total_down_formatted: string
-  is_fresh: boolean
-}
-
-interface IFormattedMemoryData {
-  inuse_formatted: string
-  oslimit_formatted: string
-  usage_percent: number
-  is_fresh: boolean
 }
 
 interface ILogItem {
@@ -204,8 +165,6 @@ interface IConnectionSetting {
   layout: 'table' | 'list'
 }
 
-type IClashInfo = import('@/services/bindings').ClashInfo
-
 type IProfileItem = import('@/services/bindings').PrfItem_Serialize
 
 type IProfileOption = import('@/services/bindings').PrfOption_Deserialize
@@ -216,7 +175,6 @@ type IProfilesConfig = Partial<
 
 type IVergeTestItem = import('@/services/bindings').IVergeTestItem
 type IAddress = import('@/services/bindings').InterfaceAddress
-type INetworkInterface = import('@/services/bindings').NetworkInterfaceView
 
 interface ISeqProfileConfig {
   prepend: []

@@ -79,6 +79,7 @@ export const LayoutTraffic = () => {
       <Box sx={{ position: 'relative' }}>
         {trafficGraph && pageVisible && (
           <div
+            data-window-drag-ignore="true"
             style={{ width: '100%', height: 60, marginBottom: 6 }}
             onClick={trafficRef.current?.toggleStyle}
           >

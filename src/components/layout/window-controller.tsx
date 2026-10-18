@@ -1,14 +1,10 @@
 import { Close, CropSquare, FilterNone, Minimize } from '@mui/icons-material'
 import { Box, IconButton } from '@mui/material'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import {
-  type MouseEvent,
-  type PointerEvent,
-  useCallback,
-  useEffect,
-} from 'react'
+import { type PointerEvent, useCallback, useEffect } from 'react'
 
 import getSystem from '@/utils/get-system'
+import { startWindowDragging } from '@/utils/window-drag'
 
 const RESIZE_HANDLES = [
   { direction: 'North', position: 'north' },
@@ -44,11 +40,7 @@ export const WindowResizeHandles = ({ maximized }: { maximized: boolean }) => {
   if (getSystem() !== 'linux' || maximized) return null
 
   return (
-    <div
-      className="window-resize-handles"
-      data-tauri-drag-region="false"
-      aria-hidden="true"
-    >
+    <div className="window-resize-handles" aria-hidden="true">
       {RESIZE_HANDLES.map(({ direction, position }) => (
         <div
           key={direction}
@@ -97,35 +89,9 @@ export const WindowControls = ({
     getCurrentWindow().setMinimizable(true)
   }, [])
 
-  const handleTitlebarMouseDown = useCallback(
-    (event: MouseEvent<HTMLDivElement>) => {
-      // Left button only, and only on the first press: detail 2 is the second
-      // press of a double-click, which `handleTitlebarDoubleClick` turns into maximize.
-      if (event.button !== 0 || event.detail !== 1) return
-      // Only the empty bar area drags; the control buttons keep their own clicks.
-      if (event.target !== event.currentTarget) return
-      event.preventDefault()
-      void getCurrentWindow()
-        .startDragging()
-        .catch((error) => console.warn('[WindowControls] 开始拖动失败:', error))
-    },
-    [],
-  )
-
-  const handleTitlebarDoubleClick = useCallback(
-    (event: MouseEvent<HTMLDivElement>) => {
-      if (event.target !== event.currentTarget) return
-      void toggleMaximize().catch((error) =>
-        console.warn('[WindowControls] 切换最大化失败:', error),
-      )
-    },
-    [toggleMaximize],
-  )
-
   return (
     <Box
-      onMouseDown={handleTitlebarMouseDown}
-      onDoubleClick={handleTitlebarDoubleClick}
+      onMouseDown={startWindowDragging}
       sx={{
         display: 'flex',
         justifyContent: OS === 'macos' ? 'flex-start' : 'flex-end',
