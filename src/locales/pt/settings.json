@@ -419,13 +419,15 @@
         "autoDelayDetection": "Detecção Automática de Atraso",
         "autoDelayDetectionInterval": "Intervalo da Detecção Automática de Atraso",
         "defaultLatencyTest": "Teste de Latência Padrão",
-        "defaultLatencyTimeout": "Tempo Limite de Latência Padrão"
+        "defaultLatencyTimeout": "Tempo Limite de Latência Padrão",
+        "updateChannel": "Canal de atualização"
       },
       "tooltips": {
         "autoCloseConnections": "Encerra as conexões estabelecidas quando a seleção do grupo de proxy ou o modo de proxy muda",
         "enableBuiltinEnhanced": "Tratamento de compatibilidade para o arquivo de configuração",
         "autoDelayDetection": "Testa periodicamente a latência do nó atual em segundo plano",
-        "defaultLatencyTest": "Usado apenas para testes de requisição do cliente HTTP e não afeta o arquivo de configuração"
+        "defaultLatencyTest": "Usado apenas para testes de requisição do cliente HTTP e não afeta o arquivo de configuração",
+        "updateChannel": "Alfa segue compilações de pré-visualização e pode ser instável"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -434,6 +436,10 @@
         "autoLogClean": {
           "never": "Nunca Limpar",
           "retainDays": "Manter {{n}} Dias"
+        },
+        "updateChannel": {
+          "stable": "Estável",
+          "alpha": "Alfa"
         }
       }
     },

@@ -419,13 +419,15 @@
         "autoDelayDetection": "자동 지연 감지",
         "autoDelayDetectionInterval": "자동 지연 감지 간격",
         "defaultLatencyTest": "기본 지연 테스트",
-        "defaultLatencyTimeout": "기본 지연 제한시간"
+        "defaultLatencyTimeout": "기본 지연 제한시간",
+        "updateChannel": "업데이트 채널"
       },
       "tooltips": {
         "autoCloseConnections": "프록시 그룹 선택 또는 프록시 모드 변경 시 기존 연결을 종료합니다",
         "enableBuiltinEnhanced": "구성 파일에 대한 호환성 처리를 수행합니다",
         "autoDelayDetection": "백그라운드에서 현재 노드의 지연을 주기적으로 검사합니다",
-        "defaultLatencyTest": "HTTP 클라이언트 요청 테스트에만 사용되며 구성 파일에는 영향을 주지 않습니다"
+        "defaultLatencyTest": "HTTP 클라이언트 요청 테스트에만 사용되며 구성 파일에는 영향을 주지 않습니다",
+        "updateChannel": "알파는 프리뷰 빌드를 따르며 불안정할 수 있습니다"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -434,6 +436,10 @@
         "autoLogClean": {
           "never": "정리 안 함",
           "retainDays": "{{n}}일 보관"
+        },
+        "updateChannel": {
+          "stable": "안정",
+          "alpha": "알파"
         }
       }
     },

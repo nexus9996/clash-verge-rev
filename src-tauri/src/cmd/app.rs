@@ -1,7 +1,10 @@
 use super::CmdResult;
 use crate::{
     cmd::StringifyErr as _,
-    core::{SilentUpdater, updater::DownloadEvent},
+    core::{
+        SilentUpdater,
+        updater::{DownloadEvent, UpdateInfo},
+    },
     feat,
     utils::dirs,
 };
@@ -53,6 +56,15 @@ pub async fn exit_app() {
 pub async fn restart_app() -> CmdResult<()> {
     feat::restart_app().await;
     Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn check_update_available(app_handle: AppHandle) -> CmdResult<Option<UpdateInfo>> {
+    SilentUpdater::global()
+        .check_available(&app_handle)
+        .await
+        .stringify_err()
 }
 
 #[tauri::command]

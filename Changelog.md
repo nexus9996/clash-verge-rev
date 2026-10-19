@@ -13,6 +13,7 @@
 <details>
 <summary><strong> ✨ 新增功能 </strong></summary>
 
+- 设置页支持切换更新渠道（稳定版 / 内测版），内测版跟随带版本号的内测构建
 
 </details>
 

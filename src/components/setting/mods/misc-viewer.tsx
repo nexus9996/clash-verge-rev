@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next'
 import { BaseDialog, DialogRef, Switch, TooltipIcon } from '@/components/base'
 import { useVerge } from '@/hooks/use-verge'
 import { showNotice } from '@/services/notice-service'
+import { revalidateQueries } from '@/services/query-client'
 
 export const MiscViewer = forwardRef<DialogRef>((props, ref) => {
   const { t } = useTranslation()
@@ -26,6 +27,7 @@ export const MiscViewer = forwardRef<DialogRef>((props, ref) => {
     appLogMaxCount: 12,
     autoCloseConnection: true,
     autoCheckUpdate: true,
+    updateChannel: 'stable',
     enableBuiltinEnhanced: true,
     proxyLayoutColumn: 6,
     enableAutoDelayDetection: false,
@@ -44,6 +46,7 @@ export const MiscViewer = forwardRef<DialogRef>((props, ref) => {
         appLogMaxCount: verge?.app_log_max_count ?? 8,
         autoCloseConnection: verge?.auto_close_connection ?? true,
         autoCheckUpdate: verge?.auto_check_update ?? true,
+        updateChannel: verge?.update_channel ?? 'stable',
         enableBuiltinEnhanced: verge?.enable_builtin_enhanced ?? true,
         proxyLayoutColumn: verge?.proxy_layout_column || 6,
         enableAutoDelayDetection: verge?.enable_auto_delay_detection ?? false,
@@ -65,6 +68,7 @@ export const MiscViewer = forwardRef<DialogRef>((props, ref) => {
         app_log_max_count: values.appLogMaxCount,
         auto_close_connection: values.autoCloseConnection,
         auto_check_update: values.autoCheckUpdate,
+        update_channel: values.updateChannel,
         enable_builtin_enhanced: values.enableBuiltinEnhanced,
         proxy_layout_column: values.proxyLayoutColumn,
         enable_auto_delay_detection: values.enableAutoDelayDetection,
@@ -74,6 +78,7 @@ export const MiscViewer = forwardRef<DialogRef>((props, ref) => {
         default_latency_timeout: values.defaultLatencyTimeout,
         auto_log_clean: values.autoLogClean as any,
       })
+      await revalidateQueries(['checkUpdate'])
       setOpen(false)
     } catch (err) {
       showNotice.error(err)
@@ -209,6 +214,35 @@ export const MiscViewer = forwardRef<DialogRef>((props, ref) => {
               setValues((v) => ({ ...v, autoCheckUpdate: c }))
             }
           />
+        </ListItem>
+
+        <ListItem sx={{ padding: '5px 2px' }}>
+          <ListItemText
+            primary={t('settings.modals.misc.fields.updateChannel')}
+            sx={{ maxWidth: 'fit-content' }}
+          />
+          <TooltipIcon
+            title={t('settings.modals.misc.tooltips.updateChannel')}
+            sx={{ opacity: '0.7' }}
+          />
+          <Select
+            size="small"
+            sx={{ width: 140, marginLeft: 'auto', '> div': { py: '7.5px' } }}
+            value={values.updateChannel}
+            onChange={(e) =>
+              setValues((v) => ({
+                ...v,
+                updateChannel: e.target.value as string,
+              }))
+            }
+          >
+            <MenuItem value="stable">
+              {t('settings.modals.misc.options.updateChannel.stable')}
+            </MenuItem>
+            <MenuItem value="alpha">
+              {t('settings.modals.misc.options.updateChannel.alpha')}
+            </MenuItem>
+          </Select>
         </ListItem>
 
         <ListItem sx={{ padding: '5px 2px' }}>

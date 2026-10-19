@@ -419,13 +419,15 @@
         "autoDelayDetection": "تشخیص تأخیر خودکار",
         "autoDelayDetectionInterval": "فاصله تشخیص تأخیر خودکار",
         "defaultLatencyTest": "آزمون تأخیر پیش‌فرض",
-        "defaultLatencyTimeout": "زمان انتظار تأخیر پیش‌فرض"
+        "defaultLatencyTimeout": "زمان انتظار تأخیر پیش‌فرض",
+        "updateChannel": "کانال به‌روزرسانی"
       },
       "tooltips": {
         "autoCloseConnections": "اتصالات برقرار شده را هنگام تغییر انتخاب گروه پروکسی یا حالت پروکسی خاتمه دهید",
         "enableBuiltinEnhanced": "مدیریت سازگاری برای فایل پیکربندی",
         "autoDelayDetection": "به‌صورت دوره‌ای تأخیر گره فعلی را در پس‌زمینه آزمایش می‌کند",
-        "defaultLatencyTest": "فقط برای تست درخواست‌های کلاینت HTTP استفاده می‌شود و بر فایل پیکربندی تأثیری نخواهد داشت"
+        "defaultLatencyTest": "فقط برای تست درخواست‌های کلاینت HTTP استفاده می‌شود و بر فایل پیکربندی تأثیری نخواهد داشت",
+        "updateChannel": "کانال آلفا از ساخت‌های پیش‌نمایش پیروی می‌کند و ممکن است ناپایدار باشد"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -434,6 +436,10 @@
         "autoLogClean": {
           "never": "هرگز پاک نکن",
           "retainDays": "نگهداری به مدت {{n}} روز"
+        },
+        "updateChannel": {
+          "stable": "پایدار",
+          "alpha": "آلفا"
         }
       }
     },

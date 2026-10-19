@@ -419,13 +419,15 @@
         "autoDelayDetection": "Автоматик тоткарлык ачыклау",
         "autoDelayDetectionInterval": "Автоматик тоткарлык ачыклау интервалы",
         "defaultLatencyTest": "Тоткарлануны тикшерү сылтамасы (defaults)",
-        "defaultLatencyTimeout": "Тоткарлануның стандарт таймауты"
+        "defaultLatencyTimeout": "Тоткарлануның стандарт таймауты",
+        "updateChannel": "Яңарту каналы"
       },
       "tooltips": {
         "autoCloseConnections": "Прокси төркеме яисә режимын үзгәрткәндә актив тоташуларны өзү",
         "enableBuiltinEnhanced": "Конфигурация файлы белән туры килә торган өстәмә оптимизация",
         "autoDelayDetection": "Фон режимында хәзерге төен тоткарлыгын периодик тикшерә",
-        "defaultLatencyTest": "Бу фәкать клиентның HTTP сораулары тесты өчен кулланыла, конфигурация файлына йогынты ясамый"
+        "defaultLatencyTest": "Бу фәкать клиентның HTTP сораулары тесты өчен кулланыла, конфигурация файлына йогынты ясамый",
+        "updateChannel": "Альфа алдан карау җыюларыннан бара, тотрыксыз булырга мөмкин"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -434,6 +436,10 @@
         "autoLogClean": {
           "never": "Беркайчан чистартмаска",
           "retainDays": "{{n}} көн саклау"
+        },
+        "updateChannel": {
+          "stable": "Тотрыклы",
+          "alpha": "Альфа"
         }
       }
     },
