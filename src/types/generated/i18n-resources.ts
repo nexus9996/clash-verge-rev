@@ -978,9 +978,29 @@ export interface TranslationResources {
           }
         }
         clashCore: {
+          actions: {
+            manageVersions: string
+          }
           variants: {
             alpha: string
             release: string
+          }
+          versions: {
+            channel: string
+            description: string
+            empty: string
+            install: string
+            installed: string
+            installedAction: string
+            latest: string
+            loading: string
+            messages: {
+              alreadyInstalled: string
+              alreadyLatest: string
+              installed: string
+            }
+            title: string
+            upgradeLatest: string
           }
         }
         clashPort: {

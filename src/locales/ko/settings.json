@@ -324,6 +324,26 @@
       "variants": {
         "release": "안정 버전",
         "alpha": "알파 버전"
+      },
+      "actions": {
+        "manageVersions": "버전 관리"
+      },
+      "versions": {
+        "title": "Mihomo 버전",
+        "description": "특정 Mihomo 버전을 설치할 수 있습니다. 새 코어가 시작되지 않으면 이전 버전으로 자동 복원됩니다.",
+        "channel": "채널: {{channel}}",
+        "loading": "버전 불러오는 중...",
+        "empty": "설치 가능한 버전이 없습니다",
+        "latest": "최신",
+        "installed": "설치됨",
+        "installedAction": "설치됨",
+        "install": "설치",
+        "upgradeLatest": "최신으로 업그레이드",
+        "messages": {
+          "installed": "{{version}}(으)로 업데이트됨",
+          "alreadyInstalled": "현재 버전은 {{version}}입니다",
+          "alreadyLatest": "이미 최신 버전입니다"
+        }
       }
     },
     "liteMode": {

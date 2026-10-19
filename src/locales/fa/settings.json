@@ -324,6 +324,26 @@
       "variants": {
         "release": "نسخه نهایی",
         "alpha": "نسخه آلفا"
+      },
+      "actions": {
+        "manageVersions": "مدیریت نسخه‌ها"
+      },
+      "versions": {
+        "title": "نسخه‌های Mihomo",
+        "description": "نسخه مشخصی از Mihomo را نصب کنید. اگر هسته جدید اجرا نشود، برنامه نسخه قبلی را خودکار بازمی‌گرداند.",
+        "channel": "کانال: {{channel}}",
+        "loading": "در حال بارگذاری نسخه‌ها...",
+        "empty": "نسخه‌ای برای نصب موجود نیست",
+        "latest": "آخرین",
+        "installed": "نصب‌شده",
+        "installedAction": "نصب‌شده",
+        "install": "نصب",
+        "upgradeLatest": "به‌روزرسانی به آخرین نسخه",
+        "messages": {
+          "installed": "به {{version}} به‌روزرسانی شد",
+          "alreadyInstalled": "در حال حاضر {{version}} است",
+          "alreadyLatest": "در حال حاضر آخرین نسخه است"
+        }
       }
     },
     "liteMode": {

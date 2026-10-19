@@ -324,6 +324,26 @@
       "variants": {
         "release": "正式版",
         "alpha": "アルファ版"
+      },
+      "actions": {
+        "manageVersions": "バージョン管理"
+      },
+      "versions": {
+        "title": "Mihomo バージョン",
+        "description": "指定した Mihomo バージョンをインストールできます。新しいコアの起動に失敗した場合、自動的に元のバージョンへ戻ります。",
+        "channel": "チャンネル: {{channel}}",
+        "loading": "バージョンを読み込み中...",
+        "empty": "インストール可能なバージョンがありません",
+        "latest": "最新",
+        "installed": "インストール済み",
+        "installedAction": "インストール済み",
+        "install": "インストール",
+        "upgradeLatest": "最新にアップグレード",
+        "messages": {
+          "installed": "{{version}} に更新しました",
+          "alreadyInstalled": "現在のバージョンは {{version}} です",
+          "alreadyLatest": "すでに最新バージョンです"
+        }
       }
     },
     "liteMode": {

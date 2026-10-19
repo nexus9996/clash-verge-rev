@@ -324,6 +324,26 @@
       "variants": {
         "release": "Stabile Version",
         "alpha": "Alpha-Version"
+      },
+      "actions": {
+        "manageVersions": "Versionen verwalten"
+      },
+      "versions": {
+        "title": "Mihomo-Versionen",
+        "description": "Installiere eine bestimmte Mihomo-Version. Wenn der neue Core nicht startet, stellt die App automatisch die vorherige Version wieder her.",
+        "channel": "Kanal: {{channel}}",
+        "loading": "Versionen werden geladen...",
+        "empty": "Keine Versionen verfügbar",
+        "latest": "Neueste",
+        "installed": "Installiert",
+        "installedAction": "Installiert",
+        "install": "Installieren",
+        "upgradeLatest": "Auf neueste aktualisieren",
+        "messages": {
+          "installed": "Auf {{version}} aktualisiert",
+          "alreadyInstalled": "Bereits {{version}}",
+          "alreadyLatest": "Bereits die neueste Version"
+        }
       }
     },
     "liteMode": {

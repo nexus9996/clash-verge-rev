@@ -324,6 +324,26 @@
       "variants": {
         "release": "Versão Release",
         "alpha": "Versão Alpha"
+      },
+      "actions": {
+        "manageVersions": "Gerenciar versões"
+      },
+      "versions": {
+        "title": "Versões do Mihomo",
+        "description": "Instale uma versão específica do Mihomo. Se o novo núcleo não iniciar, o app restaura automaticamente a versão anterior.",
+        "channel": "Canal: {{channel}}",
+        "loading": "Carregando versões...",
+        "empty": "Nenhuma versão disponível",
+        "latest": "Mais recente",
+        "installed": "Instalada",
+        "installedAction": "Instalada",
+        "install": "Instalar",
+        "upgradeLatest": "Atualizar para a mais recente",
+        "messages": {
+          "installed": "Atualizado para {{version}}",
+          "alreadyInstalled": "Já está em {{version}}",
+          "alreadyLatest": "Já é a versão mais recente"
+        }
       }
     },
     "liteMode": {
