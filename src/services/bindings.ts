@@ -129,6 +129,10 @@ export const commands = {
   patchVergeConfig: (payload: IVerge_Deserialize) =>
     __TAURI_INVOKE<null>('patch_verge_config', { payload }),
   testDelay: (url: string) => __TAURI_INVOKE<number>('test_delay', { url }),
+  getRulesExtra: () => __TAURI_INVOKE<RuleExtraInfo[]>('get_rules_extra'),
+  /**  Rule disabling is runtime state in mihomo and resets when the core reloads. */
+  updateRulesDisable: (requests: RuleDisableRequest[]) =>
+    __TAURI_INVOKE<null>('update_rules_disable', { requests }),
   getAppDir: () => __TAURI_INVOKE<string>('get_app_dir'),
   copyIconFile: (path: string, iconInfo: IconInfo) =>
     __TAURI_INVOKE<string>('copy_icon_file', { path, iconInfo }),
@@ -948,6 +952,20 @@ export type ProxyViewV1_Serialize = {
   records: { [key in string]: ProxyNodeView_Serialize }
   standalone: string[]
   providers: ProxyProviderView_Serialize[]
+}
+
+export type RuleDisableRequest = {
+  index: number
+  disabled: boolean
+}
+
+export type RuleExtraInfo = {
+  index: number
+  disabled: boolean
+  hitCount: number
+  hitAt: string
+  missCount: number
+  missAt: string
 }
 
 export type RunStateView = {

@@ -13,6 +13,7 @@
 <details>
 <summary><strong> ✨ 新增功能 </strong></summary>
 
+- 规则页支持启用/禁用规则并显示命中次数（重启内核后规则恢复启用）
 
 </details>
 
