@@ -11,7 +11,6 @@ import { MihomoWebSocket } from 'tauri-plugin-mihomo-api'
 import { router } from './app/router'
 import { BaseErrorBoundary } from './components/base'
 import { preloadHomePageCards } from './pages/home'
-import { AppDataProvider } from './providers/app-data-provider'
 import { FALLBACK_LANGUAGE, initializeLanguage } from './services/i18n'
 import {
   preloadAppData,
@@ -49,9 +48,7 @@ const initializeApp = (initialThemeMode: 'light' | 'dark') => {
       <ComposeContextProvider contexts={contexts}>
         <BaseErrorBoundary>
           <SWRConfig value={swrConfig}>
-            <AppDataProvider>
-              <RouterProvider router={router} />
-            </AppDataProvider>
+            <RouterProvider router={router} />
           </SWRConfig>
         </BaseErrorBoundary>
       </ComposeContextProvider>

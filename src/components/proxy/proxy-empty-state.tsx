@@ -4,8 +4,8 @@ import { useLockFn } from 'ahooks'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { useAppRefreshers } from '@/hooks/data'
 import { useSystemState } from '@/hooks/use-system-state'
-import { useAppRefreshers } from '@/providers/app-data-context'
 import { openLogsDir, restartCore } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 

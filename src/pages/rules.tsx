@@ -12,8 +12,8 @@ import { ScrollTopButton } from '@/components/layout/scroll-top-button'
 import { ProviderButton } from '@/components/rule/provider-button'
 import RuleItem from '@/components/rule/rule-item'
 import { RuleSearchBox } from '@/components/rule/rule-search-box'
+import { useAppRefreshers, useRulesData } from '@/hooks/data'
 import { useVisibility } from '@/hooks/use-visibility'
-import { useAppRefreshers, useRulesData } from '@/providers/app-data-context'
 import {
   getRulesExtra,
   updateRulesDisable,

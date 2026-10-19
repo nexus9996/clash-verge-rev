@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react'
 
+import { useAppRefreshers, useProxiesData } from '@/hooks/data'
 import { useRuntimeConfig } from '@/hooks/use-clash'
 import { useGroupsDelays } from '@/hooks/use-group-delays'
 import { useVerge } from '@/hooks/use-verge'
-import { useAppRefreshers, useProxiesData } from '@/providers/app-data-context'
 import delayManager, { type DelaySnapshot } from '@/services/delay'
 import {
   isInteractableMember,

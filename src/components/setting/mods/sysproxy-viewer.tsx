@@ -31,10 +31,10 @@ import {
   TooltipIcon,
 } from '@/components/base'
 import { EditorViewer } from '@/components/profile/editor-viewer'
+import { useSystemData } from '@/hooks/data'
 import { useDisplayedMixedPort } from '@/hooks/use-displayed-mixed-port'
 import { useSystemProxyState } from '@/hooks/use-system-proxy-state'
 import { useVerge } from '@/hooks/use-verge'
-import { useSystemData } from '@/providers/app-data-context'
 import {
   getEmbeddedServerPort,
   getNetworkInterfacesInfo,

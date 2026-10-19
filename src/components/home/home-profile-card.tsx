@@ -24,7 +24,7 @@ import dayjs from 'dayjs'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { useAppRefreshers } from '@/providers/app-data-context'
+import { useAppRefreshers } from '@/hooks/data'
 import { updateProfile } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'

@@ -19,10 +19,10 @@ import {
   StickyVirtualList,
   type StickyVirtualListHandle,
 } from '@/components/base'
+import { useProxiesData, useSystemData } from '@/hooks/data'
 import { useProfiles } from '@/hooks/use-profiles'
 import { useProxySelection } from '@/hooks/use-proxy-selection'
 import { useVerge } from '@/hooks/use-verge'
-import { useProxiesData, useSystemData } from '@/providers/app-data-context'
 import { syncTrayProxySelection } from '@/services/cmds'
 import delayManager from '@/services/delay'
 import { mutate } from '@/services/mutate'

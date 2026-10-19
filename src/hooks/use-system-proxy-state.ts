@@ -1,9 +1,9 @@
 import { useRef } from 'react'
 import { closeAllConnections } from 'tauri-plugin-mihomo-api'
 
+import { useSystemData } from '@/hooks/data'
 import { useDisplayedMixedPort } from '@/hooks/use-displayed-mixed-port'
 import { useVerge } from '@/hooks/use-verge'
-import { useSystemData } from '@/providers/app-data-context'
 import {
   getAutoProxy,
   getEmbeddedServerPort,
