@@ -67,7 +67,7 @@ export const summarizeRouteTimings = (
   ),
 })
 
-const getRouteTimingSamples = () => samples.slice()
+export const getRouteTimingSamples = () => samples.slice()
 
 const exportRouteTimings = (): RouteTimingExport => ({
   samples: samples.slice(),
@@ -76,7 +76,7 @@ const exportRouteTimings = (): RouteTimingExport => ({
   location: typeof window === 'undefined' ? 'unknown' : window.location.href,
 })
 
-const clearRouteTimings = () => {
+export const clearRouteTimings = () => {
   samples.length = 0
   visited.clear()
 }
