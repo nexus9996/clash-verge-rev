@@ -611,7 +611,7 @@ function NormalProxyGroups(props: { mode: string }) {
         <StickyVirtualList
           ref={stickyListRef}
           initialOffset={initialOffset}
-          overscan={6}
+          overscan={2}
           items={renderList}
           isGroupItem={(item) => item.type === 0}
           getItemKey={(item) => item.key}

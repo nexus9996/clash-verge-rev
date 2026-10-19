@@ -71,7 +71,7 @@ export const ProxyItemMini = memo(function ProxyItemMini(props: Props) {
 
           return {
             border: '1px solid',
-            borderColor: alpha(text.secondary, 0.28),
+            borderColor: alpha(text.secondary, 0.36),
             '&:hover .the-check': { display: !showDelay ? 'block' : 'none' },
             '&:hover .the-delay': { display: showDelay ? 'block' : 'none' },
             '&:hover .the-icon': { display: 'none' },
