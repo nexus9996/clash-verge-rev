@@ -4,4 +4,5 @@ import LogsPage from '@/pages/logs'
 
 export const Route = createFileRoute('/logs')({
   component: LogsPage,
+  staticData: { navId: 'logs' },
 })
