@@ -786,3 +786,12 @@ Phase 0 无阻塞项，可以进入 Phase 1（G1 条件 Go）。唯一未测量�
 - `use-custom-theme` 中 9 处硬编码颜色清零，改由 token/CSS 变量生成；legacy CSS 变量名全部保留，新增 `--color-*` / `--space-*` / `--radius-*` / `--shadow-*` / `--z-*` / `--overlay-*`。
 - 新增 tokens/presets 单测；26 文件 / **83 tests**；门禁全绿；bundle 395.3 kB gzip（+0.6%，预算内）。
 - 说明：S3（按域 hex 清理）仍待做；S2 的主题预设/取色器由并行分支合入，本卡只做 token 化接入。
+
+### 12.13 Phase 2 S3 完成记录（按域 hex 清理，2026-10-19）
+
+- 卡片分支：`migrate/fe-hex-cleanup`，已 FF 合入 `local`。
+- 优先域硬编码颜色清零：`app/layout.tsx`、`components/layout/*`、`components/home/*`、`components/setting/mods/{external-controller-cors,update-viewer}.tsx`、`pages/{settings,unlock}.tsx`、`components/base/base-page.tsx`（原 28 处 → 0）。
+- token 层新增应用 surface：`--surface-card`（light #fff / dark #282a36）、`--surface-page`（light #fff / dark #1e1f27）与 loading surface，替代散落的明暗三元表达式。
+- 更新弹窗 GitHub alert 颜色改为 palette 引用；外部控制器 CORS 按钮/提示改为 MUI 语义色；布局选中态用 `palette.text/common`；流量图去掉无效 hex fallback。
+- 新增 `scripts/check-hex-budget.mjs` + `pnpm check:hex-budget` + CI step：token/styles 目录之外裸 hex 预算 **39**（当前在预算内，剩余集中在 proxy/profile/rule/log/base）。
+- 验证：26 文件 / 83 tests、门禁全绿、bundle 395.3 kB gzip（+0.6%，预算内）。
