@@ -51,15 +51,15 @@ jobs:
         with:
           node-version: '24.22.0'
 
-      - uses: pnpm/action-setup@v6
-        name: Install pnpm
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          run_install: false
+          bun-version: '1.4.3'
 
-      - name: Pnpm install and check
+      - name: Bun install and check
         run: |
-          pnpm i
-          pnpm run prebuild ${{ matrix.target }}
+          bun install --frozen-lockfile
+          bun run prebuild:download ${{ matrix.target }}
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2

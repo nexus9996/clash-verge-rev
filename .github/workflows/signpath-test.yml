@@ -30,16 +30,16 @@ jobs:
         with:
           node-version: '24.22.0'
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v6
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          run_install: false
+          bun-version: '1.4.3'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Prepare build resources
-        run: pnpm run prebuild x86_64-pc-windows-msvc
+        run: bun run prebuild:download x86_64-pc-windows-msvc
 
       - name: Build test installer
         shell: pwsh
@@ -49,7 +49,7 @@ jobs:
           $configPath = Join-Path $env:RUNNER_TEMP 'signpath-test.json'
           '{"bundle":{"createUpdaterArtifacts":false}}' |
             Set-Content -LiteralPath $configPath -Encoding utf8
-          pnpm exec tauri build --target x86_64-pc-windows-msvc --bundles nsis --config $configPath
+          bun x tauri build --target x86_64-pc-windows-msvc --bundles nsis --config $configPath
 
       - name: Upload unsigned installer
         id: unsigned

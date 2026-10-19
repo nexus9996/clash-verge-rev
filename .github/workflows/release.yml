@@ -232,15 +232,15 @@ jobs:
         with:
           node-version: '24.22.0'
 
-      - uses: pnpm/action-setup@v6
-        name: Install pnpm
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          run_install: false
+          bun-version: '1.4.3'
 
-      - name: Pnpm install and check
+      - name: Bun install and check
         run: |
-          pnpm i
-          pnpm run prebuild ${{ matrix.target }}
+          bun install --frozen-lockfile
+          bun run prebuild:download ${{ matrix.target }}
 
       - name: Add Rust Target
         run: |
@@ -266,7 +266,7 @@ jobs:
           releaseId: ${{ needs.prepare_release.outputs.release_id }}
           tagName: ${{ github.ref_name }}
           releaseBody: 'Draft release, will be updated later.'
-          tauriScript: pnpm
+          tauriScript: bun run tauri
           args: --target ${{ matrix.target }}
           includeUpdaterJson: true
 
@@ -333,15 +333,15 @@ jobs:
         with:
           node-version: '24.22.0'
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v6
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          run_install: false
+          bun-version: '1.4.3'
 
-      - name: Pnpm install and check
+      - name: Bun install and check
         run: |
-          pnpm i
-          pnpm run prebuild ${{ matrix.target }}
+          bun install --frozen-lockfile
+          bun run prebuild:download ${{ matrix.target }}
 
       - name: 'Setup for linux'
         run: |-
@@ -405,7 +405,7 @@ jobs:
             export PKG_CONFIG_PATH=/usr/lib/arm-linux-gnueabihf/pkgconfig/:$PKG_CONFIG_PATH
             export PKG_CONFIG_SYSROOT_DIR=/usr/arm-linux-gnueabihf/
           fi
-          pnpm build --target ${{ matrix.target }}
+          bun run build --target ${{ matrix.target }}
         env:
           NODE_OPTIONS: '--max_old_space_size=4096'
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
@@ -470,15 +470,15 @@ jobs:
         with:
           node-version: '24.22.0'
 
-      - uses: pnpm/action-setup@v6
-        name: Install pnpm
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          run_install: false
+          bun-version: '1.4.3'
 
-      - name: Pnpm install and check
+      - name: Bun install and check
         run: |
-          pnpm i
-          pnpm run prebuild ${{ matrix.target }}
+          bun install --frozen-lockfile
+          bun run prebuild:download ${{ matrix.target }}
 
       - name: Download WebView2 Runtime
         run: |
@@ -501,7 +501,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         with:
-          tauriScript: pnpm
+          tauriScript: bun run tauri
           args: --target ${{ matrix.target }}
 
       - name: Rename
@@ -546,21 +546,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Install Node
-        uses: actions/setup-node@v7
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: '24.22.0'
+          bun-version: '1.4.3'
 
-      - uses: pnpm/action-setup@v6
-        name: Install pnpm
-        with:
-          run_install: false
-
-      - name: Pnpm install
-        run: pnpm i
+      - name: Bun install
+        run: bun install --frozen-lockfile
 
       - name: Release updater file
-        run: pnpm updater
+        run: bun run updater
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -572,21 +567,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Install Node
-        uses: actions/setup-node@v7
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: '24.22.0'
+          bun-version: '1.4.3'
 
-      - uses: pnpm/action-setup@v6
-        name: Install pnpm
-        with:
-          run_install: false
-
-      - name: Pnpm install
-        run: pnpm i
+      - name: Bun install
+        run: bun install --frozen-lockfile
 
       - name: Release updater file
-        run: pnpm updater-fixed-webview2
+        run: bun run updater-fixed-webview2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -637,18 +627,13 @@ jobs:
         run: bash ./scripts/extract_update_logs.sh
         shell: bash
 
-      - name: Install Node
-        uses: actions/setup-node@v7
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: '24.22.0'
-
-      - uses: pnpm/action-setup@v6
-        name: Install pnpm
-        with:
-          run_install: false
+          bun-version: '1.4.3'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Get Version and Release Info
         run: |
@@ -699,7 +684,7 @@ jobs:
           EOF
 
       - name: Send Telegram Notification
-        run: node scripts/telegram.mjs
+        run: bun scripts/telegram.mjs
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           BUILD_TYPE: release
