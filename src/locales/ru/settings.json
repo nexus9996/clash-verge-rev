@@ -220,6 +220,11 @@
             "monochrome": "Монохром"
           }
         },
+        "editModes": {
+          "title": "Редактировать тему",
+          "light": "Светлая",
+          "dark": "Тёмная"
+        },
         "fields": {
           "primaryColor": "Основной цвет",
           "secondaryColor": "Вторичный цвет",
@@ -229,6 +234,8 @@
           "warningColor": "Цвет предупреждения",
           "errorColor": "Цвет ошибки",
           "successColor": "Цвет успеха",
+          "background": "Цвет фона",
+          "paperBackground": "Цвет карточек",
           "fontFamily": "Семейство шрифтов",
           "cssInjection": "Внедрение CSS"
         },

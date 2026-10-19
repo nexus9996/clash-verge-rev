@@ -220,6 +220,11 @@
             "monochrome": "Monokrom"
           }
         },
+        "editModes": {
+          "title": "Edit Tema",
+          "light": "Terang",
+          "dark": "Gelap"
+        },
         "fields": {
           "primaryColor": "Warna Utama",
           "secondaryColor": "Warna Sekunder",
@@ -229,6 +234,8 @@
           "warningColor": "Warna Peringatan",
           "errorColor": "Warna Kesalahan",
           "successColor": "Warna Keberhasilan",
+          "background": "Warna Latar",
+          "paperBackground": "Warna Kartu",
           "fontFamily": "Keluarga Font",
           "cssInjection": "Injeksi CSS"
         },

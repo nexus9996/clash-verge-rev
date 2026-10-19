@@ -112,6 +112,10 @@ pub struct IVerge {
     pub proxy_host: Option<String>,
 
     pub theme_setting: Option<IVergeTheme>,
+    /// Theme overrides for light mode; falls back to `theme_setting` when unset.
+    pub light_theme_setting: Option<IVergeTheme>,
+    /// Theme overrides for dark mode; falls back to `theme_setting` when unset.
+    pub dark_theme_setting: Option<IVergeTheme>,
     #[specta(type = Option<Vec<std::string::String>>)]
     pub web_ui_list: Option<Vec<String>>,
 
@@ -261,6 +265,10 @@ pub struct IVergeTheme {
     pub warning_color: Option<String>,
     #[specta(type = Option<std::string::String>)]
     pub success_color: Option<String>,
+    #[specta(type = Option<std::string::String>)]
+    pub background_color: Option<String>,
+    #[specta(type = Option<std::string::String>)]
+    pub paper_background_color: Option<String>,
     #[specta(type = Option<std::string::String>)]
     pub font_family: Option<String>,
     #[specta(type = Option<std::string::String>)]
@@ -498,6 +506,8 @@ impl IVerge {
         patch!(pac_file_content);
         patch!(proxy_host);
         patch!(theme_setting);
+        patch!(light_theme_setting);
+        patch!(dark_theme_setting);
         patch!(web_ui_list);
         patch!(clash_core);
         patch!(hotkeys);

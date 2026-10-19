@@ -220,6 +220,11 @@
             "monochrome": "أحادي اللون"
           }
         },
+        "editModes": {
+          "title": "تعديل السمة",
+          "light": "فاتح",
+          "dark": "داكن"
+        },
         "fields": {
           "primaryColor": "اللون الأساسي",
           "secondaryColor": "اللون الثانوي",
@@ -229,6 +234,8 @@
           "warningColor": "لون التحذير",
           "errorColor": "لون الخطأ",
           "successColor": "لون النجاح",
+          "background": "لون الخلفية",
+          "paperBackground": "لون البطاقات",
           "fontFamily": "عائلة الخط",
           "cssInjection": "حقن CSS"
         },

@@ -220,6 +220,11 @@
             "monochrome": "Monochrom"
           }
         },
+        "editModes": {
+          "title": "Design bearbeiten",
+          "light": "Hell",
+          "dark": "Dunkel"
+        },
         "fields": {
           "primaryColor": "Hauptfarbe",
           "secondaryColor": "Sekundärfarbe",
@@ -229,6 +234,8 @@
           "warningColor": "Warnfarbe",
           "errorColor": "Fehlerfarbe",
           "successColor": "Erfolgsfarbe",
+          "background": "Hintergrundfarbe",
+          "paperBackground": "Kartenfarbe",
           "fontFamily": "Schriftfamilie",
           "cssInjection": "CSS-Einbindung"
         },

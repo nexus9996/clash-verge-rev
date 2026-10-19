@@ -220,6 +220,11 @@
             "monochrome": "Бер төсле"
           }
         },
+        "editModes": {
+          "title": "Теманы үзгәртү",
+          "light": "Якты",
+          "dark": "Караңгы"
+        },
         "fields": {
           "primaryColor": "Төп төс",
           "secondaryColor": "Икенче төс",
@@ -229,6 +234,8 @@
           "warningColor": "Кисәтү төсе",
           "errorColor": "Хата төсе",
           "successColor": "Уңыш төсе",
+          "background": "Фон төсе",
+          "paperBackground": "Карточка төсе",
           "fontFamily": "Шрифтлар гаиләсе",
           "cssInjection": "CSS кертү"
         },

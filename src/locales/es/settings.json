@@ -220,6 +220,11 @@
             "monochrome": "Monocromo"
           }
         },
+        "editModes": {
+          "title": "Editar tema",
+          "light": "Claro",
+          "dark": "Oscuro"
+        },
         "fields": {
           "primaryColor": "Color principal",
           "secondaryColor": "Color secundario",
@@ -229,6 +234,8 @@
           "warningColor": "Color de advertencia",
           "errorColor": "Color de error",
           "successColor": "Color de éxito",
+          "background": "Color de fondo",
+          "paperBackground": "Color de tarjetas",
           "fontFamily": "Familia tipográfica",
           "cssInjection": "Inyección de CSS"
         },
