@@ -4,7 +4,7 @@
 - 日期：2026-10-19
 - 决策范围：`migrate/self-frontend-architecture` 分支
 - 基线：`clash-verge-rev` `local` @ `ed909350`；`clash-verge-self` `dev` @ `f9cb6581`（完整历史以 tag `v2.3.2` / `75c8c416` 为准）
-- 关联：[迁移计划](frontend-architecture-migration-plan.md) · [目标架构](frontend-architecture.md) · [Phase 0 基线](perf/frontend-baseline-2026-10-19.md)
+- 关联：[迁移计划](../frontend-architecture-migration-plan.md) · [目标架构](../frontend-architecture.md) · [Phase 0 基线](../perf/frontend-baseline-2026-10-19.md)
 
 ## 1. 背景
 
@@ -18,7 +18,7 @@ rev 前端的**数据/事件层**在 2026-07~10 已完成三轮自我重构（`e
 
 **决策**：采用 `@tanstack/react-router` + `@tanstack/router-plugin`（`autoCodeSplitting`），以文件式 `src/routes/*.tsx` 薄壳替代 `src/pages/_routers.tsx` 的静态路由表；导航元数据收口到 `src/config/navigation.ts`；路由级错误边界与 intent 预加载按目标架构落地。
 
-**条件**：Phase 1 PoC 必须同时满足 [迁移计划 §4.2](frontend-architecture-migration-plan.md) 的 G1 六项条件。**2026-10-19 六项全部通过（含桌面 smoke 无异常），已转 Full Go**；不满足时的 B1 备选方案不再需要。
+**条件**：Phase 1 PoC 必须同时满足 [迁移计划 §4.2](../frontend-architecture-migration-plan.md) 的 G1 六项条件。**2026-10-19 六项全部通过（含桌面 smoke 无异常），已转 Full Go**；不满足时的 B1 备选方案不再需要。
 
 **关键证据**：
 
@@ -78,7 +78,7 @@ rev 前端的**数据/事件层**在 2026-07~10 已完成三轮自我重构（`e
 
 ### B1 路由的兜底方案：react-router 8 data-router 演进（G1 不通过时启用）
 
-保留 `react-router`，只做 `routes/` 分层 + `_navigation` 元数据收口 + data-router 的 `lazy`/`preload`（hover 时 `import()` 预热）。估算 2–3 人日。**不否决**：这是 G1 失败时的既定路径（[迁移计划 §4.2](frontend-architecture-migration-plan.md)）。
+保留 `react-router`，只做 `routes/` 分层 + `_navigation` 元数据收口 + data-router 的 `lazy`/`preload`（hover 时 `import()` 预热）。估算 2–3 人日。**不否决**：这是 G1 失败时的既定路径（[迁移计划 §4.2](../frontend-architecture-migration-plan.md)）。
 
 ### B2 全量 Tailwind 设计系统（拒绝，留待 G5 产品级决策）
 
@@ -121,9 +121,9 @@ rev 前端的**数据/事件层**在 2026-07~10 已完成三轮自我重构（`e
 
 ## 6. 参考
 
-- [迁移计划（总纲）](frontend-architecture-migration-plan.md)
-- [目标架构](frontend-architecture.md)
-- [Phase 0 基线报告](perf/frontend-baseline-2026-10-19.md)
+- [迁移计划（总纲）](../frontend-architecture-migration-plan.md)
+- [目标架构](../frontend-architecture.md)
+- [Phase 0 基线报告](../perf/frontend-baseline-2026-10-19.md)
 - self 重构关键提交：`4812e488`（TanStack Router）、`1da1d991`（预加载）、`35115975`（Zustand）、`5f8a2277`（TanStack Table）、`5e7e8c26`（Material You）；未合并 `62fd7402`（specta）
 - rev 关键提交：`e63b8e6e`（去 lazy）、`4ed47470`（查询所有权）、`69b76cc6`（contract flow）
 - 硬约束：`src/AGENTS.md`、`eslint.config.ts:15-99`、`scripts/check-architecture.mjs`
@@ -134,4 +134,4 @@ rev 前端的**数据/事件层**在 2026-07~10 已完成三轮自我重构（`e
 - 门禁：`typecheck` / `lint` / `format:check` / `test`（12 文件 47 tests，含 route catalog）/ `knip` / `arch:check` / `i18n` / `web:build` 全绿。
 - Bundle：初始 JS **508.5 → 392.9 kB gzip（−22.7%）**、raw 1,648.3 → 1,195.7 kB（−27.5%）；入口 chunk 312.7 → 158.8 kB gzip；7 个非首屏页面拆为异步 chunk。
 - 依赖：新增 3（react-router 移除 1），净增 **+2**，符合 G1 ≤3。
-- 运行时验证：2026-10-19 用户桌面 smoke（8 路由直达/切换、深链、通知跳转、拖拽排序、主题/窗口）无异常，G1-3/G1-6 通过；本 ADR 转 **Full Go**，无需执行 §3 B1。
+- 运行时验证：2026-10-19 用户桌面 smoke（8 路由直达/切换、深链、通知跳转、拖拽排序、主题/窗口）无异常，G1-3/G1-6 通过；本 ADR 转 **Full Go**，无需执行 §3 B1。冷/热导航 p95 未采集，记为[迁移计划 §12.16](../frontend-architecture-migration-plan.md) 的后续项。

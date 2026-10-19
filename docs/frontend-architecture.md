@@ -1,17 +1,17 @@
 # clash-verge-rev 前端目标架构（融合 self 骨架后的形态）
 
-> 状态：Phase 0 产出（目标态定义，尚未实现）
+> 状态：**已实现并合入 `local`**（Phase 0–4 的 M0/R1–R4/S1–S3/T1–T5 已完成；收口与降级项见[迁移计划 §12.16](frontend-architecture-migration-plan.md)）
 > 日期：2026-10-19
 > 上位文档：[迁移计划](frontend-architecture-migration-plan.md) · [ADR-0001](adr/0001-router-choice.md) · [Phase 0 基线](perf/frontend-baseline-2026-10-19.md)
 > 约束来源：`src/AGENTS.md`（contract/event/state/intent/command ownership）、`eslint.config.ts:15-99`（IPC 边界）、`scripts/check-architecture.mjs`、`src-tauri/config/verge.rs`（配置契约）
 
-本文描述迁移完成后的前端结构。未实现前，以迁移计划 §3 为准；实现过程中若与本文件冲突，先改本文件并说明原因，再改代码。
+本文描述当前已实现的前端结构；实现过程中若与本文件冲突，先改本文件并说明原因，再改代码。
 
 ## 1. 分层与依赖方向
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│ app/            组合根：main / router / layout / providers   │
+│ app/            组合根：router / layout / fallbacks（入口 main.tsx）│
 ├─────────────────────────────────────────────────────────────┤
 │ routes/         文件式路由薄壳（声明 + staticData + 错误边界）│
 ├─────────────────────────────────────────────────────────────┤
@@ -43,16 +43,17 @@
 
 ```text
 src/
+├── main.tsx           # bootstrap：preloadAppData → createRoot → RouterProvider（SWR/AppStore/Theme/Update 组合在 render 树内）
 ├── app/
-│   ├── main.tsx       # bootstrap：preloadAppData → createRoot → ComposeContextProvider
-│   ├── router.tsx     # createRouter(routeTree, ROUTER_OPTIONS)
-│   ├── layout.tsx     # 应用壳：主题/窗口/通知/侧边栏/Outlet
-│   └── providers.tsx  # SWRConfig + AppStoreProvider + ThemeMode/UpdateState
+│   ├── router.tsx     # createRouter(routeTree, ROUTER_DEFAULTS) + 路由级兜底
+│   ├── router-options.ts  # intent 预加载 / pending 门槛（ROUTER_DEFAULTS）
+│   ├── route-fallbacks.tsx # RouteNotFound / RouteError（保留 app shell）
+│   └── layout.tsx     # 应用壳：主题/窗口/通知/侧边栏/Outlet
 ├── routes/
-│   ├── __root.tsx     # createRootRoute：Layout + notFound + errorComponent
+│   ├── __root.tsx     # createRootRoute：Layout
 │   ├── index.tsx      # /
 │   ├── proxies.tsx
-│   ├── profiles.tsx   # /profile（保留现有路径）
+│   ├── profile.tsx    # /profile（保留现有路径）
 │   ├── connections.tsx
 │   ├── rules.tsx
 │   ├── logs.tsx
@@ -63,41 +64,37 @@ src/
 
 **route 薄壳规则**：
 
-1. 只包含：`component`、`staticData`、`errorComponent`（以及未来确需的 `validateSearch`）。
+1. 只包含 `component`、`staticData`（以及未来确需的 `validateSearch`）。路由级兜底由 `app/router.tsx` 的 `defaultErrorComponent` / `defaultNotFoundComponent` 统一提供，薄壳通常不重复声明。
 2. 不写业务逻辑、不发请求、不做 `invoke`；页面数据仍由 `pages/` + hooks + SWR/WS 获取。
-3. **不写手动 `React.lazy`**：拆包交给插件 `autoCodeSplitting`。`/`（home）内部的卡片级 lazy 保留。
+3. **重页面显式分包，其余交给插件**：`profile` / `settings` / `connections` 用 `lazyRouteComponent(() => import('@/pages/...'))`（C6 落地）；其余页面静态 import，由插件 `autoCodeSplitting` 拆包。`/`（home）内部的卡片级 lazy 保留。
 4. 页面对外默认导出组件，route 文件负责 import；页面不感知路由实例。
 
 示例：
 
 ```tsx
 // src/routes/settings.tsx
-import { createFileRoute } from '@tanstack/react-router'
-
-import { BaseErrorBoundary } from '@/components/base'
-import SettingPage from '@/pages/settings'
+import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/settings')({
-  component: SettingPage,
+  component: lazyRouteComponent(() => import('@/pages/settings')),
   staticData: { navId: 'settings' },
-  errorComponent: BaseErrorBoundary,
 })
 ```
 
 ### 2.2 Router 配置
 
 ```ts
-// src/app/router.tsx（Phase 1 以实测调参，写入 ADR-0001 的 G1 记录）
-export const router = createRouter({
-  routeTree,
+// src/app/router-options.ts（实际值；router.tsx 展开到 createRouter）
+export const ROUTER_DEFAULTS = {
   defaultPreload: 'intent',      // hover/focus 时预取，不 idle 全量预载
   defaultPreloadDelay: 0,
   defaultPendingMs: 200,         // 200ms 内完成的导航不显示 pending，避免闪烁
   defaultPendingMinMs: 300,
-})
+} as const
 ```
 
-- 保留 rev 的"无导航 loading"体验目标（`e63b8e6e` 的教训）作为 G1 验收项。
+- 保留 rev 的"无导航 loading"体验目标（`e63b8e6e` 的教训）作为 G1 验收项；G1 定性 smoke 已通过，冷/热 p95 尚未采集（见迁移计划 §12.16 的后续项）。
+- 导航项在 hover/focus 时通过 `router.preloadRoute({ to })` 预取目标页面 chunk（`layout-item.tsx`）。
 - 不配置 idle 全量预载；如后续需要，只按数据预热 1 条最常用路由。
 - 不加 route `loader`：数据仍由 SWR/WS 获取，避免第二数据源（`src/AGENTS.md` query ownership）。
 
@@ -105,16 +102,18 @@ export const router = createRouter({
 
 ```ts
 // src/config/navigation.ts
-export const NAV_ITEMS = [
-  { id: 'home', path: '/', labelKey: 'layout.components.navigation.tabs.home', icon: [...] },
+const NAV_META = {
+  home: { path: '/', labelKey: 'layout.components.navigation.tabs.home' },
   // ...
-] as const
+} as const satisfies Record<string, { path: string; labelKey: TranslationKey }>
+
+export const NAV_ITEMS: NavigationItem[] = NAV_IDS.map((id) => ({ id, ...NAV_META[id] }))
 ```
 
 - `routes/*.tsx` 通过 `staticData.navId` 与 `NAV_ITEMS` 关联。
 - `verge.menu_order` 继续以 `path` 为 key，存量用户配置零迁移。
-- 后端导航（`navigate_to_route`、notice 的 `navigate('/profile')`）统一走 `navigateToRoute(id)` 的穷举映射；未知值 fallback 首页并 `console.warn`。
-- **route catalog 测试**（Phase 1）断言：routeTree 叶子路径集合 == `NAV_ITEMS.path` 集合；每个 `staticData.navId` 都存在。
+- 后端导航（`navigate_to_route`、notice、托盘）统一走 `resolveNavigationPath(path)` 映射；未知值 fallback 首页并 `console.warn`。
+- **route catalog 测试**（T3）断言：routeTree 叶子路径集合 == `NAV_ITEMS.path` 集合，且每个 `staticData.navId` 都存在（`src/routes/__route-catalog.test.ts`）。
 
 ### 2.4 新增页面步骤（3 步）
 
@@ -168,32 +167,33 @@ src/config/theme/
 - 主题预设已接入 token 体系（6 套 × 明暗）。
 - S3（按域 hex 清理）：全仓组件/页面的裸 hex 已清零（token 定义与 stylesheet 默认值除外），统一走 `theme.palette` / 生成 CSS 变量（`--surface-card` / `--surface-page` / `--surface-raised` / `--log-highlight` / `--switch-*` 等）。
 - 回归守卫：`pnpm check:hex-budget`（CI 已接入）统计 token/styles 目录之外的裸 hex，**预算 0**；新增颜色必须进入 `config/theme/tokens.ts` 或 `assets/styles` 的 CSS 变量默认值。
-- **不引入 Tailwind**（ADR-0001 D2）；明暗双套主题配置依赖后端契约字段，另行排期。
+- **不引入 Tailwind**（ADR-0001 D2）。亮/暗两套主题设置已落地（C5）：`verge.light_theme_setting` / `verge.dark_theme_setting`，未设置时回退 `theme_setting`；预设、取色器、字体、背景图、透明度和 CSS 注入行为不变。
 
 ## 5. 质量门禁
 
 | 门禁 | 命令/实现 | 现状 |
 | --- | --- | --- |
 | 类型/格式/lint | `pnpm typecheck`、`pnpm format:check`、`pnpm lint` | 已有（Phase 0 全绿） |
-| 单测 | `pnpm test`（vitest，node 环境） | 已有；Phase 4 扩 jsdom |
+| 单测 | `pnpm test`（vitest；jsdom 按文件 docblock 启用） | 已有；T3 起含路由/主题/导航测试 |
 | 死代码/循环 | `pnpm knip:check` | 已有 |
 | IPC 边界 | `node scripts/check-architecture.mjs listen emit invoke` | 已有 |
-| i18n | `pnpm i18n:types && pnpm i18n:check` | 已有（Phase 4 接 CI `--check`） |
-| 分层边界 | import 分区规则（Phase 3） | 待建 |
-| 路由一致性 | `routes/__route-catalog.test.ts`（Phase 1） | 待建 |
+| i18n | `pnpm i18n:types && pnpm i18n:check` | 已有（本地门禁；CI `--check` 未接入，记为后续项） |
+| 分层边界 | `eslint.config.ts` 的 `import-x/no-restricted-paths` + `arch:check` | 已接入（T2） |
+| 路由一致性 | `src/routes/__route-catalog.test.ts` | 已接入（T3） |
 | bundle 预算 | `scripts/check-bundle-budget.mjs` 对比 `docs/perf/frontend-baseline.json`（T4） | 已接入 CI |
-| 导航性能 | 扩展 `scripts/perf`（Phase 1 PoC 起） | 协议见基线报告 |
+| hex 预算 | `scripts/check-hex-budget.mjs`（预算 0，S3） | 已接入 CI |
+| 导航性能 | 扩展 `scripts/perf` 做路由切换采样 | 协议见基线报告；采样脚本未落地（后续项） |
 
 ## 附录 A：base 组件差异清单（Phase 0 实测）
 
 - rev：`src/components/base` 18 个文件（17 tsx，1441 行）；self：19 个 tsx（1628 行）；**公共 12 个**。
-- 结论：**不做 base 层整体迁移**。两边的核心原语等价，差异项多数是风格/依赖选择；只保留 Phase 4 评估 `CopyButton` 一项（rev 目前 3 处内联 clipboard 调用）。
+- 结论：**不做 base 层整体迁移**。两边的核心原语等价，差异项多数是风格/依赖选择。`CopyButton` 评估结论：**不引入**——clipboard 调用分散在 notice/editor/advanced/controller 4 处且交互各异，封装收益低于新增 base 组件的维护成本；若后续出现更多复用点再重评。
 
 | 类别 | 组件 | 处理 |
 | --- | --- | --- |
 | 公共（12） | BaseDialog、BaseEmpty、BaseErrorBoundary、BaseFieldset、BaseLoading、BasePage、BaseSearchBox、BaseStyledSelect、BaseStyledTextField、Switch、SortableItem、StickyVirtualList | 保留 rev 实现 |
 | rev 独有（5） | BaseLoadingOverlay、BaseSplitChipEditor、BaseTooltipIcon、MonacoEditor、VirtualList | 保留 |
-| self 独有（7） | BaseEditorViewer、SwitchLovely、CopyButton、Marquee、MyNoticeContainer、Notifies、TailwindIndicator | 仅评估 CopyButton；其余拒绝（notistack/Tailwind 相关或价值低） |
+| self 独有（7） | BaseEditorViewer、SwitchLovely、CopyButton、Marquee、MyNoticeContainer、Notifies、TailwindIndicator | CopyButton 评估结论为不引入（见上）；其余拒绝（notistack/Tailwind 相关或价值低） |
 
 ## 附录 B：上游 churn 冻结清单（Phase 0 实测，`origin/dev` 近 6 个月）
 
@@ -217,7 +217,7 @@ src/config/theme/
 | `src/hooks/use-system-proxy-state.ts` | 12 | 谨慎 |
 | `src/components/proxy/proxy-chain.tsx` | 12 | 谨慎 |
 
-> 另：历史高频但当前树已删除的文件（`pages/_layout/hooks/use-layout-events.ts` 21 次、`pages/_layout/utils/notification-handlers.ts` 15 次）说明布局/通知层仍在收敛——`app/layout.tsx` 迁移完成后应尽快冻结该区域。
+> 另：历史高频但当前树已删除的文件（`pages/_layout/hooks/use-layout-events.ts` 21 次、`pages/_layout/utils/notification-handlers.ts` 15 次）说明布局/通知层仍在收敛。该区域已完成 `app/layout.tsx` 迁移（T2），此后按冻结区对待：新增改动单独 PR 并标注冲突风险。
 
 ## 参考
 

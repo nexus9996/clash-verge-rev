@@ -376,6 +376,8 @@ Phase 4（3–5d）收口
 
 ### R3 按路由拆包 + intent 预加载 + 无闪加载
 
+> 状态：已完成并并入 R1/G1（拆包、intent 预加载与 pending 门槛随路由迁移落地；重页面 `lazyRouteComponent` 由 C6 合入补充）。p95 实测未采集，见 §12.16。
+
 - **self 证据**：`vite.config.ts:38` autoCodeSplitting；`1da1d991`（2026-04-08，路由过渡+预加载，28 files +487/−213）；但 self 双拆包/idle 全量预载/自研遮罩是反例（`sidebar.tsx:34-54`、`_layout.tsx:196-210`）。
 - **rev 约束**：`e63b8e6e` 的无导航 loading 目标。
 - **步骤**：
@@ -531,12 +533,12 @@ pnpm i18n:types && pnpm i18n:check
 
 ### 7.5 Definition of Done（分支级）
 
-- [ ] Phase 0–4 全部完成或明确降级为后续跟进（记录原因）。
-- [ ] 所有新增门禁在 CI 为 error 且全绿。
-- [ ] `docs/frontend-architecture.md` + 3 篇 ADR 入库并与代码一致。
-- [ ] 新增页面步骤在 `CONTRIBUTING.md` 更新且完成一次演练。
-- [ ] 一次完整的 `git rebase origin/dev` 演练通过（冲突仅限已知 churn 区且可解）。
-- [ ] 全量 smoke 通过（§7.4），无 P0/P1 回归。
+- [x] Phase 0–4 全部完成或明确降级为后续跟进（记录原因）。→ 降级项见 §12.16。
+- [ ] 所有新增门禁在 CI 为 error 且全绿。→ 部分：分层/catalog/bundle/hex 已接入；`i18n:check --check`、导航性能基线未接入（§12.16）。
+- [x] `docs/frontend-architecture.md` + 3 篇 ADR 入库并与代码一致。→ 本轮收口修正过期描述（§12.16）。
+- [x] 新增页面步骤在 `CONTRIBUTING.md` 更新且完成一次演练。
+- [x] 一次完整的 `git rebase origin/dev` 演练通过（冲突仅限已知 churn 区且可解）。→ `origin/dev` 已是 `local` 祖先，rebase 为无操作。
+- [ ] 全量 smoke 通过（§7.4），无 P0/P1 回归。→ G1 阶段已通过；合入后终态全量 smoke 未单独记录（§12.16）。
 
 ---
 
@@ -807,8 +809,42 @@ Phase 0 无阻塞项，可以进入 Phase 1（G1 条件 Go）。唯一未测量�
 ### 12.15 Phase 4 T5 完成记录（文档与规范收尾，2026-10-19）
 
 - 卡片分支：`migrate/fe-docs`，已 FF 合入 `local`。
-- 新增 [ADR-0002](../adr/0002-design-tokens.md)（设计 token 与主题体系）与 [ADR-0003](../adr/0003-state-boundary.md)（状态与数据边界 / 移除 AppDataProvider）。
+- 新增 [ADR-0002](adr/0002-design-tokens.md)（设计 token 与主题体系）与 [ADR-0003](adr/0003-state-boundary.md)（状态与数据边界 / 移除 AppDataProvider）。
 - `docs/frontend-architecture.md`：§2.4 更新为实际 3 步新增页面流程（route shell + `NAV_META`/`NAV_ICONS` + 14 locale/i18n:types），参考区补齐 ADR 索引。
 - `CONTRIBUTING.md`：新增 "Adding a Frontend Page (TanStack Router)"，含 route shell 示例、`pnpm generate-routes`、catalog 测试与文档链接。
 - 演练：按文档创建临时页面 + route + `NAV_META`/`NAV_ICONS`，执行 `pnpm generate-routes / typecheck / test / lint`，**31s 通过（26 文件 / 83 tests）**，随后回滚；新人按文档可在 15 分钟内完成。
 - 验收：文档与代码一致（路由/navId/catalog、token 预算、domain hooks 均有文档与 CI 对应项）；纯文档变更，bundle/行为不变。
+
+### 12.16 分支收口记录（DoD / G2–G4，2026-10-19）
+
+纯文档收口，不改代码/行为；关闭 §7.5 分支级 DoD 与 §4.2 的 G2–G4 决策门。
+
+**DoD 状态（§7.5）**
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| Phase 0–4 完成或明确降级 | ✅ | M0/R1–R4/S1–S3/T1–T5 均有完成记录（§12.1–§12.15）；降级项见下 |
+| 新增门禁在 CI 为 error 且全绿 | ⚠️ 部分 | 分层、route catalog、bundle 预算、hex 预算已接入并全绿；`i18n:check --check` 与导航性能基线未接入（后续项） |
+| 架构文档 + 3 篇 ADR 入库且与代码一致 | ✅ | 本轮修正 `frontend-architecture.md` 的过期描述（入口路径、`ROUTER_DEFAULTS`、C6 lazy、亮暗双主题、门禁表、CopyButton 结论） |
+| 新增页面步骤文档化并演练 | ✅ | `CONTRIBUTING.md` “Adding a Frontend Page” + 31s 演练（§12.15） |
+| `git rebase origin/dev` 演练 | ✅（无操作） | `origin/dev` 已是 `local` 祖先（`git rev-list local..origin/dev` = 0），rebase 等价于无操作；上游同步风险仅剩后续 dev 前进时 |
+| 全量 smoke 通过（§7.4） | ⚠️ 部分 | G1 PoC 阶段用户桌面 smoke 覆盖路由/深链/通知/拖拽/主题/窗口；C1–C11 + 架构合并后的终态全量 smoke 未单独记录（后续项） |
+
+**决策门结论（§4.2）**
+
+- **G1 ✅**：六项全过（见 `perf/router-poc-g1-2026-10-19.md`）；运行时 p95 未采集，定性 smoke 通过。
+- **G2 ✅（附注）**：主题预设/取色器随 C4 合入、token 层随 S1/S3 合入，门禁全绿；但预设/取色/自定义主题的合并后运行时冒烟未单独记录（并入终态 smoke 后续项）；token 覆盖率未做量化统计，降级为“目测 + hex 预算 0 守卫”；MUI `cssVariables` POC 结论为**不做**（收益不明确，保留 ADR-0002 重评条件）。
+- **G3 ✅（附注）**：依赖方向 0 违规、app-data Provider 已移除（嵌套 0）、相关 vitest 通过；通知/导航/更新/窗口行为未做合并后专项 smoke（G1 阶段覆盖，并入终态 smoke 后续项）。
+- **G4 ✅（附注）**：bundle/hex/分层/catalog 门禁已接入 CI；i18n `--check` 与导航性能基线未接入（后续项）；上游 rebase 等价通过；文档评审由本轮收口完成。
+
+**降级/后续项（未在本分支闭环）**
+
+1. **导航性能实测**：冷/热 p95、20 次随机导航录屏证据、`scripts/perf` 路由采样入口、`frontend-baseline.json` 导航字段——均未落地（G1 仅定性通过）。
+2. **i18n `--check` 接入 CI**：计划 §7.2 与架构 §5 的目标；当前仅本地门禁 + locales 单测。
+3. **30 分钟长会话/泄漏观察**（§7.3）。
+4. **终态全量 smoke**：C1–C11 + 架构合并后未单独执行（含主题预设/取色/自定义主题与通知/导航/更新/窗口专项）。
+5. **R3 独立完成记录**：R3 的拆包/预加载/pending 门槛已随 R1 落地（`router-options.ts`，重页面由 C6 的 `lazyRouteComponent` 补充），无独立记录；p95 同第 1 项。
+6. **Phase 0 移交的 `gen:contract` + Rust 门禁**：合并验证时已跑（`gen:contract --check`、`cargo fmt/clippy`、406 tests，见 workspace 根目录 `MERGE-REHEARSAL.md` 与根迁移计划 §10），不在本分支重复。
+
+> 1/3/4 属运行时/人工验证项，2 属 CI 小改造；若后续不做，按“降级为后续跟进”处理，它们不阻塞分支收口。
+> 本轮改动：`docs/frontend-architecture.md`（状态与结构刷新）、本文件（§5 R3 状态、§7.5 DoD、§12.16）。
