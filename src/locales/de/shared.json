@@ -46,7 +46,8 @@
     "disabled": "Deaktiviert",
     "saving": "Wird gespeichert...",
     "empty": "Leer",
-    "loading": "Wird geladen..."
+    "loading": "Wird geladen...",
+    "pageNotFound": "Seite nicht gefunden"
   },
   "units": {
     "milliseconds": "Millisekunden",

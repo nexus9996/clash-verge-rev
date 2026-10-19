@@ -46,7 +46,8 @@
     "disabled": "Disabled",
     "saving": "Saving...",
     "empty": "Empty",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "pageNotFound": "Page not found"
   },
   "units": {
     "milliseconds": "ms",

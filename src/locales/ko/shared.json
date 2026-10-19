@@ -46,7 +46,8 @@
     "disabled": "비활성화",
     "saving": "저장 중...",
     "empty": "비어있음",
-    "loading": "로드 중..."
+    "loading": "로드 중...",
+    "pageNotFound": "페이지를 찾을 수 없습니다"
   },
   "units": {
     "milliseconds": "밀리초",

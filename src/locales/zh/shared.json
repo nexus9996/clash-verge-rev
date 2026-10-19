@@ -46,7 +46,8 @@
     "disabled": "未启用",
     "saving": "保存中...",
     "empty": "空空如也",
-    "loading": "加载中..."
+    "loading": "加载中...",
+    "pageNotFound": "页面不存在"
   },
   "units": {
     "milliseconds": "毫秒",

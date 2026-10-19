@@ -46,7 +46,8 @@
     "disabled": "غیرفعال شد",
     "saving": "Saving...",
     "empty": "خالی خالی",
-    "loading": "در حال بارگذاری..."
+    "loading": "در حال بارگذاری...",
+    "pageNotFound": "صفحه پیدا نشد"
   },
   "units": {
     "milliseconds": "میلی‌ثانیه",

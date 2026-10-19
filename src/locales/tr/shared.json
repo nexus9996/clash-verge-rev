@@ -46,7 +46,8 @@
     "disabled": "Devre Dışı",
     "saving": "Kaydediliyor...",
     "empty": "Boş",
-    "loading": "Yükleniyor..."
+    "loading": "Yükleniyor...",
+    "pageNotFound": "Sayfa bulunamadı"
   },
   "units": {
     "milliseconds": "ms",
