@@ -71,6 +71,7 @@ interface Props {
   mode: string
   isChainMode?: boolean
   chainConfigData?: string | null
+  onExitChainMode: () => void
 }
 
 function useEmptyRenderList() {
@@ -200,8 +201,9 @@ function useProxyRenderState(
 function ChainProxyGroups(props: {
   mode: string
   chainConfigData?: string | null
+  onExitChainMode: () => void
 }) {
-  const { mode, chainConfigData } = props
+  const { mode, chainConfigData, onExitChainMode } = props
   const { proxyView } = useProxiesData()
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
 
@@ -356,6 +358,7 @@ function ChainProxyGroups(props: {
       <ProxyGroupsChain
         mode={mode}
         chainConfigData={chainConfigData}
+        onExitChainMode={onExitChainMode}
         availableGroups={availableGroups}
         activeSelectedGroup={activeSelectedGroup}
         showScrollTop={showScrollTop}
@@ -632,7 +635,7 @@ function NormalProxyGroups(props: { mode: string }) {
 }
 
 export const ProxyGroups = (props: Props) => {
-  const { mode, isChainMode = false, chainConfigData } = props
+  const { mode, isChainMode = false, chainConfigData, onExitChainMode } = props
   const { profiles, isLoading: isProfilesLoading } = useProfiles()
   const { isProxyViewPending } = useProxiesData()
   const { isRunningModePending } = useSystemData()
@@ -654,7 +657,11 @@ export const ProxyGroups = (props: Props) => {
       return <ProxyEmptyState reason={listState.reason} />
     case 'render':
       return isChainMode ? (
-        <ChainProxyGroups mode={mode} chainConfigData={chainConfigData} />
+        <ChainProxyGroups
+          mode={mode}
+          chainConfigData={chainConfigData}
+          onExitChainMode={onExitChainMode}
+        />
       ) : (
         <NormalProxyGroups mode={mode} />
       )
