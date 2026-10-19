@@ -477,6 +477,12 @@
         "important": "Important",
         "warning": "Warning",
         "caution": "Caution"
+      },
+      "restart": {
+        "title": "Update Installed",
+        "body": "Restart the app to apply the new version.",
+        "restartNow": "Restart Now",
+        "restartLater": "Later"
       }
     },
     "sysproxy": {

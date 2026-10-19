@@ -477,6 +477,12 @@
         "important": "重要",
         "warning": "警告",
         "caution": "注意"
+      },
+      "restart": {
+        "title": "更新已安装",
+        "body": "重启应用以应用新版本。",
+        "restartNow": "立即重启",
+        "restartLater": "稍后"
       }
     },
     "sysproxy": {

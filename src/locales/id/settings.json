@@ -477,6 +477,12 @@
         "important": "Penting",
         "warning": "Peringatan",
         "caution": "Perhatian"
+      },
+      "restart": {
+        "title": "Pembaruan Terpasang",
+        "body": "Mulai ulang aplikasi untuk menerapkan versi baru.",
+        "restartNow": "Mulai Ulang Sekarang",
+        "restartLater": "Nanti"
       }
     },
     "sysproxy": {
