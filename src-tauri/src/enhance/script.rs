@@ -324,15 +324,26 @@ fn escape_js_string_for_single_quote(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{LowercaseKeys, MAX_OUTPUTS, eval_script};
+    use super::{LowercaseKeys, MAX_OUTPUTS, eval_script, with_runtime};
     use crate::enhance::field::use_lowercase;
     use serde_yaml_ng::Mapping;
     use smartstring::alias::String;
-    use std::time::Duration;
+    use std::time::{Duration, Instant};
+
+    const META_GUARD_SCRIPT: &str = include_str!("./builtin/meta_guard.js");
+    const META_HY_ALPN_SCRIPT: &str = include_str!("./builtin/meta_hy_alpn.js");
 
     fn run(script: &str, config_json: &str) -> super::EvalOutcome {
         let name: String = "test-profile".into();
         eval_script(script, config_json, &name, Duration::from_secs(1))
+    }
+
+    /// Runs a script against a JSON config and returns the transformed config as JSON.
+    fn run_with_config(script: &str, config: serde_json::Value) -> serde_json::Value {
+        let config_json = serde_json::to_string(&config).expect("config should serialize to JSON");
+        let (outcome, _logs) = run(script, &config_json);
+        let config = outcome.expect("script should succeed");
+        serde_json::to_value(&config).expect("script output should serialize to JSON")
     }
 
     #[test]
@@ -413,5 +424,316 @@ nested:
         let reason = outcome.expect_err("runaway loop should be interrupted");
         assert!(reason.contains("timed out"), "{reason}");
         assert!(started.elapsed() < Duration::from_secs(2));
+    }
+
+    #[test]
+    fn quickjs_supports_optional_chaining_and_nullish_coalescing() {
+        let config = run_with_config(
+            r#"function main(config) {
+                config.proxies = config.proxies.map((proxy) => proxy?.name ?? proxy?.type ?? "unknown");
+                config.missing = config.absent?.nested?.value ?? "fallback";
+                config.first = config.proxies?.[0] ?? "none";
+                return config;
+            }"#,
+            serde_json::json!({
+                "proxies": [
+                    { "name": "alpha", "type": "ss" },
+                    { "type": "trojan" },
+                ],
+            }),
+        );
+
+        assert_eq!(
+            config,
+            serde_json::json!({
+                "proxies": ["alpha", "trojan"],
+                "missing": "fallback",
+                "first": "alpha",
+            })
+        );
+    }
+
+    #[test]
+    fn quickjs_supports_template_literals_destructuring_and_spread() {
+        let config = run_with_config(
+            r#"function main(config) {
+                const { mode = "rule", proxies = [], ...rest } = config;
+                const renamed = proxies.map(({ name, type, ...extra }) => ({
+                    ...extra,
+                    name: `${name}-${type}`,
+                    tags: [...(extra.tags ?? []), "renamed"],
+                }));
+                return { ...rest, mode, proxies: renamed, count: renamed.length };
+            }"#,
+            serde_json::json!({
+                "proxies": [
+                    { "name": "alpha", "type": "ss", "port": 443 },
+                    { "name": "beta", "type": "trojan", "tags": ["fast"] },
+                ],
+                "rules": ["DOMAIN-SUFFIX,example.com,PROXY"],
+            }),
+        );
+
+        assert_eq!(
+            config,
+            serde_json::json!({
+                "mode": "rule",
+                "proxies": [
+                    { "port": 443, "name": "alpha-ss", "tags": ["renamed"] },
+                    { "name": "beta-trojan", "tags": ["fast", "renamed"] },
+                ],
+                "count": 2,
+                "rules": ["DOMAIN-SUFFIX,example.com,PROXY"],
+            })
+        );
+    }
+
+    #[test]
+    fn quickjs_supports_regexp_named_groups_and_lookbehind() {
+        let config = run_with_config(
+            r#"function main(config) {
+                const match = config.label.match(/(?<region>hk|sg|us)-(?<id>\d{3})/);
+                config.region = match?.groups?.region ?? "unknown";
+                config.id = match?.groups?.id ?? "unknown";
+                config.masked = config.endpoint.replace(/(?<=@)[a-z.]+/g, "example.org");
+                config.local = config.endpoint.replace(/.*(?=@)/, "user");
+                return config;
+            }"#,
+            serde_json::json!({
+                "label": "node-sg-042",
+                "endpoint": "alice@host.example.net",
+            }),
+        );
+
+        assert_eq!(
+            config,
+            serde_json::json!({
+                "label": "node-sg-042",
+                "endpoint": "alice@host.example.net",
+                "region": "sg",
+                "id": "042",
+                "masked": "alice@example.org",
+                "local": "user@host.example.net",
+            })
+        );
+    }
+
+    #[test]
+    fn quickjs_exposes_promise_map_set_and_json() {
+        let config = run_with_config(
+            r#"function main(config) {
+                const resolved = Promise.resolve(1);
+                config.promise_type = typeof Promise;
+                config.promise_is_promise = resolved instanceof Promise;
+                config.promise_tag = Object.prototype.toString.call(resolved);
+                config.map_lookup = new Map([["alpha", 1], ["beta", 2]]).get("beta");
+                config.set_values = Array.from(new Set([1, 2, 1, 3]));
+                config.json_roundtrip = JSON.stringify(JSON.parse('{"a":[1,2],"b":"x"}'));
+                return config;
+            }"#,
+            serde_json::json!({ "mode": "rule" }),
+        );
+
+        assert_eq!(
+            config,
+            serde_json::json!({
+                "mode": "rule",
+                "promise_type": "function",
+                "promise_is_promise": true,
+                "promise_tag": "[object Promise]",
+                "map_lookup": 2,
+                "set_values": [1, 2, 3],
+                "json_roundtrip": "{\"a\":[1,2],\"b\":\"x\"}",
+            })
+        );
+    }
+
+    #[test]
+    fn quickjs_runs_meta_guard_builtin_script() {
+        let config = run_with_config(
+            META_GUARD_SCRIPT,
+            serde_json::json!({
+                "mode": "script",
+                "proxy-groups": [{
+                    "name": "PROXY",
+                    "type": "select",
+                    "proxies": ["node-hk-01"],
+                }],
+                "proxies": [{
+                    "name": "node-hk-01",
+                    "type": "ss",
+                    "server": "hk01.example.com",
+                    "port": 443,
+                    "cipher": "aes-128-gcm",
+                    "password": "secret",
+                }],
+                "rules": ["DOMAIN-SUFFIX,example.com,PROXY", "MATCH,PROXY"],
+            }),
+        );
+
+        assert_eq!(config["mode"], "rule");
+        assert_eq!(config["proxies"].as_array().map(Vec::len), Some(1));
+        assert_eq!(config["rules"].as_array().map(Vec::len), Some(2));
+    }
+
+    #[test]
+    fn quickjs_runs_meta_hy_alpn_builtin_script() {
+        let config = run_with_config(
+            META_HY_ALPN_SCRIPT,
+            serde_json::json!({
+                "proxies": [
+                    {
+                        "name": "hy-string",
+                        "type": "hysteria",
+                        "server": "hy1.example.com",
+                        "port": 443,
+                        "alpn": "h3",
+                    },
+                    {
+                        "name": "hy-array",
+                        "type": "hysteria",
+                        "server": "hy2.example.com",
+                        "port": 443,
+                        "alpn": ["h2", "h3"],
+                    },
+                    {
+                        "name": "hy2-string",
+                        "type": "hysteria2",
+                        "server": "hy3.example.com",
+                        "port": 443,
+                        "alpn": "h3",
+                    },
+                    {
+                        "name": "ss-plain",
+                        "type": "ss",
+                        "server": "ss.example.com",
+                        "port": 443,
+                        "cipher": "aes-128-gcm",
+                        "password": "secret",
+                    },
+                ],
+            }),
+        );
+
+        assert_eq!(config["proxies"][0]["alpn"], serde_json::json!(["h3"]));
+        assert_eq!(config["proxies"][1]["alpn"], serde_json::json!(["h2", "h3"]));
+        assert_eq!(config["proxies"][2]["alpn"], serde_json::json!("h3"));
+        assert_eq!(config["proxies"][3].get("alpn"), None);
+    }
+
+    // Representative shape of subscription scripts users run, not a real user script; real
+    // subscription scripts remain a manual release check.
+    #[test]
+    fn quickjs_runs_representative_large_subscription_script() {
+        let mut proxies = Vec::new();
+        for i in 0..200 {
+            let region = ["hk", "sg", "us"][i % 3];
+            proxies.push(serde_json::json!({
+                "name": format!("{region}-{i:03}"),
+                "type": if i % 2 == 0 { "ss" } else { "trojan" },
+                "server": format!("node-{i:03}.example.com"),
+                "port": 443,
+                "udp": i % 2 == 0,
+            }));
+        }
+        // Entries the script is expected to filter out.
+        for i in 0..20 {
+            proxies.push(serde_json::json!({
+                "name": format!("info-{i:02}"),
+                "type": "ss",
+                "server": format!("info-{i:02}.example.com"),
+                "port": 443,
+            }));
+        }
+        let mut rules = Vec::new();
+        for i in 0..2000 {
+            rules.push(format!("DOMAIN-SUFFIX,site-{i:04}.example.com,PROXY"));
+        }
+        for i in 0..10 {
+            rules.push(format!("GEOIP,CN{i},DIRECT"));
+        }
+
+        let script = r#"function main(config) {
+            const prefixes = { hk: "HK", sg: "SG", us: "US" };
+            const proxyName = /^(hk|sg|us)-(\d{3})$/;
+            config.proxies = config.proxies
+                .filter((proxy) => proxyName.test(proxy?.name ?? ""))
+                .map((proxy) => {
+                    const [, region, id] = proxy.name.match(proxyName);
+                    return { ...proxy, name: `${prefixes[region]}-${id}` };
+                });
+            config.rules = config.rules
+                .filter((rule) => rule.startsWith("DOMAIN-SUFFIX,"))
+                .map((rule) => rule.replace(/,PROXY$/, ",Proxies"));
+            config.rules.push("DOMAIN-SUFFIX,example.org,Proxies");
+            config["proxy-groups"] = [{
+                name: "Proxies",
+                type: "select",
+                proxies: config.proxies.map((proxy) => proxy.name),
+            }];
+            return config;
+        }"#;
+
+        let config_json = serde_json::to_string(&serde_json::json!({
+            "mode": "rule",
+            "proxies": proxies,
+            "rules": rules,
+            "tun": { "enable": false },
+        }))
+        .expect("large config should serialize to JSON");
+
+        let started = Instant::now();
+        let (outcome, logs) = run(script, &config_json);
+        let elapsed = started.elapsed();
+
+        let config = outcome.expect("large subscription script should succeed");
+        let config = serde_json::to_value(&config).expect("script output should serialize to JSON");
+        assert!(logs.is_empty());
+        assert!(elapsed < Duration::from_secs(1), "large script took {elapsed:?}");
+        assert_eq!(config["proxies"].as_array().map(Vec::len), Some(200));
+        assert_eq!(config["rules"].as_array().map(Vec::len), Some(2001));
+        assert_eq!(config["proxies"][0]["name"], "HK-000");
+        assert_eq!(config["proxies"][199]["name"], "SG-199");
+        assert_eq!(config["rules"][0], "DOMAIN-SUFFIX,site-0000.example.com,Proxies");
+        assert_eq!(config["rules"][2000], "DOMAIN-SUFFIX,example.org,Proxies");
+        assert_eq!(config["proxy-groups"][0]["proxies"].as_array().map(Vec::len), Some(200));
+    }
+
+    #[test]
+    fn quickjs_thread_local_runtime_memory_stays_stable() {
+        let script = r#"function main(config) {
+            config.proxies = (config.proxies ?? []).map((proxy) => ({ ...proxy, name: `${proxy.name}-renamed` }));
+            config.rules = (config.rules ?? []).map((rule) => rule.replace(/,PROXY$/, ",DIRECT"));
+            return config;
+        }"#;
+        let config_json = r#"{"proxies":[{"name":"alpha","type":"ss"},{"name":"beta","type":"trojan"}],"rules":["DOMAIN-SUFFIX,alpha.example.com,PROXY"]}"#;
+        let name: String = "test-profile".into();
+
+        let measure = || {
+            with_runtime(|runtime| {
+                runtime.run_gc();
+                Ok(runtime.memory_usage().memory_used_size)
+            })
+            .expect("script runtime should stay available")
+        };
+
+        // The thread-local runtime keeps bounded one-time state: interned atoms, compiled shapes and
+        // shape-hash capacity. Warm it up so the assertion below observes only per-run growth.
+        for _ in 0..100 {
+            let (outcome, _logs) = eval_script(script, config_json, &name, Duration::from_secs(1));
+            outcome.expect("warm-up script should succeed");
+        }
+        let baseline = measure();
+
+        for _ in 0..100 {
+            let (outcome, _logs) = eval_script(script, config_json, &name, Duration::from_secs(1));
+            outcome.expect("repeated script should succeed");
+        }
+
+        let after = measure();
+        assert!(
+            after <= baseline,
+            "thread-local runtime memory grew from {baseline} to {after} bytes across 100 repeated runs"
+        );
     }
 }
