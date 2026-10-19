@@ -574,6 +574,7 @@ export interface TranslationResources {
         }
         labels: {
           delayCheckReset: string
+          groupBadge: string
           nodeCount: string
           proxyCount: string
         }
@@ -607,6 +608,7 @@ export interface TranslationResources {
           delayCheck: string
           delayCheckUrl: string
           filter: string
+          jumpToGroup: string
           locate: string
           showBasic: string
           showDetail: string

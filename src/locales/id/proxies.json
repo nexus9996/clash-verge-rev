@@ -26,7 +26,8 @@
     "labels": {
       "proxyCount": "Proxy Count",
       "delayCheckReset": "Periksa keterlambatan untuk membatalkan tetap",
-      "nodeCount": "{{count}} node"
+      "nodeCount": "{{count}} node",
+      "groupBadge": "Grup"
     },
     "tooltips": {
       "locate": "Lokasi",
@@ -37,7 +38,8 @@
       "delayCheckUrl": "URL Periksa Keterlambatan",
       "showBasic": "Dasar Proksi",
       "showDetail": "Detail Proksi",
-      "filter": "Filter"
+      "filter": "Filter",
+      "jumpToGroup": "Lompat ke grup"
     },
     "placeholders": {
       "delayCheckUrl": "URL Periksa Keterlambatan"
