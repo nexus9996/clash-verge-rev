@@ -19,15 +19,27 @@ const fakeRouter = () => {
     },
   } as unknown as AnyRouter
 
-  const emit = (type: string, location: { href: string; pathname: string }) => {
+  const emit = (
+    type: string,
+    location: { href: string; pathname: string },
+    from: { pathname: string } | undefined = { pathname: '/' },
+  ) => {
     listeners.get(type)?.({
       toLocation: location,
-      fromLocation: { pathname: '/' },
+      fromLocation: from,
       pathChanged: true,
     })
   }
 
-  return { router, emit }
+  const emitBootstrap = (location: { href: string; pathname: string }) => {
+    listeners.get('onBeforeNavigate')?.({
+      toLocation: location,
+      pathChanged: true,
+    })
+    listeners.get('onRendered')?.({ toLocation: location, pathChanged: true })
+  }
+
+  return { router, emit, emitBootstrap }
 }
 
 const wait = () => new Promise((resolve) => setTimeout(resolve, 80))
@@ -78,6 +90,16 @@ describe('installRouteTiming', () => {
 
     expect(getRouteTimingSamples()).toHaveLength(1)
     expect(window.__vergeNavTiming?.getReport().hot.count).toBe(0)
+  })
+
+  it('ignores the bootstrap render without a source location', async () => {
+    const { router, emitBootstrap } = fakeRouter()
+    installRouteTiming(router, { autoStart: true })
+
+    emitBootstrap({ href: '/', pathname: '/' })
+    await wait()
+
+    expect(getRouteTimingSamples()).toHaveLength(0)
   })
 
   it('stays inert until start() and honors stop()', async () => {

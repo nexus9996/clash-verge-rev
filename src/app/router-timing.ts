@@ -124,8 +124,11 @@ export const installRouteTiming = (
 
   router.subscribe('onBeforeNavigate', (event) => {
     if (!event.pathChanged) return
+    // A navigation without a source is the initial bootstrap render, not a
+    // user navigation; it would otherwise pollute the cold bucket with startup.
+    if (!event.fromLocation?.pathname) return
     pending.set(event.toLocation.href, {
-      from: event.fromLocation?.pathname ?? '',
+      from: event.fromLocation.pathname,
       startedAt: performance.now(),
     })
   })
