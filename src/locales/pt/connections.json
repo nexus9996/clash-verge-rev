@@ -12,9 +12,13 @@
       "process": "Processo",
       "time": "Hora",
       "source": "Origem",
+      "sourceIp": "IP de origem",
+      "sourcePort": "Porta de origem",
       "destination": "Destino",
+      "destinationIp": "IP de destino",
       "destinationPort": "Porta de destino",
-      "type": "Tipo"
+      "type": "Tipo",
+      "network": "Rede"
     },
     "order": {
       "default": "Padrão",
@@ -29,6 +33,12 @@
     "columnManager": {
       "title": "Colunas",
       "dragHandle": "Alça de arrastar"
+    },
+    "filters": {
+      "placeholder": "Filtrar conexões",
+      "noOptions": "Nenhuma opção correspondente",
+      "searchValue": "Pesquisar valor",
+      "clear": "Limpar filtros"
     }
   }
 }

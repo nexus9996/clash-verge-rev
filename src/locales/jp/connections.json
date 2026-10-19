@@ -12,9 +12,13 @@
       "process": "プロセス",
       "time": "接続時間",
       "source": "送信元アドレス",
+      "sourceIp": "送信元 IP",
+      "sourcePort": "送信元ポート",
       "destination": "宛先アドレス",
+      "destinationIp": "宛先 IP",
       "destinationPort": "宛先ポート",
-      "type": "タイプ"
+      "type": "タイプ",
+      "network": "ネットワーク"
     },
     "order": {
       "default": "Default",
@@ -29,6 +33,12 @@
     "columnManager": {
       "title": "列",
       "dragHandle": "Drag handle"
+    },
+    "filters": {
+      "placeholder": "接続をフィルター",
+      "noOptions": "一致する項目がありません",
+      "searchValue": "値を検索",
+      "clear": "フィルターをクリア"
     }
   }
 }

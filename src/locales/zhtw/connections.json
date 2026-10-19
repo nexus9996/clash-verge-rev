@@ -12,9 +12,13 @@
       "process": "處理程序",
       "time": "連線時間",
       "source": "來源位址",
+      "sourceIp": "來源 IP",
+      "sourcePort": "來源連接埠",
       "destination": "目標位址",
+      "destinationIp": "目標 IP",
       "destinationPort": "目標連接埠",
-      "type": "類型"
+      "type": "類型",
+      "network": "網路"
     },
     "order": {
       "default": "預設",
@@ -29,6 +33,12 @@
     "columnManager": {
       "title": "欄位設定",
       "dragHandle": "拖曳以移動"
+    },
+    "filters": {
+      "placeholder": "篩選連線",
+      "noOptions": "沒有符合的選項",
+      "searchValue": "搜尋值",
+      "clear": "清除篩選"
     }
   }
 }

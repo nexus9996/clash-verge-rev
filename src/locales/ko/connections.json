@@ -12,9 +12,13 @@
       "process": "프로세스",
       "time": "시간",
       "source": "소스",
+      "sourceIp": "소스 IP",
+      "sourcePort": "소스 포트",
       "destination": "목적지",
+      "destinationIp": "대상 IP",
       "destinationPort": "목적지 포트",
-      "type": "유형"
+      "type": "유형",
+      "network": "네트워크"
     },
     "order": {
       "default": "기본",
@@ -29,6 +33,12 @@
     "columnManager": {
       "title": "열",
       "dragHandle": "Drag handle"
+    },
+    "filters": {
+      "placeholder": "연결 필터",
+      "noOptions": "일치하는 항목 없음",
+      "searchValue": "값 검색",
+      "clear": "필터 지우기"
     }
   }
 }

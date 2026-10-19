@@ -17,15 +17,25 @@ export interface TranslationResources {
         fields: {
           chains: string
           destination: string
+          destinationIp: string
           destinationPort: string
           dlSpeed: string
           host: string
+          network: string
           process: string
           rule: string
           source: string
+          sourceIp: string
+          sourcePort: string
           time: string
           type: string
           ulSpeed: string
+        }
+        filters: {
+          clear: string
+          noOptions: string
+          placeholder: string
+          searchValue: string
         }
         order: {
           default: string
