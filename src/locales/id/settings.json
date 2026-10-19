@@ -209,6 +209,17 @@
       },
       "theme": {
         "title": "Pengaturan Tema",
+        "presets": {
+          "title": "Preset",
+          "names": {
+            "default": "Bawaan",
+            "ocean": "Samudra",
+            "indigo": "Indigo",
+            "sunset": "Senja",
+            "lavender": "Lavender",
+            "monochrome": "Monokrom"
+          }
+        },
         "fields": {
           "primaryColor": "Warna Utama",
           "secondaryColor": "Warna Sekunder",

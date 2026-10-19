@@ -209,6 +209,17 @@
       },
       "theme": {
         "title": "Configurações do Tema",
+        "presets": {
+          "title": "Predefinições",
+          "names": {
+            "default": "Padrão",
+            "ocean": "Oceano",
+            "indigo": "Índigo",
+            "sunset": "Pôr do sol",
+            "lavender": "Lavanda",
+            "monochrome": "Monocromático"
+          }
+        },
         "fields": {
           "primaryColor": "Cor Primária",
           "secondaryColor": "Cor Secundária",

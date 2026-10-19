@@ -209,6 +209,17 @@
       },
       "theme": {
         "title": "테마 설정",
+        "presets": {
+          "title": "프리셋",
+          "names": {
+            "default": "기본",
+            "ocean": "오션",
+            "indigo": "인디고",
+            "sunset": "선셋",
+            "lavender": "라벤더",
+            "monochrome": "모노크롬"
+          }
+        },
         "fields": {
           "primaryColor": "기본 색상",
           "secondaryColor": "보조 색상",

@@ -209,6 +209,17 @@
       },
       "theme": {
         "title": "Thema-Einstellungen",
+        "presets": {
+          "title": "Voreinstellungen",
+          "names": {
+            "default": "Standard",
+            "ocean": "Ozean",
+            "indigo": "Indigo",
+            "sunset": "Sonnenuntergang",
+            "lavender": "Lavendel",
+            "monochrome": "Monochrom"
+          }
+        },
         "fields": {
           "primaryColor": "Hauptfarbe",
           "secondaryColor": "Sekundärfarbe",

@@ -807,6 +807,17 @@ export interface TranslationResources {
               successColor: string
               warningColor: string
             }
+            presets: {
+              names: {
+                default: string
+                indigo: string
+                lavender: string
+                monochrome: string
+                ocean: string
+                sunset: string
+              }
+              title: string
+            }
             title: string
           }
         }

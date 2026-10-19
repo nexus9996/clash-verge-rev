@@ -13,6 +13,7 @@
 <details>
 <summary><strong> ✨ 新增功能 </strong></summary>
 
+- 主题设置新增 6 套预设与原生取色器，可一键应用并微调主题颜色
 
 </details>
 
