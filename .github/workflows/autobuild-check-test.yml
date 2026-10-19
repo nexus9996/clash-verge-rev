@@ -49,13 +49,13 @@ jobs:
           for commit in $(git rev-list HEAD --max-count=50); do
             CHANGED_FILES=$(git show --name-only --pretty=format: $commit | tr '\n' ' ')
             HAS_TAURI_CHANGES=false
-            
+
             if echo "$CHANGED_FILES" | grep -q "src/" && echo "$CHANGED_FILES" | grep -qvE "src/(dist|build|node_modules|\.next|\.cache)"; then
               HAS_TAURI_CHANGES=true
             elif echo "$CHANGED_FILES" | grep -qE "src-tauri/(src|Cargo\.(toml|lock)|tauri\..*\.conf\.json|build\.rs|capabilities)"; then
               HAS_TAURI_CHANGES=true
             fi
-            
+
             if [ "$HAS_TAURI_CHANGES" = true ]; then
               LAST_TAURI_COMMIT=$(git rev-parse --short $commit)
               break
@@ -78,24 +78,24 @@ jobs:
             echo "🟢 没有 autobuild release，需构建"
           else
             LATEST_JSON_EXISTS=$(gh release view "autobuild" --json assets -q '.assets[] | select(.name == "latest.json") | .name' 2>/dev/null || echo "")
-            
+
             if [ -z "$LATEST_JSON_EXISTS" ]; then
               echo "should_run=true" >> $GITHUB_OUTPUT
               echo "🟢 没有 latest.json，需构建"
             else
               echo "📥 下载 latest.json 检查版本..."
               LATEST_JSON_URL=$(gh release view "autobuild" --json assets -q '.assets[] | select(.name == "latest.json") | .browser_download_url' 2>/dev/null)
-              
+
               if [ -n "$LATEST_JSON_URL" ]; then
                 LATEST_JSON_CONTENT=$(curl -s "$LATEST_JSON_URL" 2>/dev/null || echo "")
-                
+
                 if [ -n "$LATEST_JSON_CONTENT" ]; then
                   LATEST_VERSION=$(echo "$LATEST_JSON_CONTENT" | jq -r '.version' 2>/dev/null || echo "")
                   echo "📦 最新 autobuild 版本: $LATEST_VERSION"
-                  
+
                   LATEST_COMMIT=$(echo "$LATEST_VERSION" | sed -n 's/.*+autobuild\.[0-9]\{4\}\.\([a-f0-9]*\)$/\1/p' || echo "")
                   echo "📝 最新 autobuild commit: $LATEST_COMMIT"
-                  
+
                   if [ "$LAST_TAURI_COMMIT" != "$LATEST_COMMIT" ]; then
                     echo "should_run=true" >> $GITHUB_OUTPUT
                     echo "🟢 Tauri commit hash 不匹配 ($LAST_TAURI_COMMIT != $LATEST_COMMIT)，需构建"

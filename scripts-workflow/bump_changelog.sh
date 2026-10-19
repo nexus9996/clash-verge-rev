@@ -43,7 +43,7 @@ tmpfile=$(mktemp)
 {
 	cat "$CHANGELOG"
 	echo
-	echo "" 
+	echo ""
 	if [ -f "$HISTORY" ]; then
 		cat "$HISTORY"
 	fi

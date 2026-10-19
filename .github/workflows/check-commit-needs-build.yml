@@ -116,23 +116,23 @@ jobs:
             echo "should_run=true" >> $GITHUB_OUTPUT
           else
             LATEST_JSON_EXISTS=$(gh release view "${{ env.TAG_NAME }}" --json assets -q '.assets[] | select(.name == "latest.json") | .name' 2>/dev/null || echo "")
-            
+
             if [ -z "$LATEST_JSON_EXISTS" ]; then
               echo "✅ No latest.json found in autobuild release, build needed"
               echo "should_run=true" >> $GITHUB_OUTPUT
             else
               echo "📥 Downloading latest.json to check version..."
               LATEST_JSON_URL="https://github.com/clash-verge-rev/clash-verge-rev/releases/download/autobuild/latest.json"
-              
+
               LATEST_JSON_CONTENT=$(curl -sL "$LATEST_JSON_URL" 2>/dev/null || echo "")
-              
+
               if [ -n "$LATEST_JSON_CONTENT" ]; then
                 LATEST_VERSION=$(echo "$LATEST_JSON_CONTENT" | jq -r '.version' 2>/dev/null || echo "")
                 echo "📦 Latest autobuild version: $LATEST_VERSION"
-                
+
                 LATEST_COMMIT=$(echo "$LATEST_VERSION" | sed -n 's/.*+autobuild\.[0-9]\{4\}\.\([a-f0-9]*\)$/\1/p' || echo "")
                 echo "📝 Latest autobuild commit: $LATEST_COMMIT"
-                
+
                 if [ "$LAST_TAURI_COMMIT" != "$LATEST_COMMIT" ]; then
                   echo "✅ Tauri commit hash mismatch ($LAST_TAURI_COMMIT != $LATEST_COMMIT), build needed"
                   echo "should_run=true" >> $GITHUB_OUTPUT

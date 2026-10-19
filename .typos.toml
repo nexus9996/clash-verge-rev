@@ -1,0 +1,34 @@
+# typos configuration for the multilingual repository.
+# Keep entries narrow and documented; prefer fixing the word over ignoring it.
+
+[files]
+extend-exclude = [
+  # Generated or binary assets.
+  "src/assets/**",
+  "src-tauri/icons/**",
+  "src-tauri/images/**",
+  "src-tauri/gen/**",
+  # Non-English translations and translated documentation.
+  "src/locales/**",
+  "crates/clash-verge-i18n/locales/**",
+  "src-tauri/locales/**",
+  "docs/README_*.md",
+  # Historical changelog entries are not rewritten.
+  "docs/Changelog.history.md",
+  # Windows installer template keeps its historical NSIS identifiers.
+  "src-tauri/packages/**",
+  # Performance harness fixture uses mach timebase fields.
+  "scripts/perf/**",
+]
+
+[type.svg]
+extend-glob = ["*.svg"]
+check-file = false
+
+[default]
+extend-ignore-re = [
+  # Windows SDDL well-known SID alias: BA = BUILTIN\\Administrators.
+  "BA",
+  # Hysteria share-link query parameter: mport = port hopping range.
+  "mport",
+]
