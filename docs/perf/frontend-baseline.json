@@ -1,0 +1,258 @@
+{
+  "schemaVersion": 1,
+  "label": "rev-local-eager-routes",
+  "generatedAt": "2026-10-19T09:50:06.199Z",
+  "build": {
+    "distDir": "dist",
+    "indexHtml": "index.html",
+    "gzipLevel": 9
+  },
+  "git": {
+    "commit": "904f2709708b8730ea243efc9c7006044f274458",
+    "branch": "migrate/self-frontend-architecture",
+    "dirty": true
+  },
+  "environment": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "release": "27.2.0",
+    "cpu": "Apple M1",
+    "node": "v24.22.0",
+    "packageManager": "pnpm@12.14.0"
+  },
+  "initial": {
+    "files": [
+      {
+        "file": "assets/index-Ep8G96yo.js",
+        "rawBytes": 1072317,
+        "gzipBytes": 320195,
+        "role": "script"
+      },
+      {
+        "file": "assets/use-icon-cache-ilXmenMF.js",
+        "rawBytes": 330354,
+        "gzipBytes": 103568,
+        "role": "modulepreload"
+      },
+      {
+        "file": "assets/query-client-DcogQkCz.js",
+        "rawBytes": 146754,
+        "gzipBytes": 50539,
+        "role": "modulepreload"
+      },
+      {
+        "file": "assets/useLockFn-Cabm7S0_.js",
+        "rawBytes": 39768,
+        "gzipBytes": 12499,
+        "role": "modulepreload"
+      },
+      {
+        "file": "assets/polyfills-D2sRUmRE.js",
+        "rawBytes": 25713,
+        "gzipBytes": 9576,
+        "role": "script"
+      },
+      {
+        "file": "assets/IconButton-3WUKpE2z.js",
+        "rawBytes": 25579,
+        "gzipBytes": 9097,
+        "role": "modulepreload"
+      },
+      {
+        "file": "assets/window-CM9O4ZIB.js",
+        "rawBytes": 23268,
+        "gzipBytes": 5980,
+        "role": "modulepreload"
+      },
+      {
+        "file": "assets/Chip-DAazTXWv.js",
+        "rawBytes": 10429,
+        "gzipBytes": 3510,
+        "role": "modulepreload"
+      },
+      {
+        "file": "assets/index-DmwMXwj0.css",
+        "rawBytes": 8378,
+        "gzipBytes": 1656,
+        "role": "stylesheet"
+      },
+      {
+        "file": "assets/react-CuOmR4mE.js",
+        "rawBytes": 7876,
+        "gzipBytes": 3009,
+        "role": "modulepreload"
+      },
+      {
+        "file": "assets/dist-js-Dbc9sMh7.js",
+        "rawBytes": 2747,
+        "gzipBytes": 932,
+        "role": "modulepreload"
+      },
+      {
+        "file": "assets/preload-helper-BZ1Pz5am.js",
+        "rawBytes": 1218,
+        "gzipBytes": 688,
+        "role": "modulepreload"
+      },
+      {
+        "file": "assets/rolldown-runtime-hePW80VL.js",
+        "rawBytes": 716,
+        "gzipBytes": 428,
+        "role": "modulepreload"
+      },
+      {
+        "file": "assets/defineProperty-BbfpZ9Tg.js",
+        "rawBytes": 707,
+        "gzipBytes": 390,
+        "role": "modulepreload"
+      },
+      {
+        "file": "assets/jsx-runtime-NZYk81nU.js",
+        "rawBytes": 435,
+        "gzipBytes": 306,
+        "role": "modulepreload"
+      }
+    ],
+    "js": {
+      "fileCount": 14,
+      "rawBytes": 1687881,
+      "gzipBytes": 520717
+    },
+    "css": {
+      "fileCount": 1,
+      "rawBytes": 8378,
+      "gzipBytes": 1656
+    },
+    "rawBytes": 1696259,
+    "gzipBytes": 522373
+  },
+  "async": {
+    "fileCount": 259,
+    "rawBytes": 16845053,
+    "gzipBytes": 4166553,
+    "topByRaw": [
+      {
+        "file": "assets/ts.worker-AG_zREvT.js",
+        "rawBytes": 6928876,
+        "gzipBytes": 1484995
+      },
+      {
+        "file": "assets/editor.api-Bhk8Ma7i.js",
+        "rawBytes": 2734588,
+        "gzipBytes": 698306
+      },
+      {
+        "file": "assets/vs-dQJXrOjh.js",
+        "rawBytes": 1295295,
+        "gzipBytes": 322720
+      },
+      {
+        "file": "assets/css.worker-9fKlqoM8.js",
+        "rawBytes": 1079295,
+        "gzipBytes": 246133
+      },
+      {
+        "file": "assets/yaml.worker-B8AbxNap.js",
+        "rawBytes": 1051088,
+        "gzipBytes": 311659
+      },
+      {
+        "file": "assets/html.worker-DiYPl6P5.js",
+        "rawBytes": 744348,
+        "gzipBytes": 196120
+      },
+      {
+        "file": "assets/meta-json-schema-DBYZkBmU.js",
+        "rawBytes": 465867,
+        "gzipBytes": 64990
+      },
+      {
+        "file": "assets/json.worker-dQo_xdTt.js",
+        "rawBytes": 434100,
+        "gzipBytes": 128813
+      },
+      {
+        "file": "assets/editor.worker-BLJF_oQx.js",
+        "rawBytes": 303880,
+        "gzipBytes": 92908
+      },
+      {
+        "file": "assets/rehype-raw-BRkS7-sh.js",
+        "rawBytes": 169816,
+        "gzipBytes": 52537
+      },
+      {
+        "file": "assets/editor-VadRs2RM.css",
+        "rawBytes": 99122,
+        "gzipBytes": 14183
+      },
+      {
+        "file": "assets/react-markdown-DDxkIHVk.js",
+        "rawBytes": 91109,
+        "gzipBytes": 26635
+      },
+      {
+        "file": "assets/vs-C6FTLCuU.css",
+        "rawBytes": 87036,
+        "gzipBytes": 13686
+      },
+      {
+        "file": "assets/remark-gfm-yMF2Xrlx.js",
+        "rawBytes": 38365,
+        "gzipBytes": 11448
+      },
+      {
+        "file": "assets/settings-ceJ6ZUVj.js",
+        "rawBytes": 35229,
+        "gzipBytes": 10084
+      },
+      {
+        "file": "assets/settings-W8c59hZt.js",
+        "rawBytes": 28602,
+        "gzipBytes": 9763
+      },
+      {
+        "file": "assets/settings-DnFiXPEB.js",
+        "rawBytes": 28516,
+        "gzipBytes": 9265
+      },
+      {
+        "file": "assets/lspLanguageFeatures-DNjVM-Dx.js",
+        "rawBytes": 28224,
+        "gzipBytes": 7121
+      },
+      {
+        "file": "assets/settings-DUgKnLLB.js",
+        "rawBytes": 27730,
+        "gzipBytes": 9369
+      },
+      {
+        "file": "assets/settings-Dvo0MOpQ.js",
+        "rawBytes": 26332,
+        "gzipBytes": 8949
+      }
+    ]
+  },
+  "workers": {
+    "fileCount": 11,
+    "rawBytes": 10545901,
+    "files": [
+      "assets/ts.worker-AG_zREvT.js",
+      "assets/css.worker-9fKlqoM8.js",
+      "assets/yaml.worker-B8AbxNap.js",
+      "assets/html.worker-DiYPl6P5.js",
+      "assets/json.worker-dQo_xdTt.js",
+      "assets/editor.worker-BLJF_oQx.js",
+      "assets/traffic-monitor-worker-D2gXg3pG.js",
+      "assets/editor.worker-Cpbw190E.js",
+      "assets/yaml.worker-U983B2-R.js",
+      "assets/css.worker-D73PduIn.js",
+      "assets/ts.worker-DgwkE75K.js"
+    ]
+  },
+  "totals": {
+    "jsCssFileCount": 274,
+    "rawBytes": 18541312,
+    "gzipBytes": 4688926
+  }
+}

@@ -5,6 +5,7 @@
 > 基线：`clash-verge-rev` = `local`（v2.5.9 + 69 本地提交，其中仅 8 个碰前端，均为 macOS 原生标题栏/窗口控制）；`clash-verge-self` = `dev` @ `f9cb6581`（2026-10-19，完整历史以 tag `v2.3.2` / `75c8c416` 为准，dev 为 shallow clone）
 > 方法：只读静态分析 + git 历史取证；未构建、未安装、未运行。文中行号为当前工作树（rev worktree / self dev）。
 > 定位：本文件是该分支的**总纲与执行清单**，不是实现。实现按 Phase 拆子分支/PR；每个 Phase 有独立验收与回滚点。
+> 状态：Phase 0 已完成（2026-10-19）——门禁全绿、bundle 基线入库、ADR/架构文档就绪；执行记录见 §12。
 
 ---
 
@@ -331,7 +332,7 @@ Phase 4（3–5d）收口
 
 > 每张卡片的 `self 证据` 用于实现时对照参考（`git -C clash-verge-self show <hash>`），**不是** cherry-pick 来源。
 
-### M0 基线治理与度量
+### M0 基线治理与度量 ✅（2026-10-19 已完成，见 §12）
 
 - **目标**：迁移前把"可对比的基线"固定下来。
 - **步骤**：
@@ -655,7 +656,7 @@ pnpm i18n:types && pnpm i18n:check
 # 本分支 worktree
 cd ../clash-verge-rev-frontend-migration
 
-# 路由于成（dev 时插件自动生成；手动重建）
+# 路由生成（dev 时插件自动生成；手动重建）
 pnpm generate-routes
 
 # 基线体检
@@ -663,8 +664,9 @@ pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm knip:check
 node scripts/check-architecture.mjs listen emit invoke
 pnpm i18n:types && pnpm i18n:check
 
-# 体积基线
-pnpm web:build && node scripts/check-bundle-budget.mjs --record
+# 体积基线（Phase 0 已建立；Phase 4 再接预算门禁）
+pnpm web:build
+node scripts/perf/frontend-baseline.mjs --dist dist --out docs/perf/frontend-baseline.json
 
 # 参考 self 的具体实现（只读，不 checkout）
 git -C ../clash-verge-self show <commit>:<path>
@@ -681,8 +683,48 @@ git -C ../clash-verge-self show <commit>:<path>
 
 ## 11. 立即可执行的第一步（TL;DR）
 
-1. 在 `migrate/self-frontend-architecture` 分支 worktree 跑 §7.1 门禁，采集 Phase 0 基线（体积/导航耗时），写 `docs/adr/0001-router-choice.md`。
+1.（✅ 已完成，见 §12）在 `migrate/self-frontend-architecture` 分支 worktree 跑 §7.1 门禁、采集 bundle 基线、写 ADR。
 2. 开子分支 `migrate/fe-router-poc`：只迁 settings + proxies 两条路由，按 §4.2 G1 指标验证"无闪 + 拆包"。
 3. PoC 通过 → 全量 R1/R2/R3/R4；不通过 → 切换 B 方案（react-router 分层 + lazy），记录 ADR。
 4. Phase 2/3 可并行（文件不重叠）：样式 token 与 Provider 拆分各开子分支。
 5. 任何提交前按 §8.1 标注来源，按 §7.1 跑门禁；每 Phase 结束做一次 `rebase origin/dev` 演练。
+
+
+---
+
+## 12. Phase 0 执行记录（2026-10-19）
+
+状态：**已完成**。M0 验收口径：门禁绿色基线可复现；基线数据写入文档；worktree 干净。
+
+### 12.1 交付物
+
+| 交付物 | 路径 | 说明 |
+| --- | --- | --- |
+| ADR（D1–D4 选型 + 备选/重评条件） | `docs/adr/0001-router-choice.md` | 路由条件 Go；样式/状态/资产裁决 |
+| 目标架构 | `docs/frontend-architecture.md` | 分层/路由约定/ownership/token/门禁 + base 差异清单 + churn 冻结清单 |
+| 基线报告 | `docs/perf/frontend-baseline-2026-10-19.md` | 门禁结果、构建产物、初始负载、G1 口径、计时协议 |
+| 机器可读基线 | `docs/perf/frontend-baseline.json` | 初始/异步 chunk 字节与 gzip；供 Phase 4 预算门禁消费 |
+| 基线采集脚本 | `scripts/perf/frontend-baseline.mjs` | `pnpm web:build` 后解析 dist；可复现 |
+| npm script | `package.json` 的 `perf:frontend-baseline` | 稳定入口（Phase 4 扩展为 `--check`） |
+
+### 12.2 门禁
+
+`typecheck` / `lint` / `format:check` / `test` / `knip:check` / `arch:check` / `i18n:types` / `i18n:check` / `web:build` 全部 exit 0；耗时见基线报告 §1。**未执行**：`pnpm gen:contract` 与 Rust 门禁（Phase 0 为 docs-only，且 worktree 无 `src-tauri/target`，冷编译成本高）——移交 Phase 1 首个 PR 补跑。
+
+### 12.3 基线摘要
+
+- 初始负载：**508.5 kB gzip**（1,648.3 kB raw）JS + 1.6 kB gzip CSS；入口 chunk 312.7 kB gzip。
+- 8 个页面全 eager：路由切换 0 网络请求、0 loading——这是 R3 的对照基线。
+- G1 目标：初始 JS gzip ≤ **432.2 kB**（−15%），页面对应异步 chunk，且无 loading 闪烁。
+- 异步 259 个 chunk（Monaco worker 11 个、raw 10.5 MB），说明预算门禁必须区分"初始/总产物"。
+
+### 12.4 移交 Phase 1 的事项
+
+1. 开 `migrate/fe-router-poc`：settings + proxies 两路由 PoC，按 G1 六项条件验收。
+2. 补跑 `pnpm gen:contract` + Rust 门禁（Phase 1 首个 PR）。
+3. 运行时导航计时（G1）：按基线报告 §6 协议采集冷/热 p50/p95 并回填基线（`frontend-baseline.json` 扩展字段）。
+4. 上游 rebase 演练：Phase 1 结束后按 §8.2 执行。
+
+### 12.5 结论
+
+Phase 0 无阻塞项，可以进入 Phase 1（G1 条件 Go）。唯一未测量项是运行时导航耗时，已明确由 G1 PoC 承担，不影响 Phase 0 验收。
