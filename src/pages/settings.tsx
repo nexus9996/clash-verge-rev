@@ -1,6 +1,7 @@
 import { GitHub, HelpOutlineRounded, Telegram } from '@mui/icons-material'
 import { Box, ButtonGroup, IconButton, Grid } from '@mui/material'
 import { useLockFn } from 'ahooks'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BasePage } from '@/components/base'
@@ -9,10 +10,18 @@ import SettingSystem from '@/components/setting/setting-system'
 import SettingVergeAdvanced from '@/components/setting/setting-verge-advanced'
 import SettingVergeBasic from '@/components/setting/setting-verge-basic'
 import { showNotice } from '@/services/notice-service'
+import { recordDiagnostic } from '@/utils/diagnostics'
 import { openExternalUrl } from '@/utils/open-external-url'
 
 const SettingPage = () => {
   const { t } = useTranslation()
+  const [mountStartedAt] = useState(() => performance.now())
+
+  useEffect(() => {
+    recordDiagnostic('settings-mount', {
+      ms: Math.round((performance.now() - mountStartedAt) * 10) / 10,
+    })
+  }, [mountStartedAt])
 
   const onError = (err: any) => {
     showNotice.error(err)

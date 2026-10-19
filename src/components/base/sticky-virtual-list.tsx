@@ -155,7 +155,7 @@ export const StickyVirtualList = forwardRef(function StickyVirtualListInner<
 
     return groupSections.slice(
       firstSectionIndex,
-      Math.min(lastSectionIndex + 2, groupSections.length),
+      Math.min(lastSectionIndex + 1, groupSections.length),
     )
   }, [groupIndexes, groupSections, virtualItems])
 

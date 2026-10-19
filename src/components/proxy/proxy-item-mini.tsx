@@ -64,14 +64,12 @@ export const ProxyItemMini = memo(function ProxyItemMini(props: Props) {
           justifyContent: 'space-between',
           alignItems: 'center',
         },
-        ({ palette: { mode, primary, text } }) => {
+        ({ palette: { mode, primary } }) => {
           const bgcolor = 'var(--surface-raised)'
           const showDelay = delayValue > 0
           const selectColor = mode === 'light' ? primary.main : primary.light
 
           return {
-            border: '1px solid',
-            borderColor: alpha(text.secondary, 0.36),
             '&:hover .the-check': { display: !showDelay ? 'block' : 'none' },
             '&:hover .the-delay': { display: showDelay ? 'block' : 'none' },
             '&:hover .the-icon': { display: 'none' },
