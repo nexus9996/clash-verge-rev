@@ -9,8 +9,8 @@ import { useMatchRoute, useNavigate } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 
 import type { SortableItemRenderProps } from '@/components/base/sortable-item'
+import type { NavigationPath } from '@/config/navigation'
 import { useVerge } from '@/hooks/use-verge'
-import type { NavigationPath } from '@/pages/_navigation'
 
 interface Props {
   to: NavigationPath

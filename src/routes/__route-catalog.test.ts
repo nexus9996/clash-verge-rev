@@ -1,42 +1,38 @@
 import { describe, expect, it } from 'vitest'
 
-import { navigationItems } from '@/pages/_navigation-meta'
+import { NAV_ITEMS } from '@/config/navigation'
 
-/**
- * Guards the single-source-of-truth contract between the sidebar navigation
- * catalog and the generated file-based route tree. If a route is added or
- * removed without updating the other side, this fails before the UI drifts.
- */
-const generatedRouteTreeSources = import.meta.glob('../routeTree.gen.ts', {
+const routeSources = import.meta.glob('./*.tsx', {
   query: '?raw',
   import: 'default',
   eager: true,
 }) as Record<string, string>
 
-const readGeneratedRoutePaths = () => {
-  const [source] = Object.values(generatedRouteTreeSources)
-  if (!source) throw new Error('generated route tree not found')
+const routeEntries = Object.entries(routeSources)
+  .filter(([file]) => !file.endsWith('__root.tsx'))
+  .map(([file, source]) => {
+    const path = /createFileRoute\('([^']+)'\)/.exec(source)?.[1]
+    const navId = /navId: '([^']+)'/.exec(source)?.[1]
+    if (!path || !navId) throw new Error(`route metadata missing in ${file}`)
 
-  return [...source.matchAll(/^\s*path: '([^']+)',$/gm)].map(
-    (match) => match[1],
-  )
-}
+    return { path, navId }
+  })
+
+const sorted = (values: readonly string[]) => [...values].sort()
 
 describe('route catalog', () => {
-  it('covers exactly the navigation paths', () => {
-    const routePaths = new Set(readGeneratedRoutePaths())
-    const navigationPaths = new Set(
-      Object.values(navigationItems).map((item) => item.path),
+  it('covers exactly the navigation entries', () => {
+    expect(sorted(routeEntries.map((entry) => entry.path))).toEqual(
+      sorted(NAV_ITEMS.map((item) => item.path)),
     )
-
-    expect([...routePaths].sort()).toEqual([...navigationPaths].sort())
+    expect(sorted(routeEntries.map((entry) => entry.navId))).toEqual(
+      sorted(NAV_ITEMS.map((item) => item.id)),
+    )
   })
 
   it('keeps every navigation path unique', () => {
-    const navigationPaths = Object.values(navigationItems).map(
-      (item) => item.path,
-    )
+    const paths = NAV_ITEMS.map((item) => item.path)
 
-    expect(new Set(navigationPaths).size).toBe(navigationPaths.length)
+    expect(new Set(paths).size).toBe(paths.length)
   })
 })

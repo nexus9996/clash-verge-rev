@@ -14,6 +14,7 @@ import {
   WindowControls,
   WindowResizeHandles,
 } from '@/components/layout/window-controller'
+import { resolveNavigationPath } from '@/config/navigation'
 import { useI18n } from '@/hooks/use-i18n'
 import { useVerge } from '@/hooks/use-verge'
 import { useWindowMaximized } from '@/hooks/use-window-maximized'
@@ -27,7 +28,6 @@ import {
   useLoadingOverlay,
   usePendingFailures,
 } from './_layout/hooks'
-import type { NavigationPath } from './_navigation'
 
 import 'dayjs/locale/ru'
 import 'dayjs/locale/zh-cn'
@@ -66,7 +66,7 @@ const Layout = () => {
       const [status, msg] = payload
       try {
         handleNoticeMessage(status, msg, t, (path) =>
-          navigate({ to: path as NavigationPath }),
+          navigate({ to: resolveNavigationPath(path) }),
         )
       } catch (error) {
         console.error('[通知处理] 失败:', error)
