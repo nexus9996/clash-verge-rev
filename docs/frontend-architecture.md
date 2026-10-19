@@ -174,7 +174,7 @@ config/theme/
 | i18n | `pnpm i18n:types && pnpm i18n:check` | 已有（Phase 4 接 CI `--check`） |
 | 分层边界 | import 分区规则（Phase 3） | 待建 |
 | 路由一致性 | `routes/__route-catalog.test.ts`（Phase 1） | 待建 |
-| bundle 预算 | `scripts/check-bundle-budget.mjs` 对比 `docs/perf/frontend-baseline.json`（Phase 4） | 基线已入库 |
+| bundle 预算 | `scripts/check-bundle-budget.mjs` 对比 `docs/perf/frontend-baseline.json`（T4） | 已接入 CI |
 | 导航性能 | 扩展 `scripts/perf`（Phase 1 PoC 起） | 协议见基线报告 |
 
 ## 附录 A：base 组件差异清单（Phase 0 实测）

@@ -83,6 +83,14 @@ jobs:
         if: steps.check_frontend.outputs.frontend == 'true'
         run: pnpm test
 
+      - name: Build frontend
+        if: steps.check_frontend.outputs.frontend == 'true'
+        run: pnpm web:build
+
+      - name: Check bundle budget
+        if: steps.check_frontend.outputs.frontend == 'true'
+        run: pnpm check:bundle-budget
+
       - name: Run Knip
         if: steps.check_frontend.outputs.frontend == 'true'
         run: pnpm knip:check

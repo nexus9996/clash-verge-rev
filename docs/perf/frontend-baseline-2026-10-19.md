@@ -136,3 +136,11 @@ node scripts/perf/frontend-baseline.mjs --dist dist --label rev-local-ed909350-e
 2. `frontend-baseline.json` 采集时工作树含未提交的 Phase 0 文档/脚本（`dirty: true`），`src/` 代码与 `904f2709` 完全一致；基线代码语义为 `local@ed909350`。
 3. 构建耗时（13s）与门禁耗时（~93s）仅作为后续 PR 回归的参考上限，不构成硬门槛。
 4. 未覆盖：Rust 契约产物校验（见 §1）、真实 WebView 的首屏 FCP/TTI（Phase 1 PoC 用同一协议补测）。
+
+## 9. 基线更新记录（T4，2026-10-19）
+
+- Phase 0（8 路由 eager）：初始 JS **508.5 kB gzip**、入口 312.7 kB gzip（见上文 §3）。
+- R1/R2/T2 合入后：初始 JS **393.1 kB gzip**（1,196.0 kB raw），入口 **159.0 kB gzip**；7 个非首屏页面拆为异步 chunk。
+- `docs/perf/frontend-baseline.json` 已更新为该基线（label `integration-router-r2-t2`，基线代码 commit `f9dd397e`），供预算门禁消费。
+- 预算命令：`pnpm web:build && pnpm check:bundle-budget`（默认容差 +2%，即 400.9 kB gzip）；CI 的 `frontend-check.yml` 在 tests 之后执行 build + budget。
+- 有意调整包体时用 `node scripts/check-bundle-budget.mjs --dist dist --record` 更新基线，并在 PR 中说明原因。
