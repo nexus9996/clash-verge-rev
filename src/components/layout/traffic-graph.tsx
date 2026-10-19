@@ -94,8 +94,8 @@ export function TrafficGraph({ ref }: { ref?: Ref<TrafficRef> }) {
 
     const { primary, secondary, divider } = palette
     const refLineColor = divider || 'rgba(0, 0, 0, 0.12)'
-    const upLineColor = secondary.main || '#9c27b0'
-    const downLineColor = primary.main || '#5b5c9d'
+    const upLineColor = secondary.main
+    const downLineColor = primary.main
 
     const drawGraph = () => {
       const list = listRef.current

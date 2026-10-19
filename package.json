@@ -44,6 +44,7 @@
     "perf:test": "node --test scripts/perf/report.test.mjs scripts/perf/bundle-budget.test.mjs",
     "perf:frontend-baseline": "node scripts/perf/frontend-baseline.mjs --dist dist --label rev-local-eager-routes --out docs/perf/frontend-baseline.json",
     "check:bundle-budget": "node scripts/check-bundle-budget.mjs --dist dist",
+    "check:hex-budget": "node scripts/check-hex-budget.mjs",
     "generate-routes": "tsr generate"
   },
   "dependencies": {

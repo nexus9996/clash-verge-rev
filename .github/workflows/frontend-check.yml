@@ -91,6 +91,10 @@ jobs:
         if: steps.check_frontend.outputs.frontend == 'true'
         run: pnpm check:bundle-budget
 
+      - name: Check hardcoded color budget
+        if: steps.check_frontend.outputs.frontend == 'true'
+        run: pnpm check:hex-budget
+
       - name: Run Knip
         if: steps.check_frontend.outputs.frontend == 'true'
         run: pnpm knip:check

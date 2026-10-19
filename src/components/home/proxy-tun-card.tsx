@@ -82,7 +82,7 @@ const TabButton: FC<TabButtonProps> = memo(
             width: 8,
             height: 8,
             borderRadius: '50%',
-            bgcolor: isActive ? '#fff' : 'success.main',
+            bgcolor: isActive ? 'common.white' : 'success.main',
             position: 'absolute',
             top: 8,
             right: 8,

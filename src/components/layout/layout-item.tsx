@@ -58,12 +58,12 @@ export const LayoutItem = (props: Props) => {
               fontWeight: '700',
             },
           },
-          ({ palette: { mode, primary } }) => {
+          ({ palette: { mode, primary, text, common } }) => {
             const bgcolor =
               mode === 'light'
                 ? alpha(primary.main, 0.15)
                 : alpha(primary.main, 0.35)
-            const color = mode === 'light' ? '#1f1f1f' : '#ffffff'
+            const color = mode === 'light' ? text.primary : common.white
             return {
               '&.Mui-selected': { bgcolor },
               '&.Mui-selected:hover': { bgcolor },

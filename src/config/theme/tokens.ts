@@ -118,6 +118,10 @@ export const resolveThemeColors = (
 
 interface ModeSurfaces {
   fallbackBackground: string
+  cardBackground: string
+  pageBackground: string
+  loadingBackground: string
+  loadingText: string
   selection: string
   scroller: string
   divider: string
@@ -130,6 +134,10 @@ interface ModeSurfaces {
 
 const LIGHT_SURFACES: ModeSurfaces = {
   fallbackBackground: '#ECECEC',
+  cardBackground: '#ffffff',
+  pageBackground: '#ffffff',
+  loadingBackground: '#fff',
+  loadingText: '#333',
   selection: '#f5f5f5',
   scroller: '#90939980',
   divider: 'rgba(0, 0, 0, 0.06)',
@@ -142,6 +150,10 @@ const LIGHT_SURFACES: ModeSurfaces = {
 
 const DARK_SURFACES: ModeSurfaces = {
   fallbackBackground: '#2E303D',
+  cardBackground: '#282a36',
+  pageBackground: '#1e1f27',
+  loadingBackground: '#181a1b',
+  loadingText: '#fff',
   selection: '#3E3E3E',
   scroller: '#555555',
   divider: 'rgba(255, 255, 255, 0.06)',
@@ -197,6 +209,8 @@ export const createThemeCssVariables = ({
     '--color-paper': colors.paper,
     '--color-divider': surfaces.divider,
     '--color-border': surfaces.windowBorder,
+    '--surface-card': surfaces.cardBackground,
+    '--surface-page': surfaces.pageBackground,
   }
 
   for (const [key, value] of Object.entries(SPACE)) {
