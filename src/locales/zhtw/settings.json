@@ -209,6 +209,17 @@
       },
       "theme": {
         "title": "主題設定",
+        "presets": {
+          "title": "預設",
+          "names": {
+            "default": "預設",
+            "ocean": "海洋",
+            "indigo": "靛藍",
+            "sunset": "日落",
+            "lavender": "薰衣草",
+            "monochrome": "黑白"
+          }
+        },
         "fields": {
           "primaryColor": "主要顏色",
           "secondaryColor": "次要顏色",

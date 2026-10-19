@@ -209,6 +209,17 @@
       },
       "theme": {
         "title": "Тема көйләүләре",
+        "presets": {
+          "title": "Көйләүләр",
+          "names": {
+            "default": "Килешү",
+            "ocean": "Океан",
+            "indigo": "Индиго",
+            "sunset": "Кояш батуы",
+            "lavender": "Лаванда",
+            "monochrome": "Бер төсле"
+          }
+        },
         "fields": {
           "primaryColor": "Төп төс",
           "secondaryColor": "Икенче төс",

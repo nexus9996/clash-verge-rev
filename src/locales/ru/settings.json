@@ -209,6 +209,17 @@
       },
       "theme": {
         "title": "Настройки темы",
+        "presets": {
+          "title": "Пресеты",
+          "names": {
+            "default": "По умолчанию",
+            "ocean": "Океан",
+            "indigo": "Индиго",
+            "sunset": "Закат",
+            "lavender": "Лаванда",
+            "monochrome": "Монохром"
+          }
+        },
         "fields": {
           "primaryColor": "Основной цвет",
           "secondaryColor": "Вторичный цвет",

@@ -209,6 +209,17 @@
       },
       "theme": {
         "title": "إعدادات السمة",
+        "presets": {
+          "title": "إعدادات مسبقة",
+          "names": {
+            "default": "افتراضي",
+            "ocean": "محيطي",
+            "indigo": "نيلي",
+            "sunset": "الغروب",
+            "lavender": "الخزامى",
+            "monochrome": "أحادي اللون"
+          }
+        },
         "fields": {
           "primaryColor": "اللون الأساسي",
           "secondaryColor": "اللون الثانوي",
