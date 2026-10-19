@@ -12,6 +12,7 @@
     "dev:tauri": "cross-env RUST_BACKTRACE=full tauri dev -f tauri-dev",
     "build": "cross-env NODE_OPTIONS='--max-old-space-size=4096' tauri build",
     "build:fast": "cross-env NODE_OPTIONS='--max-old-space-size=4096' tauri build -- --profile fast-release",
+    "build:nav-timing": "cross-env NODE_OPTIONS='--max-old-space-size=4096' VITE_NAV_TIMING=1 tauri build --bundles app --config scripts/perf/tauri-nav-timing.json",
     "tauri": "tauri",
     "web:dev": "vite",
     "web:build": "tsc --noEmit && vite build",

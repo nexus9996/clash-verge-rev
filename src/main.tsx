@@ -36,7 +36,8 @@ if (!container) {
 
 disableWebViewShortcuts()
 
-if (import.meta.env.DEV) {
+// Opt-in for packaged navigation-timing builds: pnpm build:nav-timing
+if (import.meta.env.DEV || import.meta.env.VITE_NAV_TIMING === '1') {
   installRouteTiming(router)
 }
 

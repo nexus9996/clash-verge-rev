@@ -182,7 +182,7 @@ src/config/theme/
 | 路由一致性 | `src/routes/__route-catalog.test.ts` | 已接入（T3） |
 | bundle 预算 | `scripts/check-bundle-budget.mjs` 对比 `docs/perf/frontend-baseline.json`（T4） | 已接入 CI |
 | hex 预算 | `scripts/check-hex-budget.mjs`（预算 0，S3） | 已接入 CI |
-| 导航性能 | `src/app/router-timing.ts`（dev opt-in）+ `scripts/perf/nav-timing.mjs` | 采样/校验已落地；本机手动门禁，数据待桌面采集（见 `perf/navigation-timing.md`） |
+| 导航性能 | `src/app/router-timing.ts` + `scripts/perf/nav-timing.mjs`；验收用 `VITE_NAV_TIMING=1` 构建包 | 采样/校验已落地；本机手动门禁，打包数据待桌面采集（见 `perf/navigation-timing.md`） |
 
 ## 附录 A：base 组件差异清单（Phase 0 实测）
 
