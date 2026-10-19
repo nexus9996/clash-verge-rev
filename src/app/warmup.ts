@@ -35,6 +35,15 @@ export const prefetchRouteChunks = async (router: AnyRouter) => {
       console.warn(`[warmup] route preload failed: ${item.path}`, error)
     }
   }
+
+  // These routes wrap their page in lazyRouteComponent; preloading the route
+  // does not always resolve the React lazy component, which would suspend on
+  // the first visit after navigation.
+  await Promise.allSettled([
+    import('@/pages/profiles'),
+    import('@/pages/settings'),
+    import('@/pages/connections'),
+  ])
 }
 
 const prewarmCommonQueries = async () => {

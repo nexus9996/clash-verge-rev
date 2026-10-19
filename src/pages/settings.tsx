@@ -86,6 +86,8 @@ const SettingPage = () => {
               borderRadius: 2,
               marginBottom: 1.5,
               backgroundColor: 'var(--surface-card)',
+              contentVisibility: 'auto',
+              containIntrinsicSize: 'auto 640px',
             }}
           >
             <SettingSystem onError={onError} />
@@ -94,6 +96,8 @@ const SettingPage = () => {
             sx={{
               borderRadius: 2,
               backgroundColor: 'var(--surface-card)',
+              contentVisibility: 'auto',
+              containIntrinsicSize: 'auto 640px',
             }}
           >
             <SettingClash onError={onError} />
@@ -105,6 +109,8 @@ const SettingPage = () => {
               borderRadius: 2,
               marginBottom: 1.5,
               backgroundColor: 'var(--surface-card)',
+              contentVisibility: 'auto',
+              containIntrinsicSize: 'auto 640px',
             }}
           >
             <SettingVergeBasic onError={onError} />
@@ -113,6 +119,8 @@ const SettingPage = () => {
             sx={{
               borderRadius: 2,
               backgroundColor: 'var(--surface-card)',
+              contentVisibility: 'auto',
+              containIntrinsicSize: 'auto 640px',
             }}
           >
             <SettingVergeAdvanced onError={onError} />

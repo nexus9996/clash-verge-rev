@@ -119,6 +119,7 @@ export const resolveThemeColors = (
 interface ModeSurfaces {
   fallbackBackground: string
   cardBackground: string
+  raisedBackground: string
   pageBackground: string
   loadingBackground: string
   loadingText: string
@@ -137,6 +138,7 @@ interface ModeSurfaces {
 const LIGHT_SURFACES: ModeSurfaces = {
   fallbackBackground: '#ECECEC',
   cardBackground: '#ffffff',
+  raisedBackground: '#ffffff',
   pageBackground: '#ffffff',
   loadingBackground: '#fff',
   loadingText: '#333',
@@ -155,6 +157,7 @@ const LIGHT_SURFACES: ModeSurfaces = {
 const DARK_SURFACES: ModeSurfaces = {
   fallbackBackground: '#2E303D',
   cardBackground: '#282a36',
+  raisedBackground: '#2B2D3A',
   pageBackground: '#1e1f27',
   loadingBackground: '#181a1b',
   loadingText: '#fff',
@@ -219,6 +222,7 @@ export const createThemeCssVariables = ({
     '--color-divider': surfaces.divider,
     '--color-border': surfaces.windowBorder,
     '--surface-card': surfaces.cardBackground,
+    '--surface-raised': surfaces.raisedBackground,
     '--surface-page': surfaces.pageBackground,
     '--log-highlight': surfaces.logHighlight,
     '--switch-active': SWITCH_ACTIVE,

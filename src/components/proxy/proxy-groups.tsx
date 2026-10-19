@@ -393,6 +393,18 @@ function NormalProxyGroups(props: { mode: string }) {
   } = useProxyRenderState(mode, false, null)
   const emptyList = useEmptyRenderList()
   const { onDragEnd: onHeaderDragEnd } = useProxyGroupHeaderLayout()
+  const [navigatorReady, setNavigatorReady] = useState(false)
+
+  useEffect(() => {
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(() => setNavigatorReady(true), {
+        timeout: 1200,
+      })
+      return () => window.cancelIdleCallback?.(id)
+    }
+    const id = window.setTimeout(() => setNavigatorReady(true), 600)
+    return () => window.clearTimeout(id)
+  }, [])
 
   mountMetricsRef.current = {
     rows: renderList.length,
@@ -622,7 +634,7 @@ function NormalProxyGroups(props: { mode: string }) {
         />
       </DragDropProvider>
 
-      {mode === 'rule' && (
+      {mode === 'rule' && navigatorReady && (
         <ProxyGroupNavigator
           proxyGroupNames={proxyGroupNames}
           onGroupLocation={handleGroupLocationByName}
