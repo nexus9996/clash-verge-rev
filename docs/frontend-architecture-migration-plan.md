@@ -545,6 +545,7 @@ pnpm i18n:types && pnpm i18n:check
 ### 8.1 分支模型
 
 - 集成分支：`migrate/self-frontend-architecture`（基于 `local` @ `ed909350`，本文件所在分支）。
+- **工作区隔离（强制）**：每张卡片在独立 `git worktree` 中开发，路径固定为 `worktrees/<name>`（如 `worktrees/fe-router-poc`、`worktrees/integration`）；主仓库 `clash-verge-rev` 固定停留在 `local`，**不在多个分支/工作区之间反复 checkout**。每个 AI 会话只在自己 worktree 内读写与提交，提交只落在自己的分支；合并与集成文档在 `worktrees/integration` 中完成。
 - 子分支（每张卡片一个，单独 PR/可独立回滚）：
   - `migrate/fe-router-poc`、`migrate/fe-router`
   - `migrate/fe-nav-config`、`migrate/fe-loading`
@@ -653,8 +654,8 @@ pnpm i18n:types && pnpm i18n:check
 ### D. 常用命令
 
 ```bash
-# 本分支 worktree
-cd ../clash-verge-rev-frontend-migration
+# 各分支独立 worktree（示例；禁止在主仓库里反复切换分支）
+cd ../worktrees/fe-router-poc
 
 # 路由生成（dev 时插件自动生成；手动重建）
 pnpm generate-routes
