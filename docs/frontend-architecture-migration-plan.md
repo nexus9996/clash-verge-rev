@@ -863,7 +863,7 @@ Phase 0 无阻塞项，可以进入 Phase 1（G1 条件 Go）。唯一未测量�
 
 **2. 导航性能采样**
 
-- `src/app/router-timing.ts`：dev-only、`localStorage['verge.routeTiming'] = '1'` 显式开启；记录 cold/hot 样本，暴露 `window.__vergeNavTiming.{getSamples,getReport,export,clear}`；release 构建由 `import.meta.env.DEV` 剔除，不进入包体。
+- `src/app/router-timing.ts`：dev-only；`window.__vergeNavTiming.start()/stop()` 运行时开关（无需刷新），记录 cold/hot 样本并暴露 `getSamples/getReport/export/clear`；release 构建由 `import.meta.env.DEV` 剔除，不进入包体。
 - `scripts/perf/nav-timing.mjs` + `nav-timing-lib.mjs`：`--file/--check/--record/--json`，校验样本数（cold ≥ 8、hot ≥ 20）与 p95 门槛（cold 200 ms、hot 100 ms）；`--record` 写入 `docs/perf/navigation-timing-baseline.json`。
 - `scripts/perf/nav-timing.test.mjs` 覆盖 percentile、cold/hot 分桶、样本校验、阈值与基线结构；`src/app/router-timing.install.test.ts`（jsdom）覆盖事件接线、cold/hot 判定与未开启时不安装；CI 增加 `pnpm perf:test`。
 - 实测协议见 [navigation-timing](perf/navigation-timing.md)；p95 数值与 20 次录屏仍需桌面执行（本会话无桌面 Tauri 开发实例）。

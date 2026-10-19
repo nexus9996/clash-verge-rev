@@ -7,7 +7,7 @@
 
 ## 1. 现状与口径
 
-- 采样入口：`src/app/router-timing.ts`，仅在 **dev 构建** 且显式开启时安装（`localStorage['verge.routeTiming'] = '1'`），release 构建被 `import.meta.env.DEV` 剔除，不进入包体。
+- 采样入口：`src/app/router-timing.ts`，仅在 **dev 构建** 建立（release 构建被 `import.meta.env.DEV` 剔除，不进入包体）；默认不记录，调用 `window.__vergeNavTiming.start()` 运行时开启，**无需刷新页面**。
 - 计时口径：从路由 `onBeforeNavigate`（点击/导航开始）到 `onRendered` 后再过一帧（双 `requestAnimationFrame`），包含路由 chunk 加载与 React 渲染，不含页面数据请求（SWR 在组件挂载后才发起），与「无导航 loading」的验收口径一致。
 - cold / hot：本次会话内首次进入某路由记为 cold（含初始页），之后进入记为 hot。
 - 采样为单机基线，不跨机器比较；基线 JSON 仅用于同机后续对比。
@@ -17,13 +17,13 @@
 1. `pnpm dev` 启动 Tauri 开发实例（同一台机器，不要在 release 包/其他机器采样）。
 2. 打开 Web Inspector（开发构建可用），在 Console 执行：
    ```js
-   localStorage.setItem('verge.routeTiming', '1')
-   location.reload()
+   __vergeNavTiming.start() // 清空旧样本并开始记录
    ```
 3. **冷导航**：从首页 `/` 开始，依次**首次**进入 8 条路由：`/`、`/proxies`、`/profile`、`/connections`、`/rules`、`/logs`、`/unlock`、`/settings`。
 4. **热导航**：在 8 条路由间随机切换 **≥20 次**（都已访问过，记为 hot）。
 5. 导出采样：
    ```js
+   __vergeNavTiming.stop()                // 停止记录
    copy(__vergeNavTiming.export())        // Chrome DevTools
    JSON.stringify(__vergeNavTiming.export())  // Web Inspector 无 copy() 时手工复制
    ```
@@ -38,7 +38,11 @@
    基线写入 `docs/perf/navigation-timing-baseline.json`（含 commit、环境、阈值与冷/热分桶）。
 8. 可选证据：录屏 20 次随机导航，人工确认 0 次可见 loading 闪烁（G1 条件 3）。
 
-关闭采样：`localStorage.removeItem('verge.routeTiming'); location.reload()`
+> 不要用 `location.reload()` 来开启采样：dev 下重载会触发 Tauri 自定义 IPC 协议注册竞态（控制台出现 `Fetch API cannot load ipc://localhost/... due to access control checks`）并可能伴随 React 19 的 `use()` 告警与 Tauri callback 失效日志；这些属于 dev 重载噪声，会污染采样与排障。当前协议不要求刷新。
+>
+> 如需用旧方式自动开启：`localStorage.setItem('verge.routeTiming','1')` 后重启应用会调用同样的 `start()`。
+
+关闭采样：`__vergeNavTiming.stop()`（样本保留，可用 `getReport()` 查看）。
 
 ## 3. 阈值与命令行为
 

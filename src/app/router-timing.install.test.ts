@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type { AnyRouter } from '@tanstack/react-router'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   clearRouteTimings,
@@ -32,15 +32,19 @@ const fakeRouter = () => {
 
 const wait = () => new Promise((resolve) => setTimeout(resolve, 80))
 
+beforeEach(() => {
+  vi.spyOn(console, 'info').mockImplementation(() => {})
+})
+
 afterEach(() => {
   clearRouteTimings()
   window.localStorage.removeItem('verge.routeTiming')
   delete window.__vergeNavTiming
+  vi.restoreAllMocks()
 })
 
 describe('installRouteTiming', () => {
-  it('records cold and hot navigations after the render frame', async () => {
-    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+  it('records cold and hot navigations after the render frame when auto-started', async () => {
     window.localStorage.setItem('verge.routeTiming', '1')
     const { router, emit } = fakeRouter()
     installRouteTiming(router)
@@ -62,13 +66,28 @@ describe('installRouteTiming', () => {
     expect(report?.total).toBe(2)
     expect(report?.cold.count).toBe(1)
     expect(report?.hot.count).toBe(1)
-    info.mockRestore()
   })
 
-  it('stays inert without the opt-in flag', () => {
-    const { router } = fakeRouter()
+  it('stays inert until start() and honors stop()', async () => {
+    const { router, emit } = fakeRouter()
     installRouteTiming(router)
 
-    expect(window.__vergeNavTiming).toBeUndefined()
+    emit('onBeforeNavigate', { href: '/rules', pathname: '/rules' })
+    emit('onRendered', { href: '/rules', pathname: '/rules' })
+    await wait()
+    expect(getRouteTimingSamples()).toHaveLength(0)
+    expect(window.__vergeNavTiming?.getReport().total).toBe(0)
+
+    window.__vergeNavTiming?.start()
+    emit('onBeforeNavigate', { href: '/rules', pathname: '/rules' })
+    emit('onRendered', { href: '/rules', pathname: '/rules' })
+    await wait()
+    expect(getRouteTimingSamples()).toHaveLength(1)
+
+    window.__vergeNavTiming?.stop()
+    emit('onBeforeNavigate', { href: '/rules', pathname: '/rules' })
+    emit('onRendered', { href: '/rules', pathname: '/rules' })
+    await wait()
+    expect(getRouteTimingSamples()).toHaveLength(1)
   })
 })

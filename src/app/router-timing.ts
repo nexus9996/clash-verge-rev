@@ -37,6 +37,7 @@ const MAX_SAMPLES = 500
 
 const samples: RouteTimingSample[] = []
 const visited = new Set<string>()
+let active = false
 
 const round = (value: number) => Math.round(value * 10) / 10
 
@@ -82,11 +83,14 @@ export const clearRouteTimings = () => {
 }
 
 const record = (sample: RouteTimingSample) => {
+  if (!active) return
+  visited.add(sample.to)
   samples.push(sample)
   if (samples.length > MAX_SAMPLES) samples.shift()
 }
 
-const isEnabled = () => {
+/** Optional fallback for reload-based workflows; no longer required. */
+const autoStartRequested = () => {
   if (typeof window === 'undefined') return false
   try {
     return window.localStorage.getItem(STORAGE_KEY) === '1'
@@ -96,9 +100,24 @@ const isEnabled = () => {
 }
 
 export const installRouteTiming = (router: AnyRouter) => {
-  if (!isEnabled()) return
-
+  active = false
   const pending = new Map<string, { from: string; startedAt: number }>()
+
+  const start = () => {
+    samples.length = 0
+    visited.clear()
+    pending.clear()
+    active = true
+    console.info('[nav-timing] recording started')
+  }
+
+  const stop = () => {
+    active = false
+    pending.clear()
+    console.info(
+      '[nav-timing] recording stopped; inspect with __vergeNavTiming.getReport()',
+    )
+  }
 
   router.subscribe('onBeforeNavigate', (event) => {
     if (!event.pathChanged) return
@@ -109,20 +128,19 @@ export const installRouteTiming = (router: AnyRouter) => {
   })
 
   router.subscribe('onRendered', (event) => {
-    const start = pending.get(event.toLocation.href)
-    if (!start) return
+    const entry = pending.get(event.toLocation.href)
+    if (!entry) return
     pending.delete(event.toLocation.href)
 
     const to = event.toLocation.pathname
     const cold = !visited.has(to)
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        visited.add(to)
         record({
-          from: start.from,
+          from: entry.from,
           to,
-          startedAt: start.startedAt,
-          durationMs: performance.now() - start.startedAt,
+          startedAt: entry.startedAt,
+          durationMs: performance.now() - entry.startedAt,
           cold,
         })
       })
@@ -130,20 +148,26 @@ export const installRouteTiming = (router: AnyRouter) => {
   })
 
   window.__vergeNavTiming = {
+    start,
+    stop,
     getSamples: getRouteTimingSamples,
     getReport: () => summarizeRouteTimings(),
     export: exportRouteTimings,
     clear: clearRouteTimings,
   }
 
-  console.info(
-    `[nav-timing] enabled; inspect with __vergeNavTiming.getReport() or copy(__vergeNavTiming.export()). Remove localStorage key '${STORAGE_KEY}' to disable.`,
-  )
+  if (autoStartRequested()) start()
+  else
+    console.info(
+      '[nav-timing] ready; call __vergeNavTiming.start() before navigating (no reload needed)',
+    )
 }
 
 declare global {
   interface Window {
     __vergeNavTiming?: {
+      start: () => void
+      stop: () => void
       getSamples: typeof getRouteTimingSamples
       getReport: () => RouteTimingReport
       export: typeof exportRouteTimings
