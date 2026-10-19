@@ -248,6 +248,7 @@ export const StickyVirtualList = forwardRef(function StickyVirtualListInner<
                 }}
               >
                 <div
+                  ref={rowVirtualizer.measureElement}
                   data-index={groupIndex}
                   style={{
                     pointerEvents: 'auto',
@@ -265,7 +266,24 @@ export const StickyVirtualList = forwardRef(function StickyVirtualListInner<
 
         {virtualItems.map((virtualRow) => {
           const item = items[virtualRow.index]
-          const isGroup = isGroupItem(item, virtualRow.index)
+          if (isGroupItem(item, virtualRow.index)) {
+            // The visible copy lives in the sticky overlay above; it also owns
+            // the height measurement, so this row stays an empty spacer.
+            return (
+              <div
+                key={virtualRow.key}
+                data-index={virtualRow.index}
+                style={{
+                  height: virtualRow.size,
+                  left: 0,
+                  position: 'absolute',
+                  top: 0,
+                  transform: `translateY(${virtualRow.start}px)`,
+                  width: '100%',
+                }}
+              />
+            )
+          }
 
           return (
             <div
@@ -279,12 +297,9 @@ export const StickyVirtualList = forwardRef(function StickyVirtualListInner<
                 transform: `translateY(${virtualRow.start}px)`,
                 width: '100%',
                 zIndex: 1,
-                ...(isGroup && { visibility: 'hidden' }),
               }}
             >
-              {isGroup
-                ? renderGroupItem(item, virtualRow.index, false) // 渲染组，以便动态计算组高度
-                : renderItem(item, virtualRow.index)}
+              {renderItem(item, virtualRow.index)}
             </div>
           )
         })}
