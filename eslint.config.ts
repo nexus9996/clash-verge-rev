@@ -101,6 +101,9 @@ const ipcBoundaryRules = ({
 export default defineConfig([
   pluginESx.configs['flat/restrict-to-es2022'],
   {
+    ignores: ['src/routeTree.gen.ts'],
+  },
+  {
     files: ['**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
 
     plugins: {
