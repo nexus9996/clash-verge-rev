@@ -40,7 +40,8 @@
     "perf:build": "node scripts/perf/build.mjs",
     "perf:run": "node scripts/perf/run.mjs",
     "perf:compare": "node scripts/perf/compare.mjs",
-    "perf:test": "node --test scripts/perf/report.test.mjs"
+    "perf:test": "node --test scripts/perf/report.test.mjs",
+    "perf:frontend-baseline": "node scripts/perf/frontend-baseline.mjs --dist dist --label rev-local-eager-routes --out docs/perf/frontend-baseline.json"
   },
   "dependencies": {
     "@dnd-kit/collision": "^0.5.0",
