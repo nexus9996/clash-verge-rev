@@ -745,3 +745,10 @@ Phase 0 无阻塞项，可以进入 Phase 1（G1 条件 Go）。唯一未测量�
 - 强制手段：`eslint.config.ts` 新增 `import-x/no-restricted-paths` 23 个 zone；`scripts/check-architecture.mjs` 将该规则纳入边界校验；实测能拦截 `components → pages` 违规。
 - 门禁全绿；bundle 中性（393.1 kB gzip）。
 - 合并提示：本卡移动了 `theme-viewer.tsx` 的 import 与 `_theme` 路径，与并行主题分支（c4/c5）合并时若冲突，以本分支的 import 路径为准。
+
+### 12.8 Phase 4 T4 完成记录（bundle 预算门禁，2026-10-19）
+
+- 卡片分支：`migrate/fe-bundle-budget`（commit `a184b6c5`），已 FF 合入集成分支。
+- 新增 `scripts/check-bundle-budget.mjs`（默认容差 +2%）+ `pnpm check:bundle-budget`；CI `frontend-check.yml` 在 tests 后执行 `build` + budget。
+- 基线已更新为 post-router：初始 JS **393.1 kB gzip**（入口 159.0 kB gzip，代码 commit `f9dd397e`）；更新方式 `--record` 并需在 PR 说明。
+- `evaluateBudget` 有 node:test 覆盖（`perf:test` 7 tests）；全门禁绿。
