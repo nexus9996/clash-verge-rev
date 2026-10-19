@@ -18,11 +18,11 @@ import {
   keyframes,
   useTheme,
 } from '@mui/material'
+import { useNavigate } from '@tanstack/react-router'
 import { useLockFn } from 'ahooks'
 import dayjs from 'dayjs'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router'
 
 import { useAppRefreshers } from '@/providers/app-data-context'
 import { updateProfile } from '@/services/cmds'
@@ -299,7 +299,7 @@ export const HomeProfileCard = ({
 
   // 导航到订阅页面
   const goToProfiles = useCallback(() => {
-    navigate('/profile')
+    void navigate({ to: '/profile' })
   }, [navigate])
 
   // 卡片标题
