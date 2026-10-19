@@ -8,7 +8,7 @@ import iconLight from '@/assets/image/icon_light.svg?react'
 import LogoSvg from '@/assets/image/logo.svg?react'
 import { useVerge } from '@/hooks/use-verge'
 import { useNavMenuOrder } from '@/pages/_layout/hooks'
-import { navItems } from '@/pages/_navigation'
+import { navItems, preloadNavItem } from '@/pages/_navigation'
 import { startWindowDragging } from '@/utils/window-drag'
 
 import { SortableItem } from '../base'
@@ -101,11 +101,18 @@ export const LayoutSidebar = (props: LayoutSidebarProps) => {
     const item = navItemMap.get(path)
     if (!item) return null
 
+    const preload = item.lazy ? () => preloadNavItem(item) : undefined
+
     // A registered sortable, even a disabled one, gets the drag-and-drop ARIA
     // attributes, so screen readers announce every item as a disabled draggable.
     if (!menuUnlocked) {
       return (
-        <LayoutItem key={item.path} to={item.path} icon={item.icon}>
+        <LayoutItem
+          key={item.path}
+          to={item.path}
+          icon={item.icon}
+          preload={preload}
+        >
           {t(item.label)}
         </LayoutItem>
       )
@@ -114,7 +121,12 @@ export const LayoutSidebar = (props: LayoutSidebarProps) => {
     return (
       <SortableItem key={item.path} id={item.path} index={index}>
         {(sortable) => (
-          <LayoutItem to={item.path} icon={item.icon} sortable={sortable}>
+          <LayoutItem
+            to={item.path}
+            icon={item.icon}
+            sortable={sortable}
+            preload={preload}
+          >
             {t(item.label)}
           </LayoutItem>
         )}
