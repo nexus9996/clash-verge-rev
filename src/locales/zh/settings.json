@@ -220,6 +220,11 @@
             "monochrome": "黑白"
           }
         },
+        "editModes": {
+          "title": "编辑主题",
+          "light": "浅色",
+          "dark": "深色"
+        },
         "fields": {
           "primaryColor": "主要颜色",
           "secondaryColor": "次要颜色",
@@ -229,6 +234,8 @@
           "warningColor": "警告颜色",
           "errorColor": "错误颜色",
           "successColor": "成功颜色",
+          "background": "背景颜色",
+          "paperBackground": "卡片颜色",
           "fontFamily": "字体系列",
           "cssInjection": "CSS 注入"
         },

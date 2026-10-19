@@ -220,6 +220,11 @@
             "monochrome": "Tek renk"
           }
         },
+        "editModes": {
+          "title": "Temayı düzenle",
+          "light": "Açık",
+          "dark": "Koyu"
+        },
         "fields": {
           "primaryColor": "Ana Renk",
           "secondaryColor": "İkincil Renk",
@@ -229,6 +234,8 @@
           "warningColor": "Uyarı Rengi",
           "errorColor": "Hata Rengi",
           "successColor": "Başarı Rengi",
+          "background": "Arka Plan Rengi",
+          "paperBackground": "Kart Rengi",
           "fontFamily": "Yazı Tipi Ailesi",
           "cssInjection": "CSS Enjeksiyonu"
         },

@@ -350,6 +350,8 @@ export type IVergeTheme = {
   error_color?: string | null
   warning_color?: string | null
   success_color?: string | null
+  background_color?: string | null
+  paper_background_color?: string | null
   font_family?: string | null
   css_injection?: string | null
 }
@@ -398,6 +400,10 @@ export type IVerge_Deserialize = {
   pac_file_content?: string | null
   proxy_host?: string | null
   theme_setting?: IVergeTheme | null
+  /**  Theme overrides for light mode; falls back to `theme_setting` when unset. */
+  light_theme_setting?: IVergeTheme | null
+  /**  Theme overrides for dark mode; falls back to `theme_setting` when unset. */
+  dark_theme_setting?: IVergeTheme | null
   web_ui_list?: string[] | null
   clash_core?: string | null
   /**  format: {func},{key} */
@@ -489,6 +495,10 @@ export type IVerge_Serialize = {
   pac_file_content: string | null
   proxy_host: string | null
   theme_setting: IVergeTheme | null
+  /**  Theme overrides for light mode; falls back to `theme_setting` when unset. */
+  light_theme_setting: IVergeTheme | null
+  /**  Theme overrides for dark mode; falls back to `theme_setting` when unset. */
+  dark_theme_setting: IVergeTheme | null
   web_ui_list: string[] | null
   clash_core?: string | null
   /**  format: {func},{key} */

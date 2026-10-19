@@ -85,6 +85,8 @@ verge_registry! {
     pac_file_content => [SystemProxy];
     proxy_host => [SystemProxy];
     theme_setting => NoEffect;
+    light_theme_setting => NoEffect;
+    dark_theme_setting => NoEffect;
     web_ui_list => NoEffect;
     clash_core => NoEffect;
     hotkeys => [Hotkey, TrayMenu];

@@ -220,6 +220,11 @@
             "monochrome": "モノクロ"
           }
         },
+        "editModes": {
+          "title": "テーマを編集",
+          "light": "ライト",
+          "dark": "ダーク"
+        },
         "fields": {
           "primaryColor": "主要色",
           "secondaryColor": "次要色",
@@ -229,6 +234,8 @@
           "warningColor": "警告色",
           "errorColor": "エラー色",
           "successColor": "成功色",
+          "background": "背景色",
+          "paperBackground": "カード色",
           "fontFamily": "フォントファミリー",
           "cssInjection": "CSSインジェクション"
         },

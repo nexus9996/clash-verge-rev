@@ -220,6 +220,11 @@
             "monochrome": "모노크롬"
           }
         },
+        "editModes": {
+          "title": "테마 편집",
+          "light": "라이트",
+          "dark": "다크"
+        },
         "fields": {
           "primaryColor": "기본 색상",
           "secondaryColor": "보조 색상",
@@ -229,6 +234,8 @@
           "warningColor": "경고 색상",
           "errorColor": "오류 색상",
           "successColor": "성공 색상",
+          "background": "배경색",
+          "paperBackground": "카드 색상",
           "fontFamily": "글꼴",
           "cssInjection": "CSS 삽입"
         },

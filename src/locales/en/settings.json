@@ -220,6 +220,11 @@
             "monochrome": "Monochrome"
           }
         },
+        "editModes": {
+          "title": "Edit Theme",
+          "light": "Light",
+          "dark": "Dark"
+        },
         "fields": {
           "primaryColor": "Primary Color",
           "secondaryColor": "Secondary Color",
@@ -229,6 +234,8 @@
           "warningColor": "Warning Color",
           "errorColor": "Error Color",
           "successColor": "Success Color",
+          "background": "Background Color",
+          "paperBackground": "Paper Color",
           "fontFamily": "Font Family",
           "cssInjection": "CSS Injection"
         },

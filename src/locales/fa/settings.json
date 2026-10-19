@@ -220,6 +220,11 @@
             "monochrome": "تک‌رنگ"
           }
         },
+        "editModes": {
+          "title": "ویرایش پوسته",
+          "light": "روشن",
+          "dark": "تیره"
+        },
         "fields": {
           "primaryColor": "رنگ اصلی",
           "secondaryColor": "رنگ ثانویه",
@@ -229,6 +234,8 @@
           "warningColor": "رنگ هشدار",
           "errorColor": "رنگ خطا",
           "successColor": "رنگ موفقیت",
+          "background": "رنگ پس‌زمینه",
+          "paperBackground": "رنگ کارت",
           "fontFamily": "خانواده فونت",
           "cssInjection": "تزریق CSS"
         },

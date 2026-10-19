@@ -809,11 +809,18 @@ export interface TranslationResources {
             dialogs: {
               editCssTitle: string
             }
+            editModes: {
+              dark: string
+              light: string
+              title: string
+            }
             fields: {
+              background: string
               cssInjection: string
               errorColor: string
               fontFamily: string
               infoColor: string
+              paperBackground: string
               primaryColor: string
               primaryText: string
               secondaryColor: string
