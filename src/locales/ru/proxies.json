@@ -26,7 +26,8 @@
     "labels": {
       "proxyCount": "Количество прокси",
       "delayCheckReset": "Сброс проверки задержки",
-      "nodeCount": "Узлов: {{count}}"
+      "nodeCount": "Узлов: {{count}}",
+      "groupBadge": "Группа"
     },
     "tooltips": {
       "locate": "Местоположение",
@@ -37,7 +38,8 @@
       "delayCheckUrl": "URL для проверки задержки",
       "showBasic": "Показывать меньше информации о прокси",
       "showDetail": "Показывать больше информации о прокси",
-      "filter": "Фильтр"
+      "filter": "Фильтр",
+      "jumpToGroup": "Перейти к группе"
     },
     "placeholders": {
       "delayCheckUrl": "URL для проверки задержки"

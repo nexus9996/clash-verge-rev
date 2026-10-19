@@ -13,6 +13,7 @@
 <details>
 <summary><strong> ✨ 新增功能 </strong></summary>
 
+- 代理节点支持显示所属代理组并快速跳转到对应分组
 
 </details>
 
