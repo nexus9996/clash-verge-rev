@@ -95,7 +95,7 @@ export const ROUTER_DEFAULTS = {
 
 - 保留 rev 的"无导航 loading"体验目标（`e63b8e6e` 的教训）作为 G1 验收项；G1 定性 smoke 已通过，冷/热 p95 尚未采集（见迁移计划 §12.16 的后续项）。
 - 导航项在 hover/focus 时通过 `router.preloadRoute({ to })` 预取目标页面 chunk（`layout-item.tsx`）。
-- 不配置 idle 全量预载；如后续需要，只按数据预热 1 条最常用路由。
+- 首屏后 idle 预热：`app/warmup.ts` 在首屏渲染后顺序 `router.preloadRoute` 全部路由 chunk，随后预热常用查询（best-effort、3 s 超时、失败仅 warn）。2026-10-19 决策，用于追平 eager 路由的首次切页体验（见迁移计划 §12.18）。
 - 不加 route `loader`：数据仍由 SWR/WS 获取，避免第二数据源（`src/AGENTS.md` query ownership）。
 
 ### 2.3 导航单一事实源

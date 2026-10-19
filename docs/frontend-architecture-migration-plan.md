@@ -376,14 +376,14 @@ Phase 4（3–5d）收口
 
 ### R3 按路由拆包 + intent 预加载 + 无闪加载
 
-> 状态：已完成并并入 R1/G1（拆包、intent 预加载与 pending 门槛随路由迁移落地；重页面 `lazyRouteComponent` 由 C6 合入补充）。p95 采样工具与协议见 [navigation-timing](perf/navigation-timing.md)，数值待桌面采集（§12.17）。
+> 状态：已完成并并入 R1/G1（拆包、intent 预加载与 pending 门槛随路由迁移落地；重页面 `lazyRouteComponent` 由 C6 合入补充）。2026-10-19 增加首屏后 idle 预热以压缩首跳成本（§12.18）。p95 采样工具与协议见 [navigation-timing](perf/navigation-timing.md)，复测数据见 §12.17/§12.18。
 
 - **self 证据**：`vite.config.ts:38` autoCodeSplitting；`1da1d991`（2026-04-08，路由过渡+预加载，28 files +487/−213）；但 self 双拆包/idle 全量预载/自研遮罩是反例（`sidebar.tsx:34-54`、`_layout.tsx:196-210`）。
 - **rev 约束**：`e63b8e6e` 的无导航 loading 目标。
 - **步骤**：
   1. 关闭手动 lazy（route 文件静态 import 页面，交给插件拆包）；`home` 卡片 lazy 保持。
   2. `router.tsx` 配 `defaultPreload: 'intent'`、`defaultPreloadDelay: 0`、`defaultPendingMs: 200`、`pendingMinMs: 300`（Phase 1 实测调优，写入 ADR）。
-  3. 不引入 idle 全量预载；如需首屏后预热，只预热"用户最可能去的 1 条"或不做（用数据决定）。
+  3. 首屏后预热：原计划不引入 idle 全量预载；2026-10-19 按用户决策改为 idle 顺序预取 8 条路由 chunk + 常用查询（见 §12.18），仍不阻塞首屏、无自研遮罩。
   4. 删除/替换任何自研 loading 遮罩逻辑（rev 现有 `useLoadingOverlay` 只用于主题就绪，保留）。
 - **验收**：`vite build` 产物中 8 页进入独立 chunk；初始 JS 主 chunk 相对基线 −15%；热导航 p95 < 100ms、冷导航 p95 < 200ms（本机）；20 次随机导航录屏无可见 loading 闪烁。
 - **风险**：**高**（这是 G1 的核心）。缓解：PoC 先测 2 条路由；指标不达标即走 B 方案。
@@ -886,8 +886,16 @@ Phase 0 无阻塞项，可以进入 Phase 1（G1 条件 Go）。唯一未测量�
 - 修复：`proxy-groups.tsx` 的恢复循环把目标 clamp 到可滚动范围，并在布局高度稳定后提前退出；测量构建改为启动即自动记录（`VITE_NAV_TIMING=1` auto-start），避免测量期间打开 Inspector 的开销。
 - 下一步：重建后复测；若 hot p95 仍 >100 ms，再针对 `/settings`、`/profile` 的首次 chunk 与渲染成本优化。
 
+### 12.18 首屏后 idle 预热（2026-10-19 用户决策）
+
+- 背景：生产包测量显示首跳成本高于 `dev` 分支的 eager 路由（dev 分支 8 页全静态 import + AppDataProvider 启动预取；local 拆包后首次切页要加载 chunk，T1 后数据也改为挂载时按需取数）。
+- 决策：调整 R3 原“不引入 idle 全量预载”的默认策略，改为受控预热：`src/app/warmup.ts` 在首屏 render 后通过 `requestIdleCallback`（3 s 超时；无该 API 时 1 s setTimeout）**顺序** `router.preloadRoute` 8 条路由，随后预热 5 个高频查询（proxyView/clashConfig/ruleProviders/rules/sysproxy）写入共享 query cache；best-effort、失败仅 `console.warn`、只执行一次。
+- 约束：不引入自研 loading 遮罩、不改 pending 门槛、不阻塞首屏；首屏 bundle 不变（只增加 idle 期网络/主线程开销）。
+- 回退：删除 `main.tsx` 的 `scheduleWarmup(router)` 一行即可。
+- 验证：重建测量包复测，对比 cold/hot p95；`pnpm web:build && pnpm check:bundle-budget` 保持通过。
+
 **仍需桌面执行的验收（人工）**
 
-1. 用修复后的测量包重新采集冷/热 p95 并 `--record`，附 20 次随机导航录屏；
+1. 用修复+预热后的测量包重新采集冷/热 p95 并 `--record`，附 20 次随机导航录屏；
 2. §7.4 终态全量 smoke（含主题预设/取色、通知、窗口层、更新/内核/连接/规则/日志交互）；
 3. §7.3 的 30 分钟长会话/泄漏观察。

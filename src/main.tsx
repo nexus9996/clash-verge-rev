@@ -10,6 +10,7 @@ import { MihomoWebSocket } from 'tauri-plugin-mihomo-api'
 
 import { router } from './app/router'
 import { installRouteTiming } from './app/router-timing'
+import { scheduleWarmup } from './app/warmup'
 import { BaseErrorBoundary } from './components/base'
 import { preloadHomePageCards } from './pages/home'
 import { FALLBACK_LANGUAGE, initializeLanguage } from './services/i18n'
@@ -70,6 +71,7 @@ const bootstrap = async () => {
 
   const { initialThemeMode } = await appDataPromise
   initializeApp(initialThemeMode)
+  scheduleWarmup(router)
 }
 
 bootstrap().catch((error) => {
