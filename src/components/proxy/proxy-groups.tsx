@@ -143,7 +143,6 @@ function useProxyRenderState(
       } catch (error) {
         console.error(`[ProxyGroups] 延迟测试出错，组: ${groupName}`, error)
       } finally {
-        onProxies()
         mutate(() => refreshTrayProxyItems(), {
           id: 'refresh-tray-latency',
           errorNotice: false,

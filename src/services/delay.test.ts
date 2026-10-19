@@ -202,3 +202,38 @@ test('group delay snapshots support group names containing spaces', () => {
     delayManager.groupDelays('🇭🇰 Hong Kong'),
   )
 })
+
+test('overlapping batches measure each member once', async () => {
+  const { delayProxyByName } = await import('tauri-plugin-mihomo-api')
+  const mocked = vi.mocked(delayProxyByName)
+  const original = mocked.getMockImplementation()
+  const releases: Array<() => void> = []
+  mocked.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        releases.push(() => resolve({ delay: 42 }))
+      }),
+  )
+  try {
+    const members = [node('overlap-a'), node('overlap-b')]
+    const first = delayManager.checkListDelay(
+      members as never,
+      'overlap',
+      5000,
+      2,
+    )
+    const second = delayManager.checkListDelay(
+      members as never,
+      'overlap',
+      5000,
+      2,
+    )
+    await flush()
+    expect(mocked).toHaveBeenCalledTimes(2)
+    for (const release of releases) release()
+    await Promise.all([first, second])
+    expect(mocked).toHaveBeenCalledTimes(2)
+  } finally {
+    if (original) mocked.mockImplementation(original)
+  }
+})

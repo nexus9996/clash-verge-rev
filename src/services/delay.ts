@@ -8,6 +8,7 @@ import {
   memberDetails,
   providerNameOf,
   type InteractableProxyMember,
+  type ProxyNodeView,
   type ResolvedProxyMember,
 } from '@/types/proxy-view'
 import { debugLog } from '@/utils/debug'
@@ -18,16 +19,20 @@ export type DelaySnapshot = {
   of: (member: ResolvedProxyMember) => number
 }
 
-const hashKey = (member: ResolvedProxyMember, group: string) => {
-  if (member.kind !== 'node')
-    return JSON.stringify([group, member.kind, member.ref.name])
-  const source = member.node.source
+const nodeHashKey = (node: ProxyNodeView, group: string) => {
+  const source = node.source
   return JSON.stringify([
     group,
     source.kind,
     source.kind === 'provider' ? source.providerName : null,
     source.proxyName,
   ])
+}
+
+const hashKey = (member: ResolvedProxyMember, group: string) => {
+  if (member.kind !== 'node')
+    return JSON.stringify([group, member.kind, member.ref.name])
+  return nodeHashKey(member.node, group)
 }
 
 export interface DelayUpdate {
@@ -59,6 +64,7 @@ class DelayManager {
   >()
   // Suppress sort notifications until every measurement in a group batch settles.
   private activeBatches = new Map<string, number>()
+  private inFlight = new Set<string>()
 
   private pendingItemUpdates = new Map<string, DelayUpdate[]>()
   private pendingGroupUpdates = new Set<string>()
@@ -283,6 +289,16 @@ class DelayManager {
     return update ? update.delay : -1
   }
 
+  /** Whether the member has a cached result for the active URL within `maxAgeMs`. */
+  isFresh(member: ResolvedProxyMember, group: string, maxAgeMs: number) {
+    const entry = this.cache.get(hashKey(member, group))
+    return (
+      entry !== undefined &&
+      entry.url === this.getUrl(group) &&
+      Date.now() - entry.updatedAt <= maxAgeMs
+    )
+  }
+
   getHistory(member: ResolvedProxyMember, group: string) {
     return memberDetails(member)?.extra?.[this.getUrl(group)]?.history
   }
@@ -377,6 +393,7 @@ class DelayManager {
     group: string,
     timeout: number,
     concurrency = 20,
+    signal?: AbortSignal,
   ) {
     debugLog(
       `[DelayManager] 批量测试延迟开始，组: ${group}, 数量: ${proxies.length}, 并发数: ${concurrency}`,
@@ -390,21 +407,31 @@ class DelayManager {
     const startTime = Date.now()
 
     const help = async (): Promise<void> => {
-      const currMember = proxies[index++]
-      if (!currMember) return
-      const currName = currMember.ref.name
+      while (!signal?.aborted) {
+        const currMember = proxies[index++]
+        if (!currMember) return
+        const currName = currMember.ref.name
+        const key = hashKey(currMember, group)
+        if (this.inFlight.has(key)) {
+          debugLog(
+            `[DelayManager] 跳过进行中的测速，代理: ${currName}, 组: ${group}`,
+          )
+          continue
+        }
 
-      try {
-        await this.measureDelay(currMember, group, timeout)
-      } catch (error) {
-        console.error(
-          `[DelayManager] 批量测试单个代理出错，代理: ${currName}`,
-          error,
-        )
-        this.setDelay(currMember, group, 1e6)
+        this.inFlight.add(key)
+        try {
+          await this.measureDelay(currMember, group, timeout)
+        } catch (error) {
+          console.error(
+            `[DelayManager] 批量测试单个代理出错，代理: ${currName}`,
+            error,
+          )
+          this.setDelay(currMember, group, 1e6)
+        } finally {
+          this.inFlight.delete(key)
+        }
       }
-
-      return help()
     }
 
     const actualConcurrency = Math.min(concurrency, proxies.length)
@@ -418,6 +445,13 @@ class DelayManager {
     try {
       await Promise.all(promiseList)
     } finally {
+      if (signal?.aborted) {
+        // Aborted batches leave pending markers behind; fall back to cached history.
+        for (const member of proxies) {
+          const key = hashKey(member, group)
+          if (this.cache.get(key)?.delay === -2) this.cache.delete(key)
+        }
+      }
       // Always release the batch and notify; otherwise failures leave stale sort state.
       const remaining = (this.activeBatches.get(group) ?? 1) - 1
       if (remaining > 0) {

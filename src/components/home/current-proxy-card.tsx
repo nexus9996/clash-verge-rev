@@ -922,7 +922,6 @@ export const CurrentProxyCard = () => {
       }
     }
 
-    refreshProxy()
     mutate(() => refreshTrayProxyItems(), {
       id: 'refresh-tray-latency',
       errorNotice: false,

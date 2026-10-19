@@ -105,7 +105,10 @@ const groupOccurrences = <T>(list: T[], size: number): T[][] =>
     return acc
   }, [])
 
-const CHAIN_DELAY_GROUP = 'chain-mode'
+export const CHAIN_DELAY_GROUP = 'chain-mode'
+
+/** Re-entering chain mode should not re-probe nodes measured moments ago. */
+const CHAIN_DELAY_FRESH_MS = 60_000
 
 const virtualGroup = (members: ProxyGroupView['members']): ProxyGroupView => ({
   name: CHAIN_DELAY_GROUP,
@@ -189,16 +192,28 @@ export const useRenderList = (
     const interactable = chainOccurrencesRef.current
       .map(({ member }) => member)
       .filter(isInteractableMember)
+      .filter(
+        (member) =>
+          !delayManager.isFresh(member, chainDelayGroup, CHAIN_DELAY_FRESH_MS),
+      )
     if (interactable.length === 0) return
 
+    const controller = new AbortController()
     const handle = setTimeout(() => {
       const timeout = verge?.default_latency_timeout || 10000
       debugLog(`[ChainMode] 开始计算 ${interactable.length} 个节点的延迟`)
-      void delayManager.checkListDelay(interactable, chainDelayGroup, timeout)
+      void delayManager.checkListDelay(
+        interactable,
+        chainDelayGroup,
+        timeout,
+        undefined,
+        controller.signal,
+      )
     }, 100)
 
     return () => {
       clearTimeout(handle)
+      controller.abort()
     }
   }, [
     chainDelayGroup,
