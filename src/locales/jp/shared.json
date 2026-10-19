@@ -135,5 +135,14 @@
       "warn": "WARN",
       "error": "ERROR"
     }
+  },
+  "search": {
+    "content": "内容",
+    "domain": "ドメイン",
+    "cidr": "CIDR",
+    "contentPlaceholder": "ルールを検索",
+    "domainPlaceholder": "ドメイン、URL、キーワードを検索",
+    "cidrPlaceholder": "IP または CIDR を検索",
+    "action": "検索"
   }
 }

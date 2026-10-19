@@ -14,6 +14,7 @@
 <summary><strong> ✨ 新增功能 </strong></summary>
 
 - 连接页支持按主机、源/目标地址、进程、规则、链路等字段组合筛选连接
+- 规则页支持按内容、域名、IP/CIDR 三种模式搜索规则
 
 </details>
 

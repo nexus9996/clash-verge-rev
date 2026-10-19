@@ -135,5 +135,14 @@
       "warn": "WARN",
       "error": "ERROR"
     }
+  },
+  "search": {
+    "content": "Konten",
+    "domain": "Domain",
+    "cidr": "CIDR",
+    "contentPlaceholder": "Cari aturan",
+    "domainPlaceholder": "Cari domain, URL, atau kata kunci",
+    "cidrPlaceholder": "Cari IP atau CIDR",
+    "action": "Cari"
   }
 }
