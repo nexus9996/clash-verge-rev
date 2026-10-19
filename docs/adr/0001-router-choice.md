@@ -1,6 +1,6 @@
 # ADR-0001：前端架构迁移的关键选型（路由 / 样式 / 状态 / 资产）
 
-- 状态：**Accepted（条件通过：路由选型受 G1 约束）**
+- 状态：**Accepted（Full Go：G1 已通过）**
 - 日期：2026-10-19
 - 决策范围：`migrate/self-frontend-architecture` 分支
 - 基线：`clash-verge-rev` `local` @ `ed909350`；`clash-verge-self` `dev` @ `f9cb6581`（完整历史以 tag `v2.3.2` / `75c8c416` 为准）
@@ -18,7 +18,7 @@ rev 前端的**数据/事件层**在 2026-07~10 已完成三轮自我重构（`e
 
 **决策**：采用 `@tanstack/react-router` + `@tanstack/router-plugin`（`autoCodeSplitting`），以文件式 `src/routes/*.tsx` 薄壳替代 `src/pages/_routers.tsx` 的静态路由表；导航元数据收口到 `src/config/navigation.ts`；路由级错误边界与 intent 预加载按目标架构落地。
 
-**条件**：Phase 1 PoC（settings + proxies 两路由）必须同时满足 [迁移计划 §4.2](frontend-architecture-migration-plan.md) 的 G1 六项条件（门禁全绿、无导航 loading 闪烁、初始 JS 主 chunk −15%、依赖净增可控、smoke 无回归、route catalog 测试通过）。不满足则执行 B1 备选方案。
+**条件**：Phase 1 PoC 必须同时满足 [迁移计划 §4.2](frontend-architecture-migration-plan.md) 的 G1 六项条件。**2026-10-19 六项全部通过（含桌面 smoke 无异常），已转 Full Go**；不满足时的 B1 备选方案不再需要。
 
 **关键证据**：
 
@@ -134,4 +134,4 @@ rev 前端的**数据/事件层**在 2026-07~10 已完成三轮自我重构（`e
 - 门禁：`typecheck` / `lint` / `format:check` / `test`（12 文件 47 tests，含 route catalog）/ `knip` / `arch:check` / `i18n` / `web:build` 全绿。
 - Bundle：初始 JS **508.5 → 392.9 kB gzip（−22.7%）**、raw 1,648.3 → 1,195.7 kB（−27.5%）；入口 chunk 312.7 → 158.8 kB gzip；7 个非首屏页面拆为异步 chunk。
 - 依赖：新增 3（react-router 移除 1），净增 **+2**，符合 G1 ≤3。
-- 待验证：运行时"无导航 loading 闪烁"（G1-3）与桌面 smoke（G1-6）。两项通过后本 ADR 由"条件 Go"转 **Full Go**；不通过则执行 §3 B1（react-router data-router 演进）。
+- 运行时验证：2026-10-19 用户桌面 smoke（8 路由直达/切换、深链、通知跳转、拖拽排序、主题/窗口）无异常，G1-3/G1-6 通过；本 ADR 转 **Full Go**，无需执行 §3 B1。

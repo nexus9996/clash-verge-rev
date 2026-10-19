@@ -729,3 +729,10 @@ git -C ../clash-verge-self show <commit>:<path>
 ### 12.5 结论
 
 Phase 0 无阻塞项，可以进入 Phase 1（G1 条件 Go）。唯一未测量项是运行时导航耗时，已明确由 G1 PoC 承担，不影响 Phase 0 验收。
+
+### 12.6 Phase 1 完成记录（R1/R2，2026-10-19）
+
+- R1（TanStack Router PoC）：`7427e3e6`；R2（导航单一事实源 + 类型化导航）：`70b09fa9`；已合入集成分支：`499ce8b4`。
+- G1 六项全部通过：门禁全绿；route catalog 测试通过；桌面 smoke 无异常（无导航 loading 闪烁）；初始 JS **392.9 kB gzip（−22.7%）**；依赖净增 +2；深链/通知/拖拽/主题无回归。
+- 运行时 p95 数值未单独采集（定性通过）；由 T4 的 bundle/导航性能脚本落地后补录。
+- 下一张卡片：T2（依赖方向 lint + 反向 import 清理）或 T4（bundle 预算 + 导航性能 CI），二选一后开新 worktree。
