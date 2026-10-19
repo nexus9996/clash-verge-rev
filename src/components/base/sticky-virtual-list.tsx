@@ -36,10 +36,6 @@ export interface StickyVirtualListHandle {
   getScrollElement: () => HTMLDivElement | null
   isItemScrolledPastStart: (index: number, tolerance?: number) => boolean
   scrollToIndex: (index: number, options?: ScrollToIndexOptions) => void
-  scrollToOffset: (
-    offset: number,
-    options?: { align?: 'start' | 'center' | 'end' | 'auto' },
-  ) => void
   isScrolling: () => boolean
   waitForScrollEnd: () => Promise<void>
 }
@@ -182,9 +178,6 @@ export const StickyVirtualList = forwardRef(function StickyVirtualListInner<
       },
       scrollToIndex: (index, options) => {
         rowVirtualizer.scrollToIndex(index, options)
-      },
-      scrollToOffset: (offset, options) => {
-        rowVirtualizer.scrollToOffset(offset, options)
       },
       isScrolling: () => rowVirtualizer.isScrolling,
       waitForScrollEnd: () => {

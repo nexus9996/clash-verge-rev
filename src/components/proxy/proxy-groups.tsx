@@ -390,46 +390,9 @@ function NormalProxyGroups(props: { mode: string }) {
   } = useProxyRenderState(mode, false, null)
   const emptyList = useEmptyRenderList()
   const { onDragEnd: onHeaderDragEnd } = useProxyGroupHeaderLayout()
-  const renderFirstRef = useRef(true)
-  // Do not persist intermediate positions produced while restoring virtual scroll.
-  const isRestoringRef = useRef(false)
-
-  useLayoutEffect(() => {
-    if (renderList.length === 0) return
-    if (!renderFirstRef.current) return
-    const node = stickyListRef.current?.getScrollElement()
-    if (!node) return
-
-    const savedPosition = getScrollPosition()
-    if (!savedPosition) {
-      renderFirstRef.current = false
-      return
-    }
-
-    // Restore through the virtualizer: it clamps stale offsets and re-applies them
-    // when row measurements grow the scroll range. The old hand-rolled rAF retry
-    // fought those measurements and busy-looped for many frames per mount.
-    renderFirstRef.current = false
-    isRestoringRef.current = true
-    stickyListRef.current?.scrollToOffset(savedPosition)
-
-    let rafId = 0
-    let framesLeft = 2
-    const settle = () => {
-      framesLeft -= 1
-      if (framesLeft > 0) {
-        rafId = requestAnimationFrame(settle)
-        return
-      }
-      isRestoringRef.current = false
-    }
-    rafId = requestAnimationFrame(settle)
-
-    return () => {
-      cancelAnimationFrame(rafId)
-      isRestoringRef.current = false
-    }
-  }, [renderList.length, getScrollPosition])
+  // The virtualizer applies this offset on mount and clamps stale values as row
+  // measurements grow the scroll range, so no rAF retry loop is needed.
+  const [initialOffset] = useState(() => getScrollPosition())
 
   const saveScrollPositionThrottled = useMemo(
     () => throttle(saveScrollPosition, 500),
@@ -438,7 +401,6 @@ function NormalProxyGroups(props: { mode: string }) {
 
   const handleScroll = useCallback(
     (event: Event) => {
-      if (isRestoringRef.current) return
       const target = event.target as HTMLElement | null
       const nextScrollTop = target?.scrollTop ?? 0
 
@@ -632,6 +594,8 @@ function NormalProxyGroups(props: { mode: string }) {
       >
         <StickyVirtualList
           ref={stickyListRef}
+          initialOffset={initialOffset}
+          overscan={6}
           items={renderList}
           isGroupItem={(item) => item.type === 0}
           getItemKey={(item) => item.key}
