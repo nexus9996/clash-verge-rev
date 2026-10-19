@@ -3,7 +3,7 @@ import { useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BaseDialog } from '@/components/base'
-import { useDialogFailure } from '@/pages/_layout/hooks'
+import { useDialogFailure } from '@/hooks/layout'
 import {
   installService,
   patchVergeConfig,

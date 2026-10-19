@@ -1581,6 +1581,7 @@ export interface TranslationResources {
         empty: string
         enabled: string
         loading: string
+        pageNotFound: string
         saving: string
       }
       units: {

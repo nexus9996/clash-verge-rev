@@ -5,27 +5,33 @@ import {
   ListItemIcon,
   ListItemText,
 } from '@mui/material'
+import { useMatchRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
-import { useMatch, useNavigate, useResolvedPath } from 'react-router'
 
 import type { SortableItemRenderProps } from '@/components/base/sortable-item'
+import type { NavigationPath } from '@/config/navigation'
 import { useVerge } from '@/hooks/use-verge'
 
 interface Props {
-  to: string
+  to: NavigationPath
   children: string
   icon: ReactNode[]
   sortable?: SortableItemRenderProps
-  preload?: () => void
 }
 export const LayoutItem = (props: Props) => {
-  const { to, children, icon, sortable, preload } = props
+  const { to, children, icon, sortable } = props
   const { verge } = useVerge()
   const { menu_icon } = verge ?? {}
   const navCollapsed = verge?.collapse_navbar ?? false
-  const resolved = useResolvedPath(to)
-  const match = useMatch({ path: resolved.pathname, end: true })
+  const matchRoute = useMatchRoute()
+  const match = Boolean(matchRoute({ to }))
   const navigate = useNavigate()
+  const router = useRouter()
+
+  // Preload the route chunk on intent so split pages do not flash loaders.
+  const preload = () => {
+    void router.preloadRoute({ to }).catch(() => {})
+  }
 
   const effectiveMenuIcon =
     navCollapsed && menu_icon === 'disable' ? 'monochrome' : menu_icon
@@ -67,7 +73,7 @@ export const LayoutItem = (props: Props) => {
         ]}
         title={navCollapsed ? children : undefined}
         aria-label={navCollapsed ? children : undefined}
-        onClick={() => navigate(to)}
+        onClick={() => void navigate({ to })}
         onMouseEnter={preload}
         onFocus={preload}
       >

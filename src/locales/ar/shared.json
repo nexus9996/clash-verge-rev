@@ -46,7 +46,8 @@
     "disabled": "معطّل",
     "saving": "Saving...",
     "empty": "فارغ",
-    "loading": "جارٍ التحميل..."
+    "loading": "جارٍ التحميل...",
+    "pageNotFound": "الصفحة غير موجودة"
   },
   "units": {
     "milliseconds": "ميلي ثانية",

@@ -6,15 +6,16 @@ import { useTranslation } from 'react-i18next'
 import iconDark from '@/assets/image/icon_dark.svg?react'
 import iconLight from '@/assets/image/icon_light.svg?react'
 import LogoSvg from '@/assets/image/logo.svg?react'
+import { NAV_ITEMS } from '@/config/navigation'
+import { useNavMenuOrder } from '@/hooks/layout'
 import { useVerge } from '@/hooks/use-verge'
-import { useNavMenuOrder } from '@/pages/_layout/hooks'
-import { navItems, preloadNavItem } from '@/pages/_navigation'
 import { startWindowDragging } from '@/utils/window-drag'
 
 import { SortableItem } from '../base'
 
 import { LayoutItem } from './layout-item'
 import { LayoutTraffic } from './layout-traffic'
+import { NAV_ICONS } from './navigation-icons'
 import { UpdateButton } from './update-button'
 
 type MenuContextPosition = { top: number; left: number }
@@ -25,6 +26,11 @@ interface LayoutSidebarProps {
 }
 
 const SENSORS = [PointerSensor, KeyboardSensor]
+
+const navigationItems = NAV_ITEMS.map((item) => ({
+  ...item,
+  icon: NAV_ICONS[item.id],
+}))
 
 export const LayoutSidebar = (props: LayoutSidebarProps) => {
   const { isDark, isCollapsed } = props
@@ -57,7 +63,7 @@ export const LayoutSidebar = (props: LayoutSidebarProps) => {
     resetMenuOrder,
   } = useNavMenuOrder({
     enabled: menuUnlocked,
-    items: navItems,
+    items: navigationItems,
     storedOrder: verge?.menu_order,
     onOptimisticUpdate: handleMenuOrderOptimisticUpdate,
     onPersist: handleMenuOrderPersist,
@@ -101,19 +107,12 @@ export const LayoutSidebar = (props: LayoutSidebarProps) => {
     const item = navItemMap.get(path)
     if (!item) return null
 
-    const preload = item.lazy ? () => preloadNavItem(item) : undefined
-
     // A registered sortable, even a disabled one, gets the drag-and-drop ARIA
     // attributes, so screen readers announce every item as a disabled draggable.
     if (!menuUnlocked) {
       return (
-        <LayoutItem
-          key={item.path}
-          to={item.path}
-          icon={item.icon}
-          preload={preload}
-        >
-          {t(item.label)}
+        <LayoutItem key={item.path} to={item.path} icon={item.icon}>
+          {t(item.labelKey)}
         </LayoutItem>
       )
     }
@@ -121,13 +120,8 @@ export const LayoutSidebar = (props: LayoutSidebarProps) => {
     return (
       <SortableItem key={item.path} id={item.path} index={index}>
         {(sortable) => (
-          <LayoutItem
-            to={item.path}
-            icon={item.icon}
-            sortable={sortable}
-            preload={preload}
-          >
-            {t(item.label)}
+          <LayoutItem to={item.path} icon={item.icon} sortable={sortable}>
+            {t(item.labelKey)}
           </LayoutItem>
         )}
       </SortableItem>

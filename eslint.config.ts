@@ -101,6 +101,9 @@ const ipcBoundaryRules = ({
 export default defineConfig([
   pluginESx.configs['flat/restrict-to-es2022'],
   {
+    ignores: ['src/routeTree.gen.ts'],
+  },
+  {
     files: ['**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
 
     plugins: {
@@ -201,6 +204,38 @@ export default defineConfig([
       ],
 
       // Import
+      // Layer direction: routes -> pages -> components/hooks -> services/config.
+      // Upward imports are rejected here and surfaced by the arch:check layers gate.
+      'import-x/no-restricted-paths': [
+        'error',
+        {
+          zones: [
+            { target: './src/components', from: './src/pages' },
+            { target: './src/components', from: './src/routes' },
+            { target: './src/components', from: './src/app' },
+            { target: './src/services', from: './src/components' },
+            { target: './src/services', from: './src/pages' },
+            { target: './src/services', from: './src/routes' },
+            { target: './src/services', from: './src/app' },
+            { target: './src/hooks', from: './src/components' },
+            { target: './src/hooks', from: './src/pages' },
+            { target: './src/hooks', from: './src/routes' },
+            { target: './src/hooks', from: './src/app' },
+            { target: './src/config', from: './src/components' },
+            { target: './src/config', from: './src/pages' },
+            { target: './src/config', from: './src/routes' },
+            { target: './src/config', from: './src/services' },
+            { target: './src/config', from: './src/hooks' },
+            { target: './src/config', from: './src/store' },
+            { target: './src/config', from: './src/app' },
+            { target: './src/pages', from: './src/routes' },
+            { target: './src/pages', from: './src/app' },
+            { target: './src/routes', from: './src/services' },
+            { target: './src/routes', from: './src/store' },
+            { target: './src/routes', from: './src/hooks' },
+          ],
+        },
+      ],
       'import-x/no-unresolved': 'error',
       'import-x/order': [
         'warn',

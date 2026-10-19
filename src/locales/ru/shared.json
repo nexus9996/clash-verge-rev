@@ -46,7 +46,8 @@
     "disabled": "Отключено",
     "saving": "Сохранение...",
     "empty": "Пусто",
-    "loading": "Загрузка..."
+    "loading": "Загрузка...",
+    "pageNotFound": "Страница не найдена"
   },
   "units": {
     "milliseconds": "миллисекунды",

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 
-import { hideInitialOverlay } from '../utils'
+import { hideInitialOverlay } from '@/utils/initial-loading-overlay'
 
 export const useLoadingOverlay = (themeReady: boolean) => {
   const doneRef = useRef(false)

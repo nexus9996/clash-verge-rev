@@ -899,6 +899,7 @@ export const translationKeys = [
   'shared.statuses.saving',
   'shared.statuses.empty',
   'shared.statuses.loading',
+  'shared.statuses.pageNotFound',
   'shared.units.milliseconds',
   'shared.units.seconds',
   'shared.units.minutes',

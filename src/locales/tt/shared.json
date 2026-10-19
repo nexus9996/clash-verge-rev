@@ -46,7 +46,8 @@
     "disabled": "Сүнгән",
     "saving": "Saving...",
     "empty": "Буш",
-    "loading": "Йөкләнә..."
+    "loading": "Йөкләнә...",
+    "pageNotFound": "Бит табылмады"
   },
   "units": {
     "milliseconds": "Миллисекундлар",
