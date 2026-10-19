@@ -25,20 +25,21 @@ import { useTranslation } from 'react-i18next'
 import { BaseDialog, DialogRef } from '@/components/base'
 import { EditorViewer } from '@/components/profile/editor-viewer'
 import { ThemeColorSelect } from '@/components/setting/mods/theme-color-select'
-import { defaultDarkTheme, defaultTheme } from '@/config/theme'
-import { useVerge } from '@/hooks/use-verge'
-import { showNotice } from '@/services/notice-service'
 import {
+  defaultDarkTheme,
+  defaultTheme,
   THEME_PRESETS,
-  type ThemeColorKey,
+  type ThemePresetColorKey,
   type ThemePreset,
   type ThemePresetId,
-} from '@/utils/theme-presets'
+} from '@/config/theme'
+import { useVerge } from '@/hooks/use-verge'
+import { showNotice } from '@/services/notice-service'
 
 type EditMode = 'light' | 'dark'
 type ThemeSetting = NonNullable<IVergeConfig['theme_setting']>
 type ThemeSettingColorKey =
-  | ThemeColorKey
+  | ThemePresetColorKey
   | 'background_color'
   | 'paper_background_color'
 
@@ -105,44 +106,46 @@ export function ThemeViewer(props: { ref?: React.Ref<DialogRef> }) {
 
   const dt = editMode === 'light' ? defaultTheme : defaultDarkTheme
 
-  const fieldDefinitions: Array<{ labelKey: string; key: ThemeColorKey }> =
-    useMemo(
-      () => [
-        {
-          labelKey: 'settings.components.verge.theme.fields.primaryColor',
-          key: 'primary_color',
-        },
-        {
-          labelKey: 'settings.components.verge.theme.fields.secondaryColor',
-          key: 'secondary_color',
-        },
-        {
-          labelKey: 'settings.components.verge.theme.fields.primaryText',
-          key: 'primary_text',
-        },
-        {
-          labelKey: 'settings.components.verge.theme.fields.secondaryText',
-          key: 'secondary_text',
-        },
-        {
-          labelKey: 'settings.components.verge.theme.fields.infoColor',
-          key: 'info_color',
-        },
-        {
-          labelKey: 'settings.components.verge.theme.fields.warningColor',
-          key: 'warning_color',
-        },
-        {
-          labelKey: 'settings.components.verge.theme.fields.errorColor',
-          key: 'error_color',
-        },
-        {
-          labelKey: 'settings.components.verge.theme.fields.successColor',
-          key: 'success_color',
-        },
-      ],
-      [],
-    )
+  const fieldDefinitions: Array<{
+    labelKey: string
+    key: ThemePresetColorKey
+  }> = useMemo(
+    () => [
+      {
+        labelKey: 'settings.components.verge.theme.fields.primaryColor',
+        key: 'primary_color',
+      },
+      {
+        labelKey: 'settings.components.verge.theme.fields.secondaryColor',
+        key: 'secondary_color',
+      },
+      {
+        labelKey: 'settings.components.verge.theme.fields.primaryText',
+        key: 'primary_text',
+      },
+      {
+        labelKey: 'settings.components.verge.theme.fields.secondaryText',
+        key: 'secondary_text',
+      },
+      {
+        labelKey: 'settings.components.verge.theme.fields.infoColor',
+        key: 'info_color',
+      },
+      {
+        labelKey: 'settings.components.verge.theme.fields.warningColor',
+        key: 'warning_color',
+      },
+      {
+        labelKey: 'settings.components.verge.theme.fields.errorColor',
+        key: 'error_color',
+      },
+      {
+        labelKey: 'settings.components.verge.theme.fields.successColor',
+        key: 'success_color',
+      },
+    ],
+    [],
+  )
 
   const openCssEditor = () => {
     const nextCss = themeRef.current?.css_injection ?? ''
@@ -202,7 +205,7 @@ export function ThemeViewer(props: { ref?: React.Ref<DialogRef> }) {
     </Item>
   )
 
-  const renderItem = (labelKey: string, key: ThemeColorKey) => (
+  const renderItem = (labelKey: string, key: ThemePresetColorKey) => (
     <ThemeColorSelect
       key={key}
       label={t(labelKey)}

@@ -1,6 +1,6 @@
-import { defaultDarkTheme, defaultTheme } from '@/config/theme'
+import { defaultDarkTheme, defaultTheme } from './defaults'
 
-export type ThemeColorKey =
+export type ThemePresetColorKey =
   | 'primary_color'
   | 'secondary_color'
   | 'primary_text'
@@ -18,7 +18,7 @@ export type ThemePresetId =
   | 'lavender'
   | 'monochrome'
 
-type ThemePresetColors = Record<ThemeColorKey, string>
+type ThemePresetColors = Record<ThemePresetColorKey, string>
 
 export interface ThemePreset {
   id: ThemePresetId

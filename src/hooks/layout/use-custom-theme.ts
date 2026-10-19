@@ -1,4 +1,4 @@
-import { alpha, createTheme, Theme as MuiTheme, Shadows } from '@mui/material'
+import { createTheme, Theme as MuiTheme, Shadows } from '@mui/material'
 import {
   getCurrentWebviewWindow,
   WebviewWindow,
@@ -6,7 +6,13 @@ import {
 import { Theme as TauriOsTheme } from '@tauri-apps/api/window'
 import { useEffect, useMemo } from 'react'
 
-import { defaultDarkTheme, defaultTheme } from '@/config/theme'
+import {
+  createThemeCssVariables,
+  defaultDarkTheme,
+  defaultTheme,
+  resolveThemeColors,
+  type ResolvedThemeColors,
+} from '@/config/theme'
 import { useVerge } from '@/hooks/use-verge'
 import { useSetThemeMode, useThemeMode } from '@/services/states'
 
@@ -25,6 +31,36 @@ const TOP_LEVEL_AT_RULES = [
   '@font-feature-values',
   '@color-profile',
 ]
+const THEME_BREAKPOINTS = {
+  values: { xs: 0, sm: 650, md: 900, lg: 1200, xl: 1536 },
+} as const
+
+const buildThemeOptions = (
+  mode: 'light' | 'dark',
+  colors: ResolvedThemeColors,
+) => ({
+  breakpoints: THEME_BREAKPOINTS,
+  palette: {
+    mode,
+    primary: { main: colors.primary },
+    secondary: { main: colors.secondary },
+    info: { main: colors.info },
+    error: { main: colors.error },
+    warning: { main: colors.warning },
+    success: { main: colors.success },
+    text: {
+      primary: colors.textPrimary,
+      secondary: colors.textSecondary,
+    },
+    background: {
+      paper: colors.paper,
+      default: colors.background,
+    },
+  },
+  shadows: Array(25).fill('none') as Shadows,
+  typography: { fontFamily: colors.fontFamily },
+})
+
 let cssScopeSupport: boolean | null = null
 
 const canUseCssScope = () => {
@@ -152,94 +188,24 @@ export const useCustomTheme = () => {
       theme_setting ??
       {}
     const dt = mode === 'light' ? defaultTheme : defaultDarkTheme
-    const paperBackground =
-      setting.paper_background_color || dt.background_color
-    const defaultBackground = setting.background_color || dt.background_color
+    const colors = resolveThemeColors(setting, dt)
     let muiTheme: MuiTheme
 
     try {
-      muiTheme = createTheme({
-        breakpoints: {
-          values: { xs: 0, sm: 650, md: 900, lg: 1200, xl: 1536 },
-        },
-        palette: {
-          mode,
-          primary: { main: setting.primary_color || dt.primary_color },
-          secondary: { main: setting.secondary_color || dt.secondary_color },
-          info: { main: setting.info_color || dt.info_color },
-          error: { main: setting.error_color || dt.error_color },
-          warning: { main: setting.warning_color || dt.warning_color },
-          success: { main: setting.success_color || dt.success_color },
-          text: {
-            primary: setting.primary_text || dt.primary_text,
-            secondary: setting.secondary_text || dt.secondary_text,
-          },
-          background: {
-            paper: paperBackground,
-            default: defaultBackground,
-          },
-        },
-        shadows: Array(25).fill('none') as Shadows,
-        typography: {
-          fontFamily: setting.font_family
-            ? `${setting.font_family}, ${dt.font_family}`
-            : dt.font_family,
-        },
-      })
+      muiTheme = createTheme(buildThemeOptions(mode, colors))
     } catch (e) {
       console.error('Error creating MUI theme, falling back to defaults:', e)
-      muiTheme = createTheme({
-        breakpoints: {
-          values: { xs: 0, sm: 650, md: 900, lg: 1200, xl: 1536 },
-        },
-        palette: {
-          mode,
-          primary: { main: dt.primary_color },
-          secondary: { main: dt.secondary_color },
-          info: { main: dt.info_color },
-          error: { main: dt.error_color },
-          warning: { main: dt.warning_color },
-          success: { main: dt.success_color },
-          text: { primary: dt.primary_text, secondary: dt.secondary_text },
-          background: {
-            paper: dt.background_color,
-            default: dt.background_color,
-          },
-        },
-        typography: { fontFamily: dt.font_family },
-      })
+      muiTheme = createTheme(
+        buildThemeOptions(mode, resolveThemeColors(undefined, dt)),
+      )
     }
 
     const rootEle = document.documentElement
     if (rootEle) {
-      const backgroundColor =
-        setting.background_color ||
-        (mode === 'light' ? '#ECECEC' : dt.background_color)
-      const selectColor = mode === 'light' ? '#f5f5f5' : '#3E3E3E'
-      const scrollColor = mode === 'light' ? '#90939980' : '#555555'
-      const dividerColor =
-        mode === 'light' ? 'rgba(0, 0, 0, 0.06)' : 'rgba(255, 255, 255, 0.06)'
-      rootEle.style.setProperty('--divider-color', dividerColor)
-      rootEle.style.setProperty('--background-color', backgroundColor)
-      rootEle.style.setProperty('--selection-color', selectColor)
-      rootEle.style.setProperty('--scroller-color', scrollColor)
-      rootEle.style.setProperty('--primary-main', muiTheme.palette.primary.main)
-      rootEle.style.setProperty(
-        '--background-color-alpha',
-        alpha(muiTheme.palette.primary.main, 0.1),
-      )
-      rootEle.style.setProperty(
-        '--window-border-color',
-        mode === 'light' ? '#cccccc' : '#1E1E1E',
-      )
-      rootEle.style.setProperty(
-        '--scrollbar-bg',
-        mode === 'light' ? '#f1f1f1' : '#2E303D',
-      )
-      rootEle.style.setProperty(
-        '--scrollbar-thumb',
-        mode === 'light' ? '#c1c1c1' : '#555555',
-      )
+      const cssVariables = createThemeCssVariables({ mode, setting, colors })
+      for (const [name, value] of Object.entries(cssVariables)) {
+        rootEle.style.setProperty(name, value)
+      }
       rootEle.style.setProperty(
         '--user-background-image',
         hasUserBackground ? `url('${userBackgroundImage}')` : 'none',
@@ -282,7 +248,7 @@ export const useCustomTheme = () => {
           border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb:hover {
-          background-color: ${mode === 'light' ? '#a1a1a1' : '#666666'};
+          background-color: var(--scrollbar-thumb-hover);
         }
 
         /* 背景图处理 */
@@ -310,7 +276,7 @@ export const useCustomTheme = () => {
 
         /* 确保模态框和对话框也使用暗色主题 */
         .MuiDialog-paper {
-          background-color: ${setting.paper_background_color || (mode === 'light' ? '#ffffff' : '#2E303D')} !important;
+          background-color: var(--dialog-background) !important;
         }
 
         /* 移除可能的白色点或线条 */

@@ -1,4 +1,4 @@
-import { useClashConfigData } from '@/hooks/data'
+import { useClashConfigData } from '@/hooks/data/use-clash-config-data'
 import { useClashInfo, useRuntimeConfig } from '@/hooks/use-clash'
 import { useVerge } from '@/hooks/use-verge'
 import { resolveDisplayedMixedPort } from '@/utils/mixed-port'
