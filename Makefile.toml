@@ -46,6 +46,15 @@ args = ["knip:check"]
 command = "cmd.exe"
 args = ["/d", "/c", "pnpm", "knip:check"]
 
+[tasks.file-hygiene]
+description = "Check tracked text files for whitespace and newline hygiene"
+command = "pnpm"
+args = ["hygiene"]
+
+[tasks.file-hygiene.windows]
+command = "cmd.exe"
+args = ["/d", "/c", "pnpm", "hygiene"]
+
 [tasks.lint-staged]
 description = "Run lint-staged for staged files"
 command = "pnpm"
@@ -135,6 +144,9 @@ end
 description = "Pre-push checks: lint, typecheck, and unused files"
 script_runner = "@duckscript"
 script = '''
+# tracked text file hygiene
+cm_run_task file-hygiene
+
 has_upstream = exec git rev-parse --abbrev-ref --symbolic-full-name @{u}
 if not eq ${has_upstream.code} 0
   echo "No upstream found, skipping diff-based checks"

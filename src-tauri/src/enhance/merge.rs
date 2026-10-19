@@ -45,7 +45,7 @@ fn test_merge() -> anyhow::Result<()> {
       - 1111
     rules:
       - replace
-    proxy-groups: 
+    proxy-groups:
       - 123781923810
     tun:
       enable: true
