@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useReducer } from 'react'
 
 type MenuOrderAction = { type: 'sync'; payload: string[] }
 
-const areOrdersEqual = (a: string[], b: string[]) =>
+export const areOrdersEqual = (a: string[], b: string[]) =>
   a.length === b.length && a.every((value, index) => value === b[index])
 
 const menuOrderReducer = (state: string[], action: MenuOrderAction) => {
@@ -22,7 +22,7 @@ const createNavLookup = <T extends { path: string }>(items: readonly T[]) => {
   return { map, defaultOrder }
 }
 
-const resolveMenuOrder = <T extends { path: string }>(
+export const resolveMenuOrder = <T extends { path: string }>(
   order: string[] | null | undefined,
   defaultOrder: string[],
   map: Map<string, T>,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatRouteError } from '@/utils/format-route-error'
+import { formatRouteError } from './format-route-error'
 
 describe('formatRouteError', () => {
   it('uses the message of an Error', () => {
