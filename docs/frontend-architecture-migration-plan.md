@@ -736,3 +736,12 @@ Phase 0 无阻塞项，可以进入 Phase 1（G1 条件 Go）。唯一未测量�
 - G1 六项全部通过：门禁全绿；route catalog 测试通过；桌面 smoke 无异常（无导航 loading 闪烁）；初始 JS **392.9 kB gzip（−22.7%）**；依赖净增 +2；深链/通知/拖拽/主题无回归。
 - 运行时 p95 数值未单独采集（定性通过）；由 T4 的 bundle/导航性能脚本落地后补录。
 - 下一张卡片：T2（依赖方向 lint + 反向 import 清理）或 T4（bundle 预算 + 导航性能 CI），二选一后开新 worktree。
+
+### 12.7 Phase 3 T2 完成记录（依赖方向强制，2026-10-19）
+
+- 卡片分支：`migrate/fe-boundary-lint`（commit `bd81c85a`），已 FF 合入集成分支。
+- 结构调整：`pages/_layout.tsx` → `app/layout.tsx`；`pages/_layout/hooks/*` → `hooks/layout/*`；`pages/_theme.tsx` → `config/theme.ts`；`initial-loading-overlay` → `utils/`。
+- 反向依赖清零：`components`/`hooks`/`services`/`config` 不再 import `pages`；`routes` 只依赖 `app`/`pages`/`components/base`/`config`。
+- 强制手段：`eslint.config.ts` 新增 `import-x/no-restricted-paths` 23 个 zone；`scripts/check-architecture.mjs` 将该规则纳入边界校验；实测能拦截 `components → pages` 违规。
+- 门禁全绿；bundle 中性（393.1 kB gzip）。
+- 合并提示：本卡移动了 `theme-viewer.tsx` 的 import 与 `_theme` 路径，与并行主题分支（c4/c5）合并时若冲突，以本分支的 import 路径为准。
