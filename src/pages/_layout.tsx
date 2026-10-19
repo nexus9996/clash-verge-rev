@@ -1,9 +1,9 @@
 import { Paper, ThemeProvider } from '@mui/material'
+import { Outlet, useNavigate } from '@tanstack/react-router'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import { useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Outlet, useNavigate } from 'react-router'
 
 import { BaseErrorBoundary } from '@/components/base'
 import { LayoutSidebar } from '@/components/layout/layout-sidebar'
@@ -27,6 +27,7 @@ import {
   useLoadingOverlay,
   usePendingFailures,
 } from './_layout/hooks'
+import type { NavigationPath } from './_navigation'
 
 import 'dayjs/locale/ru'
 import 'dayjs/locale/zh-cn'
@@ -64,7 +65,9 @@ const Layout = () => {
     (payload: [string, string]) => {
       const [status, msg] = payload
       try {
-        handleNoticeMessage(status, msg, t, navigate)
+        handleNoticeMessage(status, msg, t, (path) =>
+          navigate({ to: path as NavigationPath }),
+        )
       } catch (error) {
         console.error('[通知处理] 失败:', error)
       }

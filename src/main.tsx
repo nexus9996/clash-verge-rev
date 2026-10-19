@@ -1,15 +1,15 @@
 import './assets/styles/index.scss'
 
 import { ResizeObserver } from '@juggle/resize-observer'
+import { RouterProvider } from '@tanstack/react-router'
 import { ComposeContextProvider } from 'foxact/compose-context-provider'
 import React from 'react'
 import { createRoot } from 'react-dom/client'
-import { RouterProvider } from 'react-router'
 import { SWRConfig } from 'swr'
 import { MihomoWebSocket } from 'tauri-plugin-mihomo-api'
 
+import { router } from './app/router'
 import { BaseErrorBoundary } from './components/base'
-import { router } from './pages/_routers'
 import { preloadHomePageCards } from './pages/home'
 import { AppDataProvider } from './providers/app-data-provider'
 import { FALLBACK_LANGUAGE, initializeLanguage } from './services/i18n'
