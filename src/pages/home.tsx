@@ -22,14 +22,7 @@ import {
   Tooltip,
 } from '@mui/material'
 import { useLockFn } from 'ahooks'
-import {
-  Suspense,
-  lazy,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react'
+import { Suspense, lazy, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BasePage } from '@/components/base'
@@ -44,7 +37,6 @@ import { useVerge } from '@/hooks/use-verge'
 import { entry_lightweight_mode } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'
-import { recordDiagnostic } from '@/utils/diagnostics'
 import { openExternalUrl } from '@/utils/open-external-url'
 
 const preloadTestCard = () =>
@@ -239,14 +231,6 @@ const HomeSettingsDialog = ({
 }
 
 const HomePage = () => {
-  const [mountStartedAt] = useState(() => performance.now())
-
-  useEffect(() => {
-    recordDiagnostic('home-mount', {
-      ms: Math.round((performance.now() - mountStartedAt) * 10) / 10,
-    })
-  }, [mountStartedAt])
-
   const { t } = useTranslation()
   const { verge } = useVerge()
   const { current, mutateProfiles } = useProfiles()

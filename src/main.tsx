@@ -9,7 +9,6 @@ import { SWRConfig } from 'swr'
 import { MihomoWebSocket } from 'tauri-plugin-mihomo-api'
 
 import { router } from './app/router'
-import { installRouteTiming } from './app/router-timing'
 import { scheduleWarmup } from './app/warmup'
 import { BaseErrorBoundary } from './components/base'
 import { preloadHomePageCards } from './pages/home'
@@ -36,13 +35,6 @@ if (!container) {
 }
 
 disableWebViewShortcuts()
-
-// Opt-in for packaged navigation-timing builds: pnpm build:nav-timing
-if (import.meta.env.DEV || import.meta.env.VITE_NAV_TIMING === '1') {
-  installRouteTiming(router, {
-    autoStart: import.meta.env.VITE_NAV_TIMING === '1',
-  })
-}
 
 const initializeApp = (initialThemeMode: 'light' | 'dark') => {
   const contexts = [

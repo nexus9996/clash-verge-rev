@@ -15,7 +15,6 @@ import {
   type ResolvedProxyMember,
 } from '@/types/proxy-view'
 import { debugLog } from '@/utils/debug'
-import { recordDiagnostic } from '@/utils/diagnostics'
 
 import { filterSort } from './use-filter-sort'
 import {
@@ -226,7 +225,6 @@ export const useRenderList = (
 
   const renderList = useMemo<IRenderItem[]>(() => {
     if (!proxyView) return []
-    const startedAt = performance.now()
 
     if (isChainMode) {
       const selected =
@@ -353,11 +351,6 @@ export const useRenderList = (
     const filtered = !useRule
       ? retList.slice(1)
       : retList.filter((item) => !item.group.hidden)
-    recordDiagnostic('renderList', {
-      ms: Math.round((performance.now() - startedAt) * 10) / 10,
-      items: filtered.length,
-      groups: renderGroups.length,
-    })
     if (!anyChanged && prevListRef.current.length === filtered.length) {
       return prevListRef.current
     }
