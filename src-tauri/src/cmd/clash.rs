@@ -135,14 +135,7 @@ pub async fn install_core_version(version: std::string::String) -> CmdResult<fea
 #[specta::specta]
 pub async fn test_delay(url: std::string::String) -> CmdResult<u32> {
     let url: String = url.into();
-    let result = match feat::test_delay(url).await {
-        Ok(delay) => delay,
-        Err(e) => {
-            logging!(error, Type::Cmd, "get clash delay failed: {e:#}");
-            10000u32
-        }
-    };
-    Ok(result)
+    feat::test_delay(url).await.with_error_code("LATENCY_TEST_FAILED")
 }
 
 #[derive(Debug, Clone, serde::Serialize, specta::Type)]

@@ -265,7 +265,7 @@ impl Tray {
         Ok(())
     }
 
-    async fn refresh_proxy_items(&'static self) {
+    pub(crate) async fn refresh_proxy_items(&'static self) {
         let Ok(update) = self.menu_update.try_lock() else {
             return;
         };
@@ -274,7 +274,7 @@ impl Tray {
         }
         let Ok(Ok(view)) = tokio::time::timeout(
             Duration::from_secs(1),
-            cmd::proxy::proxy_view(Some(Duration::from_millis(750))),
+            cmd::proxy::proxy_view(Some(cmd::proxy::PROXY_VIEW_PROVIDER_TIMEOUT)),
         )
         .await
         else {
@@ -809,7 +809,7 @@ async fn create_tray_menu(
     let proxy_view = if fetch_proxy_groups {
         tokio::time::timeout(
             Duration::from_millis(1000),
-            cmd::proxy::proxy_view(Some(Duration::from_millis(750))),
+            cmd::proxy::proxy_view(Some(cmd::proxy::PROXY_VIEW_PROVIDER_TIMEOUT)),
         )
         .await
         .ok()

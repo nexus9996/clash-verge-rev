@@ -23,7 +23,7 @@ import { useProxiesData, useSystemData } from '@/hooks/data'
 import { useProfiles } from '@/hooks/use-profiles'
 import { useProxySelection } from '@/hooks/use-proxy-selection'
 import { useVerge } from '@/hooks/use-verge'
-import { syncTrayProxySelection } from '@/services/cmds'
+import { refreshTrayProxyItems } from '@/services/cmds'
 import delayManager from '@/services/delay'
 import { mutate } from '@/services/mutate'
 import {
@@ -144,11 +144,11 @@ function useProxyRenderState(
         console.error(`[ProxyGroups] 延迟测试出错，组: ${groupName}`, error)
       } finally {
         onProxies()
-        mutate(() => syncTrayProxySelection(), {
-          id: 'sync-tray-selection',
+        mutate(() => refreshTrayProxyItems(), {
+          id: 'refresh-tray-latency',
           errorNotice: false,
         }).catch((error) => {
-          console.error('[ProxyGroups] Failed to sync tray latency:', error)
+          console.error('[ProxyGroups] Failed to refresh tray latency:', error)
         })
       }
     }),

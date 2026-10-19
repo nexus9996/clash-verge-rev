@@ -127,9 +127,8 @@ pub(super) async fn test_proxy_group_delay(group_name: &str) {
     .for_each(|()| std::future::ready(()))
     .await;
 
-    if let Err(err) = cmd::proxy::sync_tray_proxy_selection().await {
-        logging!(warn, Type::Tray, "Failed to refresh tray after latency test: {err}");
-    }
+    // Only latency labels changed: diff item texts instead of rebuilding the whole menu.
+    Tray::global().refresh_proxy_items().await;
 
     announce(Refresh::Proxies);
 }

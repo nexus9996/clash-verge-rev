@@ -38,6 +38,12 @@ export interface DelayUpdate {
 
 const CACHE_TTL = 30 * 60 * 1000
 
+// Proxy group names may contain spaces, so group sets are keyed by NUL.
+export const GROUP_KEY_SEPARATOR = '\u0000'
+
+export const groupDelayKey = (groups: readonly string[]) =>
+  groups.join(GROUP_KEY_SEPARATOR)
+
 class DelayManager {
   private cache = new Map<string, DelayUpdate & { url: string }>()
   private urlMap = new Map<string, string>()
@@ -142,7 +148,7 @@ class DelayManager {
     const cached = this.groupSetSnapshots.get(groupKey)
     if (cached) return cached
 
-    const names = groupKey ? groupKey.split(' ') : []
+    const names = groupKey ? groupKey.split(GROUP_KEY_SEPARATOR) : []
     const snapshots = new Map(
       names.map((name) => [name, this.groupDelays(name)]),
     )
@@ -172,12 +178,20 @@ class DelayManager {
     if (previous !== this.getUrl(group)) this.queueGroupNotification(group)
   }
 
+  /** Drops measurements that belong to the previously active profile. */
+  clear() {
+    this.cache.clear()
+    this.urlMap.clear()
+    this.pendingItemUpdates.clear()
+    const groups = new Set([
+      ...this.groupListenerMap.keys(),
+      ...this.groupSnapshots.keys(),
+    ])
+    for (const group of groups) this.queueGroupNotification(group)
+  }
+
   getUrl(group: string) {
-    const url = this.urlMap.get(group)
-    debugLog(
-      `[DelayManager] 获取测试URL，组: ${group}, URL: ${url || '未设置'}`,
-    )
-    return url || 'http://cp.cloudflare.com/generate_204'
+    return this.urlMap.get(group) || 'http://cp.cloudflare.com/generate_204'
   }
 
   setListener(
@@ -215,6 +229,12 @@ class DelayManager {
     meta?: { elapsed?: number; url?: string },
   ): DelayUpdate {
     const key = hashKey(member, group)
+    const url = meta?.url ?? this.getUrl(group)
+    const cached = this.cache.get(key)
+    if (cached && cached.delay === delay && cached.url === url) {
+      return cached
+    }
+
     debugLog(
       `[DelayManager] 设置延迟，代理: ${member.ref.name}, 组: ${group}, 延迟: ${delay}`,
     )
@@ -224,7 +244,6 @@ class DelayManager {
       updatedAt: Date.now(),
     }
 
-    const url = meta?.url ?? this.getUrl(group)
     if (url !== this.getUrl(group)) return update
     this.cache.set(key, { ...update, url })
 
@@ -323,12 +342,13 @@ class DelayManager {
     this.setDelay(member, group, -2, { url })
 
     const startTime = Date.now()
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
 
     try {
       debugLog(`[DelayManager] 调用API测试延迟，代理: ${name}, URL: ${url}`)
 
       const timeoutPromise = new Promise<ProxyDelay>((resolve) => {
-        setTimeout(() => resolve({ delay: 0 }), timeout)
+        timeoutId = setTimeout(() => resolve({ delay: 0 }), timeout)
       })
 
       const result = await Promise.race([
@@ -336,23 +356,19 @@ class DelayManager {
         timeoutPromise,
       ])
 
-      const elapsedTime = Date.now() - startTime
-      if (elapsedTime < 500) {
-        await new Promise((resolve) => setTimeout(resolve, 500 - elapsedTime))
-      }
-
       const delay = result.delay
-      const elapsed = elapsedTime
+      const elapsed = Date.now() - startTime
       debugLog(`[DelayManager] 延迟测试完成，代理: ${name}, 结果: ${delay}ms`)
 
       return this.setDelay(member, group, delay, { elapsed, url })
     } catch (error) {
-      await new Promise((resolve) => setTimeout(resolve, 500))
       console.error(`[DelayManager] 延迟测试出错，代理: ${name}`, error)
       const delay = 1e6 // error
       const elapsed = Date.now() - startTime
 
       return this.setDelay(member, group, delay, { elapsed, url })
+    } finally {
+      clearTimeout(timeoutId)
     }
   }
 
@@ -360,7 +376,7 @@ class DelayManager {
     proxies: InteractableProxyMember[],
     group: string,
     timeout: number,
-    concurrency = 36,
+    concurrency = 20,
   ) {
     debugLog(
       `[DelayManager] 批量测试延迟开始，组: ${group}, 数量: ${proxies.length}, 并发数: ${concurrency}`,
@@ -379,16 +395,6 @@ class DelayManager {
       const currName = currMember.ref.name
 
       try {
-        this.setDelay(currMember, group, -2)
-
-        // Stagger requests so a batch does not hit the core at once.
-        if (index > 1) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, Math.random() * 200),
-          )
-        }
-
-        // Do not reorder a list around the pointer while batch results are arriving.
         await this.measureDelay(currMember, group, timeout)
       } catch (error) {
         console.error(
@@ -401,7 +407,7 @@ class DelayManager {
       return help()
     }
 
-    const actualConcurrency = Math.min(concurrency, proxies.length, 10)
+    const actualConcurrency = Math.min(concurrency, proxies.length)
     debugLog(`[DelayManager] 实际并发数: ${actualConcurrency}`)
 
     const promiseList: Promise<void>[] = []

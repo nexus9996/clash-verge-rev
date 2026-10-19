@@ -47,7 +47,7 @@ import { useGroupDelays } from '@/hooks/use-group-delays'
 import { useProfiles } from '@/hooks/use-profiles'
 import { useProxySelection } from '@/hooks/use-proxy-selection'
 import { useVerge } from '@/hooks/use-verge'
-import { syncTrayProxySelection } from '@/services/cmds'
+import { refreshTrayProxyItems } from '@/services/cmds'
 import delayManager from '@/services/delay'
 import { mutate } from '@/services/mutate'
 import { profileTestUrls } from '@/services/proxy-test-url'
@@ -849,9 +849,8 @@ export const CurrentProxyCard = () => {
       )
     } finally {
       autoCheckInProgressRef.current = false
-      refreshProxy()
     }
-  }, [isDirectMode, refreshProxy, selectedGroupName, selectedProxyName])
+  }, [isDirectMode, selectedGroupName, selectedProxyName])
 
   useEffect(() => {
     if (isDirectMode) return
@@ -924,11 +923,11 @@ export const CurrentProxyCard = () => {
     }
 
     refreshProxy()
-    mutate(() => syncTrayProxySelection(), {
-      id: 'sync-tray-selection',
+    mutate(() => refreshTrayProxyItems(), {
+      id: 'refresh-tray-latency',
       errorNotice: false,
     }).catch((error) => {
-      console.error('[CurrentProxyCard] Failed to sync tray latency:', error)
+      console.error('[CurrentProxyCard] Failed to refresh tray latency:', error)
     })
   })
 

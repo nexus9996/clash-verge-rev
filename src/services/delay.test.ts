@@ -7,7 +7,7 @@ vi.mock('tauri-plugin-mihomo-api', () => ({
 
 import type { ResolvedProxyMember } from '@/types/proxy-view'
 
-import delayManager from './delay'
+import delayManager, { groupDelayKey } from './delay'
 
 const node = (name: string) =>
   ({
@@ -191,4 +191,14 @@ test('unmeasured selectors show automatic history without replacing a manual URL
   expect(delayManager.getDelayFix(member, 'selector')).toBe(126)
   delayManager.setDelay(member, 'selector', 50)
   expect(delayManager.getDelayFix(member, 'selector')).toBe(50)
+})
+
+test('group delay snapshots support group names containing spaces', () => {
+  const groups = ['🇭🇰 Hong Kong', 'Auto Select']
+  const snapshots = delayManager.groupsDelays(groupDelayKey(groups))
+
+  expect([...snapshots.keys()]).toEqual(groups)
+  expect(snapshots.get('🇭🇰 Hong Kong')).toBe(
+    delayManager.groupDelays('🇭🇰 Hong Kong'),
+  )
 })
