@@ -21,3 +21,7 @@ These rules supplement the repository's root `AGENTS.md`.
 - **Command ownership.** `services` owns backend command invocation and transport
   wrappers. Components and hooks use those boundaries; plugin mutations follow
   the same intent ownership as backend commands.
+- **Navigation ownership.** `config/navigation.ts` is the single source for
+  navigation ids, paths and labels. Route files point at an entry through
+  `staticData.navId`; components consume the catalog instead of hardcoding
+  paths, and backend-provided paths are resolved through `resolveNavigationPath`.
