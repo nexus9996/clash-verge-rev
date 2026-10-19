@@ -51,7 +51,7 @@ src/config/theme/
 
 - 组件样式使用 `theme.palette.*`、MUI 语义 shorthand（`background.paper`、`text.disabled`）或上述 CSS 变量；
 - **裸 hex 只允许出现在 `config/theme/tokens.ts` 与 `assets/styles` 的 CSS 变量默认值**；
-- `scripts/check-hex-budget.mjs`（`pnpm check:hex-budget`，CI 接入）预算为 **0**，新增颜色必须进入 token 文件。
+- `scripts/check-hex-budget.mjs`（`bun run check:hex-budget`，CI 接入）预算为 **0**，新增颜色必须进入 token 文件。
 
 ### D5 主题预设与用户自定义主题
 

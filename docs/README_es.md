@@ -100,9 +100,9 @@ Consulta [CONTRIBUTING.md](../CONTRIBUTING.md) para conocer las pautas de contri
 Después de instalar todos los requisitos de **Tauri**, ejecuta el entorno de desarrollo con:
 
 ```shell
-pnpm i
-pnpm run prebuild
-pnpm dev
+bun install
+bun run prebuild:download
+bun run dev
 ```
 
 ## Contribuciones

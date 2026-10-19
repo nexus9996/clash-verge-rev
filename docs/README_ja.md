@@ -100,9 +100,9 @@ Windows (x64/x86)、Linux (x64/arm64)、macOS 10.15+ (Intel/Apple) をサポー�
 **Tauri** の前提条件を整えたら、以下のコマンドで開発サーバーを起動できます:
 
 ```shell
-pnpm i
-pnpm run prebuild
-pnpm dev
+bun install
+bun run prebuild:download
+bun run dev
 ```
 
 ## コントリビューション
