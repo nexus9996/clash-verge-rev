@@ -155,15 +155,17 @@ app/                            不再需要 app-data provider；组合根只剩
 ## 4. 样式与主题
 
 ```text
-config/theme/
-├── tokens.ts      # 语义 token：color/space/radius/shadow/zIndex/overlay/status
-├── presets.ts     # 6 套主题预设（映射到现有 theme_setting 的 8 个颜色 key）
-└── index.ts       # defaultTheme/defaultDarkTheme 等
+src/config/theme/
+├── defaults.ts    # defaultTheme / defaultDarkTheme
+├── tokens.ts      # 语义 token + CSS 变量生成（createThemeCssVariables / resolveThemeColors）
+├── presets.ts     # 6 套主题预设（8 个颜色 key，由 utils/theme-presets.ts 迁入）
+└── index.ts       # 主题层唯一 import 入口
 ```
 
 - 组件样式优先级：MUI `sx` > `styled()` > SCSS（仅全局/布局壳）。新代码禁止裸 hex，统一 `theme.palette` 或语义 token。
-- `use-custom-theme` 继续负责：运行时 `createTheme`、16 个 CSS 变量注入、用户自定义 CSS（`@scope`）、背景图/透明度、系统暗色跟随；token 层只扩展其输入，不改注入协议。
-- Phase 2 目标：迁移域内硬编码 hex 减少 ≥50%；6 套预设 + 原生取色器可用。
+- `use-custom-theme` 负责：运行时 `createTheme`、CSS 变量注入、用户自定义 CSS（`@scope`）、背景图/透明度、系统暗色跟随。S1 起它只消费 `tokens.ts` 的生成结果，不再含硬编码颜色。
+- CSS 变量：保留既有 legacy 名称（`--background-color`、`--divider-color` 等），新增语义色（`--color-*`）与尺度（`--space-*` / `--radius-*` / `--shadow-*` / `--z-*` / `--overlay-*`）。
+- 主题预设已接入 token 体系（6 套 × 明暗）；S3 的按域 hex 清理继续按计划推进。
 - **不引入 Tailwind**（ADR-0001 D2）；明暗双套主题配置依赖后端契约字段，另行排期。
 
 ## 5. 质量门禁

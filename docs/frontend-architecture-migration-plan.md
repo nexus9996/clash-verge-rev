@@ -777,3 +777,12 @@ Phase 0 无阻塞项，可以进入 Phase 1（G1 条件 Go）。唯一未测量�
 - `useAppRefreshers` 改为缓存 revalidate（`createAppRefreshers` 可单测）；core data pending 由两个查询派生；17 个消费文件的 import 迁移到 `@/hooks/data`。
 - 新增 query key 快照 + refreshers 单测；24 文件 / **75 tests**；门禁全绿；初始 JS 394.3 kB gzip（+0.3%，预算内）。
 - 行为差异：查询从"根 Provider 启动即拉取"改为"消费组件挂载时按需触发"（SWR 去重不变）；如需首屏预热可后续按页面 hooks 自然触发，无需全局 Provider。
+
+### 12.12 Phase 2 S1 完成记录（语义 token 层，2026-10-19）
+
+- 卡片分支：`migrate/fe-design-tokens`，已 FF 合入 `local`。
+- `config/theme` 目录：`defaults.ts`（原 `config/theme.ts`）、`tokens.ts`（SPACE/RADIUS/SHADOW/Z_INDEX/OVERLAY + `resolveThemeColors` + `createThemeCssVariables` + mode surfaces）、`presets.ts`（原 `utils/theme-presets.ts`）、`index.ts` 唯一入口。
+- 主题预设接入：`theme-viewer` 改为单入口 import；预设颜色类型 `ThemePresetColorKey` 与 token 颜色类型解耦。
+- `use-custom-theme` 中 9 处硬编码颜色清零，改由 token/CSS 变量生成；legacy CSS 变量名全部保留，新增 `--color-*` / `--space-*` / `--radius-*` / `--shadow-*` / `--z-*` / `--overlay-*`。
+- 新增 tokens/presets 单测；26 文件 / **83 tests**；门禁全绿；bundle 395.3 kB gzip（+0.6%，预算内）。
+- 说明：S3（按域 hex 清理）仍待做；S2 的主题预设/取色器由并行分支合入，本卡只做 token 化接入。
