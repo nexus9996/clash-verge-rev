@@ -1221,6 +1221,12 @@ export interface TranslationResources {
             available: string
             breakChangeError: string
           }
+          restart: {
+            body: string
+            restartLater: string
+            restartNow: string
+            title: string
+          }
           title: string
         }
         webUI: {

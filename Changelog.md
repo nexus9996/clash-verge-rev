@@ -20,6 +20,10 @@
 <summary><strong> 🚀 优化改进 </strong></summary>
 
 
+**🖥️ Windows**
+
+- 更新下载完成改为提示用户重启应用以应用新版本，不再自动重启（Windows 安装器仍会自动退出并重启）
+
 </details>
 
 ## v2.5.9
