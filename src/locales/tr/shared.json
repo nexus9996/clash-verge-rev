@@ -135,5 +135,14 @@
       "warn": "WARN",
       "error": "ERROR"
     }
+  },
+  "search": {
+    "content": "İçerik",
+    "domain": "Alan Adı",
+    "cidr": "CIDR",
+    "contentPlaceholder": "Kurallarda ara",
+    "domainPlaceholder": "Alan adı, URL veya anahtar kelime ara",
+    "cidrPlaceholder": "IP veya CIDR ara",
+    "action": "Ara"
   }
 }

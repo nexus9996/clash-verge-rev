@@ -1521,6 +1521,15 @@ export interface TranslationResources {
         resetInput: string
         useRegex: string
       }
+      search: {
+        action: string
+        cidr: string
+        cidrPlaceholder: string
+        content: string
+        contentPlaceholder: string
+        domain: string
+        domainPlaceholder: string
+      }
       statuses: {
         disabled: string
         empty: string
