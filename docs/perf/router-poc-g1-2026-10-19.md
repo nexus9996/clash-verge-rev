@@ -3,7 +3,7 @@
 > 日期：2026-10-19
 > 分支：`migrate/fe-router-poc`（基于集成分支 `migrate/self-frontend-architecture` @ `63bfae17`）
 > 关联：[迁移计划](frontend-architecture-migration-plan.md) · [ADR-0001](../adr/0001-router-choice.md) · [Phase 0 基线](frontend-baseline-2026-10-19.md)
-> 结论：**bundle 与工程集成指标通过（初始 JS −22.7% gzip）；运行时无闪与人工 smoke 待验证 → 保持"条件 Go"**
+> 结论：**G1 全部通过（Full Go）**：bundle −22.7% gzip；2026-10-19 桌面 smoke 无异常；R1+R2 已合入集成分支
 
 ## 1. PoC 范围
 
@@ -39,10 +39,10 @@
 | --- | --- | --- | --- |
 | 1 | 门禁全绿 | ✅ | §2 |
 | 2 | route catalog 测试通过 | ✅ | `src/routes/__route-catalog.test.ts`（12 文件/47 tests 全过） |
-| 3 | 冷/热导航无 loading 闪烁 | ⏳ 待运行时验证 | 静态设计已就位（见 §5 协议）；本环境无法启动 Tauri 窗口 |
+| 3 | 冷/热导航无 loading 闪烁 | ✅ | 2026-10-19 用户桌面 smoke 全量导航无异常（定性通过；p95 数值留 T4 采集） |
 | 4 | 初始 JS 主 chunk 相对基线 −15% | ✅ **−22.7% gzip / −27.5% raw** | §4 |
 | 5 | 依赖新增 ≤3 | ✅ 净 +2 | `pnpm-lock.yaml` / `package.json` |
-| 6 | 手工 smoke 无回归 | ⏳ 待桌面环境验证 | §5 清单 |
+| 6 | 手工 smoke 无回归 | ✅ | 2026-10-19 用户执行 §5 清单，无异常 |
 
 ## 4. Bundle 对比（Phase 0 基线 → PoC）
 
@@ -91,9 +91,9 @@ G1 目标（`508.5 × 0.85 = 432.2 kB gzip`）：实测 **392.9 kB**，通过。
 
 ## 7. 结论与下一步
 
-- **G1 判定：条件 Go 保持**。4 项静态/工程指标通过（门禁、catalog、bundle、依赖），2 项需桌面运行时验证。
+- **G1 判定：全部通过（Full Go）**。6 项指标均满足；R1+R2 已合入 `migrate/self-frontend-architecture`（`499ce8b4`）。
 - 下一步：
-  1. 人工执行 §5 运行时验证并记录（无闪 + smoke）。
+  1. ✅ 运行时验证已完成（2026-10-19 桌面 smoke 无异常）。
   2. 完成 R2（`config/navigation.ts` 单一事实源、`staticData.navId`、路由级 error/notFound）与 R3 收尾（pending 调参）。
-  3. 两项通过后把 PoC 合入 `migrate/self-frontend-architecture`；失败则按 ADR-0001 走 B1。
+  3. ✅ PoC/R2 已合入 `migrate/self-frontend-architecture`（`499ce8b4`）；B1 备选方案不再需要。
 - 回滚：本 PoC 为单个提交，`git revert` 即可恢复 react-router；分支未合入前不影响集成分支。
