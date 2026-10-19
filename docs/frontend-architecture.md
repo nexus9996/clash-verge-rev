@@ -118,11 +118,11 @@ export const NAV_ITEMS = [
 
 ### 2.4 新增页面步骤（3 步）
 
-1. `src/pages/<name>.tsx` 写页面组件（如需子组件放 `src/components/<domain>/`）。
-2. `src/routes/<name>.tsx` 加薄壳 + `staticData.navId`。
-3. `src/config/navigation.ts` 加条目；`src/locales/*/layout.json` 补 `tabs.<name>`（14 locale）→ `pnpm i18n:types`。
+1. `src/pages/<name>.tsx` 写页面组件（子组件放 `src/components/<domain>/`）。
+2. `src/routes/<name>.tsx` 加路由薄壳：`createFileRoute('/<path>')({ component, staticData: { navId } })`；按需 `pnpm generate-routes`（dev/build 也会生成）。
+3. 导航与文案：`src/config/navigation.ts` 的 `NAV_META` 加 id/path/labelKey；`src/components/layout/navigation-icons.tsx` 的 `NAV_ICONS` 补图标；14 个 `src/locales/*/layout.json` 补 `tabs.<name>` → `pnpm i18n:types`。
 
-> 对比现状 6 步（页面 + `_navigation-meta` + `_navigation` import/图标 + 14 locale + 生成 i18n + 可选 `STARTUP_LANGUAGE_SECTIONS`）。
+> `src/routes/__route-catalog.test.ts` 会校验 route 路径、`staticData.navId` 与 catalog 一致；完整操作见 `CONTRIBUTING.md` 的 “Adding a Frontend Page”。
 
 ## 3. 状态与数据层
 
@@ -223,5 +223,7 @@ src/config/theme/
 
 - [迁移计划](frontend-architecture-migration-plan.md)（Phase/卡片/门禁）
 - [ADR-0001](adr/0001-router-choice.md)（路由/样式/状态选型）
+- [ADR-0002](adr/0002-design-tokens.md)（设计 token 与主题体系）
+- [ADR-0003](adr/0003-state-boundary.md)（状态与数据边界）
 - [Phase 0 基线](perf/frontend-baseline-2026-10-19.md)（门禁、bundle、测量口径）
 - `src/AGENTS.md`、`scripts/check-architecture.mjs`、`eslint.config.ts`

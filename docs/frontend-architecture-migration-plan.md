@@ -803,3 +803,12 @@ Phase 0 无阻塞项，可以进入 Phase 1（G1 条件 Go）。唯一未测量�
 - token 补充：`--surface-raised`（明 #fff / 暗 #24252f）、`--log-highlight`（明/暗高亮黄）、`--switch-active` / `--switch-thumb` / `--switch-track-off`。
 - `pnpm check:hex-budget` 预算从 39 收紧为 **0**，CI 守卫保持；新增颜色只能进入 `config/theme/tokens.ts` 或 stylesheet 默认值。
 - 验证：26 文件 / 83 tests、门禁全绿、bundle 395.3 kB gzip（+0.6%，预算内）。
+
+### 12.15 Phase 4 T5 完成记录（文档与规范收尾，2026-10-19）
+
+- 卡片分支：`migrate/fe-docs`，已 FF 合入 `local`。
+- 新增 [ADR-0002](../adr/0002-design-tokens.md)（设计 token 与主题体系）与 [ADR-0003](../adr/0003-state-boundary.md)（状态与数据边界 / 移除 AppDataProvider）。
+- `docs/frontend-architecture.md`：§2.4 更新为实际 3 步新增页面流程（route shell + `NAV_META`/`NAV_ICONS` + 14 locale/i18n:types），参考区补齐 ADR 索引。
+- `CONTRIBUTING.md`：新增 "Adding a Frontend Page (TanStack Router)"，含 route shell 示例、`pnpm generate-routes`、catalog 测试与文档链接。
+- 演练：按文档创建临时页面 + route + `NAV_META`/`NAV_ICONS`，执行 `pnpm generate-routes / typecheck / test / lint`，**31s 通过（26 文件 / 83 tests）**，随后回滚；新人按文档可在 15 分钟内完成。
+- 验收：文档与代码一致（路由/navId/catalog、token 预算、domain hooks 均有文档与 CI 对应项）；纯文档变更，bundle/行为不变。
