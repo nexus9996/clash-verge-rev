@@ -17,11 +17,25 @@ const SettingPage = () => {
   const { t } = useTranslation()
   const [mountStartedAt] = useState(() => performance.now())
 
+  const [showDeferredSections, setShowDeferredSections] = useState(false)
+
   useEffect(() => {
     recordDiagnostic('settings-mount', {
       ms: Math.round((performance.now() - mountStartedAt) * 10) / 10,
     })
   }, [mountStartedAt])
+
+  useEffect(() => {
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(
+        () => setShowDeferredSections(true),
+        { timeout: 1200 },
+      )
+      return () => window.cancelIdleCallback?.(id)
+    }
+    const id = window.setTimeout(() => setShowDeferredSections(true), 500)
+    return () => window.clearTimeout(id)
+  }, [])
 
   const onError = (err: any) => {
     showNotice.error(err)
@@ -100,7 +114,7 @@ const SettingPage = () => {
               containIntrinsicSize: 'auto 640px',
             }}
           >
-            <SettingClash onError={onError} />
+            {showDeferredSections && <SettingClash onError={onError} />}
           </Box>
         </Grid>
         <Grid size={6}>
@@ -123,7 +137,7 @@ const SettingPage = () => {
               containIntrinsicSize: 'auto 640px',
             }}
           >
-            <SettingVergeAdvanced onError={onError} />
+            {showDeferredSections && <SettingVergeAdvanced onError={onError} />}
           </Box>
         </Grid>
       </Grid>
