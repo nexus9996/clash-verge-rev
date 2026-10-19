@@ -19,6 +19,7 @@
 <details>
 <summary><strong> 🚀 优化改进 </strong></summary>
 
+- 订阅、设置与连接页改为按需加载，首屏主包体积降低约 33%
 
 </details>
 

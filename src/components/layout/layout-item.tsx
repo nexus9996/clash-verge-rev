@@ -16,9 +16,10 @@ interface Props {
   children: string
   icon: ReactNode[]
   sortable?: SortableItemRenderProps
+  preload?: () => void
 }
 export const LayoutItem = (props: Props) => {
-  const { to, children, icon, sortable } = props
+  const { to, children, icon, sortable, preload } = props
   const { verge } = useVerge()
   const { menu_icon } = verge ?? {}
   const navCollapsed = verge?.collapse_navbar ?? false
@@ -67,6 +68,8 @@ export const LayoutItem = (props: Props) => {
         title={navCollapsed ? children : undefined}
         aria-label={navCollapsed ? children : undefined}
         onClick={() => navigate(to)}
+        onMouseEnter={preload}
+        onFocus={preload}
       >
         {(effectiveMenuIcon === 'monochrome' || !effectiveMenuIcon) && (
           <ListItemIcon
