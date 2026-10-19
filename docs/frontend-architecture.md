@@ -35,7 +35,7 @@
 | `hooks/` | `services/`、`utils/`、`store/`、`config/` | `components/`、`pages/`、`routes/` |
 | `app/` | 全部 | —（唯一允许跨层的组合根） |
 
-> Phase 3 通过 `eslint-plugin-import-x` 的 `no-restricted-paths`（或 `arch:check` 的 `layers` gate）强制此表；Phase 0 仅记录约定。
+> 已由 `eslint.config.ts` 的 `import-x/no-restricted-paths` + `scripts/check-architecture.mjs` 的 `arch:check` 强制（T2）；违反方向会在 lint/CI 阶段失败。
 
 ## 2. 路由层
 

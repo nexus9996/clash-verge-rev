@@ -6,8 +6,8 @@ import {
 import { Theme as TauriOsTheme } from '@tauri-apps/api/window'
 import { useEffect, useMemo } from 'react'
 
+import { defaultDarkTheme, defaultTheme } from '@/config/theme'
 import { useVerge } from '@/hooks/use-verge'
-import { defaultDarkTheme, defaultTheme } from '@/pages/_theme'
 import { useSetThemeMode, useThemeMode } from '@/services/states'
 
 const CSS_INJECTION_SCOPE_ROOT = '[data-css-injection-root]'
