@@ -265,8 +265,8 @@ export const NAV_ITEMS = [
 | 依赖方向 lint | `eslint-plugin-import-x` 增加 `no-restricted-paths`（按 §3.1 分层），或扩展 `scripts/check-architecture.mjs` 增加 `layers` gate | 反向 import、route 层写业务 |
 | 路由目录一致性 | vitest：`routes/__route-catalog.test.ts` | 路由与导航漂移、重复 path |
 | bundle 预算 | `scripts/check-bundle-budget.mjs`：解析 `vite build` 产物，初始 JS gzip ≤ 基线 × 1.02，单路由 chunk 记录 | 路由拆包失效/大依赖回潮 |
-| 导航性能基线 | 扩展 `scripts/perf`：路由切换耗时采样 + 冷/热导航 p95 | loading 闪烁回归 |
-| i18n 完整性 | 把 `pnpm i18n:check`（当前默认仅报告）接入 CI 的 `--check` 模式 | 14 locale key 漂移 |
+| 导航性能基线 | `src/app/router-timing.ts`（dev opt-in 采样）+ `scripts/perf/nav-timing.mjs --check/--record`，协议见 [navigation-timing](perf/navigation-timing.md) | loading 闪烁/拆包回归（本机手动门禁，不进 CI） |
+| i18n 完整性 | `pnpm i18n:verify`（`--check` 模式）接入 CI，`i18n:types` 生成物 diff 校验 | 14 locale key 漂移 |
 | jsdom 测试 | vitest 增加 projects/环境匹配（`src/**/*.test.tsx`，jsdom），CI 时间预算 +30s | 路由/主题/导航回归 |
 
 ---
@@ -376,7 +376,7 @@ Phase 4（3–5d）收口
 
 ### R3 按路由拆包 + intent 预加载 + 无闪加载
 
-> 状态：已完成并并入 R1/G1（拆包、intent 预加载与 pending 门槛随路由迁移落地；重页面 `lazyRouteComponent` 由 C6 合入补充）。p95 实测未采集，见 §12.16。
+> 状态：已完成并并入 R1/G1（拆包、intent 预加载与 pending 门槛随路由迁移落地；重页面 `lazyRouteComponent` 由 C6 合入补充）。p95 采样工具与协议见 [navigation-timing](perf/navigation-timing.md)，数值待桌面采集（§12.17）。
 
 - **self 证据**：`vite.config.ts:38` autoCodeSplitting；`1da1d991`（2026-04-08，路由过渡+预加载，28 files +487/−213）；但 self 双拆包/idle 全量预载/自研遮罩是反例（`sidebar.tsx:34-54`、`_layout.tsx:196-210`）。
 - **rev 约束**：`e63b8e6e` 的无导航 loading 目标。
@@ -824,7 +824,7 @@ Phase 0 无阻塞项，可以进入 Phase 1（G1 条件 Go）。唯一未测量�
 | 项 | 状态 | 说明 |
 | --- | --- | --- |
 | Phase 0–4 完成或明确降级 | ✅ | M0/R1–R4/S1–S3/T1–T5 均有完成记录（§12.1–§12.15）；降级项见下 |
-| 新增门禁在 CI 为 error 且全绿 | ⚠️ 部分 | 分层、route catalog、bundle 预算、hex 预算已接入并全绿；`i18n:check --check` 与导航性能基线未接入（后续项） |
+| 新增门禁在 CI 为 error 且全绿 | ✅（附注） | 分层、route catalog、bundle、hex、i18n `--check` 已接入并全绿；导航性能为本机手动门禁（CI 无法复现 WebView），采样工具与协议已落地、数据待桌面采集（§12.17） |
 | 架构文档 + 3 篇 ADR 入库且与代码一致 | ✅ | 本轮修正 `frontend-architecture.md` 的过期描述（入口路径、`ROUTER_DEFAULTS`、C6 lazy、亮暗双主题、门禁表、CopyButton 结论） |
 | 新增页面步骤文档化并演练 | ✅ | `CONTRIBUTING.md` “Adding a Frontend Page” + 31s 演练（§12.15） |
 | `git rebase origin/dev` 演练 | ✅（无操作） | `origin/dev` 已是 `local` 祖先（`git rev-list local..origin/dev` = 0），rebase 等价于无操作；上游同步风险仅剩后续 dev 前进时 |
@@ -832,19 +832,55 @@ Phase 0 无阻塞项，可以进入 Phase 1（G1 条件 Go）。唯一未测量�
 
 **决策门结论（§4.2）**
 
-- **G1 ✅**：六项全过（见 `perf/router-poc-g1-2026-10-19.md`）；运行时 p95 未采集，定性 smoke 通过。
+- **G1 ✅**：六项全过（见 `perf/router-poc-g1-2026-10-19.md`）；运行时 p95 未采集，采样工具与协议见 [navigation-timing](perf/navigation-timing.md)（数据待桌面采集）。
 - **G2 ✅（附注）**：主题预设/取色器随 C4 合入、token 层随 S1/S3 合入，门禁全绿；但预设/取色/自定义主题的合并后运行时冒烟未单独记录（并入终态 smoke 后续项）；token 覆盖率未做量化统计，降级为“目测 + hex 预算 0 守卫”；MUI `cssVariables` POC 结论为**不做**（收益不明确，保留 ADR-0002 重评条件）。
 - **G3 ✅（附注）**：依赖方向 0 违规、app-data Provider 已移除（嵌套 0）、相关 vitest 通过；通知/导航/更新/窗口行为未做合并后专项 smoke（G1 阶段覆盖，并入终态 smoke 后续项）。
-- **G4 ✅（附注）**：bundle/hex/分层/catalog 门禁已接入 CI；i18n `--check` 与导航性能基线未接入（后续项）；上游 rebase 等价通过；文档评审由本轮收口完成。
+- **G4 ✅（附注）**：bundle/hex/分层/catalog/i18n 门禁已接入 CI；导航性能为本机手动门禁（采样工具已落地）；上游 rebase 等价通过；文档评审由本轮收口完成。
 
 **降级/后续项（未在本分支闭环）**
 
-1. **导航性能实测**：冷/热 p95、20 次随机导航录屏证据、`scripts/perf` 路由采样入口、`frontend-baseline.json` 导航字段——均未落地（G1 仅定性通过）。
-2. **i18n `--check` 接入 CI**：计划 §7.2 与架构 §5 的目标；当前仅本地门禁 + locales 单测。
+1. **导航性能实测**：采样入口（dev-only 路由计时 + `scripts/perf/nav-timing.mjs`）与协议已落地（§12.17）；冷/热 p95 数值与 20 次录屏证据仍待在桌面开发实例上采集——见 [navigation-timing](perf/navigation-timing.md)。
+2. ~~i18n `--check` 接入 CI~~：已在 §12.17 接入（`pnpm i18n:verify` + 生成物 diff）。
 3. **30 分钟长会话/泄漏观察**（§7.3）。
 4. **终态全量 smoke**：C1–C11 + 架构合并后未单独执行（含主题预设/取色/自定义主题与通知/导航/更新/窗口专项）。
 5. **R3 独立完成记录**：R3 的拆包/预加载/pending 门槛已随 R1 落地（`router-options.ts`，重页面由 C6 的 `lazyRouteComponent` 补充），无独立记录；p95 同第 1 项。
 6. **Phase 0 移交的 `gen:contract` + Rust 门禁**：合并验证时已跑（`gen:contract --check`、`cargo fmt/clippy`、406 tests，见 workspace 根目录 `MERGE-REHEARSAL.md` 与根迁移计划 §10），不在本分支重复。
 
-> 1/3/4 属运行时/人工验证项，2 属 CI 小改造；若后续不做，按“降级为后续跟进”处理，它们不阻塞分支收口。
-> 本轮改动：`docs/frontend-architecture.md`（状态与结构刷新）、本文件（§5 R3 状态、§7.5 DoD、§12.16）。
+> 1/3/4 属运行时/人工验证项；若后续不做，按“降级为后续跟进”处理，它们不阻塞分支收口。
+> 本轮改动：`docs/frontend-architecture.md`（状态与结构刷新）、本文件（§5 R3 状态、§7.5 DoD、§12.16/§12.17）、`docs/perf/navigation-timing.md`（新增）。
+
+---
+
+### 12.17 验收补齐记录（i18n CI + 导航采样，2026-10-19）
+
+按 §12.16 的后续项 1/2 补齐门禁与采样工具；其余（p95 实测、录屏、smoke、长会话）需要桌面 Tauri 实例，见文末。
+
+**1. i18n 完整性接入 CI**
+
+- `scripts/cleanup-unused-i18n.mjs` 新增 `--check` 模式（与 `--apply/--align` 互斥）：任一 locale 出现 unused/missing/extra 时退出 1；`missing-source` 仅报告（现存后端 en `service.legacy` 为已知遗留，不阻塞）。
+- `package.json` 新增 `pnpm i18n:verify`；CI `frontend-check.yml` 在 tests 后执行 `pnpm i18n:types` → `git diff --exit-code -- src/types/generated` → `pnpm i18n:verify`。
+- 本地验证：`pnpm i18n:types` 无 diff、`pnpm i18n:verify` exit 0（当前 unused/missing/extra = 0）。
+
+**2. 导航性能采样**
+
+- `src/app/router-timing.ts`：dev-only、`localStorage['verge.routeTiming'] = '1'` 显式开启；记录 cold/hot 样本，暴露 `window.__vergeNavTiming.{getSamples,getReport,export,clear}`；release 构建由 `import.meta.env.DEV` 剔除，不进入包体。
+- `scripts/perf/nav-timing.mjs` + `nav-timing-lib.mjs`：`--file/--check/--record/--json`，校验样本数（cold ≥ 8、hot ≥ 20）与 p95 门槛（cold 200 ms、hot 100 ms）；`--record` 写入 `docs/perf/navigation-timing-baseline.json`。
+- `scripts/perf/nav-timing.test.mjs` 覆盖 percentile、cold/hot 分桶、样本校验、阈值与基线结构；CI 增加 `pnpm perf:test`。
+- 实测协议见 [navigation-timing](perf/navigation-timing.md)；p95 数值与 20 次录屏仍需桌面执行（本会话无桌面 Tauri 开发实例）。
+
+**3. 终态门禁 sweep（本轮在 `local` 上执行）**
+
+| 门禁 | 结果 |
+| --- | --- |
+| `pnpm typecheck` / `pnpm lint` / `pnpm format:check` | ✅ |
+| `pnpm test` | ✅ 27 文件 / 86 tests |
+| `pnpm knip:check` / `pnpm arch:check` | ✅ |
+| `pnpm perf:test` | ✅ 13 tests |
+| `pnpm i18n:types`（无 diff）/ `pnpm i18n:verify` | ✅ |
+| `pnpm web:build` / `pnpm check:bundle-budget` / `pnpm check:hex-budget` | ✅ 395.4 kB gzip（基线 393.1，预算 400.9）/ hex 0 |
+
+**仍需桌面执行的验收（人工）**
+
+1. 按 [navigation-timing](perf/navigation-timing.md) 采集冷/热 p95 并 `--record`，附 20 次随机导航录屏；
+2. §7.4 终态全量 smoke（含主题预设/取色、通知、窗口层、更新/内核/连接/规则/日志交互）；
+3. §7.3 的 30 分钟长会话/泄漏观察。

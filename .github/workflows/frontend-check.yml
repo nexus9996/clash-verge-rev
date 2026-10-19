@@ -83,6 +83,17 @@ jobs:
         if: steps.check_frontend.outputs.frontend == 'true'
         run: pnpm test
 
+      - name: Run performance harness tests
+        if: steps.check_frontend.outputs.frontend == 'true'
+        run: pnpm perf:test
+
+      - name: Check i18n keys
+        if: steps.check_frontend.outputs.frontend == 'true'
+        run: |
+          pnpm i18n:types
+          git diff --exit-code -- src/types/generated
+          pnpm i18n:verify
+
       - name: Build frontend
         if: steps.check_frontend.outputs.frontend == 'true'
         run: pnpm web:build

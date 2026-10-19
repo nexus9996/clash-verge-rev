@@ -144,3 +144,9 @@ node scripts/perf/frontend-baseline.mjs --dist dist --label rev-local-ed909350-e
 - `docs/perf/frontend-baseline.json` 已更新为该基线（label `integration-router-r2-t2`，基线代码 commit `f9dd397e`），供预算门禁消费。
 - 预算命令：`pnpm web:build && pnpm check:bundle-budget`（默认容差 +2%，即 400.9 kB gzip）；CI 的 `frontend-check.yml` 在 tests 之后执行 build + budget。
 - 有意调整包体时用 `node scripts/check-bundle-budget.mjs --dist dist --record` 更新基线，并在 PR 中说明原因。
+
+## 10. 导航性能采样（2026-10-19 补齐入口）
+
+- 采样入口与协议已落地：`src/app/router-timing.ts`（dev opt-in）+ `scripts/perf/nav-timing.mjs`，桌面采集步骤见 [navigation-timing](navigation-timing.md)。
+- `--record` 写入独立的 `docs/perf/navigation-timing-baseline.json`，与 bundle 基线分离（`check-bundle-budget --record` 会重写 `frontend-baseline.json`，导航数据不能被它覆盖）。
+- 冷/热 p95 数值与 20 次随机导航录屏仍需桌面 Tauri 实例执行；该门禁不进 CI（见 [navigation-timing](navigation-timing.md) §4）。

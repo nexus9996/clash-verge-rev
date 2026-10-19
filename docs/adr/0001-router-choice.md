@@ -134,4 +134,4 @@ rev 前端的**数据/事件层**在 2026-07~10 已完成三轮自我重构（`e
 - 门禁：`typecheck` / `lint` / `format:check` / `test`（12 文件 47 tests，含 route catalog）/ `knip` / `arch:check` / `i18n` / `web:build` 全绿。
 - Bundle：初始 JS **508.5 → 392.9 kB gzip（−22.7%）**、raw 1,648.3 → 1,195.7 kB（−27.5%）；入口 chunk 312.7 → 158.8 kB gzip；7 个非首屏页面拆为异步 chunk。
 - 依赖：新增 3（react-router 移除 1），净增 **+2**，符合 G1 ≤3。
-- 运行时验证：2026-10-19 用户桌面 smoke（8 路由直达/切换、深链、通知跳转、拖拽排序、主题/窗口）无异常，G1-3/G1-6 通过；本 ADR 转 **Full Go**，无需执行 §3 B1。冷/热导航 p95 未采集，记为[迁移计划 §12.16](../frontend-architecture-migration-plan.md) 的后续项。
+- 运行时验证：2026-10-19 用户桌面 smoke（8 路由直达/切换、深链、通知跳转、拖拽排序、主题/窗口）无异常，G1-3/G1-6 通过；本 ADR 转 **Full Go**，无需执行 §3 B1。冷/热导航 p95 未采集；采样工具与协议见 [navigation-timing](../perf/navigation-timing.md)，数据待桌面采集。

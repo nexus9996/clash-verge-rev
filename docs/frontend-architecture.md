@@ -177,12 +177,12 @@ src/config/theme/
 | 单测 | `pnpm test`（vitest；jsdom 按文件 docblock 启用） | 已有；T3 起含路由/主题/导航测试 |
 | 死代码/循环 | `pnpm knip:check` | 已有 |
 | IPC 边界 | `node scripts/check-architecture.mjs listen emit invoke` | 已有 |
-| i18n | `pnpm i18n:types && pnpm i18n:check` | 已有（本地门禁；CI `--check` 未接入，记为后续项） |
+| i18n | `pnpm i18n:types && pnpm i18n:verify` | 已接入 CI（生成物 diff + `--check`；missing-source 仅报告） |
 | 分层边界 | `eslint.config.ts` 的 `import-x/no-restricted-paths` + `arch:check` | 已接入（T2） |
 | 路由一致性 | `src/routes/__route-catalog.test.ts` | 已接入（T3） |
 | bundle 预算 | `scripts/check-bundle-budget.mjs` 对比 `docs/perf/frontend-baseline.json`（T4） | 已接入 CI |
 | hex 预算 | `scripts/check-hex-budget.mjs`（预算 0，S3） | 已接入 CI |
-| 导航性能 | 扩展 `scripts/perf` 做路由切换采样 | 协议见基线报告；采样脚本未落地（后续项） |
+| 导航性能 | `src/app/router-timing.ts`（dev opt-in）+ `scripts/perf/nav-timing.mjs` | 采样/校验已落地；本机手动门禁，数据待桌面采集（见 `perf/navigation-timing.md`） |
 
 ## 附录 A：base 组件差异清单（Phase 0 实测）
 
