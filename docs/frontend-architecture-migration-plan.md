@@ -761,3 +761,10 @@ Phase 0 无阻塞项，可以进入 Phase 1（G1 条件 Go）。唯一未测量�
 - `formatRouteError` 抽到 `utils/` 并加 vitest 单测（规避 react-refresh 导出限制）。
 - 门禁全绿；初始 JS 393.3 kB gzip（+0.1%，预算 +2% 内）。
 - 运行时视觉验证可选：访问未知路径或临时抛错即可看到兜底页。
+
+### 12.10 Phase 4 T3 完成记录（测试扩展，2026-10-19）
+
+- 卡片分支：`migrate/fe-tests`（commit `256f7cbd`），已 FF 合入集成分支。
+- vitest：include `*.test.tsx`、接入 `vite-plugin-svgr`、按文件 docblock 使用 jsdom、`tests/setup.ts` 提供 ResizeObserver polyfill；新增 devDependency `jsdom`。
+- 新增 8 个测试文件 / 14 tests：导航 catalog + 后端路径回退、导航图标覆盖、明暗主题 token 对齐、router no-flash 默认值、路由兜底渲染与动作（jsdom）、导航顺序解析、14 locale `pageNotFound` 完整性、错误格式化。
+- 为可测性抽出 `ROUTER_DEFAULTS` 并导出 order 纯函数；现有测试 20 文件 / **63 tests**（原 12/49），CI 约 7s；bundle 393.3 kB gzip 不变。
