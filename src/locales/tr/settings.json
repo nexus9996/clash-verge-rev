@@ -209,6 +209,17 @@
       },
       "theme": {
         "title": "Tema Ayarı",
+        "presets": {
+          "title": "Hazır ayarlar",
+          "names": {
+            "default": "Varsayılan",
+            "ocean": "Okyanus",
+            "indigo": "Çivit",
+            "sunset": "Gün batımı",
+            "lavender": "Lavanta",
+            "monochrome": "Tek renk"
+          }
+        },
         "fields": {
           "primaryColor": "Ana Renk",
           "secondaryColor": "İkincil Renk",

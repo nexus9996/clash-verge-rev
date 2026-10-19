@@ -209,6 +209,17 @@
       },
       "theme": {
         "title": "Theme Setting",
+        "presets": {
+          "title": "Presets",
+          "names": {
+            "default": "Default",
+            "ocean": "Ocean",
+            "indigo": "Indigo",
+            "sunset": "Sunset",
+            "lavender": "Lavender",
+            "monochrome": "Monochrome"
+          }
+        },
         "fields": {
           "primaryColor": "Primary Color",
           "secondaryColor": "Secondary Color",

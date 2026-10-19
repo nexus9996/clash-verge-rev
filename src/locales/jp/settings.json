@@ -209,6 +209,17 @@
       },
       "theme": {
         "title": "テーマ設定",
+        "presets": {
+          "title": "プリセット",
+          "names": {
+            "default": "デフォルト",
+            "ocean": "オーシャン",
+            "indigo": "インディゴ",
+            "sunset": "サンセット",
+            "lavender": "ラベンダー",
+            "monochrome": "モノクロ"
+          }
+        },
         "fields": {
           "primaryColor": "主要色",
           "secondaryColor": "次要色",

@@ -209,6 +209,17 @@
       },
       "theme": {
         "title": "主题设置",
+        "presets": {
+          "title": "预设",
+          "names": {
+            "default": "默认",
+            "ocean": "海洋",
+            "indigo": "靛蓝",
+            "sunset": "日落",
+            "lavender": "薰衣草",
+            "monochrome": "黑白"
+          }
+        },
         "fields": {
           "primaryColor": "主要颜色",
           "secondaryColor": "次要颜色",

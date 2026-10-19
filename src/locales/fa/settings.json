@@ -209,6 +209,17 @@
       },
       "theme": {
         "title": "تنظیمات تم",
+        "presets": {
+          "title": "پیش‌تنظیم‌ها",
+          "names": {
+            "default": "پیش‌فرض",
+            "ocean": "اقیانوس",
+            "indigo": "نیلی",
+            "sunset": "غروب",
+            "lavender": "اسطوخودوس",
+            "monochrome": "تک‌رنگ"
+          }
+        },
         "fields": {
           "primaryColor": "رنگ اصلی",
           "secondaryColor": "رنگ ثانویه",
