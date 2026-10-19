@@ -437,13 +437,15 @@
         "autoDelayDetection": "自动延迟检测",
         "autoDelayDetectionInterval": "自动延迟检测间隔",
         "defaultLatencyTest": "默认测试链接",
-        "defaultLatencyTimeout": "测试超时时间"
+        "defaultLatencyTimeout": "测试超时时间",
+        "updateChannel": "更新渠道"
       },
       "tooltips": {
         "autoCloseConnections": "当代理组选中节点或代理模式变动时，关闭已建立的连接",
         "enableBuiltinEnhanced": "配置文件的兼容性处理",
         "autoDelayDetection": "后台定时检测当前节点延迟",
-        "defaultLatencyTest": "仅用于 HTTP 客户端请求测试，不会对配置文件产生影响"
+        "defaultLatencyTest": "仅用于 HTTP 客户端请求测试，不会对配置文件产生影响",
+        "updateChannel": "内测版跟随预览构建，可能不稳定"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -452,6 +454,10 @@
         "autoLogClean": {
           "never": "不清理",
           "retainDays": "保留 {{n}} 天"
+        },
+        "updateChannel": {
+          "stable": "稳定版",
+          "alpha": "内测版"
         }
       }
     },

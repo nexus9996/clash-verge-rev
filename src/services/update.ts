@@ -1,10 +1,6 @@
-import {
-  check,
-  type CheckOptions,
-  type Update,
-} from '@tauri-apps/plugin-updater'
 import { compareVersions as compareSemver } from 'compare-versions'
 
+import { checkUpdateAvailable, type UpdateInfo } from '@/services/cmds'
 import { version as appVersion } from '@root/package.json'
 
 const SEMVER_FULL_REGEX =
@@ -41,14 +37,21 @@ const compareVersions = (a: string | null, b: string | null): number | null => {
   }
 }
 
-const resolveRemoteVersion = (update: Update): string | null => {
+export type Update = UpdateInfo & { available: true }
+
+const resolveRemoteVersion = (update: UpdateInfo): string | null => {
   const primary = ensureSemver(update.version)
   if (primary) return primary
 
   const fallbackPrimary = extractSemver(update.version)
   if (fallbackPrimary) return fallbackPrimary
 
-  const raw = update.rawJson ?? {}
+  const raw =
+    typeof update.rawJson === 'object' &&
+    update.rawJson !== null &&
+    !Array.isArray(update.rawJson)
+      ? update.rawJson
+      : {}
   const rawVersion = ensureSemver(
     typeof raw.version === 'string' ? raw.version : null,
   )
@@ -69,13 +72,12 @@ const resolveRemoteVersion = (update: Update): string | null => {
 
 const localVersionNormalized = normalizeVersion(appVersion)
 
-export const checkUpdateSafe = async (
-  options?: CheckOptions,
-): Promise<Update | null> => {
-  const result = await check(options ?? {})
+export const checkUpdateSafe = async (): Promise<Update | null> => {
+  const result = await checkUpdateAvailable()
   if (!result) return null
 
-  const remoteVersion = resolveRemoteVersion(result)
+  const update: Update = { ...result, available: true }
+  const remoteVersion = resolveRemoteVersion(update)
   const comparison = compareVersions(remoteVersion, localVersionNormalized)
 
   const isBuildToStable =
@@ -83,15 +85,8 @@ export const checkUpdateSafe = async (
     remoteVersion === localVersionNormalized?.split('+')[0]
 
   if (comparison !== null && comparison <= 0 && !isBuildToStable) {
-    try {
-      await result.close()
-    } catch (err) {
-      console.warn('[updater] failed to close stale update resource', err)
-    }
     return null
   }
 
-  return result
+  return update
 }
-
-export type { CheckOptions }

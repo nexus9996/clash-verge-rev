@@ -437,13 +437,15 @@
         "autoDelayDetection": "Automatische Latenzprüfung",
         "autoDelayDetectionInterval": "Intervall für automatische Latenzprüfung",
         "defaultLatencyTest": "Standard-Testlink",
-        "defaultLatencyTimeout": "Test-Timeout"
+        "defaultLatencyTimeout": "Test-Timeout",
+        "updateChannel": "Update-Kanal"
       },
       "tooltips": {
         "autoCloseConnections": "Wenn der ausgewählte Knoten in der Proxy-Gruppe oder der Proxy-Modus geändert wird, werden die bestehenden Verbindungen geschlossen.",
         "enableBuiltinEnhanced": "Kompatibilitätsbehandlung der Konfigurationsdatei",
         "autoDelayDetection": "Überprüft regelmäßig im Hintergrund die Latenz des aktuellen Knotens",
-        "defaultLatencyTest": "Dies wird nur für HTTP-Client-Anfragentests verwendet und hat keine Auswirkungen auf die Konfigurationsdatei."
+        "defaultLatencyTest": "Dies wird nur für HTTP-Client-Anfragentests verwendet und hat keine Auswirkungen auf die Konfigurationsdatei.",
+        "updateChannel": "Alpha folgt Vorschau-Builds und kann instabil sein"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -452,6 +454,10 @@
         "autoLogClean": {
           "never": "Nie bereinigen",
           "retainDays": "{{n}} Tage behalten"
+        },
+        "updateChannel": {
+          "stable": "Stabil",
+          "alpha": "Alpha"
         }
       }
     },

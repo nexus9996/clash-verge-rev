@@ -13,6 +13,7 @@ import type {
   UnlockItem,
   ProxyViewV1_Serialize as ProxyViewV1,
   RuleDisableRequest,
+  UpdateInfo,
   ProfileSelection,
   ProfilePatch,
   ProfileCreate,
@@ -29,6 +30,7 @@ export type {
   ListenerTransport,
   ListenerProbe,
   RuleExtraInfo,
+  UpdateInfo,
   UnlockItem,
 } from './bindings'
 
@@ -349,6 +351,10 @@ export async function getRulesExtra() {
 
 export async function updateRulesDisable(requests: RuleDisableRequest[]) {
   return commands.updateRulesDisable(requests)
+}
+
+export async function checkUpdateAvailable(): Promise<UpdateInfo | null> {
+  return commands.checkUpdateAvailable()
 }
 
 export async function invoke_uwp_tool() {

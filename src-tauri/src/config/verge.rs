@@ -136,6 +136,9 @@ pub struct IVerge {
     pub auto_close_connection: Option<bool>,
 
     pub auto_check_update: Option<bool>,
+    /// Update channel: `stable` or `alpha`.
+    #[specta(type = Option<std::string::String>)]
+    pub update_channel: Option<String>,
     #[specta(type = Option<std::string::String>)]
     pub default_latency_test: Option<String>,
 
@@ -515,6 +518,7 @@ impl IVerge {
 
         patch!(auto_close_connection);
         patch!(auto_check_update);
+        patch!(update_channel);
         patch!(default_latency_test);
         patch!(default_latency_timeout);
         patch!(enable_auto_delay_detection);

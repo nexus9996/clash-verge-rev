@@ -437,13 +437,15 @@
         "autoDelayDetection": "اكتشاف التأخير التلقائي",
         "autoDelayDetectionInterval": "الفاصل الزمني لاكتشاف التأخير التلقائي",
         "defaultLatencyTest": "اختبار التأخير الافتراضي",
-        "defaultLatencyTimeout": "مهلة التأخير الافتراضية"
+        "defaultLatencyTimeout": "مهلة التأخير الافتراضية",
+        "updateChannel": "قناة التحديث"
       },
       "tooltips": {
         "autoCloseConnections": "إنهاء الاتصالات القائمة عند تغيير اختيار مجموعة الوكيل أو وضع الوكيل",
         "enableBuiltinEnhanced": "معالجة توافق ملف التكوين",
         "autoDelayDetection": "يختبر زمن استجابة العقدة الحالية على نحو دوري في الخلفية",
-        "defaultLatencyTest": "يُستخدم فقط لاختبار طلب HTTP العميل. لن يؤثر على ملف التكوين"
+        "defaultLatencyTest": "يُستخدم فقط لاختبار طلب HTTP العميل. لن يؤثر على ملف التكوين",
+        "updateChannel": "تتبع قناة ألفا الإصدارات التجريبية وقد تكون غير مستقرة"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -452,6 +454,10 @@
         "autoLogClean": {
           "never": "عدم التنظيف أبدًا",
           "retainDays": "الاحتفاظ لمدة {{n}} يومًا"
+        },
+        "updateChannel": {
+          "stable": "مستقر",
+          "alpha": "ألفا"
         }
       }
     },

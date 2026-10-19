@@ -437,13 +437,15 @@
         "autoDelayDetection": "自動遅延検出",
         "autoDelayDetectionInterval": "自動遅延検出間隔",
         "defaultLatencyTest": "デフォルトの遅延テストURL",
-        "defaultLatencyTimeout": "テストタイムアウト時間"
+        "defaultLatencyTimeout": "テストタイムアウト時間",
+        "updateChannel": "更新チャンネル"
       },
       "tooltips": {
         "autoCloseConnections": "プロキシグループで選択されたノードまたはプロキシモードが変更されたときに、既存の接続を閉じます。",
         "enableBuiltinEnhanced": "設定ファイルの互換性処理",
         "autoDelayDetection": "バックグラウンドで現在のノードのレイテンシーを定期的にテストします",
-        "defaultLatencyTest": "HTTPクライアントリクエストテストにのみ使用され、設定ファイルには影響しません。"
+        "defaultLatencyTest": "HTTPクライアントリクエストテストにのみ使用され、設定ファイルには影響しません。",
+        "updateChannel": "アルファ版はプレビュービルドに追従し、不安定な場合があります"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -452,6 +454,10 @@
         "autoLogClean": {
           "never": "クリーンアップしない",
           "retainDays": "{{n}}日間保持"
+        },
+        "updateChannel": {
+          "stable": "安定版",
+          "alpha": "アルファ"
         }
       }
     },

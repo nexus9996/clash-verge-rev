@@ -437,13 +437,15 @@
         "autoDelayDetection": "Deteksi Latensi Otomatis",
         "autoDelayDetectionInterval": "Interval Deteksi Latensi Otomatis",
         "defaultLatencyTest": "Tes Latensi Default",
-        "defaultLatencyTimeout": "Waktu Habis Latensi Default"
+        "defaultLatencyTimeout": "Waktu Habis Latensi Default",
+        "updateChannel": "Saluran Pembaruan"
       },
       "tooltips": {
         "autoCloseConnections": "Hentikan koneksi yang sudah ada saat pemilihan grup proksi atau mode proksi berubah",
         "enableBuiltinEnhanced": "Penanganan kompatibilitas untuk file konfigurasi",
         "autoDelayDetection": "Secara berkala menguji latensi node saat ini di latar belakang",
-        "defaultLatencyTest": "Digunakan hanya untuk pengujian permintaan klien HTTP dan tidak akan mempengaruhi file konfigurasi"
+        "defaultLatencyTest": "Digunakan hanya untuk pengujian permintaan klien HTTP dan tidak akan mempengaruhi file konfigurasi",
+        "updateChannel": "Alpha mengikuti build pratinjau dan mungkin tidak stabil"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -452,6 +454,10 @@
         "autoLogClean": {
           "never": "Jangan Pernah Bersihkan",
           "retainDays": "Simpan {{n}} Hari"
+        },
+        "updateChannel": {
+          "stable": "Stabil",
+          "alpha": "Alpha"
         }
       }
     },
