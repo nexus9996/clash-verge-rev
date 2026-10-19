@@ -9,7 +9,7 @@ TAURI_PATTERNS=(
     "Cargo.lock"
     "tauri.*.conf.json"
     "package.json"
-    "pnpm-lock.yaml"
+    "bun.lock"
     "src/"
 )
 
