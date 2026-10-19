@@ -68,6 +68,18 @@ describe('installRouteTiming', () => {
     expect(report?.hot.count).toBe(1)
   })
 
+  it('auto-starts when the measurement build requests it', async () => {
+    const { router, emit } = fakeRouter()
+    installRouteTiming(router, { autoStart: true })
+
+    emit('onBeforeNavigate', { href: '/logs', pathname: '/logs' })
+    emit('onRendered', { href: '/logs', pathname: '/logs' })
+    await wait()
+
+    expect(getRouteTimingSamples()).toHaveLength(1)
+    expect(window.__vergeNavTiming?.getReport().hot.count).toBe(0)
+  })
+
   it('stays inert until start() and honors stop()', async () => {
     const { router, emit } = fakeRouter()
     installRouteTiming(router)

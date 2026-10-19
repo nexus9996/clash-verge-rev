@@ -879,8 +879,15 @@ Phase 0 无阻塞项，可以进入 Phase 1（G1 条件 Go）。唯一未测量�
 | `pnpm i18n:types`（无 diff）/ `pnpm i18n:verify` | ✅ |
 | `pnpm web:build` / `pnpm check:bundle-budget` / `pnpm check:hex-budget` | ✅ 395.4 kB gzip（基线 393.1，预算 400.9）/ hex 0 |
 
+**4. 生产包首轮测量与 /proxies 修复（2026-10-19）**
+
+- 首个生产包测量（`tauri://localhost`）：cold n=8 p50 **113** / p95 **1057 ms**，hot n=23 p50 **92** / p95 **752 ms**，`--check` 未通过（未 `--record`）。数据见 [navigation-timing](perf/navigation-timing.md) §5。
+- 定位：每次进入 `/proxies` 571–762 ms，其余页面 hot ≤233 ms。代理页虚拟列表恢复滚动位置的旧循环只在“到达保存偏移”时停止；保存偏移 2268 在组折叠后不可达，导致每次 mount 忙等 30 帧（约 500 ms），叠加首载即 1057 ms。dev 运行目录未保存该偏移，因此 dev 数据未触发。
+- 修复：`proxy-groups.tsx` 的恢复循环把目标 clamp 到可滚动范围，并在布局高度稳定后提前退出；测量构建改为启动即自动记录（`VITE_NAV_TIMING=1` auto-start），避免测量期间打开 Inspector 的开销。
+- 下一步：重建后复测；若 hot p95 仍 >100 ms，再针对 `/settings`、`/profile` 的首次 chunk 与渲染成本优化。
+
 **仍需桌面执行的验收（人工）**
 
-1. 按 [navigation-timing](perf/navigation-timing.md) 采集冷/热 p95 并 `--record`，附 20 次随机导航录屏；
+1. 用修复后的测量包重新采集冷/热 p95 并 `--record`，附 20 次随机导航录屏；
 2. §7.4 终态全量 smoke（含主题预设/取色、通知、窗口层、更新/内核/连接/规则/日志交互）；
 3. §7.3 的 30 分钟长会话/泄漏观察。

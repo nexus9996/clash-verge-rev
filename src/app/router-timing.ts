@@ -99,7 +99,10 @@ const autoStartRequested = () => {
   }
 }
 
-export const installRouteTiming = (router: AnyRouter) => {
+export const installRouteTiming = (
+  router: AnyRouter,
+  options: { autoStart?: boolean } = {},
+) => {
   active = false
   const pending = new Map<string, { from: string; startedAt: number }>()
 
@@ -156,7 +159,7 @@ export const installRouteTiming = (router: AnyRouter) => {
     clear: clearRouteTimings,
   }
 
-  if (autoStartRequested()) start()
+  if (options.autoStart || autoStartRequested()) start()
   else
     console.info(
       '[nav-timing] ready; call __vergeNavTiming.start() before navigating (no reload needed)',

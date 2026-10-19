@@ -38,7 +38,9 @@ disableWebViewShortcuts()
 
 // Opt-in for packaged navigation-timing builds: pnpm build:nav-timing
 if (import.meta.env.DEV || import.meta.env.VITE_NAV_TIMING === '1') {
-  installRouteTiming(router)
+  installRouteTiming(router, {
+    autoStart: import.meta.env.VITE_NAV_TIMING === '1',
+  })
 }
 
 const initializeApp = (initialThemeMode: 'light' | 'dark') => {

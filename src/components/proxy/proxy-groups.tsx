@@ -407,9 +407,13 @@ function NormalProxyGroups(props: { mode: string }) {
     }
 
     // Retry across frames until virtual-list measurements can reach the saved offset.
+    // A saved offset can be stale (groups collapsed/hidden since it was stored); clamp
+    // it to the scrollable range and stop once the layout height settles, otherwise
+    // every mount busy-loops for all 30 frames.
     isRestoringRef.current = true
     let rafId = 0
     let attempts = 0
+    let lastScrollHeight = -1
     const maxAttempts = 30
 
     const step = () => {
@@ -419,11 +423,21 @@ function NormalProxyGroups(props: { mode: string }) {
         return
       }
 
-      el.scrollTop = savedPosition
+      const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight)
+      const target = Math.min(savedPosition, maxScroll)
+      el.scrollTop = target
       attempts += 1
 
-      const reached = Math.abs(el.scrollTop - savedPosition) <= 1
-      if (reached || attempts >= maxAttempts) {
+      // Only treat the offset as restored when the saved position is reachable;
+      // an unreachable (stale) offset settles at the clamped maximum instead.
+      const reached =
+        savedPosition <= maxScroll &&
+        Math.abs(el.scrollTop - savedPosition) <= 1
+      const layoutSettled =
+        lastScrollHeight !== -1 && el.scrollHeight === lastScrollHeight
+      lastScrollHeight = el.scrollHeight
+
+      if (reached || layoutSettled || attempts >= maxAttempts) {
         renderFirstRef.current = false
         isRestoringRef.current = false
         return
