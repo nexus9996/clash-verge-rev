@@ -38,6 +38,12 @@ export const commands = {
   /**  Replaces the managed core binary atomically instead of letting mihomo overwrite itself. */
   upgradeClashCore: (force: boolean) =>
     __TAURI_INVOKE<CoreUpgradeReport>('upgrade_clash_core', { force }),
+  /**  Lists the core versions installable for the managed core's release channel. */
+  getCoreVersions: () =>
+    __TAURI_INVOKE<CoreVersionCatalog>('get_core_versions'),
+  /**  Installs an explicit core version through the same stage/publish/rollback path as an upgrade. */
+  installCoreVersion: (version: string) =>
+    __TAURI_INVOKE<CoreUpgradeReport>('install_core_version', { version }),
   /**  Returns one coherent core/service snapshot instead of independently refreshed state. */
   getRuntimeState: () => __TAURI_INVOKE<RunStateView>('get_runtime_state'),
   getPendingFailures: () =>
@@ -290,6 +296,18 @@ export type CoreFailure =
 export type CoreUpgradeReport = {
   /**  False when the managed core was already at the latest version. */
   upgraded: boolean
+}
+
+export type CoreVersionCatalog = {
+  /**  Release channel of the managed core: `stable` or `alpha`. */
+  channel: string
+  installed: string | null
+  versions: CoreVersionInfo[]
+}
+
+export type CoreVersionInfo = {
+  version: string
+  publishedAt: string | null
 }
 
 export type DelayHistory = {

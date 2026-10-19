@@ -31,6 +31,7 @@ export type {
   ListenerProbe,
   RuleExtraInfo,
   UpdateInfo,
+  CoreVersionCatalog,
   UnlockItem,
 } from './bindings'
 
@@ -300,6 +301,14 @@ export async function restartCore() {
 
 export async function upgradeClashCore(force = false) {
   return commands.upgradeClashCore(force)
+}
+
+export async function getCoreVersions() {
+  return commands.getCoreVersions()
+}
+
+export async function installCoreVersion(version: string) {
+  return commands.installCoreVersion(version)
 }
 
 export async function restartApp() {

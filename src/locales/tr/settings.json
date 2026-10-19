@@ -324,6 +324,26 @@
       "variants": {
         "release": "Kararlı Sürüm",
         "alpha": "Alfa Sürümü"
+      },
+      "actions": {
+        "manageVersions": "Sürümleri Yönet"
+      },
+      "versions": {
+        "title": "Mihomo Sürümleri",
+        "description": "Belirli bir Mihomo sürümü yükleyin. Yeni çekirdek başlamazsa uygulama önceki sürümü otomatik olarak geri yükler.",
+        "channel": "Kanal: {{channel}}",
+        "loading": "Sürümler yükleniyor...",
+        "empty": "Kullanılabilir sürüm yok",
+        "latest": "En son",
+        "installed": "Yüklü",
+        "installedAction": "Yüklü",
+        "install": "Yükle",
+        "upgradeLatest": "En Son Sürüme Yükselt",
+        "messages": {
+          "installed": "{{version}} sürümüne güncellendi",
+          "alreadyInstalled": "Zaten {{version}} sürümündesiniz",
+          "alreadyLatest": "Zaten en son sürüm"
+        }
       }
     },
     "liteMode": {

@@ -324,6 +324,26 @@
       "variants": {
         "release": "Versi Rilis",
         "alpha": "Versi Alpha"
+      },
+      "actions": {
+        "manageVersions": "Kelola Versi"
+      },
+      "versions": {
+        "title": "Versi Mihomo",
+        "description": "Pasang versi Mihomo tertentu. Jika inti baru gagal berjalan, aplikasi akan memulihkan versi sebelumnya secara otomatis.",
+        "channel": "Saluran: {{channel}}",
+        "loading": "Memuat versi...",
+        "empty": "Tidak ada versi yang tersedia",
+        "latest": "Terbaru",
+        "installed": "Terpasang",
+        "installedAction": "Terpasang",
+        "install": "Pasang",
+        "upgradeLatest": "Perbarui ke Terbaru",
+        "messages": {
+          "installed": "Diperbarui ke {{version}}",
+          "alreadyInstalled": "Sudah di {{version}}",
+          "alreadyLatest": "Sudah versi terbaru"
+        }
       }
     },
     "liteMode": {

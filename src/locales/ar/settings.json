@@ -324,6 +324,26 @@
       "variants": {
         "release": "الإصدار المستقر",
         "alpha": "الإصدار التجريبي"
+      },
+      "actions": {
+        "manageVersions": "إدارة الإصدارات"
+      },
+      "versions": {
+        "title": "إصدارات Mihomo",
+        "description": "ثبّت إصدارًا محددًا من Mihomo. إذا فشل تشغيل النواة الجديدة، سيستعيد التطبيق الإصدار السابق تلقائيًا.",
+        "channel": "القناة: {{channel}}",
+        "loading": "جارٍ تحميل الإصدارات...",
+        "empty": "لا توجد إصدارات متاحة",
+        "latest": "الأحدث",
+        "installed": "مثبّت",
+        "installedAction": "مثبّت",
+        "install": "تثبيت",
+        "upgradeLatest": "الترقية إلى الأحدث",
+        "messages": {
+          "installed": "تم التحديث إلى {{version}}",
+          "alreadyInstalled": "الإصدار الحالي {{version}}",
+          "alreadyLatest": "الإصدار الأحدث مثبّت بالفعل"
+        }
       }
     },
     "liteMode": {

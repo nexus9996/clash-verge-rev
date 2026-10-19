@@ -324,6 +324,26 @@
       "variants": {
         "release": "Рәсми версия",
         "alpha": "Альфа-версия"
+      },
+      "actions": {
+        "manageVersions": "Версияләрне идарә итү"
+      },
+      "versions": {
+        "title": "Mihomo версияләре",
+        "description": "Билгеләнгән Mihomo версиясен урнаштырырга мөмкин. Яңа төш урнаштырылмаса, кушымта автоматик рәвештә алдагы версияны кайтара.",
+        "channel": "Канал: {{channel}}",
+        "loading": "Версияләр йөкләнә...",
+        "empty": "Урнаштыру өчен версия юк",
+        "latest": "Иң соңгы",
+        "installed": "Урнаштырылган",
+        "installedAction": "Урнаштырылган",
+        "install": "Урнаштыру",
+        "upgradeLatest": "Иң соңгыга яңарту",
+        "messages": {
+          "installed": "{{version}} версиясенә яңартылды",
+          "alreadyInstalled": "Хәзер {{version}}",
+          "alreadyLatest": "Хәзер иң соңгы версия"
+        }
       }
     },
     "liteMode": {

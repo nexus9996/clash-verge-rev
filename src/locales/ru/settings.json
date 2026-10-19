@@ -324,6 +324,26 @@
       "variants": {
         "release": "Официальная версия",
         "alpha": "Альфа-версия"
+      },
+      "actions": {
+        "manageVersions": "Управление версиями"
+      },
+      "versions": {
+        "title": "Версии Mihomo",
+        "description": "Установите конкретную версию Mihomo. Если новое ядро не запустится, приложение автоматически восстановит предыдущую версию.",
+        "channel": "Канал: {{channel}}",
+        "loading": "Загрузка версий...",
+        "empty": "Нет доступных версий",
+        "latest": "Последняя",
+        "installed": "Установлена",
+        "installedAction": "Установлена",
+        "install": "Установить",
+        "upgradeLatest": "Обновить до последней",
+        "messages": {
+          "installed": "Обновлено до {{version}}",
+          "alreadyInstalled": "Уже установлена версия {{version}}",
+          "alreadyLatest": "Уже последняя версия"
+        }
       }
     },
     "liteMode": {

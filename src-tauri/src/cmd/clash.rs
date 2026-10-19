@@ -111,6 +111,26 @@ pub async fn upgrade_clash_core(force: bool) -> CmdResult<feat::CoreUpgradeRepor
     Ok(report)
 }
 
+/// Lists the core versions installable for the managed core's release channel.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_core_versions() -> CmdResult<feat::CoreVersionCatalog> {
+    feat::get_core_versions().await.with_error_code("CORE_VERSIONS_FAILED")
+}
+
+/// Installs an explicit core version through the same stage/publish/rollback path as an upgrade.
+#[tauri::command]
+#[specta::specta]
+pub async fn install_core_version(version: std::string::String) -> CmdResult<feat::CoreUpgradeReport> {
+    let report = feat::install_core_version(version)
+        .await
+        .with_error_code("CORE_INSTALL_FAILED")?;
+    if report.upgraded {
+        handle::Handle::refresh_clash();
+    }
+    Ok(report)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn test_delay(url: std::string::String) -> CmdResult<u32> {

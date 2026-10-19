@@ -23,6 +23,8 @@ pub fn builder() -> tauri_specta::Builder<tauri::Wry> {
             cmd::cancel_update_download,
             cmd::restart_core,
             cmd::upgrade_clash_core,
+            cmd::get_core_versions,
+            cmd::install_core_version,
             cmd::get_runtime_state,
             cmd::get_pending_failures,
             cmd::get_sidecar_failure,

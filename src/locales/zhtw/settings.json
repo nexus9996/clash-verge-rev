@@ -324,6 +324,26 @@
       "variants": {
         "release": "正式版",
         "alpha": "預覽版"
+      },
+      "actions": {
+        "manageVersions": "版本管理"
+      },
+      "versions": {
+        "title": "Mihomo 版本",
+        "description": "可安裝指定的 Mihomo 版本；新核心啟動失敗時會自動回復到原版本。",
+        "channel": "管道：{{channel}}",
+        "loading": "正在載入版本...",
+        "empty": "暫無可安裝版本",
+        "latest": "最新",
+        "installed": "已安裝",
+        "installedAction": "已安裝",
+        "install": "安裝",
+        "upgradeLatest": "升級到最新",
+        "messages": {
+          "installed": "已更新到 {{version}}",
+          "alreadyInstalled": "目前已是 {{version}}",
+          "alreadyLatest": "目前已是最新版本"
+        }
       }
     },
     "liteMode": {
