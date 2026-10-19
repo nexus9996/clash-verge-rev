@@ -1,5 +1,7 @@
 import type { AnyRouter } from '@tanstack/react-router'
 
+import { clearDiagnostics, getDiagnostics } from '@/utils/diagnostics'
+
 /**
  * Opt-in route navigation timing for the manual protocol in
  * docs/perf/navigation-timing.md. Enabled in dev builds by setting
@@ -30,6 +32,7 @@ interface RouteTimingExport {
   report: RouteTimingReport
   userAgent: string
   location: string
+  diagnostics: ReturnType<typeof getDiagnostics>
 }
 
 const STORAGE_KEY = 'verge.routeTiming'
@@ -75,11 +78,13 @@ const exportRouteTimings = (): RouteTimingExport => ({
   report: summarizeRouteTimings(samples),
   userAgent: typeof navigator === 'undefined' ? 'unknown' : navigator.userAgent,
   location: typeof window === 'undefined' ? 'unknown' : window.location.href,
+  diagnostics: getDiagnostics(),
 })
 
 export const clearRouteTimings = () => {
   samples.length = 0
   visited.clear()
+  clearDiagnostics()
 }
 
 const record = (sample: RouteTimingSample) => {

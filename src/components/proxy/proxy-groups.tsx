@@ -33,6 +33,7 @@ import {
   type ResolvedProxyMember,
 } from '@/types/proxy-view'
 import { debugLog } from '@/utils/debug'
+import { recordDiagnostic } from '@/utils/diagnostics'
 
 import { ProxyEmptyState } from './proxy-empty-state'
 import {
@@ -378,6 +379,8 @@ function ChainProxyGroups(props: {
 function NormalProxyGroups(props: { mode: string }) {
   const { mode } = props
   const stickyListRef = useRef<StickyVirtualListHandle>(null)
+  const [mountStartedAt] = useState(() => performance.now())
+  const mountMetricsRef = useRef({ rows: 0, groups: 0, records: 0 })
   const {
     verge,
     renderList,
@@ -390,6 +393,19 @@ function NormalProxyGroups(props: { mode: string }) {
   } = useProxyRenderState(mode, false, null)
   const emptyList = useEmptyRenderList()
   const { onDragEnd: onHeaderDragEnd } = useProxyGroupHeaderLayout()
+
+  mountMetricsRef.current = {
+    rows: renderList.length,
+    groups: proxyView?.groups.length ?? 0,
+    records: proxyView ? Object.keys(proxyView.records).length : 0,
+  }
+
+  useEffect(() => {
+    recordDiagnostic('proxies-mount', {
+      ms: Math.round((performance.now() - mountStartedAt) * 10) / 10,
+      ...mountMetricsRef.current,
+    })
+  }, [mountStartedAt])
   // The virtualizer applies this offset on mount and clamps stale values as row
   // measurements grow the scroll range, so no rAF retry loop is needed.
   const [initialOffset] = useState(() => getScrollPosition())
