@@ -29,3 +29,8 @@ These rules supplement the repository's root `AGENTS.md`.
   components; components, hooks, services and config never import pages or
   routes upward. `eslint.config.ts` (`import-x/no-restricted-paths`) enforces
   the direction and the `arch:check layers` gate surfaces violations.
+
+- **Domain data ownership.** Ordinary reads live in `hooks/data/*` domain hooks
+  over the shared query client. There is no app-wide data provider/context:
+  components call the domain hook they need and refreshers are cache
+  revalidations against the same keys.

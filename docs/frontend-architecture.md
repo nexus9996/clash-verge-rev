@@ -136,18 +136,21 @@ export const NAV_ITEMS = [
 | Intent | `services/mutate.ts` | 同 id 串行、busy 非成功、成功副作用 |
 | Command | `services/cmds.ts` + hooks | 组件不直接 invoke |
 
-Phase 3 的计划性调整：
+Phase 3（T1）已完成：普通读改为领域查询 hooks，app-data Provider/Context 已移除：
 
 ```text
-providers/app-data-context.ts   6 个领域 context（Proxies/Rules/ClashConfig/System/CoreDataStatus/Refreshers）
-        ↓ 拆分
-hooks/use-proxy-view.ts / use-rules-data.ts / use-clash-config.ts / use-system-proxy-data.ts
-app/providers.tsx               只组合 SWRConfig + AppStore + ThemeMode + UpdateState + 必要跨域只读快照
+删除：providers/app-data-context.ts（6 个 context）、providers/app-data-provider.tsx（6 层嵌套）
+hooks/data/                      领域查询 hooks（共享 query-client / SWR key）
+├── use-proxy-view-data.ts / use-rules-data.ts / use-clash-config-data.ts
+├── use-system-data.ts / use-app-refreshers.ts / use-core-data-status.ts
+├── query-options.ts             key 与 fetch 策略的唯一来源
+└── index.ts                     消费入口（原 provider 模块的 import 已全部迁移）
+app/                            不再需要 app-data provider；组合根只剩 SWRConfig/AppStore/Theme/Update
 ```
 
-- query key 与 `mutate/revalidate` 语义保持不变；先补测试再拆。
-- 不新增全局 store；页面私有 UI 状态留在页面/组件内。
-- 持久化（若未来新增）必须 `version + migrate + 敏感字段 allowlist`；禁止持久化后端派生数据。
+- query key 与 `mutate/revalidate` 语义保持不变；refreshers = 缓存 revalidate（可单测）。
+- 数据在消费组件挂载时按需触发（不再由根 Provider 启动即全量拉取）；页面私有 UI 状态留在页面/组件内。
+- 不新增全局 store；持久化（若未来新增）必须 `version + migrate + 敏感字段 allowlist`；禁止持久化后端派生数据。
 
 ## 4. 样式与主题
 

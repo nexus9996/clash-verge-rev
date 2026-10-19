@@ -768,3 +768,12 @@ Phase 0 无阻塞项，可以进入 Phase 1（G1 条件 Go）。唯一未测量�
 - vitest：include `*.test.tsx`、接入 `vite-plugin-svgr`、按文件 docblock 使用 jsdom、`tests/setup.ts` 提供 ResizeObserver polyfill；新增 devDependency `jsdom`。
 - 新增 8 个测试文件 / 14 tests：导航 catalog + 后端路径回退、导航图标覆盖、明暗主题 token 对齐、router no-flash 默认值、路由兜底渲染与动作（jsdom）、导航顺序解析、14 locale `pageNotFound` 完整性、错误格式化。
 - 为可测性抽出 `ROUTER_DEFAULTS` 并导出 order 纯函数；现有测试 20 文件 / **63 tests**（原 12/49），CI 约 7s；bundle 393.3 kB gzip 不变。
+
+### 12.11 Phase 3 T1 完成记录（Provider 拆分，2026-10-19）
+
+- 卡片分支：`migrate/fe-provider-split`，已 FF 合入 `local`。
+- 删除 `providers/app-data-context.ts`（6 个 context）与 `providers/app-data-provider.tsx`（6 层嵌套 Provider）；`main.tsx` 不再包 `AppDataProvider`。
+- 新增 `hooks/data/` 领域查询 hooks：proxy view / rules / clash config / system / refreshers / core status，共享 `services/query-client` 与稳定 key（`query-options.ts`）。
+- `useAppRefreshers` 改为缓存 revalidate（`createAppRefreshers` 可单测）；core data pending 由两个查询派生；17 个消费文件的 import 迁移到 `@/hooks/data`。
+- 新增 query key 快照 + refreshers 单测；24 文件 / **75 tests**；门禁全绿；初始 JS 394.3 kB gzip（+0.3%，预算内）。
+- 行为差异：查询从"根 Provider 启动即拉取"改为"消费组件挂载时按需触发"（SWR 去重不变）；如需首屏预热可后续按页面 hooks 自然触发，无需全局 Provider。
