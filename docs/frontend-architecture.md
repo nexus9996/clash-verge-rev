@@ -166,8 +166,8 @@ src/config/theme/
 - `use-custom-theme` 负责：运行时 `createTheme`、CSS 变量注入、用户自定义 CSS（`@scope`）、背景图/透明度、系统暗色跟随。S1 起它只消费 `tokens.ts` 的生成结果，不再含硬编码颜色。
 - CSS 变量：保留既有 legacy 名称（`--background-color`、`--divider-color` 等），新增语义色（`--color-*`）与尺度（`--space-*` / `--radius-*` / `--shadow-*` / `--z-*` / `--overlay-*`）。
 - 主题预设已接入 token 体系（6 套 × 明暗）。
-- S3（按域 hex 清理）：`app/layout`、`components/{layout,home,setting}`、`pages/{settings,unlock}`、`components/base/base-page` 的硬编码颜色已清零，统一走 `theme.palette` / 生成 CSS 变量（`--surface-card` / `--surface-page` 等）。
-- 回归守卫：`pnpm check:hex-budget`（CI 已接入）统计 token/styles 目录之外的裸 hex，预算 39；proxy/profile/rule/log/base 剩余项按域逐步清理，降低预算。
+- S3（按域 hex 清理）：全仓组件/页面的裸 hex 已清零（token 定义与 stylesheet 默认值除外），统一走 `theme.palette` / 生成 CSS 变量（`--surface-card` / `--surface-page` / `--surface-raised` / `--log-highlight` / `--switch-*` 等）。
+- 回归守卫：`pnpm check:hex-budget`（CI 已接入）统计 token/styles 目录之外的裸 hex，**预算 0**；新增颜色必须进入 `config/theme/tokens.ts` 或 `assets/styles` 的 CSS 变量默认值。
 - **不引入 Tailwind**（ADR-0001 D2）；明暗双套主题配置依赖后端契约字段，另行排期。
 
 ## 5. 质量门禁

@@ -795,3 +795,11 @@ Phase 0 无阻塞项，可以进入 Phase 1（G1 条件 Go）。唯一未测量�
 - 更新弹窗 GitHub alert 颜色改为 palette 引用；外部控制器 CORS 按钮/提示改为 MUI 语义色；布局选中态用 `palette.text/common`；流量图去掉无效 hex fallback。
 - 新增 `scripts/check-hex-budget.mjs` + `pnpm check:hex-budget` + CI step：token/styles 目录之外裸 hex 预算 **39**（当前在预算内，剩余集中在 proxy/profile/rule/log/base）。
 - 验证：26 文件 / 83 tests、门禁全绿、bundle 395.3 kB gzip（+0.6%，预算内）。
+
+### 12.14 Phase 2 S3 收尾（剩余域 hex 清零，2026-10-19）
+
+- 卡片分支：`migrate/fe-hex-cleanup-2`，已 FF 合入 `local`。
+- 清零范围：`components/{proxy,profile,rule,log,base}` 剩余 39 处裸 hex → **0**；全仓（除 token 定义与 `assets/styles` 默认值）现在没有裸 hex。
+- token 补充：`--surface-raised`（明 #fff / 暗 #24252f）、`--log-highlight`（明/暗高亮黄）、`--switch-active` / `--switch-thumb` / `--switch-track-off`。
+- `pnpm check:hex-budget` 预算从 39 收紧为 **0**，CI 守卫保持；新增颜色只能进入 `config/theme/tokens.ts` 或 stylesheet 默认值。
+- 验证：26 文件 / 83 tests、门禁全绿、bundle 395.3 kB gzip（+0.6%，预算内）。
