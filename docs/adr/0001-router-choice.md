@@ -127,3 +127,11 @@ rev 前端的**数据/事件层**在 2026-07~10 已完成三轮自我重构（`e
 - self 重构关键提交：`4812e488`（TanStack Router）、`1da1d991`（预加载）、`35115975`（Zustand）、`5f8a2277`（TanStack Table）、`5e7e8c26`（Material You）；未合并 `62fd7402`（specta）
 - rev 关键提交：`e63b8e6e`（去 lazy）、`4ed47470`（查询所有权）、`69b76cc6`（contract flow）
 - 硬约束：`src/AGENTS.md`、`eslint.config.ts:15-99`、`scripts/check-architecture.mjs`
+
+## 7. G1 实测记录（PoC，2026-10-19）
+
+- PoC 分支：`migrate/fe-router-poc`；完整证据见 [PoC/G1 报告](../perf/router-poc-g1-2026-10-19.md)。
+- 门禁：`typecheck` / `lint` / `format:check` / `test`（12 文件 47 tests，含 route catalog）/ `knip` / `arch:check` / `i18n` / `web:build` 全绿。
+- Bundle：初始 JS **508.5 → 392.9 kB gzip（−22.7%）**、raw 1,648.3 → 1,195.7 kB（−27.5%）；入口 chunk 312.7 → 158.8 kB gzip；7 个非首屏页面拆为异步 chunk。
+- 依赖：新增 3（react-router 移除 1），净增 **+2**，符合 G1 ≤3。
+- 待验证：运行时"无导航 loading 闪烁"（G1-3）与桌面 smoke（G1-6）。两项通过后本 ADR 由"条件 Go"转 **Full Go**；不通过则执行 §3 B1（react-router data-router 演进）。

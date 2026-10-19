@@ -18,7 +18,8 @@
   "ignoreDependencies": ["lint-staged"],
   "ignoreIssues": {
     "src/types/generated/**": ["exports", "types"],
-    "src/services/bindings.ts": ["types"]
+    "src/services/bindings.ts": ["types"],
+    "src/routeTree.gen.ts": ["exports", "types"]
   },
   "cycles": {
     "dynamicImports": true
