@@ -12,9 +12,13 @@
       "process": "عملية",
       "time": "الوقت",
       "source": "المصدر",
+      "sourceIp": "IP المصدر",
+      "sourcePort": "منفذ المصدر",
       "destination": "عنوان IP الوجهة",
+      "destinationIp": "IP الوجهة",
       "destinationPort": "ميناء الوجهة",
-      "type": "النوع"
+      "type": "النوع",
+      "network": "الشبكة"
     },
     "order": {
       "default": "Default",
@@ -29,6 +33,12 @@
     "columnManager": {
       "title": "الأعمدة",
       "dragHandle": "Drag handle"
+    },
+    "filters": {
+      "placeholder": "تصفية الاتصالات",
+      "noOptions": "لا توجد خيارات مطابقة",
+      "searchValue": "البحث عن قيمة",
+      "clear": "مسح عوامل التصفية"
     }
   }
 }

@@ -15,6 +15,7 @@ import {
   Zoom,
 } from '@mui/material'
 import { useLockFn } from 'ahooks'
+import { useLocalStorage } from 'foxact/use-local-storage'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { closeAllConnections } from 'tauri-plugin-mihomo-api'
@@ -31,6 +32,7 @@ import {
   ConnectionDetail,
   ConnectionDetailRef,
 } from '@/components/connection/connection-detail'
+import { ConnectionFilterBox } from '@/components/connection/connection-filter-box'
 import { ConnectionRowItem } from '@/components/connection/connection-row-item'
 import {
   getConnectionStartTime,
@@ -42,6 +44,10 @@ import { useConnectionSetting } from '@/hooks/use-connection-setting'
 import { useTrafficData } from '@/hooks/use-traffic-data'
 import { useVisibility } from '@/hooks/use-visibility'
 import { mutate } from '@/services/mutate'
+import {
+  type ConnectionFilter,
+  createConnectionFilterMatcher,
+} from '@/utils/connection-filter'
 import parseTraffic from '@/utils/parse-traffic'
 
 type OrderFunc = (list: IConnectionsItem[]) => IConnectionsItem[]
@@ -106,18 +112,49 @@ const ConnectionsPage = () => {
 
   const [isColumnManagerOpen, setIsColumnManagerOpen] = useState(false)
 
+  const [connectionFilters, setConnectionFilters] = useLocalStorage<
+    ConnectionFilter[]
+  >('connections-filters', [], {
+    serializer: JSON.stringify,
+    deserializer: (value) => {
+      try {
+        const parsed = JSON.parse(value)
+        if (Array.isArray(parsed)) {
+          return parsed.filter(
+            (item): item is ConnectionFilter =>
+              typeof item?.field === 'string' &&
+              typeof item?.value === 'string',
+          )
+        }
+      } catch (error) {
+        console.warn('Failed to parse connections-filters', error)
+      }
+      return []
+    },
+  })
+
   const selectedConnections =
     connectionsType === 'active'
       ? (connections?.activeConnections ?? EMPTY_CONNECTIONS)
       : (connections?.closedConnections ?? EMPTY_CONNECTIONS)
 
+  const connectionFilterMatcher = useMemo(
+    () => createConnectionFilterMatcher(connectionFilters),
+    [connectionFilters],
+  )
+
   const filterConn = useMemo(() => {
     const orderFunc = orderFunctionMap[curOrderOpt]
+    const hasFilters = connectionFilters.length > 0
 
-    if (isTableLayout && !hasSearch) return selectedConnections
-    if (!hasSearch) return orderFunc([...selectedConnections])
+    if (!hasSearch && !hasFilters) {
+      if (isTableLayout) return selectedConnections
+      return orderFunc([...selectedConnections])
+    }
 
     const matchConns = selectedConnections.filter((conn) => {
+      if (!connectionFilterMatcher(conn)) return false
+      if (!hasSearch) return true
       const { host, destinationIP, process } = conn.metadata
       return (
         match(host || '') || match(destinationIP || '') || match(process || '')
@@ -125,7 +162,15 @@ const ConnectionsPage = () => {
     })
 
     return orderFunc ? orderFunc(matchConns) : matchConns
-  }, [selectedConnections, isTableLayout, hasSearch, match, curOrderOpt])
+  }, [
+    selectedConnections,
+    isTableLayout,
+    hasSearch,
+    connectionFilters.length,
+    connectionFilterMatcher,
+    match,
+    curOrderOpt,
+  ])
 
   const displayRows = useConnectionRowViews(
     isTableLayout ? EMPTY_CONNECTIONS : filterConn,
@@ -269,12 +314,18 @@ const ConnectionsPage = () => {
             flex: 1,
             display: 'flex',
             alignItems: 'center',
-            '& > *': {
-              flex: 1,
-            },
+            gap: 1,
+            minWidth: 0,
           }}
         >
-          <BaseSearchBox onSearch={handleSearch} />
+          <ConnectionFilterBox
+            connections={selectedConnections}
+            filters={connectionFilters}
+            onChange={setConnectionFilters}
+          />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <BaseSearchBox onSearch={handleSearch} />
+          </Box>
         </Box>
         {isTableLayout && hasTableData && (
           <Tooltip title={t('connections.components.columnManager.title')}>
