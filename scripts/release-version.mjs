@@ -2,7 +2,7 @@
  * CLI tool to update version numbers in package.json, src-tauri/Cargo.toml, Cargo.lock, and src-tauri/tauri.conf.json.
  *
  * Usage:
- *   pnpm release-version <version>
+ *   bun run release-version <version>
  *
  * <version> can be:
  *   - A full semver version (e.g., 1.2.3, v1.2.3, 1.2.3-beta, v1.2.3+build)
@@ -13,12 +13,12 @@
  *     - "deploytest": Appends a timestamped deploytest tag (e.g., 1.2.3+deploytest.2406101530)
  *
  * Examples:
- *   pnpm release-version 1.2.3
- *   pnpm release-version v1.2.3-beta
- *   pnpm release-version beta
- *   pnpm release-version autobuild
- *   pnpm release-version autobuild-latest
- *   pnpm release-version deploytest
+ *   bun run release-version 1.2.3
+ *   bun run release-version v1.2.3-beta
+ *   bun run release-version beta
+ *   bun run release-version autobuild
+ *   bun run release-version autobuild-latest
+ *   bun run release-version deploytest
  *
  */
 
@@ -283,7 +283,7 @@ async function main(versionArg) {
 }
 
 program
-  .name('pnpm release-version')
+  .name('bun run release-version')
   .description('Update project version numbers')
   .argument('<version>', 'version tag or full version')
   .action(main)
