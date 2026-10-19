@@ -15,6 +15,11 @@ import {
   WindowResizeHandles,
 } from '@/components/layout/window-controller'
 import { resolveNavigationPath } from '@/config/navigation'
+import {
+  useCustomTheme,
+  useLoadingOverlay,
+  usePendingFailures,
+} from '@/hooks/layout'
 import { useI18n } from '@/hooks/use-i18n'
 import { useVerge } from '@/hooks/use-verge'
 import { useWindowMaximized } from '@/hooks/use-window-maximized'
@@ -22,12 +27,6 @@ import { useEventBus } from '@/services/bus'
 import { handleNoticeMessage } from '@/services/notice-handlers'
 import { useThemeMode } from '@/services/states'
 import getSystem from '@/utils/get-system'
-
-import {
-  useCustomTheme,
-  useLoadingOverlay,
-  usePendingFailures,
-} from './_layout/hooks'
 
 import 'dayjs/locale/ru'
 import 'dayjs/locale/zh-cn'
