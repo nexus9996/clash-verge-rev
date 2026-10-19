@@ -57,6 +57,12 @@ describe('theme tokens', () => {
     expect(variables['--surface-page']).toBe(
       resolveModeSurfaces('light').pageBackground,
     )
+    expect(variables['--log-highlight']).toBe(
+      resolveModeSurfaces('light').logHighlight,
+    )
+    expect(variables['--switch-track-off']).toBe(
+      resolveModeSurfaces('light').switchTrackOff,
+    )
   })
 
   it('prefers user color settings over defaults', () => {

@@ -8,8 +8,9 @@ const EXTENSIONS = new Set(['.ts', '.tsx', '.scss'])
 // Token definitions and stylesheet-level CSS variable defaults are the only
 // legitimate homes for raw color literals.
 const ALLOWED_PREFIXES = ['config/theme/', 'assets/styles/']
-// Guard against regressions; lower this when a domain is migrated.
-const HEX_BUDGET = 39
+// Guard against regressions; zero means every raw literal must live in the
+// token/styles files.
+const HEX_BUDGET = 0
 const HEX = /#[0-9a-fA-F]{3,8}\b/g
 
 const collectFiles = (dir) => {

@@ -64,7 +64,7 @@ export const ProxyItemMini = (props: Props) => {
           alignItems: 'center',
         },
         ({ palette: { mode, primary } }) => {
-          const bgcolor = mode === 'light' ? '#ffffff' : '#24252f'
+          const bgcolor = 'var(--surface-raised)'
           const showDelay = delayValue > 0
           const selectColor = mode === 'light' ? primary.main : primary.light
 
@@ -254,7 +254,7 @@ const TypeBox = styled(Box, {
   shouldForwardProp: (prop) => prop !== 'component',
 })<{ component?: React.ElementType }>(({ theme: { typography } }) => ({
   display: 'inline-block',
-  border: '1px solid #ccc',
+  border: '1px solid',
   borderColor: 'text.secondary',
   color: 'text.secondary',
   borderRadius: 4,

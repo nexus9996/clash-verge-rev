@@ -122,6 +122,8 @@ interface ModeSurfaces {
   pageBackground: string
   loadingBackground: string
   loadingText: string
+  logHighlight: string
+  switchTrackOff: string
   selection: string
   scroller: string
   divider: string
@@ -138,6 +140,8 @@ const LIGHT_SURFACES: ModeSurfaces = {
   pageBackground: '#ffffff',
   loadingBackground: '#fff',
   loadingText: '#333',
+  logHighlight: '#ffeb3b90',
+  switchTrackOff: '#BBBBBB',
   selection: '#f5f5f5',
   scroller: '#90939980',
   divider: 'rgba(0, 0, 0, 0.06)',
@@ -154,6 +158,8 @@ const DARK_SURFACES: ModeSurfaces = {
   pageBackground: '#1e1f27',
   loadingBackground: '#181a1b',
   loadingText: '#fff',
+  logHighlight: '#ffeb3b40',
+  switchTrackOff: '#39393D',
   selection: '#3E3E3E',
   scroller: '#555555',
   divider: 'rgba(255, 255, 255, 0.06)',
@@ -163,6 +169,9 @@ const DARK_SURFACES: ModeSurfaces = {
   scrollbarThumbHover: '#666666',
   dialogBackground: '#2E303D',
 }
+
+const SWITCH_ACTIVE = '#33cf4d'
+const SWITCH_THUMB = '#ffffff'
 
 export const resolveModeSurfaces = (mode: 'light' | 'dark'): ModeSurfaces =>
   mode === 'light' ? LIGHT_SURFACES : DARK_SURFACES
@@ -211,6 +220,10 @@ export const createThemeCssVariables = ({
     '--color-border': surfaces.windowBorder,
     '--surface-card': surfaces.cardBackground,
     '--surface-page': surfaces.pageBackground,
+    '--log-highlight': surfaces.logHighlight,
+    '--switch-active': SWITCH_ACTIVE,
+    '--switch-thumb': SWITCH_THUMB,
+    '--switch-track-off': surfaces.switchTrackOff,
   }
 
   for (const [key, value] of Object.entries(SPACE)) {

@@ -23,7 +23,7 @@ export const BaseFieldset: React.FC<Props> = ({
       component="fieldset"
       sx={{
         position: 'relative',
-        border: '1px solid #bbb',
+        border: '1px solid var(--color-border)',
         borderRadius: '5px',
         width: width ?? 'auto',
         padding: fieldsetPadding,
