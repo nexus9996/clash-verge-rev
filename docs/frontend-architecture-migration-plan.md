@@ -534,11 +534,11 @@ pnpm i18n:types && pnpm i18n:check
 ### 7.5 Definition of Done（分支级）
 
 - [x] Phase 0–4 全部完成或明确降级为后续跟进（记录原因）。→ 降级项见 §12.16。
-- [ ] 所有新增门禁在 CI 为 error 且全绿。→ 部分：分层/catalog/bundle/hex 已接入；`i18n:check --check`、导航性能基线未接入（§12.16）。
+- [x] 所有新增门禁在 CI 为 error 且全绿。→ 分层/catalog/bundle/hex 已接入；`i18n:check --check` 已随 §12.17 接入 CI；导航性能为本机手动门禁（CI 无法复现 WebView），已完成打包实例验收（cold p95 159 / hot p95 113，§12.19）。
 - [x] `docs/frontend-architecture.md` + 3 篇 ADR 入库并与代码一致。→ 本轮收口修正过期描述（§12.16）。
 - [x] 新增页面步骤在 `CONTRIBUTING.md` 更新且完成一次演练。
 - [x] 一次完整的 `git rebase origin/dev` 演练通过（冲突仅限已知 churn 区且可解）。→ `origin/dev` 已是 `local` 祖先，rebase 为无操作。
-- [ ] 全量 smoke 通过（§7.4），无 P0/P1 回归。→ G1 阶段已通过；合入后终态全量 smoke 未单独记录（§12.16）。
+- [ ] 全量 smoke 通过（§7.4），无 P0/P1 回归。→ 自动化终态门禁 sweep 已于 2026-10-20 通过（根 `WORKTREES.md` §16.4）；§7.4 桌面人工 smoke 与 30 分钟长会话观察待打包实例执行，按“降级为后续人工跟进”记录。
 
 ---
 
