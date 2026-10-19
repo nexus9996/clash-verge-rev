@@ -8,7 +8,11 @@
         "update": "Update"
       }
     },
-    "title": "Rules"
+    "title": "Rules",
+    "rule": {
+      "toggle": "Enable or disable this rule",
+      "hits": "Hits: {{count}}"
+    }
   },
   "feedback": {
     "notifications": {

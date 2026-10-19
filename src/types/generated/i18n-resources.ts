@@ -695,6 +695,10 @@ export interface TranslationResources {
           dialogTitle: string
           trigger: string
         }
+        rule: {
+          hits: string
+          toggle: string
+        }
         title: string
       }
     }

@@ -8,7 +8,11 @@
         "update": "업데이트"
       }
     },
-    "title": "규칙"
+    "title": "규칙",
+    "rule": {
+      "toggle": "이 규칙을 활성화 또는 비활성화",
+      "hits": "적중: {{count}}"
+    }
   },
   "feedback": {
     "notifications": {

@@ -362,6 +362,8 @@ export const translationKeys = [
   'rules.page.provider.actions.updateAll',
   'rules.page.provider.actions.update',
   'rules.page.title',
+  'rules.page.rule.toggle',
+  'rules.page.rule.hits',
   'rules.feedback.notifications.provider.updateSuccess',
   'rules.feedback.notifications.provider.updateFailed',
   'rules.feedback.notifications.provider.genericError',
