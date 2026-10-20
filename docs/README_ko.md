@@ -100,9 +100,9 @@ Windows (x64/x86), Linux (x64/arm64), macOS 10.15+ (Intel/Apple)을 지원합니
 **Tauri** 필수 구성 요소를 설치한 뒤 아래 명령으로 개발 서버를 실행합니다:
 
 ```shell
-pnpm i
-pnpm run prebuild
-pnpm dev
+bun install
+bun run prebuild:download
+bun run dev
 ```
 
 ## 기여

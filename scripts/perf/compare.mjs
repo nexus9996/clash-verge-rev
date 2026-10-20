@@ -5,7 +5,7 @@ import { compare } from './report.mjs'
 const args = process.argv.slice(2).filter((v) => v !== '--')
 if (args.length < 2)
   throw new Error(
-    'Usage: pnpm perf:compare -- baseline/summary.json candidate/summary.json [noise-threshold-percent]',
+    'Usage: bun run perf:compare -- baseline/summary.json candidate/summary.json [noise-threshold-percent]',
   )
 const threshold = args[2] === undefined ? null : Number(args[2])
 if (threshold !== null && (!Number.isFinite(threshold) || threshold < 0))

@@ -43,10 +43,10 @@ jobs:
         run: bash ./scripts/extract_update_logs.sh
         shell: bash
 
-      - uses: pnpm/action-setup@v6.1.0
-        name: Install pnpm
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          run_install: false
+          bun-version: '1.4.3'
 
       - name: Install Node
         uses: actions/setup-node@v7
@@ -54,10 +54,10 @@ jobs:
           node-version: '24.22.0'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Release AutoBuild Version
-        run: pnpm release-version autobuild-latest
+        run: bun run release-version autobuild-latest
 
       - name: Set Env
         run: |
@@ -177,32 +177,31 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libclang-dev clang libxslt1.1 libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
 
-      - uses: pnpm/action-setup@v6.1.0
-        name: Install pnpm
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          run_install: false
+          bun-version: '1.4.3'
 
       - name: Install Node
         uses: actions/setup-node@v7
         with:
           node-version: '24.22.0'
-          cache: 'pnpm'
 
-      - name: Pnpm Cache
+      - name: Bun cache
         uses: actions/cache@v6
         with:
-          path: ~/.pnpm-store
-          key: 'pnpm-shared-stable-${{ matrix.os }}-${{ matrix.target }}'
+          path: ~/.bun/install/cache
+          key: 'bun-shared-stable-${{ matrix.os }}-${{ matrix.target }}'
           restore-keys: |
-            pnpm-shared-stable-${{ matrix.os }}-${{ matrix.target }}
+            bun-shared-stable-${{ matrix.os }}-${{ matrix.target }}
 
-      - name: Pnpm install and check
+      - name: Bun install and check
         run: |
-          pnpm i
-          pnpm run prebuild ${{ matrix.target }}
+          bun install --frozen-lockfile
+          bun run prebuild:download ${{ matrix.target }}
 
       - name: Release ${{ env.TAG_CHANNEL }} Version
-        run: pnpm release-version autobuild-latest
+        run: bun run release-version autobuild-latest
 
       - name: Add Rust Target
         run: |
@@ -230,7 +229,7 @@ jobs:
           releaseBody: 'More new features are now supported.'
           releaseDraft: false
           prerelease: true
-          tauriScript: pnpm
+          tauriScript: bun run tauri
           args: --target ${{ matrix.target }}
 
   autobuild-arm-linux:
@@ -274,32 +273,31 @@ jobs:
           cache-all-crates: true
           cache-workspace-crates: true
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v6.1.0
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          run_install: false
+          bun-version: '1.4.3'
 
       - name: Install Node
         uses: actions/setup-node@v7
         with:
           node-version: '24.22.0'
-          cache: 'pnpm'
 
-      - name: Pnpm Cache
+      - name: Bun cache
         uses: actions/cache@v6
         with:
-          path: ~/.pnpm-store
-          key: 'pnpm-shared-stable-${{ matrix.os }}-${{ matrix.target }}'
+          path: ~/.bun/install/cache
+          key: 'bun-shared-stable-${{ matrix.os }}-${{ matrix.target }}'
           restore-keys: |
-            pnpm-shared-stable-${{ matrix.os }}-${{ matrix.target }}
+            bun-shared-stable-${{ matrix.os }}-${{ matrix.target }}
 
-      - name: Pnpm install and check
+      - name: Bun install and check
         run: |
-          pnpm i
-          pnpm run prebuild ${{ matrix.target }}
+          bun install --frozen-lockfile
+          bun run prebuild:download ${{ matrix.target }}
 
       - name: Release ${{ env.TAG_CHANNEL }} Version
-        run: pnpm release-version autobuild-latest
+        run: bun run release-version autobuild-latest
 
       - name: 'Setup for linux'
         run: |-
@@ -363,7 +361,7 @@ jobs:
             export PKG_CONFIG_PATH=/usr/lib/arm-linux-gnueabihf/pkgconfig/:$PKG_CONFIG_PATH
             export PKG_CONFIG_SYSROOT_DIR=/usr/arm-linux-gnueabihf/
           fi
-          pnpm build --target ${{ matrix.target }}
+          bun run build --target ${{ matrix.target }}
         env:
           NODE_OPTIONS: '--max_old_space_size=4096'
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
@@ -420,32 +418,31 @@ jobs:
           cache-all-crates: true
           cache-workspace-crates: true
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v6.1.0
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          run_install: false
+          bun-version: '1.4.3'
 
       - name: Install Node
         uses: actions/setup-node@v7
         with:
           node-version: '24.22.0'
-          cache: 'pnpm'
 
-      - name: Pnpm Cache
+      - name: Bun cache
         uses: actions/cache@v6
         with:
-          path: ~/.pnpm-store
-          key: 'pnpm-shared-stable-${{ matrix.os }}-${{ matrix.target }}'
+          path: ~/.bun/install/cache
+          key: 'bun-shared-stable-${{ matrix.os }}-${{ matrix.target }}'
           restore-keys: |
-            pnpm-shared-stable-${{ matrix.os }}-${{ matrix.target }}
+            bun-shared-stable-${{ matrix.os }}-${{ matrix.target }}
 
-      - name: Pnpm install and check
+      - name: Bun install and check
         run: |
-          pnpm i
-          pnpm run prebuild ${{ matrix.target }}
+          bun install --frozen-lockfile
+          bun run prebuild:download ${{ matrix.target }}
 
       - name: Release ${{ env.TAG_CHANNEL }} Version
-        run: pnpm release-version autobuild-latest
+        run: bun run release-version autobuild-latest
 
       - name: Download WebView2 Runtime
         run: |
@@ -469,7 +466,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         with:
-          tauriScript: pnpm
+          tauriScript: bun run tauri
           args: --target ${{ matrix.target }}
 
       - name: Rename
@@ -528,16 +525,16 @@ jobs:
         with:
           node-version: '24.22.0'
 
-      - uses: pnpm/action-setup@v6.1.0
-        name: Install pnpm
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          run_install: false
+          bun-version: '1.4.3'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Release AutoBuild Version
-        run: pnpm release-version autobuild-latest
+        run: bun run release-version autobuild-latest
 
       - name: Get Version and Release Info
         run: |
@@ -588,7 +585,7 @@ jobs:
           EOF
 
       - name: Send Telegram Notification
-        run: node scripts/telegram.mjs
+        run: bun scripts/telegram.mjs
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           BUILD_TYPE: autobuild

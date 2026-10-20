@@ -40,13 +40,12 @@
       "!src/routeTree.gen.ts",
       "!target",
       "!Cargo.lock",
-      "!pnpm-lock.yaml",
+      "!bun.lock",
       "!README.md",
       "!Changelog.md",
       "!CONTRIBUTING.md",
       "!.changelog_backups",
       "!.github",
-      "!.pnpm-lock.yaml",
       "!.vfox"
     ]
   }

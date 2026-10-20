@@ -14,8 +14,7 @@
     "biome.json",
     "biome.jsonc",
     "package.json",
-    "pnpm-lock.yaml",
-    "pnpm-workspace.yaml",
+    "bun.lock",
     "scripts/contract-inputs.json",
     ".github/workflows/frontend-check.yml",
     ".husky/pre-push"

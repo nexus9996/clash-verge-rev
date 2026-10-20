@@ -14,4 +14,4 @@ sudo apt-get install -y \
   patchelf
 
 echo "Installing Dependencies for Clash-Verge-Rev"
-pnpm install
+bun install

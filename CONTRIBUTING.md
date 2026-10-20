@@ -27,8 +27,8 @@ Before contributing, you need to set up your development environment. Follow the
 
 ### Prerequisites
 
-1. **Install Rust and Node.js**  
-   Our project requires both Rust and Node.js. Follow the official installation instructions [here](https://tauri.app/start/prerequisites/).
+1. **Install Rust, Node.js and Bun**  
+   Our project requires Rust, Node.js (runtime for the Vite, Tauri, ESLint and Vitest CLIs) and Bun (package manager and script runner). Follow the official installation instructions [here](https://tauri.app/start/prerequisites/) for Rust and Node.js, then install Bun as described below.
 
 ### Windows Users
 
@@ -38,7 +38,7 @@ Before contributing, you need to set up your development environment. Follow the
 
 Additional steps for Windows:
 
-- Ensure Rust and Node.js are added to your system `PATH`.
+- Ensure Rust, Node.js and Bun are added to your system `PATH`.
 
 - Install the GNU `patch` tool.
 
@@ -49,20 +49,28 @@ rustup target add x86_64-pc-windows-msvc
 rustup set default-host x86_64-pc-windows-msvc
 ```
 
-### Install Node.js Package Manager
+### Install Bun (Package Manager)
 
-Enable `corepack`:
+Install Bun 1.4.3 with the official installer:
 
 ```bash
-corepack enable
+curl -fsSL https://bun.sh/install | bash
 ```
+
+On Windows:
+
+```powershell
+powershell -c "irm bun.sh/install.ps1 | iex"
+```
+
+Verify the installation with `bun --version`.
 
 ### Install Project Dependencies
 
-Node.js dependencies:
+JavaScript dependencies:
 
 ```bash
-pnpm install
+bun install
 ```
 
 Ubuntu-only system packages:
@@ -74,16 +82,16 @@ sudo apt-get install -y libxslt1.1 libwebkit2gtk-4.1-dev libayatana-appindicator
 ### Download the Mihomo Core Binary (Automatic)
 
 ```bash
-pnpm run prebuild
-pnpm run prebuild --force  # Re-download and overwrite Mihomo core and service binaries
+bun run prebuild:download
+bun run prebuild:download --force  # Re-download and overwrite Mihomo core and service binaries
 ```
 
 ### Run the Development Server
 
 ```bash
-pnpm dev           # Standard
-pnpm dev:diff      # If an app instance already exists
-pnpm dev:tauri     # Run Tauri development mode
+bun run dev        # Standard
+bun run dev:diff   # If an app instance already exists
+bun run dev:tauri  # Run Tauri development mode
 ```
 
 ### Build the Project
@@ -91,13 +99,13 @@ pnpm dev:tauri     # Run Tauri development mode
 Standard build:
 
 ```bash
-pnpm build
+bun run build
 ```
 
 Fast build for testing:
 
 ```bash
-pnpm build:fast
+bun run build:fast
 ```
 
 ### Adding a Frontend Page (TanStack Router)
@@ -118,11 +126,11 @@ The router is file-based and the sidebar catalog is centralized, so a page takes
    })
    ```
 
-   Then run `pnpm generate-routes` to refresh `src/routeTree.gen.ts` (the Vite plugin also regenerates it during dev/build).
+   Then run `bun run generate-routes` to refresh `src/routeTree.gen.ts` (the Vite plugin also regenerates it during dev/build).
 
-3. **Navigation and copy** — add the entry to `NAV_META` in `src/config/navigation.ts` (id, path, i18n label key), add its icon pair to `NAV_ICONS` in `src/components/layout/navigation-icons.tsx`, add `tabs.<id>` to all 14 `src/locales/*/layout.json` files, then run `pnpm i18n:types`.
+3. **Navigation and copy** — add the entry to `NAV_META` in `src/config/navigation.ts` (id, path, i18n label key), add its icon pair to `NAV_ICONS` in `src/components/layout/navigation-icons.tsx`, add `tabs.<id>` to all 14 `src/locales/*/layout.json` files, then run `bun run i18n:types`.
 
-Finally run `pnpm typecheck && pnpm test && pnpm lint`. `src/routes/__route-catalog.test.ts` fails when the route tree, `staticData.navId` and the navigation catalog drift apart. The architecture contract is documented in [`docs/frontend-architecture.md`](docs/frontend-architecture.md).
+Finally run `bun run typecheck && bun run test && bun run lint`. `src/routes/__route-catalog.test.ts` fails when the route tree, `staticData.navId` and the navigation catalog drift apart. The architecture contract is documented in [`docs/frontend-architecture.md`](docs/frontend-architecture.md).
 
 ## Contributing Your Changes
 
@@ -134,7 +142,7 @@ Finally run `pnpm typecheck && pnpm test && pnpm lint`. `src/routes/__route-cata
 # Rust backend
 cargo clippy-all
 # Frontend
-pnpm lint
+bun run lint
 ```
 
 **Code formatting:**
@@ -143,7 +151,7 @@ pnpm lint
 # Rust backend
 cargo fmt
 # Frontend
-pnpm format
+bun run format
 ```
 
 ### Signing your commit

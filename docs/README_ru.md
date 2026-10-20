@@ -96,9 +96,9 @@ Clash Meta GUI базируется на <a href="https://github.com/tauri-apps/
 Для запуска сервера разработки выполните следующие команды после установки всех необходимых компонентов для **Tauri**:
 
 ```shell
-pnpm i
-pnpm run prebuild
-pnpm dev
+bun install
+bun run prebuild:download
+bun run dev
 ```
 
 ## Вклад

@@ -27,7 +27,7 @@ Capture a Chrome trace from a development build:
 
 ```bash
 RUST_LOG=debug CV_TRACE_CHROME=/tmp/clash-verge-trace.json \
-  pnpm tauri dev -f verge-dev,chrome-trace
+  bun run tauri dev -f verge-dev,chrome-trace
 ```
 
 Load `/tmp/clash-verge-trace.json` in <https://ui.perfetto.dev>. The trace is

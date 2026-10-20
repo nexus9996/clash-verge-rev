@@ -27,7 +27,7 @@ export function buildTauriInvocation(
 ) {
   const env = { ...environment, RUST_BACKTRACE: 'full' }
   const features = mode === 'sidecar' ? 'verge-dev,dev-sidecar' : 'verge-dev'
-  const args = ['exec', 'tauri', 'dev', '-f', features]
+  const args = ['x', 'tauri', 'dev', '-f', features]
   if (mode === 'trace') {
     env.RUSTFLAGS = '--cfg tokio_unstable'
     args.push('tokio-trace')
@@ -36,7 +36,7 @@ export function buildTauriInvocation(
     args.push('--additional-watch-folders', path)
   }
   return {
-    command: 'pnpm',
+    command: 'bun',
     args,
     env,
     detached: platform === 'darwin',
@@ -154,7 +154,7 @@ function sendToParent(message) {
 
 export async function runDevAnchor(mode, dependencies = {}) {
   if (mode !== 'dev' && mode !== 'trace' && mode !== 'sidecar') {
-    throw new Error('usage: node scripts/dev.mjs --anchor <dev|trace|sidecar>')
+    throw new Error('usage: bun scripts/dev.mjs --anchor <dev|trace|sidecar>')
   }
 
   const environment = dependencies.environment ?? process.env
@@ -301,7 +301,7 @@ function unsafeAnchorError() {
 
 export async function runDevCommand(mode, dependencies = {}) {
   if (mode !== 'dev' && mode !== 'trace' && mode !== 'sidecar') {
-    throw new Error('usage: node scripts/dev.mjs <dev|trace|sidecar>')
+    throw new Error('usage: bun scripts/dev.mjs <dev|trace|sidecar>')
   }
 
   const platform = dependencies.platform ?? process.platform

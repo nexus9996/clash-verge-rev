@@ -118,8 +118,8 @@ export const NAV_ITEMS: NavigationItem[] = NAV_IDS.map((id) => ({ id, ...NAV_MET
 ### 2.4 新增页面步骤（3 步）
 
 1. `src/pages/<name>.tsx` 写页面组件（子组件放 `src/components/<domain>/`）。
-2. `src/routes/<name>.tsx` 加路由薄壳：`createFileRoute('/<path>')({ component, staticData: { navId } })`；按需 `pnpm generate-routes`（dev/build 也会生成）。
-3. 导航与文案：`src/config/navigation.ts` 的 `NAV_META` 加 id/path/labelKey；`src/components/layout/navigation-icons.tsx` 的 `NAV_ICONS` 补图标；14 个 `src/locales/*/layout.json` 补 `tabs.<name>` → `pnpm i18n:types`。
+2. `src/routes/<name>.tsx` 加路由薄壳：`createFileRoute('/<path>')({ component, staticData: { navId } })`；按需 `bun run generate-routes`（dev/build 也会生成）。
+3. 导航与文案：`src/config/navigation.ts` 的 `NAV_META` 加 id/path/labelKey；`src/components/layout/navigation-icons.tsx` 的 `NAV_ICONS` 补图标；14 个 `src/locales/*/layout.json` 补 `tabs.<name>` → `bun run i18n:types`。
 
 > `src/routes/__route-catalog.test.ts` 会校验 route 路径、`staticData.navId` 与 catalog 一致；完整操作见 `CONTRIBUTING.md` 的 “Adding a Frontend Page”。
 
@@ -166,18 +166,18 @@ src/config/theme/
 - CSS 变量：保留既有 legacy 名称（`--background-color`、`--divider-color` 等），新增语义色（`--color-*`）与尺度（`--space-*` / `--radius-*` / `--shadow-*` / `--z-*` / `--overlay-*`）。
 - 主题预设已接入 token 体系（6 套 × 明暗）。
 - S3（按域 hex 清理）：全仓组件/页面的裸 hex 已清零（token 定义与 stylesheet 默认值除外），统一走 `theme.palette` / 生成 CSS 变量（`--surface-card` / `--surface-page` / `--surface-raised` / `--log-highlight` / `--switch-*` 等）。
-- 回归守卫：`pnpm check:hex-budget`（CI 已接入）统计 token/styles 目录之外的裸 hex，**预算 0**；新增颜色必须进入 `config/theme/tokens.ts` 或 `assets/styles` 的 CSS 变量默认值。
+- 回归守卫：`bun run check:hex-budget`（CI 已接入）统计 token/styles 目录之外的裸 hex，**预算 0**；新增颜色必须进入 `config/theme/tokens.ts` 或 `assets/styles` 的 CSS 变量默认值。
 - **不引入 Tailwind**（ADR-0001 D2）。亮/暗两套主题设置已落地（C5）：`verge.light_theme_setting` / `verge.dark_theme_setting`，未设置时回退 `theme_setting`；预设、取色器、字体、背景图、透明度和 CSS 注入行为不变。
 
 ## 5. 质量门禁
 
 | 门禁 | 命令/实现 | 现状 |
 | --- | --- | --- |
-| 类型/格式/lint | `pnpm typecheck`、`pnpm format:check`、`pnpm lint` | 已有（Phase 0 全绿） |
-| 单测 | `pnpm test`（vitest；jsdom 按文件 docblock 启用） | 已有；T3 起含路由/主题/导航测试 |
-| 死代码/循环 | `pnpm knip:check` | 已有 |
-| IPC 边界 | `node scripts/check-architecture.mjs listen emit invoke` | 已有 |
-| i18n | `pnpm i18n:types && pnpm i18n:verify` | 已接入 CI（生成物 diff + `--check`；missing-source 仅报告） |
+| 类型/格式/lint | `bun run typecheck`、`bun run format:check`、`bun run lint` | 已有（Phase 0 全绿） |
+| 单测 | `bun run test`（vitest；jsdom 按文件 docblock 启用） | 已有；T3 起含路由/主题/导航测试 |
+| 死代码/循环 | `bun run knip:check` | 已有 |
+| IPC 边界 | `bun scripts/check-architecture.mjs listen emit invoke` | 已有 |
+| i18n | `bun run i18n:types && bun run i18n:verify` | 已接入 CI（生成物 diff + `--check`；missing-source 仅报告） |
 | 分层边界 | `eslint.config.ts` 的 `import-x/no-restricted-paths` + `arch:check` | 已接入（T2） |
 | 路由一致性 | `src/routes/__route-catalog.test.ts` | 已接入（T3） |
 | bundle 预算 | `scripts/check-bundle-budget.mjs` 对比 `docs/perf/frontend-baseline.json`（T4） | 已接入 CI |

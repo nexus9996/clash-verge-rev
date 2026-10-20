@@ -7,15 +7,15 @@ It does not initialize the complete homepage or run Mihomo, Service or networkin
 
 ## Build And Run
 
-Use this repository's pnpm, Rust and Xcode Command Line Tools on macOS. No global
+Use this repository's Bun, Rust and Xcode Command Line Tools on macOS. No global
 WebDriver installation is needed. Keep each binary beside its generated manifest.
 
 ```sh
-pnpm install --frozen-lockfile
-pnpm perf:build target/perf/baseline-build
-caffeinate -di pnpm perf:run -- --binary target/perf/baseline-build/clash-verge --output target/perf/baseline --repeat 3 --seconds 20 --warmup 10
-pnpm perf:compare -- target/perf/baseline target/perf/baseline
-pnpm perf:test
+bun install --frozen-lockfile
+bun run perf:build target/perf/baseline-build
+caffeinate -di bun run perf:run -- --binary target/perf/baseline-build/clash-verge --output target/perf/baseline --repeat 3 --seconds 20 --warmup 10
+bun run perf:compare -- target/perf/baseline target/perf/baseline
+bun run perf:test
 ```
 
 `perf:build [directory]` uses release optimization, Vite `--mode perf` and the
@@ -100,13 +100,13 @@ The embedded driver adds a 20 Hz macOS runloop timer and observation overhead.
 For A/B, build the candidate separately and alternate independent instances:
 
 ```sh
-pnpm perf:build target/perf/candidate-build
+bun run perf:build target/perf/candidate-build
 for i in 1 2 3; do
-  caffeinate -di pnpm perf:run -- --binary target/perf/baseline-build/clash-verge --repeat 1 --output target/perf/ab-baseline/$i
-  caffeinate -di pnpm perf:run -- --binary target/perf/candidate-build/clash-verge --repeat 1 --output target/perf/ab-candidate/$i
+  caffeinate -di bun run perf:run -- --binary target/perf/baseline-build/clash-verge --repeat 1 --output target/perf/ab-baseline/$i
+  caffeinate -di bun run perf:run -- --binary target/perf/candidate-build/clash-verge --repeat 1 --output target/perf/ab-candidate/$i
 done
-pnpm perf:compare -- target/perf/ab-baseline target/perf/ab-candidate
-pnpm perf:run -- --binary target/perf/candidate-build/clash-verge --repeat 1 --seconds 5 --warmup 2 --fail-phase hidden --output target/perf/failed
+bun run perf:compare -- target/perf/ab-baseline target/perf/ab-candidate
+bun run perf:run -- --binary target/perf/candidate-build/clash-verge --repeat 1 --seconds 5 --warmup 2 --fail-phase hidden --output target/perf/failed
 ```
 
 Comparison accepts summary files, run directories or groups of run directories.
@@ -132,7 +132,7 @@ only when a human explicitly requests it at the end.
 Keep measurement code behind the explicit build gates. Reuse the existing driver,
 Worker, graph, attribution and cleanup; do not add mock IPC or replace real WebView
 acceptance with Chrome/Vite. Preserve source/binary/report hashes and every failed run.
-After changes, run scoped ESLint, both perf TypeScript projects, `pnpm perf:test`,
+After changes, run scoped ESLint, both perf TypeScript projects, `bun run perf:test`,
 format checks and relevant production checks. Verify a real three-phase smoke,
 three independent runs, A/A, invalid/incomparable reports and injected-failure cleanup.
 Verify ordinary builds exclude measurement code and daily instance state is intact.

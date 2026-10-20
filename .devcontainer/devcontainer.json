@@ -4,8 +4,10 @@
 
   "features": {
     "ghcr.io/devcontainers/features/node:2": {
-      "version": "24.22.0",
-      "pnpmVersion": "12.14.0"
+      "version": "24.22.0"
+    },
+    "ghcr.io/devcontainers-extra/features/bun:1": {
+      "version": "1.4.3"
     },
     "ghcr.io/devcontainers/features/rust:1": {
       "version": "1.99.1",
@@ -81,7 +83,7 @@
 
   "mounts": [
     "source=clash-verge-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
-    "source=clash-verge-pnpm-store,target=/home/vscode/.local/share/pnpm/store,type=volume",
+    "source=clash-verge-bun-cache,target=/home/vscode/.bun/install/cache,type=volume",
     "source=clash-verge-cargo-registry,target=/home/vscode/.cargo/registry,type=volume",
     "source=clash-verge-cargo-git,target=/home/vscode/.cargo/git,type=volume"
   ],

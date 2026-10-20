@@ -29,10 +29,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Install Node
-        uses: actions/setup-node@v7
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: '24.22.0'
+          bun-version: '1.4.3'
 
       - name: Check text file hygiene
-        run: node scripts/check-file-hygiene.mjs
+        run: bun scripts/check-file-hygiene.mjs
