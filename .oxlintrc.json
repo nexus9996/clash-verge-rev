@@ -1,0 +1,324 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "jsPlugins": [
+    {
+      "name": "esx",
+      "specifier": "eslint-plugin-es-x"
+    },
+    {
+      "name": "unusedimports",
+      "specifier": "eslint-plugin-unused-imports"
+    },
+    {
+      "name": "sukka",
+      "specifier": "eslint-plugin-sukka"
+    }
+  ],
+  "plugins": ["eslint", "typescript", "react", "import"],
+  "categories": {
+    "correctness": "off",
+    "suspicious": "off",
+    "pedantic": "off",
+    "perf": "off",
+    "style": "off",
+    "restriction": "off",
+    "nursery": "off"
+  },
+  "options": {
+    "typeAware": true,
+    "denyWarnings": true
+  },
+  "ignorePatterns": [
+    "src/routeTree.gen.ts",
+    "dist/**",
+    "node_modules/**",
+    "target/**",
+    "src-tauri/**",
+    "coverage/**"
+  ],
+  "rules": {
+    "for-direction": "error",
+    "no-async-promise-executor": "error",
+    "no-case-declarations": "error",
+    "no-compare-neg-zero": "error",
+    "no-cond-assign": "error",
+    "no-constant-binary-expression": "error",
+    "no-constant-condition": "error",
+    "no-control-regex": "error",
+    "no-debugger": "error",
+    "no-delete-var": "error",
+    "no-dupe-else-if": "error",
+    "no-duplicate-case": "error",
+    "no-empty": [
+      "warn",
+      {
+        "allowEmptyCatch": true
+      }
+    ],
+    "no-empty-character-class": "error",
+    "no-empty-pattern": "error",
+    "no-empty-static-block": "error",
+    "no-ex-assign": "error",
+    "no-extra-boolean-cast": "error",
+    "no-fallthrough": "error",
+    "no-global-assign": "error",
+    "no-invalid-regexp": "error",
+    "no-irregular-whitespace": "error",
+    "no-loss-of-precision": "error",
+    "no-misleading-character-class": "error",
+    "no-nonoctal-decimal-escape": "error",
+    "no-prototype-builtins": "error",
+    "no-regex-spaces": "error",
+    "no-self-assign": "error",
+    "no-shadow-restricted-names": "error",
+    "no-sparse-arrays": "error",
+    "no-unassigned-vars": "error",
+    "no-unexpected-multiline": "error",
+    "no-unsafe-finally": "error",
+    "no-unsafe-optional-chaining": "error",
+    "no-unused-labels": "error",
+    "no-unused-private-class-members": "error",
+    "no-useless-assignment": "error",
+    "no-useless-backreference": "error",
+    "no-useless-catch": "error",
+    "no-useless-escape": "error",
+    "preserve-caught-error": "error",
+    "require-yield": "error",
+    "use-isnan": "error",
+    "valid-typeof": "error",
+    "no-var": "error",
+    "prefer-const": "warn",
+    "prefer-rest-params": "error",
+    "prefer-spread": "error",
+    "typescript/ban-ts-comment": "error",
+    "typescript/no-duplicate-enum-values": "error",
+    "typescript/no-empty-object-type": "error",
+    "typescript/no-extra-non-null-assertion": "error",
+    "typescript/no-misused-new": "error",
+    "typescript/no-namespace": "error",
+    "typescript/no-non-null-asserted-optional-chain": "error",
+    "typescript/no-require-imports": "error",
+    "typescript/no-this-alias": "error",
+    "typescript/no-unnecessary-type-constraint": "error",
+    "typescript/no-unsafe-declaration-merging": "error",
+    "typescript/no-unsafe-function-type": "error",
+    "typescript/no-wrapper-object-types": "error",
+    "typescript/prefer-as-const": "error",
+    "typescript/prefer-namespace-keyword": "error",
+    "typescript/triple-slash-reference": "error",
+    "react/error-boundaries": "error",
+    "react/no-array-index-key": "warn",
+    "react/no-react-children": "error",
+    "react/no-clone-element": "error",
+    "react/no-direct-mutation-state": "error",
+    "react/jsx-key": "error",
+    "react/no-unstable-nested-components": "error",
+    "react/no-did-mount-set-state": "error",
+    "react/no-did-update-set-state": "error",
+    "react/no-will-update-set-state": "error",
+    "react/no-children-prop": "error",
+    "react/no-danger-with-children": "error",
+    "react/jsx-no-comment-textnodes": "warn",
+    "react/no-find-dom-node": "error",
+    "react/no-render-return-value": "error",
+    "react/jsx-no-script-url": "warn",
+    "react/iframe-missing-sandbox": "warn",
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "error",
+    "react/only-export-components": [
+      "warn",
+      {
+        "allowConstantExport": true
+      }
+    ],
+    "react/jsx-no-constructed-context-values": "warn",
+    "react/no-object-type-as-default-prop": "warn",
+    "no-restricted-imports": "error",
+    "unusedimports/no-unused-imports": "error",
+    "esx/no-array-fromasync": "error",
+    "esx/no-error-iserror": "error",
+    "esx/no-iterator-concat": "error",
+    "esx/no-json-israwjson": "error",
+    "esx/no-json-parse-reviver-context-parameter": "error",
+    "esx/no-json-rawjson": "error",
+    "esx/no-map-prototype-getorinsert": "error",
+    "esx/no-map-prototype-getorinsertcomputed": "error",
+    "esx/no-math-sumprecise": "error",
+    "esx/no-uint8array-frombase64": "error",
+    "esx/no-uint8array-fromhex": "error",
+    "esx/no-uint8array-prototype-setfrombase64": "error",
+    "esx/no-uint8array-prototype-setfromhex": "error",
+    "esx/no-uint8array-prototype-tobase64": "error",
+    "esx/no-uint8array-prototype-tohex": "error",
+    "esx/no-weakmap-prototype-getorinsert": "error",
+    "esx/no-weakmap-prototype-getorinsertcomputed": "error",
+    "esx/no-dataview-prototype-getfloat16-setfloat16": "error",
+    "esx/no-dynamic-import-options": "error",
+    "esx/no-float16array": "error",
+    "esx/no-import-attributes": "error",
+    "esx/no-iterator-prototype-drop": "error",
+    "esx/no-iterator-prototype-every": "error",
+    "esx/no-iterator-prototype-filter": "error",
+    "esx/no-iterator-prototype-find": "error",
+    "esx/no-iterator-prototype-flatmap": "error",
+    "esx/no-iterator-prototype-foreach": "error",
+    "esx/no-iterator-prototype-map": "error",
+    "esx/no-iterator-prototype-reduce": "error",
+    "esx/no-iterator-prototype-some": "error",
+    "esx/no-iterator-prototype-take": "error",
+    "esx/no-iterator-prototype-toarray": "error",
+    "esx/no-iterator": "error",
+    "esx/no-json-modules": "error",
+    "esx/no-math-f16round": "error",
+    "esx/no-promise-try": "error",
+    "esx/no-regexp-duplicate-named-capturing-groups": "error",
+    "esx/no-regexp-escape": "error",
+    "esx/no-regexp-modifiers": "error",
+    "esx/no-set-prototype-difference": "error",
+    "esx/no-set-prototype-intersection": "error",
+    "esx/no-set-prototype-isdisjointfrom": "error",
+    "esx/no-set-prototype-issubsetof": "error",
+    "esx/no-set-prototype-issupersetof": "error",
+    "esx/no-set-prototype-symmetricdifference": "error",
+    "esx/no-set-prototype-union": "error",
+    "esx/no-trailing-dynamic-import-commas": "error",
+    "esx/no-arraybuffer-prototype-transfer": "error",
+    "esx/no-atomics-waitasync": "error",
+    "esx/no-map-groupby": "error",
+    "esx/no-object-groupby": "error",
+    "esx/no-promise-withresolvers": "error",
+    "esx/no-regexp-v-flag": "error",
+    "esx/no-resizable-and-growable-arraybuffers": "error",
+    "esx/no-string-prototype-iswellformed": "error",
+    "esx/no-string-prototype-towellformed": "error",
+    "esx/no-array-prototype-findlast-findlastindex": "error",
+    "esx/no-array-prototype-toreversed": "error",
+    "esx/no-array-prototype-tosorted": "error",
+    "esx/no-array-prototype-tospliced": "error",
+    "esx/no-array-prototype-with": "error",
+    "esx/no-hashbang": "error",
+    "esx/no-regexp-unicode-property-escapes-2023": "error",
+    "sukka/react-prefer-destructuring-assignment": "warn",
+    "no-unused-vars": [
+      "warn",
+      {
+        "vars": "all",
+        "varsIgnorePattern": "^_",
+        "args": "after-used",
+        "argsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^ignore"
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/**/*.{ts,tsx,js,jsx,mts,mjs}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@tauri-apps/api/core",
+                "importNames": ["invoke"],
+                "allowTypeImports": true,
+                "message": "Invoke backend commands through services/cmds."
+              },
+              {
+                "name": "@tauri-apps/api/event",
+                "importNames": ["listen", "emit", "emitTo", "once"],
+                "allowTypeImports": true,
+                "message": "The event bus owns Tauri event subscriptions and emissions."
+              }
+            ],
+            "patterns": [
+              {
+                "regex": "(^|/)bindings(\\.ts)?$",
+                "importNames": ["commands"],
+                "allowTypeImports": true,
+                "message": "Only services/cmds may import generated command implementations."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/services/cmds.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@tauri-apps/api/event",
+                "importNames": ["listen", "emit", "emitTo", "once"],
+                "allowTypeImports": true,
+                "message": "The event bus owns Tauri event subscriptions and emissions."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/services/bindings.ts"],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    },
+    {
+      "files": ["src/services/bus/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@tauri-apps/api/core",
+                "importNames": ["invoke"],
+                "allowTypeImports": true,
+                "message": "Invoke backend commands through services/cmds."
+              }
+            ],
+            "patterns": [
+              {
+                "regex": "(^|/)bindings(\\.ts)?$",
+                "importNames": ["commands"],
+                "allowTypeImports": true,
+                "message": "Only services/cmds may import generated command implementations."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "src/components/proxy/proxy-chain.tsx",
+        "src/components/proxy/proxy-groups-chain.tsx",
+        "src/pages/proxies.tsx"
+      ],
+      "rules": {
+        "typescript/no-floating-promises": [
+          "error",
+          {
+            "ignoreVoid": false
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/polyfills/**"],
+      "rules": {
+        "prefer-rest-params": "off"
+      }
+    },
+    {
+      "files": ["src/components/setting/mods/update-viewer.tsx"],
+      "rules": {
+        "react/no-unstable-nested-components": "off"
+      }
+    }
+  ]
+}

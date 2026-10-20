@@ -132,7 +132,7 @@ only when a human explicitly requests it at the end.
 Keep measurement code behind the explicit build gates. Reuse the existing driver,
 Worker, graph, attribution and cleanup; do not add mock IPC or replace real WebView
 acceptance with Chrome/Vite. Preserve source/binary/report hashes and every failed run.
-After changes, run scoped ESLint, both perf TypeScript projects, `bun run perf:test`,
+After changes, run scoped oxlint, both perf TypeScript projects, `bun run perf:test`,
 format checks and relevant production checks. Verify a real three-phase smoke,
 three independent runs, A/A, invalid/incomparable reports and injected-failure cleanup.
 Verify ordinary builds exclude measurement code and daily instance state is intact.
