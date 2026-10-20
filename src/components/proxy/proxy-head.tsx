@@ -20,6 +20,7 @@ import { useVerge } from '@/hooks/use-verge'
 import delayManager from '@/services/delay'
 import { showNotice } from '@/services/notice-service'
 import { debugLog } from '@/utils/debug'
+import { DEFAULT_LATENCY_TEST_URL } from '@/utils/delay'
 import { isValidLatencyTestUrl } from '@/utils/network'
 
 import { ProxyTestUrlInput } from './proxy-test-url-input'
@@ -69,8 +70,7 @@ export const ProxyHead = ({
 
   const { verge } = useVerge()
   const defaultLatencyUrl =
-    verge?.default_latency_test?.trim() ||
-    'http://cp.cloudflare.com/generate_204'
+    verge?.default_latency_test?.trim() || DEFAULT_LATENCY_TEST_URL
 
   useEffect(() => {
     delayManager.setUrl(

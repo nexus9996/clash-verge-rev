@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next'
 import { useVerge } from '@/hooks/use-verge'
 import delayManager from '@/services/delay'
 import { showNotice } from '@/services/notice-service'
+import { DEFAULT_LATENCY_TEST_URL } from '@/utils/delay'
 import { isValidLatencyTestUrl } from '@/utils/network'
 
 import { BaseSearchBox, type SearchState } from '../base'
@@ -64,8 +65,7 @@ export const ProxyGroupTools = memo(function ProxyGroupTools(props: Props) {
 
   const { verge } = useVerge()
   const defaultLatencyUrl =
-    verge?.default_latency_test?.trim() ||
-    'http://cp.cloudflare.com/generate_204'
+    verge?.default_latency_test?.trim() || DEFAULT_LATENCY_TEST_URL
 
   const inputRef = useRef<HTMLInputElement>(null)
 

@@ -9,6 +9,7 @@ import { useIconCache } from '@/hooks/use-icon-cache'
 import { cmdTestDelay } from '@/services/cmds'
 import delayManager from '@/services/delay'
 import { showNotice } from '@/services/notice-service'
+import { testWebsiteDelayQueued } from '@/services/website-test'
 import { useTestAllCounter } from '@/store/app-store-context'
 
 import { TestBox } from './test-box'
@@ -27,17 +28,24 @@ export const TestItem = ({ itemData, onEdit, onDelete: removeTest }: Props) => {
   const { uid, name, icon, url } = itemData
   const iconCachePath = useIconCache({ icon: icon!, cacheKey: uid! })
 
-  const onDelay = useCallback(async () => {
-    setDelay(-2)
-    try {
-      const result = await cmdTestDelay(url!)
-      setDelay(result)
-    } catch (err) {
-      // A failed test must not leave the item stuck in the loading state.
-      setDelay(-1)
-      showNotice.error(err)
-    }
-  }, [url])
+  const runDelay = useCallback(
+    async (queued: boolean) => {
+      setDelay(-2)
+      try {
+        const result = queued
+          ? await testWebsiteDelayQueued(url!)
+          : await cmdTestDelay(url!)
+        setDelay(result)
+      } catch (err) {
+        // A failed test must not leave the item stuck in the loading state.
+        setDelay(-1)
+        showNotice.error(err)
+      }
+    },
+    [url],
+  )
+
+  const onDelay = useCallback(() => runDelay(false), [runDelay])
 
   const onEditTest = () => {
     setAnchorEl(null)
@@ -61,15 +69,15 @@ export const TestItem = ({ itemData, onEdit, onDelete: removeTest }: Props) => {
   // Store bump replaces the per-item event subscription; skip the initial
   // mount value and call through a ref so url changes do not re-trigger tests.
   const testAllCounter = useTestAllCounter()
-  const onDelayRef = useRef(onDelay)
-  onDelayRef.current = onDelay
+  const onDelayRef = useRef(runDelay)
+  onDelayRef.current = runDelay
   const mountedRef = useRef(false)
   useEffect(() => {
     if (!mountedRef.current) {
       mountedRef.current = true
       return
     }
-    void onDelayRef.current()
+    void onDelayRef.current(true)
   }, [testAllCounter])
 
   return (

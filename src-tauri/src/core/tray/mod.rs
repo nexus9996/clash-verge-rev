@@ -8,6 +8,7 @@ use crate::utils::window_manager::WindowManager;
 use crate::{
     Type, cmd,
     config::Config,
+    constants::latency::DEFAULT_TIMEOUT_MS,
     core::lightweight::is_in_lightweight_mode,
     feat, logging,
     utils::{dirs::find_target_icons, help},
@@ -265,7 +266,7 @@ impl Tray {
         Ok(())
     }
 
-    async fn refresh_proxy_items(&'static self) {
+    pub(crate) async fn refresh_proxy_items(&'static self) {
         let Ok(update) = self.menu_update.try_lock() else {
             return;
         };
@@ -274,7 +275,7 @@ impl Tray {
         }
         let Ok(Ok(view)) = tokio::time::timeout(
             Duration::from_secs(1),
-            cmd::proxy::proxy_view(Some(Duration::from_millis(750))),
+            cmd::proxy::proxy_view(Some(cmd::proxy::PROXY_VIEW_PROVIDER_TIMEOUT)),
         )
         .await
         else {
@@ -650,7 +651,7 @@ fn proxy_item_text(view: &ProxyViewV1, member: &ProxyMemberRef, url: &str, verge
     let timeout = verge
         .default_latency_timeout
         .filter(|timeout| *timeout > 0)
-        .unwrap_or(10000);
+        .unwrap_or(DEFAULT_TIMEOUT_MS);
     let delay = match member {
         ProxyMemberRef::Node { record_id, .. } => node_delay(view, record_id, url),
         ProxyMemberRef::Group { name } => selected_member_delay(view, name, url),
@@ -809,7 +810,7 @@ async fn create_tray_menu(
     let proxy_view = if fetch_proxy_groups {
         tokio::time::timeout(
             Duration::from_millis(1000),
-            cmd::proxy::proxy_view(Some(Duration::from_millis(750))),
+            cmd::proxy::proxy_view(Some(cmd::proxy::PROXY_VIEW_PROVIDER_TIMEOUT)),
         )
         .await
         .ok()

@@ -92,6 +92,8 @@ export const commands = {
   copyClashEnv: () => __TAURI_INVOKE<null>('copy_clash_env'),
   syncTrayProxySelection: () =>
     __TAURI_INVOKE<null>('sync_tray_proxy_selection'),
+  /**  Refreshes tray latency texts in place after a test; the menu structure is unchanged. */
+  refreshTrayProxyItems: () => __TAURI_INVOKE<null>('refresh_tray_proxy_items'),
   /**  Merges one selection pair into fresh backend state to avoid stale-list overwrites. */
   recordSelectedNode: (groupName: string, node: string) =>
     __TAURI_INVOKE<null>('record_selected_node', { groupName, node }),

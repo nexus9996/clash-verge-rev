@@ -7,7 +7,7 @@ vi.mock('tauri-plugin-mihomo-api', () => ({
 
 import type { ResolvedProxyMember } from '@/types/proxy-view'
 
-import delayManager from './delay'
+import delayManager, { groupDelayKey } from './delay'
 
 const node = (name: string) =>
   ({
@@ -191,4 +191,49 @@ test('unmeasured selectors show automatic history without replacing a manual URL
   expect(delayManager.getDelayFix(member, 'selector')).toBe(126)
   delayManager.setDelay(member, 'selector', 50)
   expect(delayManager.getDelayFix(member, 'selector')).toBe(50)
+})
+
+test('group delay snapshots support group names containing spaces', () => {
+  const groups = ['🇭🇰 Hong Kong', 'Auto Select']
+  const snapshots = delayManager.groupsDelays(groupDelayKey(groups))
+
+  expect([...snapshots.keys()]).toEqual(groups)
+  expect(snapshots.get('🇭🇰 Hong Kong')).toBe(
+    delayManager.groupDelays('🇭🇰 Hong Kong'),
+  )
+})
+
+test('overlapping batches measure each member once', async () => {
+  const { delayProxyByName } = await import('tauri-plugin-mihomo-api')
+  const mocked = vi.mocked(delayProxyByName)
+  const original = mocked.getMockImplementation()
+  const releases: Array<() => void> = []
+  mocked.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        releases.push(() => resolve({ delay: 42 }))
+      }),
+  )
+  try {
+    const members = [node('overlap-a'), node('overlap-b')]
+    const first = delayManager.checkListDelay(
+      members as never,
+      'overlap',
+      5000,
+      2,
+    )
+    const second = delayManager.checkListDelay(
+      members as never,
+      'overlap',
+      5000,
+      2,
+    )
+    await flush()
+    expect(mocked).toHaveBeenCalledTimes(2)
+    for (const release of releases) release()
+    await Promise.all([first, second])
+    expect(mocked).toHaveBeenCalledTimes(2)
+  } finally {
+    if (original) mocked.mockImplementation(original)
+  }
 })

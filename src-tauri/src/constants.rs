@@ -14,6 +14,12 @@ pub mod network {
     }
 }
 
+pub mod latency {
+    pub const DEFAULT_TEST_URL: &str = "http://cp.cloudflare.com/generate_204";
+    /// Milliseconds; mirrors the `IVerge::default_latency_timeout` field width.
+    pub const DEFAULT_TIMEOUT_MS: i16 = 10_000;
+}
+
 pub mod timing {
     use super::Duration;
 
