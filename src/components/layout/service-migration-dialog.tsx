@@ -44,15 +44,15 @@ export const ServiceMigrationDialog = () => {
   const showCheckingMessage = checking || !needsDecision
   const canContinue = Boolean(
     runState &&
-      !stateRefreshFailed &&
-      (runState.pendingAction === 'install'
-        ? runState.mode === 'NotRunning' || runState.mode === 'Sidecar'
-        : !runState.pendingAction &&
-          !runState.sidecarAllowed &&
-          runState.mode === 'NotRunning' &&
-          (runState.service === 'notInstalled' ||
-            runState.service === 'versionMismatch' ||
-            runState.service === 'unavailable')),
+    !stateRefreshFailed &&
+    (runState.pendingAction === 'install'
+      ? runState.mode === 'NotRunning' || runState.mode === 'Sidecar'
+      : !runState.pendingAction &&
+        !runState.sidecarAllowed &&
+        runState.mode === 'NotRunning' &&
+        (runState.service === 'notInstalled' ||
+          runState.service === 'versionMismatch' ||
+          runState.service === 'unavailable')),
   )
 
   // One store entry to refresh, so there is nothing left to keep coherent by hand.

@@ -312,29 +312,33 @@ test('report schema: A/A, failed, incomparable and corrupt samples', () => {
     'inconclusive',
   )
 })
-test('macOS collector agrees with process.cpuUsage on a busy owned process', {
-  skip: process.platform !== 'darwin',
-}, () => {
-  mkdirSync('target/perf', { recursive: true })
-  execFileSync('cc', [
-    '-Wall',
-    '-Wextra',
-    '-Werror',
-    'scripts/perf/sample.c',
-    '-o',
-    'target/perf/test-sample',
-  ])
-  const sample = () =>
-    Number(
-      execFileSync('target/perf/test-sample', [String(process.pid)], {
-        encoding: 'utf8',
-      }).split(' ')[2],
-    )
-  const first = sample(),
-    cpu = process.cpuUsage(),
-    start = performance.now()
-  while (performance.now() - start < 500) Math.sqrt(Math.random())
-  const used = process.cpuUsage(cpu),
-    measured = sample() - first
-  assert.ok(Math.abs(measured - (used.user + used.system) / 1e6) < 0.05)
-})
+test(
+  'macOS collector agrees with process.cpuUsage on a busy owned process',
+  {
+    skip: process.platform !== 'darwin',
+  },
+  () => {
+    mkdirSync('target/perf', { recursive: true })
+    execFileSync('cc', [
+      '-Wall',
+      '-Wextra',
+      '-Werror',
+      'scripts/perf/sample.c',
+      '-o',
+      'target/perf/test-sample',
+    ])
+    const sample = () =>
+      Number(
+        execFileSync('target/perf/test-sample', [String(process.pid)], {
+          encoding: 'utf8',
+        }).split(' ')[2],
+      )
+    const first = sample(),
+      cpu = process.cpuUsage(),
+      start = performance.now()
+    while (performance.now() - start < 500) Math.sqrt(Math.random())
+    const used = process.cpuUsage(cpu),
+      measured = sample() - first
+    assert.ok(Math.abs(measured - (used.user + used.system) / 1e6) < 0.05)
+  },
+)
