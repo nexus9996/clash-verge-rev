@@ -323,6 +323,7 @@ fn escape_js_string_for_single_quote(s: &str) -> String {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, reason = "tests assert by panicking")]
 mod tests {
     use super::{LowercaseKeys, MAX_OUTPUTS, eval_script, with_runtime};
     use crate::enhance::field::use_lowercase;
@@ -349,13 +350,13 @@ mod tests {
     #[test]
     fn lowercased_script_input_matches_the_owned_mapping() -> anyhow::Result<()> {
         let config: Mapping = serde_yaml_ng::from_str(
-            r#"Mode: rule
+            r"Mode: rule
 mode: global
 Rules:
   - one
 nested:
   Key: 1
-"#,
+",
         )?;
 
         assert_eq!(
@@ -400,10 +401,10 @@ nested:
     #[test]
     fn output_limit_aborts_the_script() {
         let script = format!(
-            r#"function main(config) {{
+            r"function main(config) {{
                 for (let i = 0; i < {MAX_OUTPUTS} + 5; i++) console.log({{ i }});
                 return config;
-            }}"#
+            }}"
         );
         let (outcome, logs) = run(&script, "{}");
         let reason = outcome.expect_err("over-limit logging should fail the script");
@@ -416,7 +417,7 @@ nested:
         let name: String = "test-profile".into();
         let started = std::time::Instant::now();
         let (outcome, _logs) = eval_script(
-            r#"function main() { while (true) {} }"#,
+            r"function main() { while (true) {} }",
             "{}",
             &name,
             Duration::from_millis(200),
