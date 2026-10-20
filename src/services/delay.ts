@@ -12,7 +12,11 @@ import {
   type ResolvedProxyMember,
 } from '@/types/proxy-view'
 import { debugLog } from '@/utils/debug'
-import { classifyDelay, DEFAULT_DELAY_TIMEOUT } from '@/utils/delay'
+import {
+  classifyDelay,
+  DEFAULT_DELAY_TIMEOUT,
+  DEFAULT_LATENCY_TEST_URL,
+} from '@/utils/delay'
 import { isValidLatencyTestUrl } from '@/utils/network'
 
 export type DelaySnapshot = {
@@ -197,7 +201,7 @@ class DelayManager {
   }
 
   getUrl(group: string) {
-    return this.urlMap.get(group) || 'http://cp.cloudflare.com/generate_204'
+    return this.urlMap.get(group) || DEFAULT_LATENCY_TEST_URL
   }
 
   setListener(

@@ -2,6 +2,7 @@ use crate::core::notify::NoticeStatus;
 use crate::core::notify::{Refresh, announce};
 use crate::{
     config::{Config, MixedPort},
+    constants::latency::DEFAULT_TIMEOUT_MS,
     core::{CoreManager, handle, tray},
     feat::clean_async,
     process::AsyncHandler,
@@ -175,7 +176,7 @@ pub async fn test_delay(url: String) -> anyhow::Result<u32> {
     let timeout_ms = verge
         .default_latency_timeout
         .filter(|timeout| *timeout > 0)
-        .map_or(10_000u64, |timeout| timeout as u64);
+        .map_or(DEFAULT_TIMEOUT_MS as u64, |timeout| timeout as u64);
     let proxy_enabled = verge.enable_system_proxy.unwrap_or(false) || verge.enable_tun_mode.unwrap_or(false);
     let proxy_port = if proxy_enabled {
         Some(MixedPort::effective().await)

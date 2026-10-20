@@ -38,6 +38,7 @@ import { useTranslation } from 'react-i18next'
 import { EnhancedCard } from '@/components/home/enhanced-card'
 import type { ProxySortType } from '@/components/proxy/use-filter-sort'
 import {
+  HOME_PROXY_VIEW_REFETCH_MS,
   useAppRefreshers,
   useClashConfigData,
   useCoreDataStatus,
@@ -61,7 +62,11 @@ import {
   type ResolvedProxyMember,
 } from '@/types/proxy-view'
 import { debugLog } from '@/utils/debug'
-import { compareByDelay, DEFAULT_DELAY_TIMEOUT } from '@/utils/delay'
+import {
+  compareByDelay,
+  DEFAULT_DELAY_TIMEOUT,
+  DEFAULT_LATENCY_TEST_URL,
+} from '@/utils/delay'
 
 const STORAGE_KEY_GROUP = 'clash-verge-selected-proxy-group'
 const STORAGE_KEY_SORT_TYPE = 'clash-verge-proxy-sort-type'
@@ -540,7 +545,7 @@ export const CurrentProxyCard = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const theme = useTheme()
-  const { proxyView } = useProxiesData()
+  const { proxyView } = useProxiesData(HOME_PROXY_VIEW_REFETCH_MS)
   const { clashConfig } = useClashConfigData()
   const { refreshProxy } = useAppRefreshers()
   const { isCoreDataPending } = useCoreDataStatus()
@@ -688,7 +693,7 @@ export const CurrentProxyCard = () => {
       customUrl?.trim() ||
         selectedGroup.testUrl?.trim() ||
         verge?.default_latency_test?.trim() ||
-        'http://cp.cloudflare.com/generate_204',
+        DEFAULT_LATENCY_TEST_URL,
     )
   }, [selectedGroup, currentProfile, verge?.default_latency_test])
 

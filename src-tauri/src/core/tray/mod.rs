@@ -8,6 +8,7 @@ use crate::utils::window_manager::WindowManager;
 use crate::{
     Type, cmd,
     config::Config,
+    constants::latency::DEFAULT_TIMEOUT_MS,
     core::lightweight::is_in_lightweight_mode,
     feat, logging,
     utils::{dirs::find_target_icons, help},
@@ -650,7 +651,7 @@ fn proxy_item_text(view: &ProxyViewV1, member: &ProxyMemberRef, url: &str, verge
     let timeout = verge
         .default_latency_timeout
         .filter(|timeout| *timeout > 0)
-        .unwrap_or(10000);
+        .unwrap_or(DEFAULT_TIMEOUT_MS);
     let delay = match member {
         ProxyMemberRef::Node { record_id, .. } => node_delay(view, record_id, url),
         ProxyMemberRef::Group { name } => selected_member_delay(view, name, url),
