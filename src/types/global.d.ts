@@ -699,7 +699,8 @@ interface IProxySnellConfig extends IProxyBaseConfig {
   version?: number
 }
 interface IProxyConfig
-  extends IProxyBaseConfig,
+  extends
+    IProxyBaseConfig,
     IProxyDirectConfig,
     IProxyDnsConfig,
     IProxyHttpConfig,

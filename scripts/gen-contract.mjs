@@ -31,13 +31,12 @@ try {
     { cwd: ROOT, stdio: 'inherit' },
   )
   const formatted = execFileSync(
-    process.execPath,
-    [
-      path.join(ROOT, 'node_modules/@biomejs/biome/bin/biome'),
-      'format',
-      '--stdin-file-path',
-      BINDINGS,
-    ],
+    path.join(
+      ROOT,
+      'node_modules/.bin',
+      process.platform === 'win32' ? 'oxfmt.cmd' : 'oxfmt',
+    ),
+    ['--stdin-filepath', BINDINGS],
     { cwd: ROOT, input: fs.readFileSync(output) },
   )
   if (check) {

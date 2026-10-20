@@ -3,7 +3,7 @@
 > 状态：**已实现并合入 `local`**（Phase 0–4 的 M0/R1–R4/S1–S3/T1–T5 已完成；收口与降级项见[迁移计划 §12.16](frontend-architecture-migration-plan.md)）
 > 日期：2026-10-19
 > 上位文档：[迁移计划](frontend-architecture-migration-plan.md) · [ADR-0001](adr/0001-router-choice.md) · [Phase 0 基线](perf/frontend-baseline-2026-10-19.md)
-> 约束来源：`src/AGENTS.md`（contract/event/state/intent/command ownership）、`eslint.config.ts:15-99`（IPC 边界）、`scripts/check-architecture.mjs`、`src-tauri/config/verge.rs`（配置契约）
+> 约束来源：`src/AGENTS.md`（contract/event/state/intent/command ownership）、`.oxlintrc.json`（静态 import 边界）与 `scripts/check-architecture.mjs`（动态 import/分层）、`scripts/check-architecture.mjs`、`src-tauri/config/verge.rs`（配置契约）
 
 本文描述当前已实现的前端结构；实现过程中若与本文件冲突，先改本文件并说明原因，再改代码。
 
@@ -35,7 +35,7 @@
 | `hooks/` | `services/`、`utils/`、`store/`、`config/` | `components/`、`pages/`、`routes/` |
 | `app/` | 全部 | —（唯一允许跨层的组合根） |
 
-> 已由 `eslint.config.ts` 的 `import-x/no-restricted-paths` + `scripts/check-architecture.mjs` 的 `arch:check` 强制（T2）；违反方向会在 lint/CI 阶段失败。
+> 已由 `scripts/check-architecture.mjs` 的层向规则与 `arch:check` 强制（T2）；违反方向会在 lint/CI 阶段失败。
 
 ## 2. 路由层
 
@@ -59,7 +59,7 @@ src/
 │   ├── logs.tsx
 │   ├── unlock.tsx
 │   └── settings.tsx
-└── routeTree.gen.ts   # 生成物：提交入库，eslint/biome/knip 豁免
+└── routeTree.gen.ts   # 生成物：提交入库，oxlint/oxfmt/knip 豁免
 ```
 
 **route 薄壳规则**：
@@ -178,7 +178,7 @@ src/config/theme/
 | 死代码/循环 | `bun run knip:check` | 已有 |
 | IPC 边界 | `bun scripts/check-architecture.mjs listen emit invoke` | 已有 |
 | i18n | `bun run i18n:types && bun run i18n:verify` | 已接入 CI（生成物 diff + `--check`；missing-source 仅报告） |
-| 分层边界 | `eslint.config.ts` 的 `import-x/no-restricted-paths` + `arch:check` | 已接入（T2） |
+| 分层边界 | `scripts/check-architecture.mjs` + `arch:check` | 已接入（T2） |
 | 路由一致性 | `src/routes/__route-catalog.test.ts` | 已接入（T3） |
 | bundle 预算 | `scripts/check-bundle-budget.mjs` 对比 `docs/perf/frontend-baseline.json`（T4） | 已接入 CI |
 | hex 预算 | `scripts/check-hex-budget.mjs`（预算 0，S3） | 已接入 CI |
@@ -226,4 +226,4 @@ src/config/theme/
 - [ADR-0002](adr/0002-design-tokens.md)（设计 token 与主题体系）
 - [ADR-0003](adr/0003-state-boundary.md)（状态与数据边界）
 - [Phase 0 基线](perf/frontend-baseline-2026-10-19.md)（门禁、bundle、测量口径）
-- `src/AGENTS.md`、`scripts/check-architecture.mjs`、`eslint.config.ts`
+- `src/AGENTS.md`、`scripts/check-architecture.mjs`、`.oxlintrc.json`

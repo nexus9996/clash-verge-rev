@@ -339,8 +339,7 @@ export const useMihomoWsSubscription = <T>(
         void closeSharedSocket(entry)
       }
     }
-    // eslint-disable-next-line react-compiler/react-compiler
-    // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps
+    // eslint-disable-next-line react/exhaustive-deps
   }, [subscriptionCacheKey])
 
   const refresh = useCallback(() => {

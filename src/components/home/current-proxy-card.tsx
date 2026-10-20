@@ -1,4 +1,3 @@
-/* eslint-disable @eslint-react/set-state-in-effect */
 import {
   AccessTimeRounded,
   ArrowDropDown,
@@ -423,8 +422,10 @@ const PersistentSelect = ({
   )
 }
 
-interface PersistentProxySelectProps
-  extends Omit<PersistentSelectProps, 'displayValue' | 'renderOptions'> {
+interface PersistentProxySelectProps extends Omit<
+  PersistentSelectProps,
+  'displayValue' | 'renderOptions'
+> {
   value: string
   selectedName: string
   groupName: string

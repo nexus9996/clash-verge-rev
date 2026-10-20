@@ -28,7 +28,7 @@ Before contributing, you need to set up your development environment. Follow the
 ### Prerequisites
 
 1. **Install Rust, Node.js and Bun**  
-   Our project requires Rust, Node.js (runtime for the Vite, Tauri, ESLint and Vitest CLIs) and Bun (package manager and script runner). Follow the official installation instructions [here](https://tauri.app/start/prerequisites/) for Rust and Node.js, then install Bun as described below.
+   Our project requires Rust, Node.js (runtime for the Vite, Tauri and Vitest CLIs) and Bun (package manager and script runner). Follow the official installation instructions [here](https://tauri.app/start/prerequisites/) for Rust and Node.js, then install Bun as described below.
 
 ### Windows Users
 

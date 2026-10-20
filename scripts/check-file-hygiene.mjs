@@ -3,7 +3,7 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, statSync } from 'node:fs'
 
-const SKIP_FILES = new Set(['.eslintcache', 'Cargo.lock', 'bun.lock'])
+const SKIP_FILES = new Set(['Cargo.lock', 'bun.lock'])
 
 const SKIP_PREFIXES = [
   'dist/',

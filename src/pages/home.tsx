@@ -62,7 +62,7 @@ const LazyClashInfoCard = lazy(preloadClashInfoCard)
 const LazySystemInfoCard = lazy(preloadSystemInfoCard)
 
 // Used by bootstrap to initiate optional card imports without blocking render.
-// eslint-disable-next-line react-refresh/only-export-components
+// eslint-disable-next-line react/only-export-components
 export const preloadHomePageCards = () =>
   Promise.all([
     preloadTestCard().catch(() => {}),

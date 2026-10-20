@@ -1,4 +1,3 @@
-/* eslint-disable @eslint-react/set-state-in-effect */
 import { useEffect } from 'foxact/use-abortable-effect'
 import { useCallback, useState } from 'react'
 

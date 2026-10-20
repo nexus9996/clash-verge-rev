@@ -183,7 +183,6 @@ export const EnhancedCanvasTrafficGraph = memo(
       if (displayData.length === 0) {
         lastDataTimestampRef.current = 0
         dataStaleRef.current = false
-        // eslint-disable-next-line @eslint-react/set-state-in-effect
         setCurrentFPS(GRAPH_CONFIG.targetFPS)
         return
       }
