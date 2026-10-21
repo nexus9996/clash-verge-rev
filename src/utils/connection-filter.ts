@@ -149,3 +149,26 @@ export const createConnectionFilterMatcher = (
       ),
     )
 }
+
+/**
+ * Collects the sorted, unique values offered for a single field. Filters on
+ * other fields narrow the candidates; a filter on the field itself is excluded
+ * so the alternatives stay selectable. Only the active field is ever collected.
+ */
+export const collectConnectionFieldValues = (
+  connections: readonly FilterableConnection[],
+  field: ConnectionFilterField,
+  filters: readonly ConnectionFilter[] = [],
+): string[] => {
+  const matchesOtherFields = createConnectionFilterMatcher(filters, field)
+  const values = new Set<string>()
+
+  for (const connection of connections) {
+    if (!matchesOtherFields(connection)) continue
+    for (const value of getFieldValues(field, connection)) {
+      values.add(value)
+    }
+  }
+
+  return [...values].sort((left, right) => left.localeCompare(right))
+}
