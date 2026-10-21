@@ -2,6 +2,9 @@
   "name": "clash-verge",
   "version": "2.5.9",
   "license": "GPL-3.0-only",
+  "overrides": {
+    "mdast-util-gfm-autolink-literal": "2.0.0"
+  },
   "scripts": {
     "prepare": "husky || true",
     "dev": "bun scripts/dev.mjs dev",
