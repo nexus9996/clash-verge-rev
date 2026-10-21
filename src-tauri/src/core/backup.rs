@@ -285,7 +285,7 @@ impl WebDavClient {
             Ok::<Vec<ListFile>, Error>(final_files)
         };
 
-        Ok(timeout(Duration::from_secs(TIMEOUT_LIST), fut).await??)
+        timeout(Duration::from_secs(TIMEOUT_LIST), fut).await?
     }
 
     pub async fn delete(&self, file_name: String) -> Result<(), Error> {
@@ -312,7 +312,7 @@ pub struct TempBackupFile {
 }
 
 impl TempBackupFile {
-    fn new(path: PathBuf) -> Self {
+    const fn new(path: PathBuf) -> Self {
         Self {
             path,
             persisted: false,
@@ -359,7 +359,7 @@ fn create_temp_backup_file() -> Result<(PathBuf, std::fs::File), Error> {
 
         match options.open(&path) {
             Ok(file) => return Ok((path, file)),
-            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {}
             Err(err) => return Err(err.into()),
         }
     }
@@ -428,24 +428,25 @@ mod tests {
     use super::{TempBackupFile, create_temp_backup_file, grow_body_size};
 
     #[test]
-    fn webdav_body_size_limit_rejects_oversized_responses() {
-        assert_eq!(grow_body_size(0, 4, 10).unwrap(), 4);
-        assert_eq!(grow_body_size(6, 4, 10).unwrap(), 10);
+    fn webdav_body_size_limit_rejects_oversized_responses() -> anyhow::Result<()> {
+        assert_eq!(grow_body_size(0, 4, 10)?, 4);
+        assert_eq!(grow_body_size(6, 4, 10)?, 10);
         assert!(grow_body_size(10, 1, 10).is_err());
         assert!(grow_body_size(u64::MAX, 1, u64::MAX).is_err());
         assert!(grow_body_size(0, 0, 0).is_ok());
+        Ok(())
     }
 
     #[test]
-    fn temporary_backup_files_are_unique_private_and_cleaned_up() {
-        let (first_path, first_file) = create_temp_backup_file().unwrap();
-        let (second_path, second_file) = create_temp_backup_file().unwrap();
+    fn temporary_backup_files_are_unique_private_and_cleaned_up() -> anyhow::Result<()> {
+        let (first_path, first_file) = create_temp_backup_file()?;
+        let (second_path, second_file) = create_temp_backup_file()?;
         assert_ne!(first_path, second_path);
 
         #[cfg(unix)]
         for path in [&first_path, &second_path] {
             use std::os::unix::fs::PermissionsExt as _;
-            let mode = std::fs::metadata(path).unwrap().permissions().mode() & 0o777;
+            let mode = std::fs::metadata(path)?.permissions().mode() & 0o777;
             assert_eq!(mode, 0o600, "temporary backup must not be readable by other users");
         }
 
@@ -455,8 +456,9 @@ mod tests {
         drop(TempBackupFile::new(first_path.clone()));
         assert!(!first_path.exists(), "dropping the guard must remove the temporary file");
 
-        let persisted = TempBackupFile::new(second_path.clone()).persist();
+        let persisted = TempBackupFile::new(second_path).persist();
         assert!(persisted.exists(), "persisting must keep the temporary file");
-        std::fs::remove_file(persisted).unwrap();
+        std::fs::remove_file(persisted)?;
+        Ok(())
     }
 }

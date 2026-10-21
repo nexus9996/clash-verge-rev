@@ -439,37 +439,38 @@ mod tests {
 
     #[cfg(unix)]
     #[tokio::test]
-    async fn saved_yaml_files_are_private_and_keep_only_stricter_modes() {
+    async fn saved_yaml_files_are_private_and_keep_only_stricter_modes() -> anyhow::Result<()> {
         use std::os::unix::fs::PermissionsExt as _;
 
         let root = std::env::temp_dir().join(format!("clash-verge-yaml-perms-{}", nanoid::nanoid!()));
-        tokio::fs::create_dir_all(&root).await.unwrap();
+        tokio::fs::create_dir_all(&root).await?;
         let path = root.join("verge.yaml");
 
-        save_yaml_str(&path, "mode: rule\n").await.unwrap();
+        save_yaml_str(&path, "mode: rule\n").await?;
         assert_eq!(
-            std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            std::fs::metadata(&path)?.permissions().mode() & 0o777,
             0o600,
             "new config files must not be readable by other users"
         );
 
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o400)).unwrap();
-        save_yaml_str(&path, "mode: glob\n").await.unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o400))?;
+        save_yaml_str(&path, "mode: glob\n").await?;
         assert_eq!(
-            std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            std::fs::metadata(&path)?.permissions().mode() & 0o777,
             0o400,
             "an already stricter mode must be preserved"
         );
 
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
-        save_yaml_str(&path, "mode: direct\n").await.unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644))?;
+        save_yaml_str(&path, "mode: direct\n").await?;
         assert_eq!(
-            std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            std::fs::metadata(&path)?.permissions().mode() & 0o777,
             0o600,
             "a looser mode must be tightened"
         );
 
-        tokio::fs::remove_dir_all(root).await.unwrap();
+        tokio::fs::remove_dir_all(root).await?;
+        Ok(())
     }
 
     #[tokio::test]

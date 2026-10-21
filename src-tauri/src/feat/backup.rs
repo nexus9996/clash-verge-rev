@@ -57,10 +57,10 @@ fn resolve_within(dir: &Path, filename: &str) -> Result<PathBuf> {
         bail!("Backup path escapes {}", canonical_dir.display());
     }
     // Follow an existing target so a symlink planted in the directory cannot redirect the operation.
-    if let Ok(resolved) = std::fs::canonicalize(&path) {
-        if !resolved.starts_with(&canonical_dir) {
-            bail!("Backup path escapes {}", canonical_dir.display());
-        }
+    if let Ok(resolved) = std::fs::canonicalize(&path)
+        && !resolved.starts_with(&canonical_dir)
+    {
+        bail!("Backup path escapes {}", canonical_dir.display());
     }
     Ok(path)
 }
@@ -482,42 +482,51 @@ mod tests {
     };
     use crate::config::IVerge;
 
-    fn zip_archive(entries: &[(&str, &[u8])]) -> zip::ZipArchive<std::io::Cursor<Vec<u8>>> {
+    fn zip_archive(
+        entries: &[(&str, &[u8])],
+    ) -> anyhow::Result<zip::ZipArchive<std::io::Cursor<Vec<u8>>>> {
         let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
         for (name, content) in entries {
-            writer.start_file(*name, zip::write::SimpleFileOptions::default()).unwrap();
-            std::io::Write::write_all(&mut writer, content).unwrap();
+            writer.start_file(*name, zip::write::SimpleFileOptions::default())?;
+            std::io::Write::write_all(&mut writer, content)?;
         }
-        let bytes = writer.finish().unwrap().into_inner();
-        zip::ZipArchive::new(std::io::Cursor::new(bytes)).unwrap()
+        let bytes = writer.finish()?.into_inner();
+        Ok(zip::ZipArchive::new(std::io::Cursor::new(bytes))?)
     }
 
     #[test]
-    fn accepts_a_small_backup_archive() {
-        let mut archive = zip_archive(&[("profiles/a.yaml", b"rules: []"), ("verge.yaml", b"mode: rule")]);
-        validate_zip_archive(&mut archive, ArchiveLimits::default()).unwrap();
+    fn accepts_a_small_backup_archive() -> anyhow::Result<()> {
+        let mut archive = zip_archive(&[("profiles/a.yaml", b"rules: []"), ("verge.yaml", b"mode: rule")])?;
+        validate_zip_archive(&mut archive, ArchiveLimits::default())?;
+        Ok(())
     }
 
     #[test]
-    fn rejects_archives_with_too_many_entries() {
-        let mut archive = zip_archive(&[("one.yaml", b"1"), ("two.yaml", b"2")]);
+    fn rejects_archives_with_too_many_entries() -> anyhow::Result<()> {
+        let mut archive = zip_archive(&[("one.yaml", b"1"), ("two.yaml", b"2")])?;
         let limits = ArchiveLimits {
             max_entries: 1,
             ..ArchiveLimits::default()
         };
-        let err = validate_zip_archive(&mut archive, limits).unwrap_err();
+        let err = validate_zip_archive(&mut archive, limits)
+            .err()
+            .ok_or_else(|| anyhow::anyhow!("archive with too many entries must be rejected"))?;
         assert!(err.to_string().contains("entries"), "{err}");
+        Ok(())
     }
 
     #[test]
-    fn rejects_archives_that_expand_beyond_the_size_limit() {
-        let mut archive = zip_archive(&[("one.yaml", b"hello"), ("two.yaml", b"world")]);
+    fn rejects_archives_that_expand_beyond_the_size_limit() -> anyhow::Result<()> {
+        let mut archive = zip_archive(&[("one.yaml", b"hello"), ("two.yaml", b"world")])?;
         let limits = ArchiveLimits {
             max_entries: 10,
             max_uncompressed_bytes: 8,
         };
-        let err = validate_zip_archive(&mut archive, limits).unwrap_err();
+        let err = validate_zip_archive(&mut archive, limits)
+            .err()
+            .ok_or_else(|| anyhow::anyhow!("archive expanding past the limit must be rejected"))?;
         assert!(err.to_string().contains("expands"), "{err}");
+        Ok(())
     }
 
     #[test]
@@ -555,34 +564,39 @@ mod tests {
     }
 
     #[test]
-    fn accepts_plain_backup_filenames() {
+    fn accepts_plain_backup_filenames() -> anyhow::Result<()> {
         for name in [
             "macos-backup-2026-01-01_00-00-00.zip",
             "backup.zip",
             ".hidden.zip",
             "备份.zip",
         ] {
-            assert_eq!(sanitize_backup_filename(name).unwrap(), name);
+            assert_eq!(sanitize_backup_filename(name)?, name);
         }
+        Ok(())
     }
 
     #[cfg(unix)]
     #[test]
-    fn rejects_symlinks_that_escape_the_backup_directory() {
+    fn rejects_symlinks_that_escape_the_backup_directory() -> anyhow::Result<()> {
         let root = std::env::temp_dir().join(format!("clash-verge-backup-paths-{}", nanoid::nanoid!()));
-        std::fs::create_dir_all(&root).unwrap();
-        let outside = root.parent().unwrap().join(format!("clash-verge-outside-{}.zip", nanoid::nanoid!()));
-        std::fs::write(&outside, b"outside").unwrap();
-        std::os::unix::fs::symlink(&outside, root.join("link.zip")).unwrap();
+        std::fs::create_dir_all(&root)?;
+        let parent = root
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("temporary directory has no parent"))?;
+        let outside = parent.join(format!("clash-verge-outside-{}.zip", nanoid::nanoid!()));
+        std::fs::write(&outside, b"outside")?;
+        std::os::unix::fs::symlink(&outside, root.join("link.zip"))?;
 
         assert!(resolve_within(&root, "link.zip").is_err());
         assert_eq!(
-            resolve_within(&root, "normal.zip").unwrap(),
-            std::fs::canonicalize(&root).unwrap().join("normal.zip")
+            resolve_within(&root, "normal.zip")?,
+            std::fs::canonicalize(&root)?.join("normal.zip")
         );
 
-        std::fs::remove_file(root.join("link.zip")).unwrap();
-        std::fs::remove_dir_all(&root).unwrap();
-        std::fs::remove_file(outside).unwrap();
+        std::fs::remove_file(root.join("link.zip"))?;
+        std::fs::remove_dir_all(&root)?;
+        std::fs::remove_file(outside)?;
+        Ok(())
     }
 }
