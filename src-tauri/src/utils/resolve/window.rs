@@ -19,6 +19,18 @@ const DEFAULT_HEIGHT: f64 = 700.0;
 const MINIMAL_WIDTH: f64 = 520.0;
 const MINIMAL_HEIGHT: f64 = 520.0;
 
+pub fn set_native_window_theme(window: WebviewWindow, theme: &str) -> Result<(), String> {
+    let background_color = match theme {
+        "dark" => DARK_BACKGROUND_COLOR,
+        "light" => LIGHT_BACKGROUND_COLOR,
+        _ => return Err(format!("unsupported theme: {theme}")),
+    };
+
+    window
+        .set_background_color(Some(background_color))
+        .map_err(|error| error.to_string())
+}
+
 const fn restored_window_size_is_too_small(width: u32, height: u32) -> bool {
     width < MINIMAL_WIDTH as u32 || height < MINIMAL_HEIGHT as u32
 }
@@ -114,12 +126,57 @@ pub async fn build_new_window() -> Result<WebviewWindow, String> {
         Ok(window) => {
             logging_error!(Type::Window, window.set_background_color(Some(background_color)));
             restore_default_size_if_needed(&window);
+            #[cfg(target_os = "macos")]
+            keep_window_on_active_space(&window);
             // A new page supersedes any reload marker left by the old window.
             #[cfg(target_os = "macos")]
             take_webview_needs_reload();
             Ok(window)
         }
         Err(e) => Err(e.to_string()),
+    }
+}
+
+/// AppKit allows at most one of `CanJoinAllSpaces` and `MoveToActiveSpace`, so the former is
+/// dropped rather than left in place as a second, conflicting flag. Every other behavior the
+/// window already carries is preserved.
+#[cfg(target_os = "macos")]
+const fn active_space_collection_behavior(
+    current: objc2_app_kit::NSWindowCollectionBehavior,
+) -> objc2_app_kit::NSWindowCollectionBehavior {
+    use objc2_app_kit::NSWindowCollectionBehavior;
+
+    current
+        .difference(NSWindowCollectionBehavior::CanJoinAllSpaces)
+        .union(NSWindowCollectionBehavior::MoveToActiveSpace)
+}
+
+/// Shows the main window on whichever Space the user is looking at.
+///
+/// Closing the window only hides it, so the same NSWindow is reused for the rest of the session
+/// and stays tied to the Space it was built on. Activating it from the tray then switches the
+/// user to that Space instead of bringing the window to them.
+#[cfg(target_os = "macos")]
+fn keep_window_on_active_space(window: &WebviewWindow) {
+    use objc2_app_kit::NSWindow;
+
+    let window = window.clone();
+    let dispatched = handle::Handle::app_handle().run_on_main_thread(move || {
+        let pointer = match window.ns_window() {
+            Ok(pointer) => pointer.cast::<NSWindow>(),
+            Err(e) => {
+                logging!(warn, Type::Window, "读取原生窗口句柄失败: {e}");
+                return;
+            }
+        };
+        let Some(ns_window) = (unsafe { pointer.as_ref() }) else {
+            logging!(warn, Type::Window, "原生窗口句柄为空，跳过桌面跟随设置");
+            return;
+        };
+        ns_window.setCollectionBehavior(active_space_collection_behavior(ns_window.collectionBehavior()));
+    });
+    if let Err(e) = dispatched {
+        logging!(warn, Type::Window, "无法在主线程设置窗口桌面跟随行为: {e}");
     }
 }
 
