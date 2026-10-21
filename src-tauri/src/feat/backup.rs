@@ -7,13 +7,16 @@ use crate::{
         help,
     },
 };
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, bail};
 use chrono::Utc;
 use clash_verge_logging::{Type, logging, logging_error};
 use reqwest_dav::list_cmd::ListFile;
 use serde::Serialize;
 use smartstring::alias::String;
-use std::path::PathBuf;
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
 use tokio::fs;
 
 #[derive(Debug, Serialize, specta::Type)]
@@ -25,6 +28,41 @@ pub struct LocalBackupFile {
     #[specta(type = std::string::String)]
     pub last_modified: String,
     pub content_length: u64,
+}
+
+/// Accepts only a bare backup file name so it cannot escape its containing directory.
+fn sanitize_backup_filename(filename: &str) -> Result<&str> {
+    if filename.is_empty() {
+        bail!("Backup filename must not be empty");
+    }
+    if filename.chars().any(char::is_control) {
+        bail!("Backup filename must not contain control characters");
+    }
+    if filename == ".." || filename.contains('/') || filename.contains('\\') {
+        bail!("Backup filename must not contain path separators: {filename}");
+    }
+    if Path::new(filename).file_name() != Some(OsStr::new(filename)) {
+        bail!("Invalid backup filename: {filename}");
+    }
+    Ok(filename)
+}
+
+/// Resolves a backup file name inside `dir`, rejecting names and symlinks that escape it.
+fn resolve_within(dir: &Path, filename: &str) -> Result<PathBuf> {
+    let filename = sanitize_backup_filename(filename)?;
+    let canonical_dir = std::fs::canonicalize(dir)
+        .map_err(|err| anyhow!("Failed to resolve backup directory {}: {err}", dir.display()))?;
+    let path = canonical_dir.join(filename);
+    if !path.starts_with(&canonical_dir) {
+        bail!("Backup path escapes {}", canonical_dir.display());
+    }
+    // Follow an existing target so a symlink planted in the directory cannot redirect the operation.
+    if let Ok(resolved) = std::fs::canonicalize(&path) {
+        if !resolved.starts_with(&canonical_dir) {
+            bail!("Backup path escapes {}", canonical_dir.display());
+        }
+    }
+    Ok(path)
 }
 
 /// Reloads restored configs into memory while preserving WebDAV credentials.
@@ -124,6 +162,7 @@ pub async fn list_wevdav_backup() -> Result<Vec<ListFile>> {
 
 pub async fn delete_webdav_backup(filename: String) -> Result<()> {
     let name = filename.to_string();
+    let filename = String::from(sanitize_backup_filename(&filename)?);
     backup::WebDavClient::global().delete(filename).await.map_err(|err| {
         logging!(
             error,
@@ -142,9 +181,9 @@ pub async fn restore_webdav_backup(filename: String) -> Result<()> {
     let webdav_username = verge_data.webdav_username.clone();
     let webdav_password = verge_data.webdav_password.clone();
 
-    let backup_storage_path = app_home_dir()
-        .map_err(|e| anyhow::anyhow!("Failed to get app home dir: {e}"))?
-        .join(filename.as_str());
+    let app_home = app_home_dir().map_err(|e| anyhow::anyhow!("Failed to get app home dir: {e}"))?;
+    let backup_storage_path = resolve_within(&app_home, &filename)?;
+    let filename = String::from(sanitize_backup_filename(&filename)?);
     let name = filename.to_string();
     backup::WebDavClient::global()
         .download(filename, backup_storage_path.clone())
@@ -324,7 +363,7 @@ pub async fn list_local_backup() -> Result<Vec<LocalBackupFile>> {
 
 pub async fn delete_local_backup(filename: String) -> Result<()> {
     let backup_dir = local_backup_dir()?;
-    let target_path = backup_dir.join(filename.as_str());
+    let target_path = resolve_within(&backup_dir, &filename)?;
     if !target_path.exists() {
         logging!(debug, Type::Backup, "Local backup file not found: {}", filename);
         return Ok(());
@@ -336,7 +375,7 @@ pub async fn delete_local_backup(filename: String) -> Result<()> {
 #[tracing::instrument(skip_all, level = "info", fields(filename = %filename))]
 pub async fn restore_local_backup(filename: String) -> Result<()> {
     let backup_dir = local_backup_dir()?;
-    let target_path = backup_dir.join(filename.as_str());
+    let target_path = resolve_within(&backup_dir, &filename)?;
     if !target_path.exists() {
         return Err(anyhow!("Backup file not found: {}", filename));
     }
@@ -360,7 +399,7 @@ pub async fn restore_local_backup(filename: String) -> Result<()> {
 #[tracing::instrument(skip_all, level = "info", fields(filename = %filename, destination = %destination))]
 pub async fn export_local_backup(filename: String, destination: String) -> Result<()> {
     let backup_dir = local_backup_dir()?;
-    let source_path = backup_dir.join(filename.as_str());
+    let source_path = resolve_within(&backup_dir, &filename)?;
     if !source_path.exists() {
         return Err(anyhow!("Backup file not found: {}", filename));
     }
@@ -375,4 +414,63 @@ pub async fn export_local_backup(filename: String, destination: String) -> Resul
         .map(|_| ())
         .map_err(|err| anyhow!("Failed to export backup file: {err:#}"))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{resolve_within, sanitize_backup_filename};
+
+    #[test]
+    fn rejects_backup_filenames_that_can_escape_the_backup_directory() {
+        for name in [
+            "",
+            "..",
+            "../evil.zip",
+            "..\\evil.zip",
+            "..\\..\\evil.zip",
+            "/tmp/evil.zip",
+            "C:\\evil.zip",
+            "profiles/evil.zip",
+            "profiles\\evil.zip",
+            "bad\nname.zip",
+            "bad\u{0}name.zip",
+        ] {
+            assert!(
+                sanitize_backup_filename(name).is_err(),
+                "{name:?} should be rejected as a backup filename"
+            );
+        }
+    }
+
+    #[test]
+    fn accepts_plain_backup_filenames() {
+        for name in [
+            "macos-backup-2026-01-01_00-00-00.zip",
+            "backup.zip",
+            ".hidden.zip",
+            "备份.zip",
+        ] {
+            assert_eq!(sanitize_backup_filename(name).unwrap(), name);
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejects_symlinks_that_escape_the_backup_directory() {
+        let root = std::env::temp_dir().join(format!("clash-verge-backup-paths-{}", nanoid::nanoid!()));
+        std::fs::create_dir_all(&root).unwrap();
+        let outside = root.parent().unwrap().join(format!("clash-verge-outside-{}.zip", nanoid::nanoid!()));
+        std::fs::write(&outside, b"outside").unwrap();
+        std::os::unix::fs::symlink(&outside, root.join("link.zip")).unwrap();
+
+        assert!(resolve_within(&root, "link.zip").is_err());
+        assert_eq!(
+            resolve_within(&root, "normal.zip").unwrap(),
+            std::fs::canonicalize(&root).unwrap().join("normal.zip")
+        );
+
+        std::fs::remove_file(root.join("link.zip")).unwrap();
+        std::fs::remove_dir_all(&root).unwrap();
+        std::fs::remove_file(outside).unwrap();
+    }
 }
