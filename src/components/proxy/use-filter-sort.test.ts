@@ -89,3 +89,30 @@ test('reads each occurrence once and observes cache updates and expiry on the ne
   filterSort(list, 'expiry', '', 2)
   expect(get).not.toHaveBeenCalled()
 })
+
+test('filters by delay with strict bounds and the configured timeout', () => {
+  const group = 'delay-filter'
+  const delays = [0, 100, 3000, 5000, 1e6, -1]
+  const list = delays.map((delay, i) => node(i, delay, `delay-${delay}`))
+  delays.forEach((delay) =>
+    delayManager.setDelay(`delay-${delay}`, group, delay),
+  )
+  const names = (query: string, timeout?: number) =>
+    filterSort(list, group, query, 0, timeout).map(
+      (item) => item.member.ref.name,
+    )
+
+  // 0 is the core's timeout sentinel, not a very fast node.
+  expect(names('delay=timeout', 5000)).toEqual(['delay-0', 'delay-5000'])
+  expect(names('delay=timeout', 4000)).toEqual(['delay-0', 'delay-5000'])
+  // With the default timeout only the sentinel counts as a timeout.
+  expect(names('delay=timeout')).toEqual(['delay-0'])
+  expect(names('delay=error')).toEqual(['delay-1000000'])
+
+  // Bounds are strict and only real measurements take part: the timeout
+  // sentinel (0) and error/unmeasured sentinels are excluded.
+  expect(names('delay<3000', 5000)).toEqual(['delay-100'])
+  expect(names('delay>3000')).toEqual(['delay-5000'])
+  expect(names('delay>0')).toEqual(['delay-100', 'delay-3000', 'delay-5000'])
+  expect(names('delay=3000')).toEqual(['delay-3000'])
+})
