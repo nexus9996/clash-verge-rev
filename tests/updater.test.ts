@@ -23,6 +23,15 @@ describe('selectNewestPrerelease', () => {
     expect(selected?.tag_name).toBe('v2.6.0-alpha.10')
   })
 
+  it('selects alpha tags even when GitHub does not flag them prerelease', () => {
+    const selected = selectNewestPrerelease([
+      release('v2.6.0-rc.1'),
+      release('v2.6.0-alpha.2', { prerelease: false }),
+    ])
+
+    expect(selected?.tag_name).toBe('v2.6.0-alpha.2')
+  })
+
   it('prefers alpha releases over other prerelease channels', () => {
     const selected = selectNewestPrerelease([
       release('v2.6.0-rc.1'),
