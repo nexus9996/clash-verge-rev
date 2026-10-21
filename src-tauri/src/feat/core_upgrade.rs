@@ -29,6 +29,43 @@ const VERSION_TIMEOUT_SECS: u64 = 20;
 const PACKAGE_TIMEOUT_SECS: u64 = 300;
 /// Well above any real core package, low enough that a wrong response cannot exhaust memory.
 const MAX_PACKAGE_BYTES: usize = 64 * 1024 * 1024;
+/// A compressed package can expand far beyond its download; cap the unpacked core as well.
+const MAX_UNPACKED_CORE_BYTES: u64 = 256 * 1024 * 1024;
+
+/// Fails instead of writing past `limit`, so a decompression bomb cannot fill the disk.
+struct BoundedWriter<W> {
+    inner: W,
+    written: u64,
+    limit: u64,
+}
+
+impl<W> BoundedWriter<W> {
+    const fn new(inner: W, limit: u64) -> Self {
+        Self {
+            inner,
+            written: 0,
+            limit,
+        }
+    }
+}
+
+impl<W: std::io::Write> std::io::Write for BoundedWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        if self.written.saturating_add(buf.len() as u64) > self.limit {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("unpacked core exceeds the {}-byte limit", self.limit),
+            ));
+        }
+        let written = self.inner.write(buf)?;
+        self.written = self.written.saturating_add(written as u64);
+        Ok(written)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
+    }
+}
 
 static STAGING_GENERATION: AtomicU64 = AtomicU64::new(0);
 /// `.rollback` and `.old` are fixed paths, so two upgrades must not overlap.
@@ -589,18 +626,26 @@ fn create_staging_file(directory: &Path, core_name: &OsStr) -> Result<(PathBuf, 
     )
 }
 
-#[cfg(windows)]
 fn unpack(package: &[u8], out: &mut File) -> Result<()> {
-    let mut archive = zip::ZipArchive::new(std::io::Cursor::new(package)).context("invalid core archive")?;
-    let mut entry = archive.by_index(0).context("the core archive is empty")?;
-    std::io::copy(&mut entry, out).context("failed to extract the core")?;
-    Ok(())
+    unpack_with_limit(package, out, MAX_UNPACKED_CORE_BYTES)
 }
 
-#[cfg(not(windows))]
-fn unpack(package: &[u8], out: &mut File) -> Result<()> {
-    let mut decoder = flate2::read::GzDecoder::new(package);
-    std::io::copy(&mut decoder, out).context("failed to decompress the core")?;
+fn unpack_with_limit(package: &[u8], out: &mut File, limit: u64) -> Result<()> {
+    let mut out = BoundedWriter::new(out, limit);
+
+    #[cfg(windows)]
+    {
+        let mut archive = zip::ZipArchive::new(std::io::Cursor::new(package)).context("invalid core archive")?;
+        let mut entry = archive.by_index(0).context("the core archive is empty")?;
+        std::io::copy(&mut entry, &mut out).context("failed to extract the core")?;
+    }
+
+    #[cfg(not(windows))]
+    {
+        let mut decoder = flate2::read::GzDecoder::new(package);
+        std::io::copy(&mut decoder, &mut out).context("failed to decompress the core")?;
+    }
+
     Ok(())
 }
 
@@ -678,11 +723,64 @@ fn read_core_version(path: &Path) -> Result<std::string::String> {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, reason = "tests assert by panicking")]
 mod tests {
     use super::{
-        GithubAsset, GithubRelease, expected_asset_name, installable_release_versions, is_usable_version, package_url,
-        usable_channel_version,
+        BoundedWriter, GithubAsset, GithubRelease, expected_asset_name, installable_release_versions,
+        is_usable_version, package_url, unpack_with_limit, usable_channel_version,
     };
+    use std::fs::File;
+
+    #[test]
+    fn bounded_writer_rejects_output_past_the_limit() {
+        use std::io::{ErrorKind, Write as _};
+
+        let mut sink = Vec::new();
+        let mut writer = BoundedWriter::new(&mut sink, 4);
+
+        assert_eq!(writer.write(b"abc").expect("within the limit"), 3);
+        let error = writer.write(b"de").expect_err("output past the limit must fail");
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
+        assert!(error.to_string().contains("limit"), "{error}");
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn oversized_gz_output_is_rejected() -> anyhow::Result<()> {
+        use std::io::Write as _;
+
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+        encoder.write_all(&[b'a'; 4096])?;
+        let package = encoder.finish()?;
+
+        let path = std::env::temp_dir().join(format!("clash-verge-unpack-limit-{}.tmp", std::process::id()));
+        let mut out = File::create(&path)?;
+        let error = unpack_with_limit(&package, &mut out, 1024).expect_err("oversized unpacked output must fail");
+        assert!(format!("{error:#}").contains("limit"), "{error:#}");
+        drop(out);
+        let _ = std::fs::remove_file(&path);
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn oversized_zip_output_is_rejected() -> anyhow::Result<()> {
+        use std::io::Write as _;
+        use zip::write::SimpleFileOptions;
+
+        let mut archive = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        archive.start_file("mihomo.exe", SimpleFileOptions::default())?;
+        archive.write_all(&[b'a'; 4096])?;
+        let package = archive.finish()?.into_inner();
+
+        let path = std::env::temp_dir().join(format!("clash-verge-unpack-limit-{}.tmp", std::process::id()));
+        let mut out = File::create(&path)?;
+        let error = unpack_with_limit(&package, &mut out, 1024).expect_err("oversized unpacked output must fail");
+        assert!(format!("{error:#}").contains("limit"), "{error:#}");
+        drop(out);
+        let _ = std::fs::remove_file(&path);
+        Ok(())
+    }
 
     #[test]
     fn only_plain_version_tokens_reach_the_package_url() {
