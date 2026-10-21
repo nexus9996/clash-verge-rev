@@ -116,15 +116,21 @@ export const useLogData = () => {
           if (hasLoadedInitialLogsRef.current) {
             return
           }
-          const logs = await getClashLogs()
-          hasLoadedInitialLogsRef.current = true
-          if (isMounted()) {
-            next(null, (current) => {
-              if (!current || current.length === 0) {
-                return clampLogs(filterLogsByLevel(logs, allowedTypes))
-              }
-              return current
-            })
+          try {
+            const logs = await getClashLogs()
+            hasLoadedInitialLogsRef.current = true
+            if (isMounted()) {
+              next(null, (current) => {
+                if (!current || current.length === 0) {
+                  return clampLogs(filterLogsByLevel(logs, allowedTypes))
+                }
+                return current
+              })
+            }
+          } catch (error) {
+            // Keep the live log socket open; a later connection can retry the
+            // history snapshot without restarting the stream.
+            console.warn('[Logs] failed to load the initial log history', error)
           }
         },
         cleanup: clearFlushTimer,
