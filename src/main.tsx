@@ -11,7 +11,6 @@ import { MihomoWebSocket } from 'tauri-plugin-mihomo-api'
 import { router } from './app/router'
 import { scheduleWarmup } from './app/warmup'
 import { BaseErrorBoundary } from './components/base'
-import { preloadHomePageCards } from './pages/home'
 import { FALLBACK_LANGUAGE, initializeLanguage } from './services/i18n'
 import {
   preloadAppData,
@@ -56,6 +55,15 @@ const initializeApp = (initialThemeMode: 'light' | 'dark') => {
     </React.StrictMode>,
   )
 }
+
+// Preloading the home page cards must not pull the whole page into the entry
+// graph, so it is imported on demand. Failures only cost the warm cache.
+const preloadHomePageCards = () =>
+  import('./pages/home')
+    .then(({ preloadHomePageCards: preload }) => preload())
+    .catch((error) => {
+      console.warn('[main.tsx] Failed to preload home page cards:', error)
+    })
 
 const bootstrap = async () => {
   const appDataPromise = preloadAppData()
