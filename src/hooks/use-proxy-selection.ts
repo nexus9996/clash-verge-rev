@@ -50,8 +50,15 @@ export const useProxySelection = (options: ProxySelectionOptions = {}) => {
   const recordSelection = useRecordSelection()
   const forgetSelection = useForgetSelection()
   const { verge } = useVerge()
-  const pendingRequestRef = useRef<ProxyChangeRequest | null>(null)
+  const pendingRequestsRef = useRef<Map<string, ProxyChangeRequest> | null>(
+    null,
+  )
   const isProcessingRef = useRef(false)
+
+  const getPendingRequests = () => {
+    pendingRequestsRef.current ??= new Map()
+    return pendingRequestsRef.current
+  }
 
   const { onSuccess, onError, enableConnectionCleanup = true } = options
 
@@ -125,14 +132,18 @@ export const useProxySelection = (options: ProxySelectionOptions = {}) => {
     isProcessingRef.current = true
 
     try {
-      while (pendingRequestRef.current) {
-        const request = pendingRequestRef.current
-        pendingRequestRef.current = null
+      // Map keeps insertion order, so every group is applied once; a newer
+      // request for the same group replaces the stale pending one.
+      while (getPendingRequests().size > 0) {
+        const next = getPendingRequests().entries().next().value
+        if (!next) break
+        const [groupName, request] = next
+        getPendingRequests().delete(groupName)
         await executeChange(request)
       }
     } finally {
       isProcessingRef.current = false
-      if (pendingRequestRef.current) {
+      if (getPendingRequests().size > 0) {
         void flushChangeQueue()
       }
     }
@@ -145,12 +156,12 @@ export const useProxySelection = (options: ProxySelectionOptions = {}) => {
       previousProxy?: string,
       fixed?: string,
     ) => {
-      pendingRequestRef.current = {
+      getPendingRequests().set(groupName, {
         groupName,
         proxyName,
         previousProxy,
         fixed,
-      }
+      })
       void flushChangeQueue()
     },
     [flushChangeQueue],
