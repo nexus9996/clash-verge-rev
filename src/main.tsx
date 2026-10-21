@@ -11,6 +11,7 @@ import { MihomoWebSocket } from 'tauri-plugin-mihomo-api'
 import { router } from './app/router'
 import { scheduleWarmup } from './app/warmup'
 import { BaseErrorBoundary } from './components/base'
+import { disposeTrafficMonitor } from './hooks/use-traffic-monitor'
 import { preloadHomePageCards } from './pages/home'
 import { FALLBACK_LANGUAGE, initializeLanguage } from './services/i18n'
 import {
@@ -96,6 +97,8 @@ window.addEventListener('unhandledrejection', (event) => {
 window.addEventListener('beforeunload', () => {
   // Clean up all WebSocket instances to prevent memory leaks
   MihomoWebSocket.cleanupAll()
+  // The sampler is retained across visibility changes; release it on teardown.
+  disposeTrafficMonitor()
 })
 
 // Page loaded event
