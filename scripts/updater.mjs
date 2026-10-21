@@ -9,6 +9,64 @@ const ALPHA_TAG_NAME = 'updater-alpha'
 const ALPHA_UPDATE_JSON_FILE = 'update.json'
 const ALPHA_UPDATE_JSON_PROXY = 'update-proxy.json'
 
+// Tags that the updater can publish to the alpha channel: the updater parses
+// `version` (or the legacy `name`) as semver, so the suffix must be a channel
+// semver understands plus an optional numeric build.
+const PRE_RELEASE_TAG_RE =
+  /^v?(\d+)\.(\d+)\.(\d+)-(alpha|beta|pre|rc)(?:\.(\d+))?$/i
+const CHANNEL_RANK = { alpha: 0, beta: 1, pre: 2, rc: 3 }
+
+const parsePrereleaseTag = (tag) => {
+  const match = PRE_RELEASE_TAG_RE.exec(tag)
+  if (!match) return null
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+    channel: match[4].toLowerCase(),
+    build: match[5] === undefined ? 0 : Number(match[5]),
+  }
+}
+
+const comparePrereleaseTagsDesc = (leftTag, rightTag) => {
+  const left = parsePrereleaseTag(leftTag)
+  const right = parsePrereleaseTag(rightTag)
+  return (
+    right.major - left.major ||
+    right.minor - left.minor ||
+    right.patch - left.patch ||
+    CHANNEL_RANK[right.channel] - CHANNEL_RANK[left.channel] ||
+    right.build - left.build
+  )
+}
+
+/**
+ * Picks the release to publish on the alpha updater channel.
+ *
+ * Only GitHub releases flagged `prerelease` and not `draft` are considered.
+ * Alpha tags win when present so the alpha channel keeps following alphas;
+ * otherwise the newest supported prerelease (beta/pre/rc) is used. Returns
+ * `null` when no publishable prerelease exists so the caller can skip
+ * explicitly instead of publishing a stale tag.
+ */
+export const selectNewestPrerelease = (releases) => {
+  const candidates = releases.filter(
+    (release) =>
+      release.prerelease === true &&
+      release.draft !== true &&
+      parsePrereleaseTag(release.tag_name) !== null,
+  )
+  if (candidates.length === 0) return null
+
+  const alphaCandidates = candidates.filter(
+    (release) => parsePrereleaseTag(release.tag_name).channel === 'alpha',
+  )
+  const pool = alphaCandidates.length > 0 ? alphaCandidates : candidates
+  return [...pool].sort((left, right) =>
+    comparePrereleaseTagsDesc(left.tag_name, right.tag_name),
+  )[0]
+}
+
 async function resolveUpdater() {
   if (process.env.GITHUB_TOKEN === undefined) {
     throw new Error('GITHUB_TOKEN is required')
@@ -40,14 +98,29 @@ async function resolveUpdater() {
   const tags = allTags
   console.log(`Retrieved ${tags.length} tags in total`)
 
-  // The updater parses `version` (or the legacy `name`) as semver, so only
-  // versioned prerelease tags can be published to the alpha channel.
-  const preReleaseRegex = /^v?\d+\.\d+\.\d+-(alpha|beta|rc|pre)(\.\d+)?$/i
+  let allReleases = []
+  page = 1
+  while (true) {
+    const { data: pageReleases } = await github.rest.repos.listReleases({
+      ...options,
+      per_page: perPage,
+      page: page,
+    })
+
+    allReleases = allReleases.concat(pageReleases)
+
+    if (pageReleases.length < perPage) {
+      break
+    }
+
+    page++
+  }
 
   const { data: latestRelease } =
     await github.rest.repos.getLatestRelease(options)
   const stableTag = { name: latestRelease.tag_name }
-  const preReleaseTag = tags.find((t) => preReleaseRegex.test(t.name))
+  const preRelease = selectNewestPrerelease(allReleases)
+  const preReleaseTag = preRelease ? { name: preRelease.tag_name } : null
 
   console.log('All tags:', tags.map((t) => t.name).join(', '))
   console.log('Stable tag:', stableTag ? stableTag.name : 'None found')
@@ -63,6 +136,12 @@ async function resolveUpdater() {
 
   if (preReleaseTag) {
     await processRelease(github, options, preReleaseTag, true)
+  } else {
+    // Publishing the alpha channel without a prerelease would either write
+    // stale metadata or fail midway, so skip with an explicit message.
+    console.warn(
+      'No publishable alpha/prerelease found; skipping updater-alpha publish',
+    )
   }
 }
 
@@ -369,4 +448,7 @@ async function getSignature(url) {
   return response.text()
 }
 
-resolveUpdater().catch(console.error)
+// Only run when executed directly; tests import the helpers above.
+if (import.meta.main) {
+  resolveUpdater().catch(console.error)
+}
