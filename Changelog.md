@@ -20,6 +20,7 @@
 - macOS：从托盘打开主窗口时，窗口跟随当前桌面而不是跳转到旧桌面
 - macOS：修复 TUN + `redir-host` 时局域网 DNS 绕过 TUN、部分网站无法访问的问题
 - macOS：修复系统外观切换后原生标题栏偶尔仍停留在旧主题的问题
+- macOS：修复旧版 WebKit 上更新说明弹窗因正则 lookbehind 无法加载的问题
 
 **🐧 Linux**
 
