@@ -37,6 +37,7 @@
     "filters": {
       "placeholder": "筛选连接",
       "noOptions": "无匹配选项",
+      "refineHint": "仅显示前 {{count}} 个值，请细化搜索条件",
       "searchValue": "搜索值",
       "clear": "清除筛选"
     }

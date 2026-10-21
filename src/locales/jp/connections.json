@@ -37,6 +37,7 @@
     "filters": {
       "placeholder": "接続をフィルター",
       "noOptions": "一致する項目がありません",
+      "refineHint": "最初の{{count}}件のみ表示しています。検索を絞り込んでください",
       "searchValue": "値を検索",
       "clear": "フィルターをクリア"
     }

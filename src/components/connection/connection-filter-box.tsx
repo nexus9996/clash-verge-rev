@@ -23,12 +23,14 @@ import {
   type ConnectionFilter,
   type ConnectionFilterField,
   type FilterableConnection,
-  createConnectionFilterMatcher,
-  getConnectionFieldValues,
+  collectConnectionFieldValues,
   getConnectionFilterKey,
 } from '@/utils/connection-filter'
 
 const EMPTY_VALUES: string[] = []
+
+/** Upper bound on rendered options; typing narrows the list further. */
+const MAX_RENDERED_VALUES = 200
 
 type Props = {
   connections: readonly FilterableConnection[]
@@ -62,33 +64,17 @@ export const ConnectionFilterBox = (props: Props) => {
     [t],
   )
 
-  const fieldValues = useMemo(() => {
-    if (!open) return new Map<ConnectionFilterField, string[]>()
-
-    const nextMap = new Map<ConnectionFilterField, string[]>()
-    for (const field of CONNECTION_FILTER_FIELDS) {
-      const matchesOtherFields = createConnectionFilterMatcher(filters, field)
-      const values = new Set<string>()
-      for (const connection of connections) {
-        if (!matchesOtherFields(connection)) continue
-        for (const value of getConnectionFieldValues(field, connection)) {
-          values.add(value)
-        }
-      }
-      nextMap.set(
-        field,
-        [...values].sort((left, right) => left.localeCompare(right)),
-      )
-    }
-    return nextMap
-  }, [connections, filters, open])
+  // Only the active field is collected: recomputing every field's unique
+  // values on each connection snapshot is the expensive part of the dropdown.
+  const activeFieldValues = useMemo(() => {
+    if (!open) return EMPTY_VALUES
+    return collectConnectionFieldValues(connections, activeField, filters)
+  }, [connections, filters, open, activeField])
 
   const selectedFilterKeys = useMemo(
     () => new Set(filters.map(getConnectionFilterKey)),
     [filters],
   )
-
-  const activeFieldValues = fieldValues.get(activeField) ?? EMPTY_VALUES
 
   const visibleValues = useMemo(() => {
     const query = valueSearch.trim().toLowerCase()
@@ -97,6 +83,9 @@ export const ConnectionFilterBox = (props: Props) => {
       value.toLowerCase().includes(query),
     )
   }, [activeFieldValues, valueSearch])
+
+  const renderedValues = visibleValues.slice(0, MAX_RENDERED_VALUES)
+  const isTruncated = visibleValues.length > renderedValues.length
 
   const resetValueListScroll = useCallback(() => {
     if (valueListRef.current) valueListRef.current.scrollTop = 0
@@ -258,18 +247,16 @@ export const ConnectionFilterBox = (props: Props) => {
               >
                 {CONNECTION_FILTER_FIELDS.map((field) => {
                   const selected = field === activeField
-                  const count = fieldValues.get(field)?.length ?? 0
                   return (
                     <ListItemButton
                       key={field}
                       selected={selected}
-                      disabled={count === 0}
                       onClick={() => selectField(field)}
                       sx={{ minHeight: 32, px: 1.25, py: 0.25 }}
                     >
                       <ListItemText
                         primary={fieldLabels[field]}
-                        secondary={count}
+                        secondary={selected ? activeFieldValues.length : undefined}
                         slotProps={{
                           primary: {
                             noWrap: true,
@@ -359,7 +346,7 @@ export const ConnectionFilterBox = (props: Props) => {
                   }}
                 >
                   {visibleValues.length > 0 ? (
-                    visibleValues.map((value) => {
+                    renderedValues.map((value) => {
                       const selected = selectedFilterKeys.has(
                         getConnectionFilterKey({
                           field: activeField,
@@ -426,6 +413,17 @@ export const ConnectionFilterBox = (props: Props) => {
                       sx={{ px: 0.5, py: 0.75 }}
                     >
                       {t('connections.components.filters.noOptions')}
+                    </Typography>
+                  )}
+                  {isTruncated && (
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ px: 0.5, py: 0.75 }}
+                    >
+                      {t('connections.components.filters.refineHint', {
+                        count: MAX_RENDERED_VALUES,
+                      })}
                     </Typography>
                   )}
                 </Box>
