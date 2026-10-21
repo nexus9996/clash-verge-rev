@@ -10,7 +10,7 @@ use std::{
     collections::HashMap,
     env::{consts::OS, temp_dir},
     io::Write as _,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, OnceLock},
     time::Duration,
 };
@@ -267,19 +267,79 @@ fn parse_webdav_list(xml: &str) -> Result<Vec<ListEntity>, reqwest_dav::Error> {
     multi_status.responses.into_iter().map(ListEntity::try_from).collect()
 }
 
+/// Temporary backup archive that removes itself on drop unless explicitly persisted.
+pub struct TempBackupFile {
+    path: PathBuf,
+    persisted: bool,
+}
+
+impl TempBackupFile {
+    fn new(path: PathBuf) -> Self {
+        Self {
+            path,
+            persisted: false,
+        }
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// Keeps the file after the guard is dropped, for example when it was renamed elsewhere.
+    pub fn persist(mut self) -> PathBuf {
+        self.persisted = true;
+        self.path.clone()
+    }
+
+    /// Removes the file now and disarms the guard.
+    pub fn remove(mut self) -> std::io::Result<()> {
+        self.persisted = true;
+        std::fs::remove_file(&self.path)
+    }
+}
+
+impl Drop for TempBackupFile {
+    fn drop(&mut self) {
+        if !self.persisted {
+            let _ = std::fs::remove_file(&self.path);
+        }
+    }
+}
+
+/// Creates an unpredictable, private temporary archive so a pre-planted path cannot be reused.
+fn create_temp_backup_file() -> Result<(PathBuf, std::fs::File), Error> {
+    let now = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S").to_string();
+    loop {
+        let path = temp_dir().join(format!("{OS}-backup-{now}-{}.zip", nanoid::nanoid!()));
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt as _;
+            options.mode(0o600);
+        }
+
+        match options.open(&path) {
+            Ok(file) => return Ok((path, file)),
+            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(err) => return Err(err.into()),
+        }
+    }
+}
+
 #[tracing::instrument(name = "create_backup", skip_all, level = "debug")]
-pub async fn create_backup() -> Result<(String, PathBuf), Error> {
+pub async fn create_backup() -> Result<(String, TempBackupFile), Error> {
     AsyncHandler::spawn_blocking(create_backup_sync)
         .await
         .map_err(|join| anyhow::anyhow!("backup task failed: {join}"))?
 }
 
-fn create_backup_sync() -> Result<(String, PathBuf), Error> {
+fn create_backup_sync() -> Result<(String, TempBackupFile), Error> {
     let now = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S").to_string();
     let zip_file_name: String = format!("{OS}-backup-{now}.zip").into();
-    let zip_path = temp_dir().join(zip_file_name.as_str());
+    let (zip_path, file) = create_temp_backup_file()?;
+    let temporary = TempBackupFile::new(zip_path);
 
-    let file = std::fs::File::create(&zip_path)?;
     let mut zip = zip::ZipWriter::new(file);
     zip.add_directory("profiles/", SimpleFileOptions::default())?;
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
@@ -322,5 +382,34 @@ fn create_backup_sync() -> Result<(String, PathBuf), Error> {
     zip.start_file(dirs::PROFILE_YAML, options)?;
     zip.write_all(&std::fs::read(dirs::profiles_path()?)?)?;
     zip.finish()?;
-    Ok((zip_file_name, zip_path))
+    Ok((zip_file_name, temporary))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{TempBackupFile, create_temp_backup_file};
+
+    #[test]
+    fn temporary_backup_files_are_unique_private_and_cleaned_up() {
+        let (first_path, first_file) = create_temp_backup_file().unwrap();
+        let (second_path, second_file) = create_temp_backup_file().unwrap();
+        assert_ne!(first_path, second_path);
+
+        #[cfg(unix)]
+        for path in [&first_path, &second_path] {
+            use std::os::unix::fs::PermissionsExt as _;
+            let mode = std::fs::metadata(path).unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode, 0o600, "temporary backup must not be readable by other users");
+        }
+
+        drop(first_file);
+        drop(second_file);
+
+        drop(TempBackupFile::new(first_path.clone()));
+        assert!(!first_path.exists(), "dropping the guard must remove the temporary file");
+
+        let persisted = TempBackupFile::new(second_path.clone()).persist();
+        assert!(persisted.exists(), "persisting must keep the temporary file");
+        std::fs::remove_file(persisted).unwrap();
+    }
 }

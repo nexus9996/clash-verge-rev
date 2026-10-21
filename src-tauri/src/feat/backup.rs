@@ -144,13 +144,13 @@ async fn finalize_restored_verge_config(
 
 #[tracing::instrument(skip_all, level = "info")]
 pub async fn create_backup_and_upload_webdav() -> Result<()> {
-    let (file_name, temp_file_path) = backup::create_backup().await.map_err(|err| {
+    let (file_name, temp_file) = backup::create_backup().await.map_err(|err| {
         logging!(error, Type::Backup, "Failed to create backup: {err:#}");
         err
     })?;
 
     if let Err(err) = backup::WebDavClient::global()
-        .upload(temp_file_path.clone(), file_name)
+        .upload(temp_file.path().to_path_buf(), file_name)
         .await
     {
         logging!(error, Type::Backup, "Failed to upload to WebDAV: {err:#}");
@@ -158,7 +158,7 @@ pub async fn create_backup_and_upload_webdav() -> Result<()> {
         return Err(err);
     }
 
-    if let Err(err) = temp_file_path.remove_if_exists().await {
+    if let Err(err) = temp_file.remove() {
         logging!(warn, Type::Backup, "Failed to remove temp file: {err:#}");
     }
 
@@ -238,7 +238,7 @@ pub async fn create_local_backup_with_namer<F>(namer: F) -> Result<String>
 where
     F: FnOnce(&str) -> String,
 {
-    let (file_name, temp_file_path) = backup::create_backup().await.map_err(|err| {
+    let (file_name, temp_file) = backup::create_backup().await.map_err(|err| {
         logging!(error, Type::Backup, "Failed to create local backup: {err:#}");
         err
     })?;
@@ -247,23 +247,18 @@ where
     let final_name = namer(file_name.as_str());
     let target_path = backup_dir.join(final_name.as_str());
 
-    if let Err(err) = move_file(temp_file_path.clone(), target_path.clone()).await {
+    if let Err(err) = move_file(temp_file.path().to_path_buf(), target_path.clone()).await {
         logging!(
             error,
             Type::Backup,
             "Failed to move local backup file to {}: {err:#}",
             target_path.display()
         );
-        if let Err(clean_err) = temp_file_path.remove_if_exists().await {
-            logging!(
-                warn,
-                Type::Backup,
-                "Failed to remove temp backup file after move error: {clean_err:#}"
-            );
-        }
+        // Dropping the guard removes the temporary archive.
         return Err(err);
     }
 
+    let _ = temp_file.persist();
     Ok(final_name)
 }
 
