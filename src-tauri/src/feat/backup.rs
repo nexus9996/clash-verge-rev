@@ -216,11 +216,59 @@ pub async fn restore_webdav_backup(filename: String) -> Result<()> {
     res
 }
 
+const MAX_BACKUP_ENTRIES: usize = 10_000;
+const MAX_BACKUP_UNCOMPRESSED_BYTES: u64 = 512 * 1024 * 1024;
+
+#[derive(Debug, Clone, Copy)]
+struct ArchiveLimits {
+    max_entries: usize,
+    max_uncompressed_bytes: u64,
+}
+
+impl Default for ArchiveLimits {
+    fn default() -> Self {
+        Self {
+            max_entries: MAX_BACKUP_ENTRIES,
+            max_uncompressed_bytes: MAX_BACKUP_UNCOMPRESSED_BYTES,
+        }
+    }
+}
+
+/// Rejects archives that could exhaust memory or disk when extracted.
+fn validate_zip_archive<R: std::io::Read + std::io::Seek>(
+    zip: &mut zip::ZipArchive<R>,
+    limits: ArchiveLimits,
+) -> Result<()> {
+    if zip.len() > limits.max_entries {
+        bail!(
+            "Backup archive contains {} entries, more than the limit of {}",
+            zip.len(),
+            limits.max_entries
+        );
+    }
+
+    let mut total: u64 = 0;
+    for index in 0..zip.len() {
+        let entry = zip.by_index(index)?;
+        total = total
+            .checked_add(entry.size())
+            .ok_or_else(|| anyhow!("Backup archive uncompressed size overflowed"))?;
+        if total > limits.max_uncompressed_bytes {
+            bail!(
+                "Backup archive expands to more than {} bytes",
+                limits.max_uncompressed_bytes
+            );
+        }
+    }
+    Ok(())
+}
+
 async fn extract_backup(zip_path: PathBuf) -> Result<()> {
     let target = app_home_dir()?;
     AsyncHandler::spawn_blocking(move || {
         let file = std::fs::File::open(zip_path)?;
         let mut zip = zip::ZipArchive::new(file)?;
+        validate_zip_archive(&mut zip, ArchiveLimits::default())?;
         zip.extract(target)?;
         Ok(())
     })
@@ -425,8 +473,49 @@ pub async fn export_local_backup(filename: String, destination: String) -> Resul
 
 #[cfg(test)]
 mod tests {
-    use super::{resolve_within, sanitize_backup_filename, strip_untrusted_startup_script};
+    use super::{
+        ArchiveLimits, resolve_within, sanitize_backup_filename, strip_untrusted_startup_script,
+        validate_zip_archive,
+    };
     use crate::config::IVerge;
+
+    fn zip_archive(entries: &[(&str, &[u8])]) -> zip::ZipArchive<std::io::Cursor<Vec<u8>>> {
+        let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        for (name, content) in entries {
+            writer.start_file(*name, zip::write::SimpleFileOptions::default()).unwrap();
+            std::io::Write::write_all(&mut writer, content).unwrap();
+        }
+        let bytes = writer.finish().unwrap().into_inner();
+        zip::ZipArchive::new(std::io::Cursor::new(bytes)).unwrap()
+    }
+
+    #[test]
+    fn accepts_a_small_backup_archive() {
+        let mut archive = zip_archive(&[("profiles/a.yaml", b"rules: []"), ("verge.yaml", b"mode: rule")]);
+        validate_zip_archive(&mut archive, ArchiveLimits::default()).unwrap();
+    }
+
+    #[test]
+    fn rejects_archives_with_too_many_entries() {
+        let mut archive = zip_archive(&[("one.yaml", b"1"), ("two.yaml", b"2")]);
+        let limits = ArchiveLimits {
+            max_entries: 1,
+            ..ArchiveLimits::default()
+        };
+        let err = validate_zip_archive(&mut archive, limits).unwrap_err();
+        assert!(err.to_string().contains("entries"), "{err}");
+    }
+
+    #[test]
+    fn rejects_archives_that_expand_beyond_the_size_limit() {
+        let mut archive = zip_archive(&[("one.yaml", b"hello"), ("two.yaml", b"world")]);
+        let limits = ArchiveLimits {
+            max_entries: 10,
+            max_uncompressed_bytes: 8,
+        };
+        let err = validate_zip_archive(&mut archive, limits).unwrap_err();
+        assert!(err.to_string().contains("expands"), "{err}");
+    }
 
     #[test]
     fn restoring_a_backup_never_enables_the_startup_script() {
