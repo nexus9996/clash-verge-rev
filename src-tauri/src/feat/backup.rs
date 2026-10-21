@@ -477,14 +477,11 @@ pub async fn export_local_backup(filename: String, destination: String) -> Resul
 #[cfg(test)]
 mod tests {
     use super::{
-        ArchiveLimits, resolve_within, sanitize_backup_filename, strip_untrusted_startup_script,
-        validate_zip_archive,
+        ArchiveLimits, resolve_within, sanitize_backup_filename, strip_untrusted_startup_script, validate_zip_archive,
     };
     use crate::config::IVerge;
 
-    fn zip_archive(
-        entries: &[(&str, &[u8])],
-    ) -> anyhow::Result<zip::ZipArchive<std::io::Cursor<Vec<u8>>>> {
+    fn zip_archive(entries: &[(&str, &[u8])]) -> anyhow::Result<zip::ZipArchive<std::io::Cursor<Vec<u8>>>> {
         let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
         for (name, content) in entries {
             writer.start_file(*name, zip::write::SimpleFileOptions::default())?;

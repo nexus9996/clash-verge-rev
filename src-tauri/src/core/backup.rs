@@ -313,10 +313,7 @@ pub struct TempBackupFile {
 
 impl TempBackupFile {
     const fn new(path: PathBuf) -> Self {
-        Self {
-            path,
-            persisted: false,
-        }
+        Self { path, persisted: false }
     }
 
     pub fn path(&self) -> &Path {
@@ -454,7 +451,10 @@ mod tests {
         drop(second_file);
 
         drop(TempBackupFile::new(first_path.clone()));
-        assert!(!first_path.exists(), "dropping the guard must remove the temporary file");
+        assert!(
+            !first_path.exists(),
+            "dropping the guard must remove the temporary file"
+        );
 
         let persisted = TempBackupFile::new(second_path).persist();
         assert!(persisted.exists(), "persisting must keep the temporary file");
