@@ -367,6 +367,10 @@ export async function exitApp() {
   return commands.exitApp()
 }
 
+export const setNativeWindowTheme = async (theme: string) => {
+  return commands.setNativeWindowTheme(theme)
+}
+
 export async function exportDiagnosticInfo() {
   return commands.exportDiagnosticInfo()
 }
