@@ -74,6 +74,14 @@ test('unmeasured selectors show automatic history without replacing a cached res
   expect(delayManager.getDelayFix(member, 'selector')).toBe(50)
 })
 
+test('preserves a zero-millisecond delay from the node history', () => {
+  const member = node('zero-delay')
+  if (member.kind !== 'node') throw new Error('Expected node')
+  member.node.history = [{ time: new Date().toISOString(), delay: 0 }]
+
+  expect(delayManager.getDelayFix(member, 'zero')).toBe(0)
+})
+
 test('invalid latency URLs fall back to the shared default', () => {
   delayManager.setUrl('url-validation', 'ftp://localhost')
   expect(delayManager.getUrl('url-validation')).toBe(DEFAULT_LATENCY_TEST_URL)
