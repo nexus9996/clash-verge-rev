@@ -131,6 +131,40 @@ pub async fn install_core_version(version: std::string::String) -> CmdResult<fea
     Ok(report)
 }
 
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct HttpTextResponse {
+    pub status: u16,
+    pub body: std::string::String,
+}
+
+/// Reads a text response through the app's shared network stack. The frontend uses this for
+/// IP/geolocation probes so proxy, TLS, timeout and User-Agent policy stay identical to the
+/// backend instead of depending on a second HTTP client bundled by a plugin.
+#[tauri::command]
+#[specta::specta]
+pub async fn http_get_text(
+    url: std::string::String,
+    timeout_secs: Option<u64>,
+    user_agent: Option<std::string::String>,
+) -> CmdResult<HttpTextResponse> {
+    let url: String = url.into();
+    let response = crate::utils::network::NetworkManager::new()
+        .get(
+            url.as_str(),
+            crate::utils::network::ProxyType::Localhost,
+            timeout_secs,
+            user_agent.map(Into::into),
+            false,
+        )
+        .await
+        .stringify_err()?;
+    Ok(HttpTextResponse {
+        status: response.status().as_u16(),
+        body: response.text().to_owned(),
+    })
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn test_delay(url: std::string::String) -> CmdResult<u32> {

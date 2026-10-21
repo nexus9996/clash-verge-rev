@@ -35,6 +35,14 @@ export type {
   UnlockItem,
 } from './bindings'
 
+export async function httpGetText(
+  url: string,
+  timeoutSecs: number | null,
+  userAgent: string | null,
+) {
+  return commands.httpGetText(url, timeoutSecs, userAgent)
+}
+
 export async function copyClashEnv() {
   return commands.copyClashEnv()
 }
