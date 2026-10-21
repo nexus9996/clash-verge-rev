@@ -24,6 +24,26 @@ const LANGUAGE_STORAGE_KEY = 'verge-language'
 const normalizeLanguage = (language?: string) =>
   language?.toLowerCase().replace(/_/g, '-')
 
+/**
+ * Bundles whose ISO code or script does not match the shipped locale folder.
+ * Checked before the generic base-language fallback so `ja-JP` never degrades
+ * to `zh` and traditional Chinese variants keep traditional glyphs.
+ */
+const resolveLanguageAlias = (normalized: string) => {
+  if (normalized === 'ja' || normalized.startsWith('ja-')) return 'jp'
+
+  const traditionalChinese = ['zh-hant', 'zh-hk', 'zh-mo']
+  if (
+    traditionalChinese.some(
+      (alias) => normalized === alias || normalized.startsWith(`${alias}-`),
+    )
+  ) {
+    return 'zhtw'
+  }
+
+  return undefined
+}
+
 export const resolveLanguage = (language?: string) => {
   const normalized = normalizeLanguage(language)
   if (!normalized) {
@@ -36,6 +56,9 @@ export const resolveLanguage = (language?: string) => {
   if (supportedLanguages.includes(normalized)) {
     return normalized
   }
+
+  const alias = resolveLanguageAlias(normalized)
+  if (alias) return alias
 
   const baseLanguage = normalized.split('-')[0]
   if (supportedLanguages.includes(baseLanguage)) {
