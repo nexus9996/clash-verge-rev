@@ -142,6 +142,21 @@ export const commands = {
   /**  修改Verge配置 */
   patchVergeConfig: (payload: IVerge_Deserialize) =>
     __TAURI_INVOKE<null>('patch_verge_config', { payload }),
+  /**
+   *  Reads a text response through the app's shared network stack. The frontend uses this for
+   *  IP/geolocation probes so proxy, TLS, timeout and User-Agent policy stay identical to the
+   *  backend instead of depending on a second HTTP client bundled by a plugin.
+   */
+  httpGetText: (
+    url: string,
+    timeoutSecs: number | null,
+    userAgent: string | null,
+  ) =>
+    __TAURI_INVOKE<HttpTextResponse>('http_get_text', {
+      url,
+      timeoutSecs,
+      userAgent,
+    }),
   testDelay: (url: string) => __TAURI_INVOKE<number>('test_delay', { url }),
   getRulesExtra: () => __TAURI_INVOKE<RuleExtraInfo[]>('get_rules_extra'),
   /**  Rule disabling is runtime state in mihomo and resets when the core reloads. */
@@ -343,6 +358,11 @@ export type FailedOperation =
   | 'systemProxyDisable'
   | 'systemProxyRestore'
   | 'systemProxyGuard'
+
+export type HttpTextResponse = {
+  status: number
+  body: string
+}
 
 /**  Define the `profiles.yaml` schema */
 export type IProfiles = IProfiles_Serialize | IProfiles_Deserialize
