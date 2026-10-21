@@ -19,6 +19,27 @@ use std::path::Path;
 use tauri_plugin_mihomo::MihomoExt as _;
 use tauri_plugin_shell::ShellExt as _;
 
+/// Restricts the process umask for the sidecar spawn and restores it on every exit path.
+#[cfg(unix)]
+struct UmaskGuard {
+    previous: tauri_plugin_clash_verge_sysinfo::libc::mode_t,
+}
+
+#[cfg(unix)]
+impl UmaskGuard {
+    fn restrict(mask: tauri_plugin_clash_verge_sysinfo::libc::mode_t) -> Self {
+        let previous = unsafe { tauri_plugin_clash_verge_sysinfo::libc::umask(mask) };
+        Self { previous }
+    }
+}
+
+#[cfg(unix)]
+impl Drop for UmaskGuard {
+    fn drop(&mut self) {
+        unsafe { tauri_plugin_clash_verge_sysinfo::libc::umask(self.previous) };
+    }
+}
+
 pub(super) fn explain_core_occupancy(error: anyhow::Error) -> anyhow::Error {
     let detail = error.to_string();
     if detail.starts_with("process verge-mihomo") && detail.ends_with("; refusing a second core") {
@@ -189,8 +210,9 @@ impl CoreManager {
         #[cfg(unix)]
         discard_unwritable_core_cache(&config_dir);
 
+        // The guard restores the mask on early returns from command construction or spawn too.
         #[cfg(unix)]
-        let previous_mask = unsafe { tauri_plugin_clash_verge_sysinfo::libc::umask(0o077) };
+        let _umask_guard = UmaskGuard::restrict(0o077);
         let command = app_handle
             .shell()
             .sidecar(clash_core.as_str())
@@ -243,9 +265,7 @@ impl CoreManager {
         };
 
         #[cfg(unix)]
-        unsafe {
-            tauri_plugin_clash_verge_sysinfo::libc::umask(previous_mask)
-        };
+        drop(_umask_guard);
 
         let pid = child.pid();
         tracing::Span::current().record("pid", pid);
@@ -508,6 +528,25 @@ mod core_cache_tests {
         assert!(!root.join("cache.db").exists());
         let _ = std::fs::remove_dir_all(&root);
         Ok(())
+    }
+}
+
+#[cfg(all(test, unix))]
+mod umask_tests {
+    use super::UmaskGuard;
+    use tauri_plugin_clash_verge_sysinfo::libc as sysinfo_libc;
+
+    #[test]
+    fn umask_guard_restores_the_previous_mask() {
+        let original = unsafe { sysinfo_libc::umask(0o022) };
+
+        let guard = UmaskGuard::restrict(0o077);
+        let applied = unsafe { sysinfo_libc::umask(0o077) };
+        drop(guard);
+        let restored = unsafe { sysinfo_libc::umask(original) };
+
+        assert_eq!(applied, 0o077);
+        assert_eq!(restored, 0o022, "dropping the guard must restore the mask");
     }
 }
 
