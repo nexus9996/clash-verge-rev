@@ -63,7 +63,24 @@ const closeSharedSocket = async (entry: SharedSubscriptionEntry) => {
   await ws.close()
 }
 
-const createSharedSubscriptionEntry = (
+/**
+ * Owner-switch notifications are fire-and-forget: while the subscription is
+ * being torn down a rejected `onConnected` must not surface as an unhandled
+ * rejection.
+ */
+const notifyOwnerConnected = (
+  owner: SharedSubscriptionOwner | null,
+  ws: MihomoWebSocket,
+) => {
+  try {
+    void Promise.resolve(owner?.onConnected?.(ws)).catch(() => {})
+  } catch (ignoreError) {
+    // Owner already unmounted; the next owner will adopt the socket.
+  }
+}
+
+/** Shared socket lifecycle; exported so the reconnect/teardown paths can be tested. */
+export const createSharedSubscriptionEntry = (
   connect: () => Promise<MihomoWebSocket>,
 ): SharedSubscriptionEntry => {
   const entry: SharedSubscriptionEntry = {
@@ -89,19 +106,15 @@ const createSharedSubscriptionEntry = (
     if (entry.closed || entry.connecting || entry.ws) return
 
     entry.connecting = true
+    let ws: MihomoWebSocket | null = null
+    let adopted = false
     try {
-      const ws = await connect()
-      if (entry.closed) {
-        await ws.close()
-        return
-      }
+      ws = await connect()
+      if (entry.closed) return
 
       const owner = pickActiveOwner(entry)
       await owner?.onConnected?.(ws)
-      if (entry.closed) {
-        await ws.close()
-        return
-      }
+      if (entry.closed) return
 
       ws.addListener((msg: Message) => {
         if (msg.type !== 'Text') return
@@ -112,6 +125,7 @@ const createSharedSubscriptionEntry = (
       })
 
       entry.ws = ws
+      adopted = true
       clearReconnectTimer()
     } catch (ignoreError) {
       if (!entry.closed && !entry.ws) {
@@ -119,6 +133,11 @@ const createSharedSubscriptionEntry = (
         entry.reconnectTimer = setTimeout(entry.connectWs, RECONNECT_DELAY_MS)
       }
     } finally {
+      // Every failure path (owner rejection, closed subscription, listener
+      // registration) must close the socket we opened before retrying.
+      if (ws && !adopted) {
+        await ws.close().catch(() => {})
+      }
       entry.connecting = false
     }
   }
@@ -323,8 +342,8 @@ export const useMihomoWsSubscription = <T>(
       if (entry.activeOwner === owner) {
         entry.activeOwner = null
         const nextOwner = pickActiveOwner(entry)
-        if (entry.ws && nextOwner?.onConnected) {
-          void nextOwner.onConnected(entry.ws)
+        if (entry.ws) {
+          notifyOwnerConnected(nextOwner, entry.ws)
         }
       }
 

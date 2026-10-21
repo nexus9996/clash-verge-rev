@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest'
 
 import {
+  collectConnectionFieldValues,
   createConnectionFilterMatcher,
   getConnectionFieldValues,
   type FilterableConnection,
@@ -78,4 +79,32 @@ test('derives the values offered for each field', () => {
 test('falls back to the destination IP when the host is empty', () => {
   const value = connection({ metadata: { host: '' } })
   expect(getConnectionFieldValues('host', value)).toEqual(['1.2.3.4:443'])
+})
+
+test('collects unique sorted values for one field only', () => {
+  const first = connection()
+  const second = connection({
+    metadata: { host: 'other.org', destinationPort: '80' },
+  })
+  const third = connection({
+    metadata: { host: 'example.com', destinationPort: '443' },
+  })
+
+  expect(
+    collectConnectionFieldValues([first, second, third], 'host'),
+  ).toEqual(['example.com:443', 'other.org:80'])
+
+  // Filters on other fields narrow the offered values; a filter on the field
+  // itself must not hide the alternatives the user can switch to.
+  expect(
+    collectConnectionFieldValues([first, second], 'host', [
+      { field: 'host', value: 'other.org:80' },
+      { field: 'network', value: 'tcp' },
+    ]),
+  ).toEqual(['example.com:443', 'other.org:80'])
+  expect(
+    collectConnectionFieldValues([first, second], 'host', [
+      { field: 'type', value: 'HTTP' },
+    ]),
+  ).toEqual([])
 })

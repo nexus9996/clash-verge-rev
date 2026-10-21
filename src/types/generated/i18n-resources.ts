@@ -35,6 +35,7 @@ export interface TranslationResources {
           clear: string
           noOptions: string
           placeholder: string
+          refineHint: string
           searchValue: string
         }
         order: {

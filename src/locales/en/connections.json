@@ -37,6 +37,7 @@
     "filters": {
       "placeholder": "Filter connections",
       "noOptions": "No matching options",
+      "refineHint": "Showing the first {{count}} values, refine the search to see more",
       "searchValue": "Search value",
       "clear": "Clear filters"
     }

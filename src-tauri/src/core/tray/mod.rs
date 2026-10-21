@@ -39,6 +39,19 @@ type ProxyMenuItem = (Option<Submenu<Wry>>, Vec<Box<dyn IsMenuItem<Wry>>>);
 
 const TRAY_CLICK_DEBOUNCE_MS: u64 = 300;
 pub const TRAY_ID: &str = "clash-verge-rev-tray";
+/// Group and node names routinely contain `_`, so the menu id separator must be a character
+/// that cannot appear in a mihomo proxy name.
+const PROXY_MENU_SEPARATOR: char = '\u{1f}';
+
+fn proxy_item_id(group_name: &str, proxy_name: &str) -> std::string::String {
+    format!("proxy_{PROXY_MENU_SEPARATOR}{group_name}{PROXY_MENU_SEPARATOR}{proxy_name}")
+}
+
+fn parse_proxy_item_id(id: &str) -> Option<(&str, &str)> {
+    id.strip_prefix("proxy_")?
+        .strip_prefix(PROXY_MENU_SEPARATOR)?
+        .split_once(PROXY_MENU_SEPARATOR)
+}
 
 #[derive(Clone, Copy)]
 struct TrayMenuOptions {
@@ -488,7 +501,7 @@ fn create_subcreate_proxy_menu_item(
                     .iter()
                     .filter_map(|proxy_str| {
                         let is_selected = *proxy_str == now_proxy;
-                        let item_id = format!("proxy_{}_{}", group_name, proxy_str);
+                        let item_id = proxy_item_id(group_name, proxy_str);
 
                         let delay_text = proxy_nodes_data
                             .proxies
@@ -992,13 +1005,8 @@ fn on_menu_event(_: &AppHandle, event: MenuEvent) {
                 feat::toggle_proxy_profile(profile_index.into()).await;
             }
             id if id.starts_with("proxy_") => {
-                let rest = match id.strip_prefix("proxy_") {
-                    Some(r) => r,
-                    None => return,
-                };
-                let (group_name, proxy_name) = match rest.split_once('_') {
-                    Some((g, p)) => (g, p),
-                    None => return,
+                let Some((group_name, proxy_name)) = parse_proxy_item_id(id) else {
+                    return;
                 };
                 feat::switch_proxy_node(group_name, proxy_name).await;
             }
@@ -1007,4 +1015,24 @@ fn on_menu_event(_: &AppHandle, event: MenuEvent) {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_proxy_item_id, proxy_item_id};
+
+    #[test]
+    fn proxy_item_ids_round_trip_group_names_with_underscores() {
+        for (group, proxy) in [("Auto_Select", "node_1"), ("a_b_c", "x_y_z"), ("GROUP", "HK-01")] {
+            let id = proxy_item_id(group, proxy);
+            assert_eq!(parse_proxy_item_id(&id), Some((group, proxy)), "{id}");
+        }
+    }
+
+    #[test]
+    fn proxy_item_parsing_ignores_other_menu_ids() {
+        assert_eq!(parse_proxy_item_id("proxy_group_Auto_Select"), None);
+        assert_eq!(parse_proxy_item_id("profiles_ABC"), None);
+        assert_eq!(parse_proxy_item_id("proxy_"), None);
+    }
 }

@@ -24,7 +24,8 @@ on:
         type: boolean
         default: true
 
-permissions: write-all
+permissions:
+  contents: read
 env:
   TAG_NAME: deploytest
   TAG_CHANNEL: DeployTest

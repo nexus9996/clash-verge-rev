@@ -3,7 +3,7 @@ import { alpha, Box, IconButton, styled } from '@mui/material'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { parseHotkey } from '@/utils/parse-hotkey'
+import { isPassthroughHotkey, parseHotkey } from '@/utils/parse-hotkey'
 
 const KeyWrapper = styled('div')(({ theme }) => ({
   position: 'relative',
@@ -77,6 +77,9 @@ export const HotkeyInput = (props: Props) => {
             }
           }}
           onKeyDown={(e) => {
+            // Tab/Shift+Tab/Escape must keep their native behavior.
+            if (isPassthroughHotkey(e)) return
+
             e.preventDefault()
             e.stopPropagation()
 

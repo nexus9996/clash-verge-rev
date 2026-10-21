@@ -28,6 +28,7 @@ export const translationKeys = [
   'connections.components.columnManager.dragHandle',
   'connections.components.filters.placeholder',
   'connections.components.filters.noOptions',
+  'connections.components.filters.refineHint',
   'connections.components.filters.searchValue',
   'connections.components.filters.clear',
   'home.page.tooltips.lightweightMode',

@@ -9,7 +9,7 @@ use anyhow::{Context as _, anyhow};
 use clash_verge_draft::SharedDraft;
 use serde::ser::SerializeMap as _;
 use smartstring::alias::String;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Bulky sections the frontend reads from mihomo APIs instead of Runtime Config.
 const IPC_OMITTED_KEYS: &[&str] = &["rules", "rule-providers", "proxy-providers", "proxy-groups"];
@@ -96,29 +96,7 @@ pub async fn get_runtime_proxy_chain_config(
         .stringify_err()?;
 
     if let Some(serde_yaml_ng::Value::Sequence(proxies)) = config.get("proxies") {
-        let mut proxy_name = Some(Some(proxy_chain_exit_node.as_str()));
-        let mut proxies_chain = Vec::new();
-
-        while let Some(proxy) = proxies.iter().find(|proxy| {
-            if let serde_yaml_ng::Value::Mapping(proxy_map) = proxy {
-                proxy_map.get("name").map(|x| x.as_str()) == proxy_name && proxy_map.get("dialer-proxy").is_some()
-            } else {
-                false
-            }
-        }) {
-            proxies_chain.push(proxy);
-            proxy_name = proxy.get("dialer-proxy").map(|x| x.as_str());
-        }
-
-        if let Some(entry_proxy) = proxies
-            .iter()
-            .find(|proxy| proxy.get("name").map(|x| x.as_str()) == proxy_name)
-            && !proxies_chain.is_empty()
-        {
-            proxies_chain.push(entry_proxy);
-        }
-
-        proxies_chain.reverse();
+        let proxies_chain = collect_proxy_chain(proxies, &proxy_chain_exit_node).stringify_err()?;
 
         let mut config: HashMap<String, Vec<&serde_yaml_ng::Value>> = HashMap::new();
 
@@ -132,12 +110,82 @@ pub async fn get_runtime_proxy_chain_config(
     }
 }
 
+/// Follows `dialer-proxy` from the exit node to the entry node, rejecting cyclic chains.
+fn collect_proxy_chain<'a>(
+    proxies: &'a [serde_yaml_ng::Value],
+    exit_node: &'a str,
+) -> anyhow::Result<Vec<&'a serde_yaml_ng::Value>> {
+    let mut proxy_name = Some(exit_node);
+    let mut visited = HashSet::new();
+    let mut proxies_chain = Vec::new();
+
+    while let Some(name) = proxy_name {
+        if !visited.insert(name) {
+            anyhow::bail!("proxy chain contains a cycle at {name:?}");
+        }
+
+        let Some(proxy) = proxies.iter().find(|proxy| {
+            proxy.get("name").and_then(serde_yaml_ng::Value::as_str) == Some(name)
+                && proxy.get("dialer-proxy").is_some()
+        }) else {
+            break;
+        };
+
+        proxies_chain.push(proxy);
+        proxy_name = proxy.get("dialer-proxy").and_then(serde_yaml_ng::Value::as_str);
+    }
+
+    if !proxies_chain.is_empty()
+        && let Some(entry_proxy) = proxy_name.and_then(|name| {
+            proxies
+                .iter()
+                .find(|proxy| proxy.get("name").and_then(serde_yaml_ng::Value::as_str) == Some(name))
+        })
+    {
+        proxies_chain.push(entry_proxy);
+    }
+
+    proxies_chain.reverse();
+    Ok(proxies_chain)
+}
+
 #[cfg(test)]
+#[allow(clippy::expect_used, reason = "tests assert by panicking")]
 mod tests {
-    use super::{IPC_OMITTED_KEYS, RuntimeConfigView};
+    use super::{IPC_OMITTED_KEYS, RuntimeConfigView, collect_proxy_chain};
     use crate::config::runtime::IRuntime;
     use serde_yaml_ng::{Mapping, Value};
     use std::sync::Arc;
+
+    #[test]
+    fn proxy_chain_collection_rejects_a_self_cycle() {
+        let proxies: Vec<Value> = serde_yaml_ng::from_str("- {name: A, dialer-proxy: A}").expect("valid proxies");
+
+        let error = collect_proxy_chain(&proxies, "A").expect_err("a self cycle must fail");
+        assert!(error.to_string().contains("cycle"), "{error:#}");
+    }
+
+    #[test]
+    fn proxy_chain_collection_rejects_an_indirect_cycle() {
+        let proxies: Vec<Value> = serde_yaml_ng::from_str("- {name: A, dialer-proxy: B}\n- {name: B, dialer-proxy: A}")
+            .expect("valid proxies");
+
+        let error = collect_proxy_chain(&proxies, "A").expect_err("an indirect cycle must fail");
+        assert!(error.to_string().contains("cycle"), "{error:#}");
+    }
+
+    #[test]
+    fn proxy_chain_collection_keeps_the_entry_node_first() {
+        let proxies: Vec<Value> =
+            serde_yaml_ng::from_str("- {name: A, dialer-proxy: B}\n- {name: B}").expect("valid proxies");
+
+        let chain = collect_proxy_chain(&proxies, "A").expect("an acyclic chain is collected");
+        let names: Vec<_> = chain
+            .iter()
+            .filter_map(|proxy| proxy.get("name").and_then(Value::as_str))
+            .collect();
+        assert_eq!(names, ["B", "A"]);
+    }
 
     #[test]
     fn runtime_config_view_omits_only_bulk_sections() -> anyhow::Result<()> {

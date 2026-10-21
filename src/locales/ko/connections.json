@@ -37,6 +37,7 @@
     "filters": {
       "placeholder": "연결 필터",
       "noOptions": "일치하는 항목 없음",
+      "refineHint": "처음 {{count}}개 값만 표시됩니다. 검색어를 구체화하세요.",
       "searchValue": "값 검색",
       "clear": "필터 지우기"
     }
