@@ -209,11 +209,14 @@ pub async fn restore_webdav_backup(filename: String) -> Result<()> {
             err
         })?;
 
+    // Remove the downloaded archive on every path, including extraction or restore failures.
+    let _cleanup = scopeguard::guard(backup_storage_path.clone(), |path: PathBuf| {
+        let _ = std::fs::remove_file(path);
+    });
+
     let _profile_write = crate::config::profiles::PROFILE_WRITE_LOCK.lock().await;
-    extract_backup(backup_storage_path.clone()).await?;
-    let res = finalize_restored_verge_config(webdav_url, webdav_username, webdav_password).await;
-    let _ = backup_storage_path.remove_if_exists().await;
-    res
+    extract_backup(backup_storage_path).await?;
+    finalize_restored_verge_config(webdav_url, webdav_username, webdav_password).await
 }
 
 const MAX_BACKUP_ENTRIES: usize = 10_000;
