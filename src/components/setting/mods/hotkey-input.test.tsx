@@ -102,3 +102,26 @@ test('records a normal key and emits it on keyup', async () => {
 
   expect(onChange).toHaveBeenCalledWith(['A'])
 })
+
+test('a passthrough key aborts a partially recorded chord', async () => {
+  const onChange = vi.fn()
+
+  await act(async () => {
+    root.render(<HotkeyInput value={[]} onChange={onChange} />)
+  })
+
+  const input = container.querySelector('input')
+  if (!input) throw new Error('hotkey input was not rendered')
+
+  press(input, { key: 'Control', code: 'ControlLeft' })
+  press(input, { key: 'Tab', code: 'Tab' })
+  press(input, { key: 'a', code: 'KeyA' })
+
+  act(() => {
+    input.dispatchEvent(
+      new KeyboardEvent('keyup', { key: 'a', code: 'KeyA', bubbles: true }),
+    )
+  })
+
+  expect(onChange).toHaveBeenCalledWith(['A'])
+})

@@ -113,7 +113,13 @@ export const createSharedSubscriptionEntry = (
       if (entry.closed) return
 
       const owner = pickActiveOwner(entry)
-      await owner?.onConnected?.(ws)
+      try {
+        await owner?.onConnected?.(ws)
+      } catch (error) {
+        // A one-shot history prefill is not a transport failure. Keep the
+        // socket so live messages still flow; the owner can retry the prefill.
+        console.warn('[MihomoWS] owner prefill failed', error)
+      }
       if (entry.closed) return
 
       ws.addListener((msg: Message) => {

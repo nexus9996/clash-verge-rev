@@ -13,7 +13,7 @@ import {
 } from '@mui/icons-material'
 import { Box, IconButton, TextField, type SxProps } from '@mui/material'
 import { useDebounceFn } from 'ahooks'
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BaseSearchBox, type SearchState } from '@/components/base'
@@ -64,23 +64,37 @@ export const ProxyHead = ({
 
   // Filtering re-renders every proxy in the GLOBAL group, so writes to the
   // head state are debounced while the local input stays responsive.
+  // Only the text filter is debounced: toggles must update immediately so the
+  // box's controlled icons do not lag or lose a rapid second click.
   const { run: applyFilter, flush: flushFilter } = useDebounceFn(
     (state: SearchState) => {
+      onHeadState({ filterText: state.text })
+    },
+    { wait: 600 },
+  )
+
+  const handleSearch = (_: unknown, state: SearchState) => {
+    if (
+      state.matchCase !== filterMatchCase ||
+      state.matchWholeWord !== filterMatchWholeWord ||
+      state.useRegularExpression !== filterUseRegularExpression
+    ) {
       onHeadState({
-        filterText: state.text,
         filterMatchCase: state.matchCase,
         filterMatchWholeWord: state.matchWholeWord,
         filterUseRegularExpression: state.useRegularExpression,
       })
-    },
-    { wait: 600 },
-  )
+    }
+    applyFilter(state)
+  }
 
   // Apply the last keystroke when the filter box closes or unmounts.
   useEffect(() => {
     if (textState !== 'filter') flushFilter()
   }, [textState, flushFilter])
-  useEffect(() => () => flushFilter(), [flushFilter])
+  // useDebounceFn's own unmount cleanup cancels the trailing call before a
+  // passive cleanup could flush it, so flush from a layout cleanup instead.
+  useLayoutEffect(() => () => flushFilter(), [flushFilter])
 
   useEffect(() => {
     // fix the focus conflict
@@ -196,7 +210,7 @@ export const ProxyHead = ({
               matchWholeWord: filterMatchWholeWord,
               useRegularExpression: filterUseRegularExpression,
             }}
-            onSearch={(_, state) => applyFilter(state)}
+            onSearch={handleSearch}
           />
         </Box>
       )}

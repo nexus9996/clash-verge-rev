@@ -79,8 +79,10 @@ impl IRuntime {
         };
 
         // 只还原链式代理 UI 上一次覆盖的 dialer-proxy，恢复扩展脚本 / merge 等外部来源的原值。
+        // 即使当前配置没有 proxies 段也要清空记录，避免旧值落到下一份配置里。
+        let previous_chain = std::mem::take(&mut self.chain_dialer_proxies);
         if let Some(Value::Sequence(proxies)) = config.get_mut("proxies") {
-            for (name, original) in std::mem::take(&mut self.chain_dialer_proxies) {
+            for (name, original) in previous_chain {
                 let Some(proxy_map) = proxies
                     .iter_mut()
                     .find(|proxy| proxy.get("name").and_then(Value::as_str) == Some(name.as_str()))
@@ -235,6 +237,22 @@ proxies:
             Some("external"),
             "the value set by the profile pipeline must come back on disconnect"
         );
+        assert!(runtime.chain_dialer_proxies.is_empty());
+    }
+
+    #[test]
+    #[allow(clippy::expect_used)]
+    fn chain_tracking_is_cleared_even_without_a_proxies_sequence() {
+        let mut runtime = IRuntime {
+            config: Some(serde_yaml_ng::from_str("mode: rule").expect("valid runtime config")),
+            ..IRuntime::default()
+        };
+        runtime
+            .chain_dialer_proxies
+            .insert("entry".into(), Some(serde_yaml_ng::Value::from("external")));
+
+        runtime.update_proxy_chain_config(None);
+
         assert!(runtime.chain_dialer_proxies.is_empty());
     }
 }

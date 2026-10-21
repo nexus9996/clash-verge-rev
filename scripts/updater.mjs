@@ -43,18 +43,17 @@ const comparePrereleaseTagsDesc = (leftTag, rightTag) => {
 /**
  * Picks the release to publish on the alpha updater channel.
  *
- * Only GitHub releases flagged `prerelease` and not `draft` are considered.
- * Alpha tags win when present so the alpha channel keeps following alphas;
- * otherwise the newest supported prerelease (beta/pre/rc) is used. Returns
- * `null` when no publishable prerelease exists so the caller can skip
- * explicitly instead of publishing a stale tag.
+ * The release workflow only flags `-rc` tags as `prerelease` on GitHub, so the
+ * tag shape — not the release flag — decides the channel. Drafts are never
+ * publishable. Alpha tags win when present so the alpha channel keeps
+ * following alphas; otherwise the newest supported prerelease (beta/pre/rc)
+ * is used. Returns `null` when no publishable prerelease exists so the caller
+ * can skip explicitly instead of publishing a stale tag.
  */
 export const selectNewestPrerelease = (releases) => {
   const candidates = releases.filter(
     (release) =>
-      release.prerelease === true &&
-      release.draft !== true &&
-      parsePrereleaseTag(release.tag_name) !== null,
+      release.draft !== true && parsePrereleaseTag(release.tag_name) !== null,
   )
   if (candidates.length === 0) return null
 

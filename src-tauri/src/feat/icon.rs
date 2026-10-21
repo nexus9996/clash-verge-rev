@@ -5,8 +5,9 @@ use crate::{
 use clash_verge_logging::{Type, logging};
 use smartstring::alias::String;
 use std::{
-    net::{IpAddr, Ipv4Addr},
+    net::{IpAddr, Ipv4Addr, SocketAddr},
     path::{Component, Path, PathBuf},
+    sync::Arc,
     sync::OnceLock,
     time::Duration,
 };
@@ -49,6 +50,30 @@ fn is_disallowed_ip(ip: IpAddr) -> bool {
     }
 }
 
+fn resolved_addresses_are_allowed(addrs: &[SocketAddr]) -> bool {
+    !addrs.is_empty() && addrs.iter().all(|addr| !is_disallowed_ip(addr.ip()))
+}
+
+/// DNS answers must be checked too: a subscription-controlled hostname can resolve to a
+/// loopback/link-local address even though its text is not an IP literal.
+#[derive(Clone, Copy, Default)]
+struct InternalAddressFilter;
+
+impl reqwest::dns::Resolve for InternalAddressFilter {
+    fn resolve(&self, name: reqwest::dns::Name) -> reqwest::dns::Resolving {
+        Box::pin(async move {
+            let addrs: Vec<SocketAddr> = tokio::net::lookup_host((name.as_str(), 0))
+                .await
+                .map_err(|error| -> Box<dyn std::error::Error + Send + Sync> { Box::new(error) })?
+                .collect();
+            if !resolved_addresses_are_allowed(&addrs) {
+                return Err("icon host resolves to a disallowed address".into());
+            }
+            Ok(Box::new(addrs.into_iter()) as reqwest::dns::Addrs)
+        })
+    }
+}
+
 fn host_is_disallowed(host: &str) -> bool {
     let host = host.trim_end_matches('.');
     let lower = host.to_ascii_lowercase();
@@ -88,6 +113,7 @@ fn icon_client() -> CmdResult<&'static reqwest::Client> {
     let client = reqwest::Client::builder()
         .timeout(ICON_TIMEOUT)
         .connect_timeout(Duration::from_secs(5))
+        .dns_resolver(Arc::new(InternalAddressFilter))
         .redirect(reqwest::redirect::Policy::custom(|attempt| {
             if attempt.previous().len() >= MAX_ICON_REDIRECTS {
                 attempt.error(std::io::Error::other("too many icon redirects"))
@@ -293,13 +319,32 @@ pub async fn copy_icon_file(path: String, icon_info: IconInfo) -> CmdResult<Stri
 
 #[cfg(test)]
 mod tests {
-    use super::{MAX_ICON_BYTES, exceeds_icon_limit, validate_icon_url};
+    use super::{MAX_ICON_BYTES, exceeds_icon_limit, resolved_addresses_are_allowed, validate_icon_url};
 
     #[test]
     fn icon_stream_limit_accepts_the_boundary_and_rejects_growth() {
         assert!(!exceeds_icon_limit(MAX_ICON_BYTES - 1, 1));
         assert!(exceeds_icon_limit(MAX_ICON_BYTES, 1));
         assert!(exceeds_icon_limit(usize::MAX, 1));
+    }
+
+    #[test]
+    fn icon_resolution_rejects_private_answers_and_accepts_public_ones() {
+        use std::net::{Ipv4Addr, SocketAddr};
+
+        assert!(resolved_addresses_are_allowed(&[
+            SocketAddr::from((Ipv4Addr::new(1, 1, 1, 1), 443)),
+            SocketAddr::from((Ipv4Addr::new(8, 8, 8, 8), 443)),
+        ]));
+        assert!(!resolved_addresses_are_allowed(&[SocketAddr::from((
+            Ipv4Addr::new(127, 0, 0, 1),
+            443
+        )),]));
+        assert!(!resolved_addresses_are_allowed(&[SocketAddr::from((
+            Ipv4Addr::new(10, 0, 0, 1),
+            80
+        )),]));
+        assert!(!resolved_addresses_are_allowed(&[]));
     }
 
     #[test]

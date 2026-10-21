@@ -87,11 +87,15 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
   useImperativeHandle(ref, () => ({
     create: () => {
       clearResetTimer()
+      // The deferred reset may not have run yet when the user reopens quickly;
+      // a new form must never inherit the previous profile.
+      reset()
       setOpenType('new')
       setOpen(true)
     },
     edit: (item: IProfileItem) => {
       clearResetTimer()
+      reset()
       if (item) {
         Object.entries(item).forEach(([key, value]) => {
           setValue(key as any, value)
