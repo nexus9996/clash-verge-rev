@@ -122,7 +122,7 @@ test('flush applies the pending value without waiting for the timer', () => {
   expect(onSave).toHaveBeenCalledWith(7, 0)
 })
 
-test('dispose drops a pending debounced save', async () => {
+test('dispose flushes a pending debounced save', async () => {
   vi.useFakeTimers()
   const onSave = vi.fn().mockResolvedValue(undefined)
   const saver = createLatestSaver<number>({
@@ -134,6 +134,6 @@ test('dispose drops a pending debounced save', async () => {
 
   saver.change(1)
   saver.dispose()
-  await vi.advanceTimersByTimeAsync(300)
-  expect(onSave).not.toHaveBeenCalled()
+  await settle()
+  expect(onSave).toHaveBeenCalledWith(1, 0)
 })

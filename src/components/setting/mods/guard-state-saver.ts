@@ -98,12 +98,12 @@ export const createLatestSaver = <Value,>({
     },
 
     dispose() {
-      // React's StrictMode replays mount effects, so cleanup must not make the
-      // saver permanently inert. Dropping the pending work is enough; a
-      // genuine unmount never calls `change` again.
+      // React's StrictMode replays mount effects before any change, so flushing
+      // here is safe. Dropping a pending value would lose the last edit when
+      // the user leaves a debounced control immediately after typing.
       clearTimer()
-      hasPending = false
-      pending = undefined
+      ready = true
+      void run()
     },
   }
 }
