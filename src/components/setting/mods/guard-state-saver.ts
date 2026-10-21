@@ -34,7 +34,6 @@ export const createLatestSaver = <Value,>({
   let hasPending = false
   let ready = false
   let running = false
-  let disposed = false
   let timer: ReturnType<typeof setTimeout> | undefined
 
   const clearTimer = () => {
@@ -45,7 +44,7 @@ export const createLatestSaver = <Value,>({
   }
 
   const run = async () => {
-    if (disposed || running || !hasPending || !ready) return
+    if (running || !hasPending || !ready) return
 
     running = true
     ready = false
@@ -73,8 +72,6 @@ export const createLatestSaver = <Value,>({
 
   return {
     change(value: Value) {
-      if (disposed) return
-
       version += 1
       pending = value
       hasPending = true
@@ -101,7 +98,9 @@ export const createLatestSaver = <Value,>({
     },
 
     dispose() {
-      disposed = true
+      // React's StrictMode replays mount effects, so cleanup must not make the
+      // saver permanently inert. Dropping the pending work is enough; a
+      // genuine unmount never calls `change` again.
       clearTimer()
       hasPending = false
       pending = undefined

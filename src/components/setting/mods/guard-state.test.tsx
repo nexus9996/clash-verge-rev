@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act } from 'react'
+import { StrictMode, act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
@@ -115,4 +115,38 @@ test('rolls back to the last committed value when the latest save fails', async 
   expect(onGuard).toHaveBeenLastCalledWith(30, 20)
   expect(onChange).toHaveBeenLastCalledWith(20)
   expect(onCatch).toHaveBeenCalledTimes(1)
+})
+
+test('still saves after StrictMode replays the mount effect', async () => {
+  const onChange = vi.fn()
+  const onGuard = vi.fn().mockResolvedValue(undefined)
+
+  await act(async () => {
+    root.render(
+      <StrictMode>
+        <GuardState<number>
+          value={80}
+          waitTime={400}
+          onChange={onChange}
+          onGuard={onGuard}
+          onFormat={(event: { target: { value: string } }) =>
+            Number(event.target.value)
+          }
+        >
+          <input />
+        </GuardState>
+      </StrictMode>,
+    )
+  })
+
+  const input = container.querySelector('input')
+  if (!input) throw new Error('input was not rendered')
+
+  type(input, '123')
+
+  await act(async () => {
+    vi.advanceTimersByTime(400)
+  })
+
+  expect(onGuard).toHaveBeenCalledWith(123, 80)
 })
