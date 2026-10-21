@@ -6,6 +6,7 @@ vi.mock('tauri-plugin-mihomo-api', () => ({
 }))
 
 import type { ResolvedProxyMember } from '@/types/proxy-view'
+import { DEFAULT_LATENCY_TEST_URL } from '@/utils/delay'
 
 import delayManager, { groupDelayKey } from './delay'
 
@@ -43,6 +44,7 @@ describe('group delay completion', () => {
     await flush()
 
     expect(settles).toBe(1)
+    expect(delayManager.getDelayFix(proxies[0], 'g')).toBe(120)
   })
 
   test('notifies only listeners for the completed group', async () => {
@@ -56,141 +58,28 @@ describe('group delay completion', () => {
 
     expect(settles).toBe(1)
     expect(other).toBe(0)
+    expect(delayManager.getDelayFix(node('a'), 'g')).toBe(120)
     stop()
   })
 })
 
-test('uses newer core history after a tray test without hiding an active page test', () => {
-  const member = node('tray-refresh')
-  if (member.kind !== 'node') throw new Error('Expected node')
-  const cached = delayManager.setDelay(member, 'tray-group', 50)
-  member.node.extra = {
-    [delayManager.getUrl('tray-group')]: {
-      history: [
-        { time: new Date(cached.updatedAt + 1000).toISOString(), delay: 300 },
-      ],
-    },
-  }
-
-  expect(delayManager.getDelayFix(member, 'tray-group')).toBe(300)
-  expect(delayManager.getDelayUpdate(member, 'tray-group')?.delay).toBe(300)
-
-  delayManager.setDelay(member, 'tray-group', -2)
-  expect(delayManager.getDelayFix(member, 'tray-group')).toBe(-2)
-})
-
-test('latency URL validation rejects malformed hosts and ports and trims valid URLs', () => {
-  for (const url of [
-    'http://?',
-    'http://host:invalid',
-    'http://bad host/',
-    'ftp://localhost',
-    'http:localhost',
-  ]) {
-    delayManager.setUrl('url-validation', url)
-    expect(delayManager.getUrl('url-validation')).toBe(
-      'http://cp.cloudflare.com/generate_204',
-    )
-  }
-  delayManager.setUrl('url-validation', ' HTTP://localhost:8080/ ')
-  expect(delayManager.getUrl('url-validation')).toBe('HTTP://localhost:8080/')
-})
-
-test('another URL cannot replace a group measurement, but a newer matching URL can', () => {
-  const member = node('url-isolation')
-  if (member.kind !== 'node') throw new Error('Expected node')
-  delayManager.setUrl('url-a', 'http://localhost/a')
-  const cached = delayManager.setDelay(member, 'url-a', 50)
-  const newer = new Date(cached.updatedAt + 1000).toISOString()
-  Object.assign(member.node, {
-    history: [{ time: newer, delay: 126 }],
-    extra: {
-      'http://localhost/a': {
-        history: [
-          { time: new Date(cached.updatedAt - 1000).toISOString(), delay: 49 },
-        ],
-      },
-      'http://localhost/b': {
-        history: [{ time: newer, delay: 126 }],
-      },
-    },
-  })
-  expect(delayManager.getDelayFix(member, 'url-a')).toBe(50)
-  Object.assign(member.node, {
-    extra: {
-      'http://localhost/a': {
-        history: [{ time: newer, delay: 75 }],
-      },
-    },
-  })
-  expect(delayManager.getDelayFix(member, 'url-a')).toBe(75)
-})
-
-test('same-named provider members keep separate measurements and listeners', async () => {
-  const first = node('same-provider-name')
-  const second = node('same-provider-name')
-  if (first.kind !== 'node' || second.kind !== 'node')
-    throw new Error('Expected nodes')
-  first.node.recordId = 'provider-a:N'
-  first.node.source = { kind: 'provider', providerName: 'a', proxyName: 'N' }
-  second.node.recordId = 'provider-b:N'
-  second.node.source = { kind: 'provider', providerName: 'b', proxyName: 'N' }
-  const { healthcheckNodeInProvider } = await import('tauri-plugin-mihomo-api')
-  vi.mocked(healthcheckNodeInProvider)
-    .mockResolvedValueOnce({ delay: 40 })
-    .mockResolvedValueOnce({ delay: 125 })
-  const firstListener = vi.fn()
-  const secondListener = vi.fn()
-  delayManager.setListener(first, 'provider-collision', firstListener)
-  delayManager.setListener(second, 'provider-collision', secondListener)
-  await delayManager.checkListDelay([first, second], 'provider-collision', 5000)
-  await flush()
-  expect(firstListener).toHaveBeenLastCalledWith(
-    expect.objectContaining({ delay: 40 }),
-  )
-  expect(secondListener).toHaveBeenLastCalledWith(
-    expect.objectContaining({ delay: 125 }),
-  )
-  delayManager.removeListener(first, 'provider-collision')
-  delayManager.removeListener(second, 'provider-collision')
-  expect(delayManager.getDelayFix(first, 'provider-collision')).toBe(40)
-  expect(delayManager.getDelayFix(second, 'provider-collision')).toBe(125)
-})
-
-test.each(['core', 'provider'] as const)(
-  'cached %s delays follow source identity after record IDs move',
-  (kind) => {
-    const original = node(`stable-${kind}`)
-    const replacement = node(`replacement-${kind}`)
-    if (original.kind !== 'node' || replacement.kind !== 'node')
-      throw new Error('Expected nodes')
-    const source = (proxyName: string) =>
-      kind === 'core'
-        ? { kind, proxyName }
-        : { kind, providerName: 'subscription', proxyName }
-    original.node.source = source(original.ref.name)
-    replacement.node.source = source(replacement.ref.name)
-    original.node.recordId = 'position:0'
-    replacement.node.recordId = 'position:0'
-    delayManager.setDelay(original, `reorder-${kind}`, 40)
-    expect(delayManager.getDelayFix(replacement, `reorder-${kind}`)).toBe(-1)
-    original.node.recordId = 'position:1'
-    expect(delayManager.getDelayFix(original, `reorder-${kind}`)).toBe(40)
-  },
-)
-
-test('unmeasured selectors show automatic history without replacing a manual URL result', () => {
+test('unmeasured selectors show automatic history without replacing a cached result', () => {
   const member = node('selector-member')
   if (member.kind !== 'node') throw new Error('Expected node')
   member.node.history = [
     { time: new Date(Date.now() + 1000).toISOString(), delay: 126 },
   ]
-  member.node.extra = {
-    'http://localhost/automatic': { history: member.node.history },
-  }
   expect(delayManager.getDelayFix(member, 'selector')).toBe(126)
-  delayManager.setDelay(member, 'selector', 50)
+  delayManager.setDelay('selector-member', 'selector', 50)
   expect(delayManager.getDelayFix(member, 'selector')).toBe(50)
+})
+
+test('invalid latency URLs fall back to the shared default', () => {
+  delayManager.setUrl('url-validation', 'ftp://localhost')
+  expect(delayManager.getUrl('url-validation')).toBe(DEFAULT_LATENCY_TEST_URL)
+
+  delayManager.setUrl('url-validation', 'http://localhost:8080/')
+  expect(delayManager.getUrl('url-validation')).toBe('http://localhost:8080/')
 })
 
 test('group delay snapshots support group names containing spaces', () => {
@@ -201,39 +90,4 @@ test('group delay snapshots support group names containing spaces', () => {
   expect(snapshots.get('🇭🇰 Hong Kong')).toBe(
     delayManager.groupDelays('🇭🇰 Hong Kong'),
   )
-})
-
-test('overlapping batches measure each member once', async () => {
-  const { delayProxyByName } = await import('tauri-plugin-mihomo-api')
-  const mocked = vi.mocked(delayProxyByName)
-  const original = mocked.getMockImplementation()
-  const releases: Array<() => void> = []
-  mocked.mockImplementation(
-    () =>
-      new Promise((resolve) => {
-        releases.push(() => resolve({ delay: 42 }))
-      }),
-  )
-  try {
-    const members = [node('overlap-a'), node('overlap-b')]
-    const first = delayManager.checkListDelay(
-      members as never,
-      'overlap',
-      5000,
-      2,
-    )
-    const second = delayManager.checkListDelay(
-      members as never,
-      'overlap',
-      5000,
-      2,
-    )
-    await flush()
-    expect(mocked).toHaveBeenCalledTimes(2)
-    for (const release of releases) release()
-    await Promise.all([first, second])
-    expect(mocked).toHaveBeenCalledTimes(2)
-  } finally {
-    if (original) mocked.mockImplementation(original)
-  }
 })

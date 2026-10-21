@@ -47,10 +47,7 @@ import { useGroupDelays } from '@/hooks/use-group-delays'
 import { useProfiles } from '@/hooks/use-profiles'
 import { useProxySelection } from '@/hooks/use-proxy-selection'
 import { useVerge } from '@/hooks/use-verge'
-import { refreshTrayProxyItems } from '@/services/cmds'
 import delayManager from '@/services/delay'
-import { mutate } from '@/services/mutate'
-import { profileTestUrls } from '@/services/proxy-test-url'
 import {
   findCurrentGroupMember,
   getRecord,
@@ -61,11 +58,7 @@ import {
   type ResolvedProxyMember,
 } from '@/types/proxy-view'
 import { debugLog } from '@/utils/debug'
-import {
-  compareByDelay,
-  DEFAULT_DELAY_TIMEOUT,
-  DEFAULT_LATENCY_TEST_URL,
-} from '@/utils/delay'
+import { compareByDelay, DEFAULT_DELAY_TIMEOUT } from '@/utils/delay'
 
 const STORAGE_KEY_GROUP = 'clash-verge-selected-proxy-group'
 const STORAGE_KEY_SORT_TYPE = 'clash-verge-proxy-sort-type'
@@ -684,20 +677,6 @@ export const CurrentProxyCard = () => {
     [proxyView],
   )
 
-  useEffect(() => {
-    if (!selectedGroup) return
-    const customUrl = currentProfile
-      ? profileTestUrls(currentProfile)[selectedGroup.name]
-      : undefined
-    delayManager.setUrl(
-      selectedGroup.name,
-      customUrl?.trim() ||
-        selectedGroup.testUrl?.trim() ||
-        verge?.default_latency_test?.trim() ||
-        DEFAULT_LATENCY_TEST_URL,
-    )
-  }, [selectedGroup, currentProfile, verge?.default_latency_test])
-
   const unsortedProxyOptions = useMemo(
     () => optionsForGroup(selectedGroup),
     [optionsForGroup, selectedGroup],
@@ -928,12 +907,7 @@ export const CurrentProxyCard = () => {
       }
     }
 
-    mutate(() => refreshTrayProxyItems(), {
-      id: 'refresh-tray-latency',
-      errorNotice: false,
-    }).catch((error) => {
-      console.error('[CurrentProxyCard] Failed to refresh tray latency:', error)
-    })
+    refreshProxy()
   })
 
   const proxyOptions = useMemo(

@@ -107,9 +107,6 @@ const groupOccurrences = <T>(list: T[], size: number): T[][] =>
 
 export const CHAIN_DELAY_GROUP = 'chain-mode'
 
-/** Re-entering chain mode should not re-probe nodes measured moments ago. */
-const CHAIN_DELAY_FRESH_MS = 60_000
-
 const virtualGroup = (members: ProxyGroupView['members']): ProxyGroupView => ({
   name: CHAIN_DELAY_GROUP,
   type: 'Selector',
@@ -119,7 +116,6 @@ const virtualGroup = (members: ProxyGroupView['members']): ProxyGroupView => ({
   mptcp: false,
   smux: false,
   history: [],
-  extra: {},
   members,
 })
 
@@ -192,10 +188,6 @@ export const useRenderList = (
     const interactable = chainOccurrencesRef.current
       .map(({ member }) => member)
       .filter(isInteractableMember)
-      .filter(
-        (member) =>
-          !delayManager.isFresh(member, chainDelayGroup, CHAIN_DELAY_FRESH_MS),
-      )
     if (interactable.length === 0) return
 
     const controller = new AbortController()

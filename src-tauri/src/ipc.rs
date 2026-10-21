@@ -49,7 +49,6 @@ pub fn builder() -> tauri_specta::Builder<tauri::Wry> {
             cmd::invoke_uwp_tool,
             cmd::copy_clash_env,
             cmd::sync_tray_proxy_selection,
-            cmd::refresh_tray_proxy_items,
             cmd::record_selected_node,
             cmd::forget_selected_node,
             cmd::save_dns_config,

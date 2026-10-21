@@ -96,18 +96,8 @@ export async function deleteProfile(index: string) {
 }
 
 export async function patchProfile(index: string, profile: ProfilePatch) {
-  const {
-    type,
-    name,
-    desc,
-    file,
-    url,
-    selected,
-    latency_test_urls,
-    extra,
-    updated,
-    option,
-  } = profile
+  const { type, name, desc, file, url, selected, extra, updated, option } =
+    profile
   return commands.patchProfile(index, {
     type,
     name,
@@ -115,7 +105,6 @@ export async function patchProfile(index: string, profile: ProfilePatch) {
     file,
     url,
     selected,
-    latency_test_urls,
     extra,
     updated,
     option,
@@ -170,10 +159,6 @@ export async function patchClashMode(payload: string) {
 
 export async function syncTrayProxySelection() {
   return commands.syncTrayProxySelection()
-}
-
-export async function refreshTrayProxyItems() {
-  return commands.refreshTrayProxyItems()
 }
 
 /** Sends one selection pair so the backend can merge against current profile state. */

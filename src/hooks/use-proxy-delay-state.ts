@@ -37,6 +37,7 @@ export function useProxyDelayState(
   groupName: string,
 ): UseProxyDelayState {
   const name = member.ref.name
+  const details = memberDetails(member)
   const unresolved = member.kind === 'unresolved'
   const isPreset = unresolved || PRESET_PROXY_NAMES.includes(name)
   const [delayState, setDelayState] = useReducer(reuseEqual, INITIAL_DELAY)
@@ -45,18 +46,18 @@ export function useProxyDelayState(
 
   useEffect(() => {
     if (isPreset) return
-    delayManager.setListener(member, groupName, setDelayState)
+    delayManager.setListener(name, groupName, setDelayState)
     return () => {
-      delayManager.removeListener(member, groupName)
+      delayManager.removeListener(name, groupName)
     }
-  }, [member, groupName, isPreset])
+  }, [name, groupName, isPreset])
 
   const updateDelay = useCallback(() => {
     if (unresolved) {
       setDelayState(INITIAL_DELAY)
       return
     }
-    const cachedUpdate = delayManager.getDelayUpdate(member, groupName)
+    const cachedUpdate = delayManager.getDelayUpdate(name, groupName)
     if (cachedUpdate) {
       setDelayState({ ...cachedUpdate })
       return
@@ -69,9 +70,7 @@ export function useProxyDelayState(
     }
 
     let updatedAt = 0
-    const history =
-      delayManager.getHistory(member, groupName) ??
-      memberDetails(member)?.history
+    const history = details?.history
     if (history && history.length > 0) {
       const lastRecord = history[history.length - 1]
       const parsed = Date.parse(lastRecord.time)
@@ -81,18 +80,16 @@ export function useProxyDelayState(
     }
 
     setDelayState({ delay: fallbackDelay, updatedAt })
-  }, [groupName, member, unresolved])
+  }, [details?.history, groupName, member, name, unresolved])
 
   useEffect(() => {
     updateDelay()
-    return delayManager.addGroupListener(groupName, updateDelay)
-  }, [groupName, updateDelay])
+  }, [updateDelay])
 
   const onDelay = useLockFn(async () => {
     if (!isInteractableMember(member)) return
     setDelayState({ delay: -2, updatedAt: Date.now() })
-    await delayManager.checkDelay(member, groupName, timeout)
-    updateDelay()
+    setDelayState(await delayManager.checkDelay(member, groupName, timeout))
   })
 
   return {

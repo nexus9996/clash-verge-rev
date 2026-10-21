@@ -36,9 +36,6 @@ pub async fn forget_selected_node(group_name: String) -> CmdResult<()> {
 static TRAY_SYNC_RUNNING: AtomicBool = AtomicBool::new(false);
 static TRAY_SYNC_PENDING: AtomicBool = AtomicBool::new(false);
 
-/// Provider data is optional for the view; a slow local fetch must not stall the UI.
-pub(crate) const PROXY_VIEW_PROVIDER_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(750);
-
 fn runtime_group_order(config: Option<&Mapping>) -> Vec<String> {
     let mut seen = HashSet::new();
 
@@ -111,32 +108,20 @@ fn runtime_group_scopes(config: Option<&Mapping>) -> BTreeMap<String, GroupScope
 #[tauri::command]
 #[specta::specta]
 pub async fn get_proxy_view() -> CmdResult<ProxyViewV1> {
-    proxy_view(Some(PROXY_VIEW_PROVIDER_TIMEOUT)).await
-}
-
-pub(crate) async fn proxy_view(provider_timeout: Option<std::time::Duration>) -> CmdResult<ProxyViewV1> {
     let runtime = Config::runtime().await;
     let latest_runtime = runtime.latest_arc();
     let runtime_group_order = runtime_group_order(latest_runtime.config.as_ref());
     let group_scopes = runtime_group_scopes(latest_runtime.config.as_ref());
 
     let mihomo = Handle::mihomo();
-    let (proxies, providers) = tokio::join!(mihomo.get_proxies(), async {
-        match provider_timeout {
-            Some(timeout) => tokio::time::timeout(timeout, mihomo.get_proxy_providers())
-                .await
-                .ok()
-                .and_then(Result::ok),
-            None => mihomo.get_proxy_providers().await.ok(),
-        }
-    });
+    let (proxies, providers) = tokio::join!(mihomo.get_proxies(), mihomo.get_proxy_providers(),);
     let proxies = proxies.stringify_err()?;
 
     Ok(ProxyViewBuilder::build(ProxyViewInput {
         runtime_group_order,
         group_scopes,
         proxies,
-        providers,
+        providers: providers.ok(),
     }))
 }
 
@@ -154,14 +139,6 @@ pub async fn sync_tray_proxy_selection() -> CmdResult<()> {
         TRAY_SYNC_PENDING.store(true, Ordering::Release);
     }
 
-    Ok(())
-}
-
-/// Refreshes tray latency texts in place after a test; the menu structure is unchanged.
-#[tauri::command]
-#[specta::specta]
-pub async fn refresh_tray_proxy_items() -> CmdResult<()> {
-    Tray::global().refresh_proxy_items().await;
     Ok(())
 }
 
