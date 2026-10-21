@@ -263,7 +263,7 @@ async function processRelease(github, options, tag, isAlpha) {
         updateData.platforms['linux-x86'].signature = sig
         updateData.platforms['linux-x86-deb'].signature = sig
         updateData.platforms['linux-i686'].signature = sig
-        updateData.platforms['linux-i686-deb'].signature = browser_download_url
+        updateData.platforms['linux-i686-deb'].signature = sig
       }
       if (name.endsWith('i386.rpm')) {
         updateData.platforms['linux-x86-rpm'].url = browser_download_url
