@@ -1,6 +1,7 @@
 //! Adapters between Run State and the real or scripted machine it observes.
 
-use anyhow::{Context as _, Result};
+use anyhow::{Context as _, Result, anyhow};
+use std::time::Duration;
 
 use super::health::{PendingAction, RunState};
 use super::probe::ServiceVersionReply;
@@ -22,6 +23,10 @@ pub trait RunStateEnv: Send + Sync + 'static {
     fn run_privileged(&self, action: PendingAction) -> Result<()>;
 }
 
+/// The IPC client retries internally for roughly two minutes; the probe must not
+/// multiply that by the outer startup/readiness retry loops.
+const SERVICE_PROBE_TIMEOUT: Duration = Duration::from_secs(10);
+
 #[derive(Debug, Default, Clone, Copy)]
 pub struct RealEnv;
 
@@ -29,13 +34,21 @@ impl RunStateEnv for RealEnv {
     async fn probe_service_version(&self) -> Result<ServiceVersionReply> {
         // The IPC client would otherwise back off for about two minutes before failing.
         #[cfg(windows)]
-        if let Some(reason) = tokio::task::spawn_blocking(crate::core::service::service_stop_reason)
-            .await
-            .context("service status probe did not finish")??
         {
-            anyhow::bail!(reason);
+            let reason = tokio::time::timeout(
+                SERVICE_PROBE_TIMEOUT,
+                tokio::task::spawn_blocking(crate::core::service::service_stop_reason),
+            )
+            .await
+            .map_err(|_| anyhow!("service status probe timed out"))?
+            .context("service status probe did not finish")??;
+            if let Some(reason) = reason {
+                anyhow::bail!(reason);
+            }
         }
-        let response = clash_verge_service_ipc::get_version().await?;
+        let response = tokio::time::timeout(SERVICE_PROBE_TIMEOUT, clash_verge_service_ipc::get_version())
+            .await
+            .map_err(|_| anyhow!("service version probe timed out"))??;
         let core = if response.code == 0
             && response.data.as_ref().is_some_and(|info| {
                 info.supports_client(
@@ -48,11 +61,15 @@ impl RunStateEnv for RealEnv {
                 crate::config::Config::verge().await.latest_arc().get_valid_clash_core(),
                 std::env::consts::EXE_SUFFIX
             );
-            let status = clash_verge_service_ipc::inspect_installation(&[clash_verge_service_ipc::CoreRequirement {
-                name: name.clone(),
-                sha256: None,
-            }])
-            .await?;
+            let status = tokio::time::timeout(
+                SERVICE_PROBE_TIMEOUT,
+                clash_verge_service_ipc::inspect_installation(&[clash_verge_service_ipc::CoreRequirement {
+                    name: name.clone(),
+                    sha256: None,
+                }]),
+            )
+            .await
+            .map_err(|_| anyhow!("service installation probe timed out"))??;
             status
                 .cores
                 .into_iter()
