@@ -70,6 +70,26 @@ fn strip_untrusted_startup_script(verge: &mut IVerge) -> bool {
     verge.startup_script.take().is_some()
 }
 
+/// A remote listing name must never choose the local download path: a hostile or odd WebDAV
+/// entry named `verge.yaml` would otherwise overwrite (and the cleanup guard would delete) a
+/// live app file. Always restore through a fresh private temp archive.
+fn restore_temp_path() -> Result<PathBuf> {
+    let path = std::env::temp_dir().join(format!(
+        "clash-verge-restore-{}-{}.zip",
+        std::process::id(),
+        nanoid::nanoid!()
+    ));
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        options.mode(0o600);
+    }
+    options.open(&path)?.sync_all()?;
+    Ok(path)
+}
+
 /// Reloads restored configs into memory while preserving WebDAV credentials.
 async fn finalize_restored_verge_config(
     webdav_url: Option<String>,
@@ -193,9 +213,8 @@ pub async fn restore_webdav_backup(filename: String) -> Result<()> {
     let webdav_username = verge_data.webdav_username.clone();
     let webdav_password = verge_data.webdav_password.clone();
 
-    let app_home = app_home_dir().map_err(|e| anyhow::anyhow!("Failed to get app home dir: {e}"))?;
-    let backup_storage_path = resolve_within(&app_home, &filename)?;
     let filename = String::from(sanitize_backup_filename(&filename)?);
+    let backup_storage_path = restore_temp_path()?;
     let name = filename.to_string();
     backup::WebDavClient::global()
         .download(filename, backup_storage_path.clone())
@@ -477,7 +496,8 @@ pub async fn export_local_backup(filename: String, destination: String) -> Resul
 #[cfg(test)]
 mod tests {
     use super::{
-        ArchiveLimits, resolve_within, sanitize_backup_filename, strip_untrusted_startup_script, validate_zip_archive,
+        ArchiveLimits, resolve_within, restore_temp_path, sanitize_backup_filename, strip_untrusted_startup_script,
+        validate_zip_archive,
     };
     use crate::config::IVerge;
 
@@ -594,6 +614,24 @@ mod tests {
         std::fs::remove_file(root.join("link.zip"))?;
         std::fs::remove_dir_all(&root)?;
         std::fs::remove_file(outside)?;
+        Ok(())
+    }
+
+    #[test]
+    fn restore_download_paths_are_unique_private_and_not_live_app_files() -> anyhow::Result<()> {
+        let first = restore_temp_path()?;
+        let second = restore_temp_path()?;
+        assert_ne!(first, second);
+        assert_eq!(first.extension().and_then(std::ffi::OsStr::to_str), Some("zip"));
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            assert_eq!(std::fs::metadata(&first)?.permissions().mode() & 0o777, 0o600);
+        }
+
+        std::fs::remove_file(first)?;
+        std::fs::remove_file(second)?;
         Ok(())
     }
 }
