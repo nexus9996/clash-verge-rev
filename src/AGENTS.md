@@ -22,13 +22,14 @@ These rules supplement the repository's root `AGENTS.md`.
   wrappers. Components and hooks use those boundaries; plugin mutations follow
   the same intent ownership as backend commands.
 - **Navigation ownership.** `config/navigation.ts` is the single source for
-  navigation ids, paths and labels. Route files point at an entry through
-  `staticData.navId`; components consume the catalog instead of hardcoding
-  paths, and backend-provided paths are resolved through `resolveNavigationPath`.
-- **Layer ownership.** Routes are thin shells over pages; pages compose
-  components; components, hooks, services and config never import pages or
-  routes upward. `scripts/check-architecture.mjs` enforces the direction and the
-  `arch:check` gate surfaces violations.
+  navigation ids, paths and labels; `app/route-pages.ts` maps each id to its
+  page component (or lazy import). Components consume the catalog instead of
+  hardcoding paths, and backend-provided paths are resolved through
+  `resolveNavigationPath`.
+- **Layer ownership.** The app composition root wires the router over pages;
+  pages compose components; components, hooks, services and config never import
+  pages or app upward. `scripts/check-architecture.mjs` enforces the direction
+  and the `arch:check` gate surfaces violations.
 
 - **Domain data ownership.** Ordinary reads live in `hooks/data/*` domain hooks
   over the shared query client. There is no app-wide data provider/context:

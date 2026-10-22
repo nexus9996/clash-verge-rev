@@ -1,19 +1,27 @@
-import { createRouter } from '@tanstack/react-router'
+import { createBrowserRouter, type RouteObject } from 'react-router'
 
-import { routeTree } from '@/routeTree.gen'
+import { NAV_ITEMS } from '@/config/navigation'
 
+import Layout from './layout'
 import { RouteError, RouteNotFound } from './route-fallbacks'
-import { ROUTER_DEFAULTS } from './router-options'
+import { PAGE_ROUTES } from './route-pages'
 
-export const router = createRouter({
-  routeTree,
-  defaultErrorComponent: RouteError,
-  defaultNotFoundComponent: RouteNotFound,
-  ...ROUTER_DEFAULTS,
+const pageRoutes: RouteObject[] = NAV_ITEMS.map((item) => {
+  const page = PAGE_ROUTES[item.id]
+
+  return {
+    path: item.path,
+    ...(page.lazy ? { lazy: page.lazy } : { Component: page.Component }),
+    // Keep render failures inside the app shell: the error view replaces the
+    // page while the sidebar/window chrome keeps working.
+    errorElement: <RouteError />,
+  }
 })
 
-declare module '@tanstack/react-router' {
-  interface Register {
-    router: typeof router
-  }
-}
+export const router = createBrowserRouter([
+  {
+    path: '/',
+    Component: Layout,
+    children: [...pageRoutes, { path: '*', Component: RouteNotFound }],
+  },
+])

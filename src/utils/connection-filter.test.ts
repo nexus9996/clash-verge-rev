@@ -90,9 +90,10 @@ test('collects unique sorted values for one field only', () => {
     metadata: { host: 'example.com', destinationPort: '443' },
   })
 
-  expect(
-    collectConnectionFieldValues([first, second, third], 'host'),
-  ).toEqual(['example.com:443', 'other.org:80'])
+  expect(collectConnectionFieldValues([first, second, third], 'host')).toEqual([
+    'example.com:443',
+    'other.org:80',
+  ])
 
   // Filters on other fields narrow the offered values; a filter on the field
   // itself must not hide the alternatives the user can switch to.

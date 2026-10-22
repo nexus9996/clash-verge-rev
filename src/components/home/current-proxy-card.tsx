@@ -29,7 +29,7 @@ import {
   alpha,
   useTheme,
 } from '@mui/material'
-import { useNavigate } from '@tanstack/react-router'
+import { useNavigate } from 'react-router'
 import { useLockFn } from 'ahooks'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -780,7 +780,7 @@ export const CurrentProxyCard = () => {
   )
 
   const goToProxies = useCallback(() => {
-    void navigate({ to: '/proxies' })
+    void navigate('/proxies')
   }, [navigate])
 
   const currentMember = currentOption?.member
