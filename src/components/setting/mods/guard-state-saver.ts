@@ -21,7 +21,7 @@ export type LatestSaver<Value> = {
   dispose: () => void
 }
 
-export const createLatestSaver = <Value,>({
+export const createLatestSaver = <Value>({
   waitTime = 0,
   initialCommitted,
   onSave,

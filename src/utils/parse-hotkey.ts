@@ -9,7 +9,9 @@ type HotkeyKeyEvent = {
 /** Keys that must keep their native behavior while the recorder is focused. */
 export const isPassthroughHotkey = (keyEvent: HotkeyKeyEvent) => {
   const { code, key } = keyEvent.nativeEvent
-  return code === 'Tab' || key === 'Tab' || code === 'Escape' || key === 'Escape'
+  return (
+    code === 'Tab' || key === 'Tab' || code === 'Escape' || key === 'Escape'
+  )
 }
 
 export const parseHotkey = (keyEvent: HotkeyKeyEvent) => {

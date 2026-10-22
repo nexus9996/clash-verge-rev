@@ -9,7 +9,9 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }))
 
-;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+;(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true
 
 let container: HTMLDivElement
 let root: Root
@@ -67,7 +69,9 @@ test('leaves Tab and Escape to the browser and never records them', async () => 
   const tab = press(input, { key: 'Tab', code: 'Tab' })
   expect(tab.defaultPrevented).toBe(false)
   act(() => {
-    input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Tab', bubbles: true }))
+    input.dispatchEvent(
+      new KeyboardEvent('keyup', { key: 'Tab', bubbles: true }),
+    )
   })
 
   const escape = press(input, { key: 'Escape', code: 'Escape' })

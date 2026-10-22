@@ -65,8 +65,11 @@ export function GuardState<T>(props: Props<T>) {
 
   childProps[valueProps] = value
   childProps[onChangeProps] = (...args: any[]) => {
-    const { onChange: emitChange, onCatch: emitCatch, onFormat: format } =
-      handlersRef.current
+    const {
+      onChange: emitChange,
+      onCatch: emitCatch,
+      onFormat: format,
+    } = handlersRef.current
 
     let newValue: T
     try {
