@@ -7,7 +7,7 @@ import {
   PauseCircleOutlined,
 } from '@mui/icons-material'
 import { Typography, Stack, Divider, Chip, IconButton } from '@mui/material'
-import { useNavigate } from '@tanstack/react-router'
+import { useNavigate } from 'react-router'
 import { useLockFn } from 'ahooks'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -73,7 +73,7 @@ export const SystemInfoCard = () => {
   }, [verge?.auto_check_update, triggerCheckUpdate])
 
   const goToSettings = useCallback(() => {
-    void navigate({ to: '/settings' })
+    void navigate('/settings')
   }, [navigate])
 
   const toggleAutoLaunch = useCallback(async () => {

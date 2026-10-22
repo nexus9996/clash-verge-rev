@@ -1,5 +1,5 @@
 import { Paper, ThemeProvider } from '@mui/material'
-import { Outlet, useNavigate } from '@tanstack/react-router'
+import { Outlet, useNavigate } from 'react-router'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import { useCallback, useEffect, useMemo } from 'react'
@@ -28,6 +28,8 @@ import { useEventBus } from '@/services/bus'
 import { handleNoticeMessage } from '@/services/notice-handlers'
 import { useThemeMode } from '@/services/states'
 import getSystem from '@/utils/get-system'
+
+import { preloadPage } from './route-pages'
 
 import 'dayjs/locale/ru'
 import 'dayjs/locale/zh-cn'
@@ -66,7 +68,7 @@ const Layout = () => {
       const [status, msg] = payload
       try {
         handleNoticeMessage(status, msg, t, (path) =>
-          navigate({ to: resolveNavigationPath(path) }),
+          navigate(resolveNavigationPath(path)),
         )
       } catch (error) {
         console.error('[通知处理] 失败:', error)
@@ -159,7 +161,11 @@ const Layout = () => {
         {customTitlebar}
 
         <div className="layout-content">
-          <LayoutSidebar isDark={isDark} isCollapsed={navCollapsed} />
+          <LayoutSidebar
+            isDark={isDark}
+            isCollapsed={navCollapsed}
+            preloadPage={preloadPage}
+          />
 
           <div className="layout-content__right">
             <div className="the-content">

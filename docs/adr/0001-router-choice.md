@@ -1,138 +1,86 @@
-# ADR-0001：前端架构迁移的关键选型（路由 / 样式 / 状态 / 资产）
+# ADR-0001：前端关键选型（路由 / 样式 / 状态 / 契约与工具链）
 
-- 状态：**Accepted（Full Go：G1 已通过）**
-- 日期：2026-10-19
-- 决策范围：`migrate/self-frontend-architecture` 分支
-- 基线：`clash-verge-rev` `local` @ `ed909350`；`clash-verge-self` `dev` @ `f9cb6581`（完整历史以 tag `v2.3.2` / `75c8c416` 为准）
-- 关联：[迁移计划](../frontend-architecture-migration-plan.md) · [目标架构](../frontend-architecture.md) · [Phase 0 基线](../perf/frontend-baseline-2026-10-19.md)
+- 状态：**Accepted**（D1 于 2026-10-22 修订：保留 react-router，撤销 TanStack Router 迁移）
+- 日期：2026-10-19（初版）· 2026-10-22（D1 修订）
+- 关联：[目标架构](../frontend-architecture.md) · [ADR-0002](0002-design-tokens.md)（设计 token）· [ADR-0003](0003-state-boundary.md)（状态边界）· [bundle 基线](../perf/frontend-baseline-2026-10-19.md)
+- 代码：`src/app/{router,route-pages,route-fallbacks,layout}.tsx`、`src/config/navigation.ts`、`src/components/layout/layout{,-item,-sidebar}.tsx`
 
 ## 1. 背景
 
-rev 前端的**数据/事件层**在 2026-07~10 已完成三轮自我重构（`e63b8e6e` 去路由 lazy、`4ed47470` 查询所有权收敛、`69b76cc6` contract flow），但**表现层结构**仍停留在旧形态：路由是导航的副产物、页面全 eager、导航元数据手写、`pages/` 同时承载路由/导航/主题常量、样式无 token 层。self 在 2025-06 起做过一轮前端架构重构（TanStack Router、Zustand、TanStack Table、Tailwind、Material You），但其数据层（手写 invoke、零测试）明显弱于 rev。
+2026-10 曾评估把 clash-verge-self 的前端架构（文件式路由、设计 token、领域查询 hook）融合进 rev，并在 `local` 上实施了一轮 TanStack Router 全量替换（`src/routes/*` 薄壳 + `routeTree.gen.ts` + `@tanstack/router-plugin`）。
 
-本 ADR 记录"到底吸收 self 的哪些架构、保留 rev 的哪些资产"的四个关键裁决，供后续 Phase 与未来重评使用。
+按 `self-to-rev-migration-plan.md` §5 的不迁移清单（D2 "TanStack Router 全量替换"、D3 "TanStack Table"、D4 "Zustand"）复核后，2026-10-22 决定回滚路由层到 dev 的 react-router 架构，其余本地前端改造（设计 token、领域查询 hook、测试、bundle 预算）保留。
+
+rev 的 react-router 足迹很小：路由表 `app/router.tsx` 十几行、8 个页面、`useNavigate`/`Outlet` 少量调用点；"无导航 loading 闪烁"是上游 `e63b8e6e` 的刻意取舍。路由层收益（重页面拆包）可用 C6 的 route-level `lazy` + intent 预加载低风险达成。
 
 ## 2. 决策
 
-### D1 路由：迁移到 TanStack Router（条件 Go，G1 为闸门）
+### D1 路由：保留 react-router 8 data router（不引入 TanStack Router）
 
-**决策**：采用 `@tanstack/react-router` + `@tanstack/router-plugin`（`autoCodeSplitting`），以文件式 `src/routes/*.tsx` 薄壳替代 `src/pages/_routers.tsx` 的静态路由表；导航元数据收口到 `src/config/navigation.ts`；路由级错误边界与 intent 预加载按目标架构落地。
+- 路由表由 `config/navigation.ts` 的 `NAV_ITEMS` 生成：`src/app/router.tsx` 负责 `createBrowserRouter`，`src/app/route-pages.ts` 以 `Record<NavigationId, PageRoute>` 映射页面（或 lazy import），类型层面保证每个导航 id 都有落点。
+- 重页面分包（C6）：`profiles` / `connections` / `settings` 通过 react-router 的 route-level `lazy` 拆出首包；侧边栏 hover/focus 通过 `preloadPage(id)` 预取 chunk，避免首跳 loading 闪烁。
+- 路由级兜底：根路由 `errorElement: <RouteError />`、未匹配 `path: '*' → RouteNotFound`，均在 app shell 内渲染，侧边栏/窗口 chrome 不丢失。
+- 不使用文件式路由、`routeTree.gen.ts` 生成物、router Vite 插件，也不引入 route `loader`（数据仍由 SWR/WS 所有，见 ADR-0003）。
 
-**条件**：Phase 1 PoC 必须同时满足 [迁移计划 §4.2](../frontend-architecture-migration-plan.md) 的 G1 六项条件。**2026-10-19 六项全部通过（含桌面 smoke 无异常），已转 Full Go**；不满足时的 B1 备选方案不再需要。
-
-**关键证据**：
-
-| 事实 | 数值 | 来源 |
-| --- | --- | --- |
-| rev 路由表规模 | `_routers.tsx` 18 行，`navItems.map` 生成 | `src/pages/_routers.tsx:6-17` |
-| rev react-router 足迹 | 9 个文件 import、12 处 `useNavigate` 等 | `grep -rl "from 'react-router'" src` |
-| rev 页面加载方式 | 8 个业务页面全部 eager import | `src/pages/_navigation.tsx:21-28` |
-| rev 路由级能力 | 无 `lazy`/`loader`/`errorElement`/参数校验 | `src/pages/_routers.tsx` |
-| self 路由文件 | 9 个（8 个 12 行页面壳 + `__root`），生成树 210 行 | `clash-verge-self/src/routes/*.tsx`、`routeTree.gen.ts` |
-| self TanStack 能力使用 | `validateSearch`/`loader`/`beforeLoad`/`pendingComponent` 实测 0 处使用 | `grep -rn`（仅注释中的 `errorComponent` 1 次） |
-| rev 的 lazy 历史教训 | 上游 2026-07-20 主动移除路由 lazy + idle 预热（−216 行） | `e63b8e6e` |
-
-**结论**：rev 侧迁移面小（不是旧草案估计的"64 个路由文件"），收益是文件式路由、类型安全、按路由拆包与预加载；风险集中在"无 loading 闪烁"体验，用 G1 闸门 + B1 兜底控制。
-
-### D2 样式：保留 MUI 单一基座，不引入 Tailwind；吸收 token 化与主题预设
-
-**决策**：不新增 Tailwind 依赖，保留 MUI v9 + Emotion `sx`/`styled` + SCSS 现状；Phase 2 只在 rev 运行时主题之上补**语义 token 层**（颜色/间距/圆角/阴影/层级）与**主题预设 + 取色器**。self 的 `@theme inline` 桥接仅作为 token 设计的思路参考，不搬实现。
-
-**关键证据**：
+**关键证据**
 
 | 事实 | 数值/来源 |
 | --- | --- |
-| rev 样式分布 | `sx` 707 处/99 文件、`styled()` 42、SCSS 453 行、硬编码 hex 107 处 |
-| rev 主题耦合 | `use-custom-theme.ts`(331 行) 运行时 `createTheme` + 16 个 CSS 变量 + 用户 CSS 注入（`@scope`）/背景图/系统暗色 |
-| self 双样式成本 | MUI + Tailwind：`sx` 338 处/54 文件、`className` 418 处；`index.css` 523 行，其中 `@theme inline` 279 行；preflight 补丁 37 行 |
-| 双样式回归证据 | `0cce9d23 fix(mui) restore OutlinedInput legend after Tailwind preflight` |
+| rev 路由规模 | 8 个页面、1 个路由表文件；`useNavigate` 等 hook 少量调用点 |
+| 拆包需求 | C6：profiles/connections/settings 拆出后主包 −33%（raw 1072→715 kB） |
+| 上游取舍 | `e63b8e6e` 移除路由 lazy + idle 预热，避免导航 loading 闪烁 |
+| 维护成本 | TanStack 引入 3 个依赖 + 生成物 + lint/format/knip 豁免；收益已可由 react-router 达成 |
 
-**理由**：rev 的主题是产品能力（用户自定义 CSS、背景图、透明度、明暗跟随），Tailwind 化需要 `cssVariables + layer + preflight 补丁 + Portal container` 一整套妥协；收益主要是布局 utility，而 rev 的 `sx` 已覆盖。self 自己也不是"Tailwind 取代 MUI"，而是三层混写。
+### D2 样式：MUI 单一基座 + 语义 token，不引入 Tailwind
 
-### D3 状态：保留 SWR + AppStore reducer + 事件总线 + mutate 漏斗，不引入 Zustand
+保留 MUI v9 + Emotion `sx`/`styled` + SCSS；在运行时主题之上补语义 token 层（颜色/间距/圆角/阴影/层级）与主题预设/取色器。详见 [ADR-0002](0002-design-tokens.md)。self 的 Tailwind 方案（preflight 补丁、cssVariables、layer 顺序）不迁移；仅当单开 UI 重设计轨道时重评。
 
-**决策**：保持 `src/AGENTS.md` 五条 ownership（contract/event/state/intent/command）不变；`AppDataProvider` 的 6 个 context 在 Phase 3 收敛为领域查询 hooks，但查询层仍是现有 `query-client`/SWR，**不引入 Zustand、不引入 TanStack Query**。
+### D3 状态：SWR + AppStore reducer + 事件总线 + mutate 漏斗，不引入 Zustand
 
-**关键证据**：
-
-| 事实 | 数值/来源 |
-| --- | --- |
-| rev 查询层 | `query-client.ts`(125 行)、20 处 `useQuery`、18 个字符串 key；`mutate.ts`(64 行) 意图漏斗 |
-| rev 状态边界 | `AppStore`(423 行含测试) reducer + `store-reads` 旧回复不覆盖新状态；`src/AGENTS.md` 明确 ownership |
-| self 状态碎片 | 11 个 Zustand store（7 persist、无迁移策略）；profilesStore 持久化后端派生数据；3 处分层倒置 |
-| self 反向依赖 | `services/cmds.ts:5`、`services/api.ts:8`、`stores/profilesStore.ts:5` 从 components 取类型 |
-
-**结论**：self 的 store 是"实现选择"，不是"架构优势"；rev 的 ownership 模型更收敛。可借鉴的仅是"按域拆分 + 持久化白名单"的做法，且只在未来确有需要时采用。
+保持 `src/AGENTS.md` 的 ownership 不变；普通读由 `hooks/data/*` 领域查询 hooks 承担（T1），查询层仍是既有 `query-client`/SWR。不引入 Zustand、TanStack Query 或第二个状态体系。详见 [ADR-0003](0003-state-boundary.md)。
 
 ### D4 契约、表格、组件基座、工具链不替换
 
 | 资产 | 决策 | 理由 |
 | --- | --- | --- |
-| IPC 契约 | 保留 specta 生成 `bindings.ts`（92 commands）→ `cmds.ts`（514 行）→ hooks | self 是 74 个手写 invoke + 全局 `types.d.ts`，是明确退步 |
-| 连接表 | 保留 rev 自研虚拟表（列管理/排序/持久化/快照） | self 的 TanStack Table 替换为 +6733/−3711 的负收益项（`5f8a2277`） |
-| base 组件 | 不整体迁移，只做差异清单（见架构文档附录 A） | 两者基座等价，rev 18 文件/1441 行 vs self 19 文件/1628 行，核心组件都有 |
-| 工具链 | 保留 Biome format + ESLint 10 + knip(cycles) + vitest + arch:check | self 三套 lint/format、零前端测试；rev 门禁更强 |
+| IPC 契约 | 保留 specta 生成 `bindings.ts` → `cmds.ts` → hooks | self 是手写 invoke + 全局 `types.d.ts`，是明确退步 |
+| 连接表 | 保留 rev 自研虚拟表 | self 的 TanStack Table 替换为负收益项 |
+| base 组件 | 不整体迁移 | 两边基座等价，只补差异原语 |
+| 工具链 | 保留 bun + oxlint/oxfmt + knip + vitest + arch:check | 门禁强于 self |
 | i18n | 保留 14 locale × 10 namespace + 生成 key 类型 | self 仅 4 locale、无生成 key 类型 |
 
 ## 3. 备选方案
 
-### B1 路由的兜底方案：react-router 8 data-router 演进（G1 不通过时启用）
-
-保留 `react-router`，只做 `routes/` 分层 + `_navigation` 元数据收口 + data-router 的 `lazy`/`preload`（hover 时 `import()` 预热）。估算 2–3 人日。**不否决**：这是 G1 失败时的既定路径（[迁移计划 §4.2](../frontend-architecture-migration-plan.md)）。
-
-### B2 全量 Tailwind 设计系统（拒绝，留待 G5 产品级决策）
-
-若未来做 UI 重设计，可单独立项：先 PoC 一个页面 + `MUI cssVariables` + layer/preflight 补丁 + 用户主题回归清单，再评估 10–20 人日。本分支不做。
-
-### B3 Zustand / TanStack Query（拒绝）
-
-理由见 D3。若未来出现跨页高频 UI 状态（如复杂拖拽/多窗口），单独评估局部 store，不改变全局 ownership。
-
-### B4 TanStack Table（拒绝）
-
-理由见 D4；连接表只做列定义模块化与过滤（后者由 `migrate/connections-filter` 分支承载）。
+- **B1 TanStack Router（已否决，2026-10-19 实施、2026-10-22 回滚）**：文件式路由 + `routeTree.gen.ts` + `@tanstack/router-plugin`。回滚原因：与不迁移清单冲突；生成物/插件/依赖带来的维护面大于收益；route catalog 测试也只能覆盖生成树与 catalog 的一致性，而现在的 `Record<NavigationId, ...>` 由类型系统直接保证。
+- **B2 保持全 eager 路由（dev 原状）**：无法达成 C6 的首包目标，保留为回滚兜底。
+- **B3 react-router framework mode（loader/prefetch）**：会与 query ownership 形成第二数据源，拒绝。
+- **B4 Tailwind 设计系统 / Zustand / TanStack Table**：拒绝，理由见 D2/D3/D4 与迁移计划 §5。
 
 ## 4. 后果
 
 **正面**
 
-- 路由层从"导航副产物"变为可测试、类型安全、可拆包的一等公民；新增页面从 6 步降到 3 步。
-- 样式获得 token 单一入口，主题预设可产品化；不承担双样式体系的长期维护税。
-- 数据/契约/i18n/质量体系零倒退，迁移风险面被限制在表现层。
+- 不引入生成物、router 插件与新增依赖；新增页面只有页面组件、`app/route-pages.ts`、`config/navigation.ts`（+ 图标/文案）几处，导航目录仍是单一事实源。
+- C6 拆包与 intent 预加载继续生效；bundle budget / hex budget 门禁不变。
+- 路由层回到上游 dev 的形态，后续 `origin/dev` 合并的冲突面显著缩小。
 
 **负面**
 
-- 引入 2 个新依赖（`@tanstack/react-router`、`@tanstack/router-plugin`）与生成物 `routeTree.gen.ts`，需要 lint/format/knip 豁免与 CI 生成校验。
-- 路由迁移与上游 churn 区（`_layout.tsx`、pages）重叠，需要 rebase 纪律与冻结区约束。
-- "无 loading 闪烁"目标无法用静态分析证明，必须靠 G1 的运行时录屏/计时证据。
+- 失去文件式路由的类型安全路径与 `validateSearch`/loader 等能力；路由表是手写映射，完整性依赖 `Record<NavigationId, PageRoute>` 穷举类型。
+- 路由级错误兜底依赖 `errorElement`（react-router data router），与 TanStack 的 `defaultErrorComponent` 行为细节不同，需回归验证。
 
 **中性**
 
-- `pages/` 目录保留，只是职责收缩；不产生大规模文件搬迁，diff 可审计。
+- `pages/` 职责不变；`app/` 仍是唯一组合根（T2 的分层规则保留）。
 
 ## 5. 重新评估条件
 
-出现以下任一情况时重开本 ADR：
-
-1. G1 六项条件任一不满足（路由 → B1）。
-2. 上游 `origin/dev` 在迁移期间重写路由/状态层（暂停对应 Phase，先吸收上游）。
-3. 产品决定做 UI 重设计并接受 Tailwind 维护成本（重评 D2）。
-4. React Compiler 正式启用或 MUI 主题 API 发生 major 变更（重评 D2/D3 实现细节）。
+1. 上游 `origin/dev` 自己迁移到文件式路由（跟随上游，不再自行替换）。
+2. 产品决定做 UI 重设计并接受 Tailwind/新路由体系的维护成本（重评 D1/D2）。
+3. 路由能力成为瓶颈（例如需要 `validateSearch`/loader 的强类型深链），先在独立 PoC 评估 react-router data APIs 是否够用。
 
 ## 6. 参考
 
-- [迁移计划（总纲）](../frontend-architecture-migration-plan.md)
-- [目标架构](../frontend-architecture.md)
-- [Phase 0 基线报告](../perf/frontend-baseline-2026-10-19.md)
-- self 重构关键提交：`4812e488`（TanStack Router）、`1da1d991`（预加载）、`35115975`（Zustand）、`5f8a2277`（TanStack Table）、`5e7e8c26`（Material You）；未合并 `62fd7402`（specta）
-- rev 关键提交：`e63b8e6e`（去 lazy）、`4ed47470`（查询所有权）、`69b76cc6`（contract flow）
-- 硬约束：`src/AGENTS.md`、`eslint.config.ts:15-99`、`scripts/check-architecture.mjs`
-
-## 7. G1 实测记录（PoC，2026-10-19）
-
-- PoC 分支：`migrate/fe-router-poc`；完整证据见 [PoC/G1 报告](../perf/router-poc-g1-2026-10-19.md)。
-- 门禁：`typecheck` / `lint` / `format:check` / `test`（12 文件 47 tests，含 route catalog）/ `knip` / `arch:check` / `i18n` / `web:build` 全绿。
-- Bundle：初始 JS **508.5 → 392.9 kB gzip（−22.7%）**、raw 1,648.3 → 1,195.7 kB（−27.5%）；入口 chunk 312.7 → 158.8 kB gzip；7 个非首屏页面拆为异步 chunk。
-- 依赖：新增 3（react-router 移除 1），净增 **+2**，符合 G1 ≤3。
-- 运行时验证：2026-10-19 用户桌面 smoke（8 路由直达/切换、深链、通知跳转、拖拽排序、主题/窗口）无异常，G1-3/G1-6 通过；本 ADR 转 **Full Go**，无需执行 §3 B1。冷/热导航已在本机打包实例验收：cold p95 159 ms、hot p95 113 ms（hot 目标 100 ms，偏差来自重数据页面绘制），见[迁移计划 §12.19](../frontend-architecture-migration-plan.md)；临时采样器已在验收后移除。
-- 后续调整（2026-10-19）：为压缩拆包后首跳成本，增加首屏后 idle 预热（顺序预取 8 条路由 chunk + 常用查询缓存），不阻塞首屏、无自研遮罩；见[迁移计划 §12.18](../frontend-architecture-migration-plan.md)。这不等同于上游 `e63b8e6e` 移除的 idle 全量预载：预热延迟到 idle、顺序执行、可一行回退。
+- `self-to-rev-migration-plan.md` §5（不迁移清单 D1–D4）与 §2（C6 拆包）
+- 上游 `e63b8e6e`（移除路由 lazy/导航 loading）、C6 提交（react-router lazy + intent 预加载）
+- [目标架构](../frontend-architecture.md)、[ADR-0002](0002-design-tokens.md)、[ADR-0003](0003-state-boundary.md)
