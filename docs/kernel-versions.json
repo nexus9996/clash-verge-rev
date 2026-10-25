@@ -1,0 +1,6 @@
+{
+  "stable": "v1.19.33",
+  "alpha": "alpha-6780eee",
+  "recordedAt": "2026-10-26",
+  "note": "Mihomo kernel versions this branch was last validated with. Refresh together with `bun run prebuild:download --force` and verify `src-tauri/sidecar/verge-mihomo* -v`."
+}

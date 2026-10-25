@@ -98,6 +98,13 @@ jobs:
       - name: Group changelog platforms
         run: bash ./scripts-workflow/group_platforms.sh
 
+      - name: Download kernel versions
+        uses: actions/download-artifact@v4
+        with:
+          pattern: kernel-version-*
+          merge-multiple: true
+          path: kernel-versions
+
       - name: Fetch UPDATE logs
         id: fetch_update_logs
         run: bash ./scripts/extract_update_logs.sh
@@ -151,6 +158,24 @@ jobs:
 
           Created at ${{ env.BUILDTIME }}.
           EOF
+
+      - name: Append Mihomo kernel versions
+        run: |
+          stable=$(sed -n 's/^stable=//p' kernel-versions/*.txt | sort -u | paste -sd, -)
+          alpha=$(sed -n 's/^alpha=//p' kernel-versions/*.txt | sort -u | paste -sd, -)
+          if [ -z "$stable" ] && [ -z "$alpha" ]; then
+            echo "::warning::No kernel version artifacts found; skipping kernel section."
+            exit 0
+          fi
+          {
+            echo ""
+            echo "## Mihomo 内核"
+            echo ""
+            [ -n "$stable" ] && echo "- 稳定版：$stable"
+            [ -n "$alpha" ] && echo "- Alpha：$alpha"
+          } >> release.txt
+          tail -n 8 release.txt
+        shell: bash
 
       - name: Publish Release
         env:
@@ -244,6 +269,22 @@ jobs:
         run: |
           bun install --frozen-lockfile
           bun run prebuild:download ${{ matrix.target }}
+
+      - name: Record Mihomo kernel version
+        shell: bash
+        run: |
+          stable=$(curl -fsSL https://github.com/MetaCubeX/mihomo/releases/latest/download/version.txt)
+          alpha=$(curl -fsSL https://github.com/MetaCubeX/mihomo/releases/download/Prerelease-Alpha/version.txt)
+          printf 'stable=%s\nalpha=%s\n' "$stable" "$alpha" > "kernel-version-${{ matrix.target }}.txt"
+          cat "kernel-version-${{ matrix.target }}.txt"
+
+      - name: Upload Mihomo kernel version
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-version-${{ matrix.target }}
+          path: kernel-version-${{ matrix.target }}.txt
+          if-no-files-found: error
+
 
       - name: Add Rust Target
         run: |
@@ -345,6 +386,22 @@ jobs:
         run: |
           bun install --frozen-lockfile
           bun run prebuild:download ${{ matrix.target }}
+
+      - name: Record Mihomo kernel version
+        shell: bash
+        run: |
+          stable=$(curl -fsSL https://github.com/MetaCubeX/mihomo/releases/latest/download/version.txt)
+          alpha=$(curl -fsSL https://github.com/MetaCubeX/mihomo/releases/download/Prerelease-Alpha/version.txt)
+          printf 'stable=%s\nalpha=%s\n' "$stable" "$alpha" > "kernel-version-${{ matrix.target }}.txt"
+          cat "kernel-version-${{ matrix.target }}.txt"
+
+      - name: Upload Mihomo kernel version
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-version-${{ matrix.target }}
+          path: kernel-version-${{ matrix.target }}.txt
+          if-no-files-found: error
+
 
       - name: 'Setup for linux'
         run: |-
@@ -482,6 +539,22 @@ jobs:
         run: |
           bun install --frozen-lockfile
           bun run prebuild:download ${{ matrix.target }}
+
+      - name: Record Mihomo kernel version
+        shell: bash
+        run: |
+          stable=$(curl -fsSL https://github.com/MetaCubeX/mihomo/releases/latest/download/version.txt)
+          alpha=$(curl -fsSL https://github.com/MetaCubeX/mihomo/releases/download/Prerelease-Alpha/version.txt)
+          printf 'stable=%s\nalpha=%s\n' "$stable" "$alpha" > "kernel-version-${{ matrix.target }}.txt"
+          cat "kernel-version-${{ matrix.target }}.txt"
+
+      - name: Upload Mihomo kernel version
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-version-${{ matrix.target }}
+          path: kernel-version-${{ matrix.target }}.txt
+          if-no-files-found: error
+
 
       - name: Download WebView2 Runtime
         run: |

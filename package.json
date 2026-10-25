@@ -21,6 +21,8 @@
     "web:serve": "vite preview",
     "prebuild:download": "bun scripts/prebuild.mjs",
     "sync:dev": "bun scripts/sync-dev.mjs",
+    "kernel:check": "bun scripts/kernel-check.mjs",
+    "kernel:smoke": "bun scripts/kernel-smoke.mjs",
     "updater": "bun scripts/updater.mjs",
     "updater-fixed-webview2": "bun scripts/updater-fixed-webview2.mjs",
     "release-version": "bun scripts/release-version.mjs",

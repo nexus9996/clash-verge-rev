@@ -76,7 +76,9 @@ EOF
 
 提交信息约定：`merge: dev into local (...)`，正文列出**采纳**与**跳过/适配**的提交及原因
 （参考 `bc8715c4`）。内核若需随特性升级，一并执行 `bun run prebuild:download --force` 并验证
-`src-tauri/sidecar/verge-mihomo-* -v`（sidecar 未跟踪，不进入提交）。
+`src-tauri/sidecar/verge-mihomo-* -v`（sidecar 未跟踪，不进入提交），并把
+`docs/kernel-versions.json` 更新为新版本（`bun run kernel:check` 校验，CI 定时任务会对比上游），
+并跑一次 `bun run kernel:smoke` 验证 `verge-mihomo -t` 能接受 TUN `dns-mode` 配置。
 
 ## 4. 验证清单
 

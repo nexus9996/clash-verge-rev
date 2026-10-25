@@ -1,0 +1,71 @@
+name: Mihomo Kernel Check
+
+on:
+  schedule:
+    # Every Monday 03:00 UTC.
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: '${{ github.workflow }}'
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check Mihomo kernel versions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.3'
+
+      - name: Bun install
+        run: bun install --frozen-lockfile
+
+      - name: Check upstream kernel versions
+        id: kernel
+        run: |
+          status=0
+          bun scripts/kernel-check.mjs --json --no-local --fail-on-update > "$RUNNER_TEMP/kernel-check.json" || status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/kernel-check.json"
+          {
+            echo '检测到上游 Mihomo 内核更新：`docs/kernel-versions.json` 记录的版本与最新发布不一致。'
+            echo ''
+            echo '```json'
+            cat "$RUNNER_TEMP/kernel-check.json"
+            echo '```'
+            echo ''
+            echo '处理步骤：'
+            echo '1. `bun run prebuild:download --force` 更新本地 sidecar；'
+            echo '2. `bun run kernel:check` 确认基线一致；'
+            echo '3. 更新 `docs/kernel-versions.json` 与 `Changelog.md` 的内核升级条目；'
+            echo '4. 跑回归门禁（页面/内核冒烟）后提交。'
+          } > "$RUNNER_TEMP/kernel-issue.md"
+
+      - name: Open or update the tracking issue
+        if: steps.kernel.outputs.status != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          existing=$(gh issue list --search 'Mihomo kernel update available in:title' --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            echo "Updating existing issue #$existing"
+            gh issue comment "$existing" --body-file "$RUNNER_TEMP/kernel-issue.md"
+          else
+            gh issue create \
+              --title 'Mihomo kernel update available' \
+              --body-file "$RUNNER_TEMP/kernel-issue.md"
+          fi
+
+      - name: Report current versions
+        if: steps.kernel.outputs.status == '0'
+        run: echo 'Mihomo kernel baseline matches the latest upstream releases.'
