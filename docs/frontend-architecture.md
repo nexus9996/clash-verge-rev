@@ -2,7 +2,7 @@
 
 > 状态：**已实现并合入 `local`**（设计 token、领域查询 hooks、bundle/hex 预算与测试已落地；路由层保持 react-router）
 > 日期：2026-10-19 · 2026-10-22 修订（路由层回滚到 dev 的 react-router）
-> 上位文档：[ADR-0001](adr/0001-router-choice.md) · [ADR-0002](adr/0002-design-tokens.md) · [ADR-0003](adr/0003-state-boundary.md) · [bundle 基线](perf/frontend-baseline-2026-10-19.md)
+> 上位文档：[ADR-0001](adr/0001-router-choice.md) · [ADR-0002](adr/0002-design-tokens.md) · [ADR-0003](adr/0003-state-boundary.md) · [ADR-0004](adr/0004-frontend-toolchain-bun-oxc.md)（工具链） · [bundle 基线](perf/frontend-baseline-2026-10-19.md)
 > 约束来源：`src/AGENTS.md`（contract/event/state/intent/command ownership）、`.oxlintrc.json`（静态 import 边界）与 `scripts/check-architecture.mjs`（动态 import/分层）、`scripts/check-architecture.mjs`、`src-tauri/config/verge.rs`（配置契约）
 
 本文描述当前已实现的前端结构；实现过程中若与本文件冲突，先改本文件并说明原因，再改代码。
@@ -215,5 +215,7 @@ src/config/theme/
 - [ADR-0001](adr/0001-router-choice.md)（路由/样式/状态/契约选型）
 - [ADR-0002](adr/0002-design-tokens.md)（设计 token 与主题体系）
 - [ADR-0003](adr/0003-state-boundary.md)（状态与数据边界）
+- [ADR-0004](adr/0004-frontend-toolchain-bun-oxc.md)（工具链迁移：bun + oxlint/oxfmt）
+- [上游同步手册](upstream-sync.md)（`dev` → `local` 的固定处理规则与验证清单）
 - [Phase 0 基线](perf/frontend-baseline-2026-10-19.md)（门禁、bundle、测量口径）
 - `src/AGENTS.md`、`scripts/check-architecture.mjs`、`.oxlintrc.json`
