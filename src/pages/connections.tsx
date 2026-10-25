@@ -26,8 +26,8 @@ import {
   BaseSearchBox,
   BaseStyledSelect,
   type SearchState,
-  VirtualList,
 } from '@/components/base'
+import { VirtualList } from '@/components/base/virtual-list'
 import {
   ConnectionDetail,
   ConnectionDetailRef,

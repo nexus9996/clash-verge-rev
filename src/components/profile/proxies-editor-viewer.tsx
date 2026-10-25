@@ -27,7 +27,8 @@ import {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { BaseSearchBox, MonacoEditor } from '@/components/base'
+import { BaseSearchBox } from '@/components/base'
+import { MonacoEditor } from '@/components/base/monaco-editor'
 import { ProxyItem } from '@/components/profile/proxy-item'
 import { readProfileFile, saveProfileFile } from '@/services/cmds'
 import { mutate } from '@/services/mutate'

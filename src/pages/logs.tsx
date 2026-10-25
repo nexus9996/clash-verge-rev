@@ -13,9 +13,11 @@ import {
   BaseSearchBox,
   BaseStyledSelect,
   type SearchState,
+} from '@/components/base'
+import {
   VirtualList,
   type VirtualListHandle,
-} from '@/components/base'
+} from '@/components/base/virtual-list'
 import LogItem from '@/components/log/log-item'
 import { useClashLog } from '@/hooks/use-clash-log'
 import { useLogData } from '@/hooks/use-log-data'

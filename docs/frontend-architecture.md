@@ -54,7 +54,7 @@ src/
 
 1. 路由表由 `config/navigation.ts` 的 `NAV_ITEMS` 生成；`app/route-pages.ts` 的 `PAGE_ROUTES: Record<NavigationId, PageRoute>` 穷举类型保证每个导航 id 都有落点，不需要生成物或 catalog 测试。
 2. 路由层是组合根的一部分，不写业务逻辑、不发请求；页面数据仍由 `pages/` + hooks + SWR/WS 获取，**不使用 route loader**（避免第二数据源，见 ADR-0003）。
-3. **重页面显式分包，其余 eager**（C6）：`profiles` / `connections` / `settings` 用 react-router 的 route-level `lazy`；其余页面静态 import 保持切页零 loading。`/`（home）内部的卡片级 lazy 保留。
+3. **首页之外全部显式分包**（C6）：除 `home`（首屏）外的页面都用 route-level `lazy`，侧边栏 hover/focus 时 `preloadPage(id)` 预取；`/`（home）内部的卡片级 lazy 保留。重型依赖（dnd-kit、monaco、virtual list、CIDR 校验、设置弹窗）只在消费方页面/弹窗模块中按需 `import`，`components/base` barrel 不再导出重组件，避免把重依赖带进首包。
 4. 路由级兜底：每条页面路由带 `errorElement: <RouteError />`，未匹配路径由 `path: '*' → RouteNotFound` 承载，均渲染在 app shell（侧边栏/窗口 chrome）内。
 
 示例：
@@ -84,8 +84,11 @@ export const router = createBrowserRouter([
 
 | 页面 | 加载方式 | 预取时机 |
 | --- | --- | --- |
-| `profiles` / `connections` / `settings` | route-level `lazy: () => import('@/pages/…')` | 侧边栏 hover / focus 时 `preloadPage(id)` |
-| `home` / `proxies` / `rules` / `logs` / `unlock` | 静态 import（eager） | 无（随首包） |
+| `home` | 静态 import（首屏） | 无（随首包） |
+| 其余全部页面（`proxies` / `profiles` / `connections` / `rules` / `logs` / `unlock` / `settings`） | route-level `lazy: () => import('@/pages/…')` | 侧边栏 hover / focus 时 `preloadPage(id)` |
+
+- 重依赖不随首包：拖拽排序（`sidebar-sortable-nav` 动态 import，解锁菜单排序时才加载）、monaco/virtual list/CIDR 校验只在编辑页或设置弹窗中直接 import；`components/base/index.ts` 仅保留轻量基础组件。
+- 首页内的卡片（test/ip-info/clash-info/system-info 等）继续卡片级 `lazy`，首屏渲染不等待这些 chunk。
 
 - 目标仍是 rev 的"无导航 loading"体验（上游 `e63b8e6e` 的教训）：拆包页面在 hover/focus 预取 chunk，正常操作下首跳不等 chunk。
 - 不做 idle 全量预热、不做路由 pending 门槛：react-router data router 在模块就绪前不会渲染目标路由，避免闪烁由预取保证。
@@ -111,7 +114,7 @@ export const NAV_ITEMS: NavigationItem[] = NAV_IDS.map((id) => ({ id, ...NAV_MET
 ### 2.4 新增页面步骤（3 步）
 
 1. `src/pages/<name>.tsx` 写页面组件（子组件放 `src/components/<domain>/`），默认导出。
-2. `src/app/route-pages.ts` 增加映射：`<id>: { Component: MyPage }`；重页面用 `{ lazy: lazyPage(() => import('@/pages/my-page')) }`。
+2. `src/app/route-pages.ts` 增加映射：除 `home` 外一律用 `{ lazy: lazyPage(() => import('@/pages/my-page')) }`（首页保持静态 import）。
 3. 导航与文案：`src/config/navigation.ts` 的 `NAV_META` 加 id/path/labelKey；`src/components/layout/navigation-icons.tsx` 的 `NAV_ICONS` 补图标；14 个 `src/locales/*/layout.json` 补 `tabs.<name>` → `bun run i18n:types`。
 
 最后跑 `bun run typecheck && bun run test && bun run lint`。完整操作见 `CONTRIBUTING.md` 的 "Adding a Frontend Page"。

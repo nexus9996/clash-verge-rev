@@ -29,7 +29,8 @@ import {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { BaseSearchBox, MonacoEditor, Switch } from '@/components/base'
+import { BaseSearchBox, Switch } from '@/components/base'
+import { MonacoEditor } from '@/components/base/monaco-editor'
 import { RuleItem } from '@/components/profile/rule-item'
 import { readProfileFile, saveProfileFile } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
@@ -39,7 +40,7 @@ import type { TranslationKey } from '@/types/generated/i18n-keys'
 import type { MonacoEditorInstance } from '@/types/monaco'
 import { MONACO_FONT_FAMILY } from '@/utils/font-family'
 import getSystem from '@/utils/get-system'
-import { isValidIpCidr } from '@/utils/network'
+import { isValidIpCidr } from '@/utils/network-cidr'
 import { parseYamlSafe } from '@/utils/yaml'
 
 import {

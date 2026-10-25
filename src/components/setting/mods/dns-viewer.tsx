@@ -26,12 +26,8 @@ import {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import {
-  BaseDialog,
-  type DialogRef,
-  MonacoEditor,
-  Switch,
-} from '@/components/base'
+import { BaseDialog, type DialogRef, Switch } from '@/components/base'
+import { MonacoEditor } from '@/components/base/monaco-editor'
 import { useClash } from '@/hooks/use-clash'
 import { useProfiles } from '@/hooks/use-profiles'
 import { useVerge } from '@/hooks/use-verge'

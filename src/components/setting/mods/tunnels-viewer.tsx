@@ -34,12 +34,8 @@ import {
   type ProxyMemberOccurrenceBinding,
   type ResolvedProxyMember,
 } from '@/types/proxy-view'
-import {
-  formatHostPort,
-  isValidPort,
-  normalizeHost,
-  normalizeListenHost,
-} from '@/utils/network'
+import { formatHostPort, isValidPort, normalizeHost } from '@/utils/network'
+import { normalizeListenHost } from '@/utils/network-cidr'
 
 interface TunnelsViewerRef {
   open: () => void
