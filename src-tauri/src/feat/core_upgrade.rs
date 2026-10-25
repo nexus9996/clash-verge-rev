@@ -19,7 +19,11 @@ use std::{
     fs::File,
     path::{Path, PathBuf},
     process::Command,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::{
+        Mutex,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::{Duration, Instant},
 };
 
 const RELEASE_VERSION_URL: &str = "https://github.com/MetaCubeX/mihomo/releases/latest/download/version.txt";
@@ -77,20 +81,49 @@ pub struct CoreUpgradeReport {
     pub upgraded: bool,
 }
 
-const RELEASE_INDEX_URL: &str = "https://api.github.com/repos/MetaCubeX/mihomo/releases?per_page=30";
+const RELEASE_INDEX_URL: &str = "https://api.github.com/repos/MetaCubeX/mihomo/releases?per_page=10";
 const INDEX_TIMEOUT_SECS: u64 = 20;
-/// Every release entry carries ~127 asset objects: the unauthenticated index for 30 releases
-/// measured ~7.3 MiB in 2026-10. Only reject bodies clearly larger than that plausible payload
-/// (the generic text response limit is 16 MiB) so a normal GitHub response is never mistaken
-/// for an oversized one.
-const MAX_INDEX_BYTES: usize = 16 * 1024 * 1024;
+/// Every release entry carries ~127 asset objects: 10 releases measured ~2.6 MiB in 2026-10
+/// (30 releases would be ~7.3 MiB). Keep the guard above the plausible payload while still
+/// rejecting a wrong or runaway response.
+const MAX_INDEX_BYTES: usize = 8 * 1024 * 1024;
 const MAX_INDEX_VERSIONS: usize = 30;
+/// The unauthenticated index is multi-MiB and GitHub rate-limits unauthenticated clients, so one
+/// fetch serves every version-picker open for a while.
+const INDEX_CACHE_TTL: Duration = Duration::from_secs(300);
 /// Unauthenticated GitHub API requests are rejected without a user agent.
 const RELEASE_INDEX_USER_AGENT: &str = "clash-verge-rev";
+
+static RELEASE_INDEX_CACHE: Mutex<Option<(Instant, Vec<GithubRelease>)>> = Mutex::new(None);
 
 /// Guard for the release index body; kept as a helper so the size policy is unit tested.
 const fn index_body_within_limit(len: usize) -> bool {
     len <= MAX_INDEX_BYTES
+}
+
+/// Returns the cached release list while it is younger than the TTL.
+fn cached_release_index() -> Option<Vec<GithubRelease>> {
+    let fresh = {
+        let cache = RELEASE_INDEX_CACHE.lock().ok()?;
+        cache
+            .as_ref()
+            .is_some_and(|(fetched_at, _)| fetched_at.elapsed() < INDEX_CACHE_TTL)
+    };
+    if !fresh {
+        return None;
+    }
+
+    let releases = {
+        let cache = RELEASE_INDEX_CACHE.lock().ok()?;
+        cache.as_ref()?.1.clone()
+    };
+    Some(releases)
+}
+
+fn store_release_index(releases: &[GithubRelease]) {
+    if let Ok(mut cache) = RELEASE_INDEX_CACHE.lock() {
+        *cache = Some((Instant::now(), releases.to_vec()));
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize, specta::Type)]
@@ -109,7 +142,7 @@ pub struct CoreVersionCatalog {
     pub versions: Vec<CoreVersionInfo>,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 struct GithubRelease {
     tag_name: std::string::String,
     prerelease: bool,
@@ -117,7 +150,7 @@ struct GithubRelease {
     assets: Vec<GithubAsset>,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 struct GithubAsset {
     name: std::string::String,
 }
@@ -212,6 +245,10 @@ fn installable_release_versions(releases: &[GithubRelease]) -> Result<Vec<CoreVe
 }
 
 async fn fetch_release_index() -> Result<Vec<GithubRelease>> {
+    if let Some(releases) = cached_release_index() {
+        return Ok(releases);
+    }
+
     let mut last_error = None;
 
     for proxy in [ProxyType::Localhost, ProxyType::System, ProxyType::None] {
@@ -236,7 +273,10 @@ async fn fetch_release_index() -> Result<Vec<GithubRelease>> {
                     continue;
                 }
                 match serde_json::from_str::<Vec<GithubRelease>>(body) {
-                    Ok(releases) => return Ok(releases),
+                    Ok(releases) => {
+                        store_release_index(&releases);
+                        return Ok(releases);
+                    }
                     Err(error) => {
                         last_error =
                             Some(anyhow::Error::from(error).context("failed to parse the mihomo release index"));
@@ -715,7 +755,7 @@ fn new_command(program: impl AsRef<OsStr>) -> Command {
 }
 
 /// Parses the version out of `Mihomo Meta v1.19.30 darwin arm64 with go1.22.12 ...`.
-fn read_core_version(path: &Path) -> Result<std::string::String> {
+pub(crate) fn read_core_version(path: &Path) -> Result<std::string::String> {
     let output = new_command(path)
         .arg("-v")
         .output()
@@ -833,8 +873,10 @@ mod tests {
 
     #[test]
     fn a_real_github_release_index_fits_the_size_guard() {
-        // The unauthenticated index for 30 mihomo releases is ~7.3 MiB: every release carries
-        // ~127 asset entries, which is what made the previous 2 MiB guard reject real responses.
+        // The unauthenticated index for 10 mihomo releases measured 2_685_191 bytes in 2026-10
+        // (~127 asset entries per release). The old 2 MiB guard rejected the real 30-release
+        // response (7_271_645 bytes); 10 releases stay well inside the current 8 MiB guard.
+        assert!(index_body_within_limit(2_685_191));
         assert!(index_body_within_limit(7_271_645));
         assert!(!index_body_within_limit(MAX_INDEX_BYTES + 1));
     }

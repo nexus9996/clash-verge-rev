@@ -4,7 +4,7 @@
 <summary><strong> 🐞 修复问题 </strong></summary>
 
 - 应用退出时不再重写未变更的配置文件，保留文件创建时间
-- 修复「Mihomo 版本」在 GitHub 发布列表较大时误报 oversized release index、无法加载可安装版本的问题
+- 修复「Mihomo 版本」在 GitHub 发布列表较大时误报 oversized release index、无法加载可安装版本的问题；发布列表改为缓存并减少单次拉取数量，打开更快、更省流量
 - 修复 TUN 设置显示默认 MTU 但未写入运行配置的问题
 - 修复断开链式代理时清空已选节点，以及误删扩展脚本/merge 设置的 `dialer-proxy` 的问题
 - 修复代理页来自代理集合的节点不显示所属集合名称的问题
