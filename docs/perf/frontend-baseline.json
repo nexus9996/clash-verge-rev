@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
-  "label": "react-router-c6-2026-10-22",
-  "generatedAt": "2026-10-22T02:54:48.637Z",
+  "label": "local-2026-10-26",
+  "generatedAt": "2026-10-25T17:52:21.547Z",
   "build": {
     "distDir": "dist",
     "indexHtml": "index.html",
     "gzipLevel": 9
   },
   "git": {
-    "commit": "b31833dd486cd216c41405d79d42407822126b53",
-    "branch": "revert/tanstack-router",
-    "dirty": true
+    "commit": "9038c02357ac715e2020a19de0be633d5fb5c799",
+    "branch": "local",
+    "dirty": false
   },
   "environment": {
     "platform": "darwin",
@@ -23,9 +23,9 @@
   "initial": {
     "files": [
       {
-        "file": "assets/index-Du9ChPO5.js",
-        "rawBytes": 582550,
-        "gzipBytes": 182696,
+        "file": "assets/index-CCVIoi-V.js",
+        "rawBytes": 583460,
+        "gzipBytes": 183010,
         "role": "script"
       },
       {
@@ -41,9 +41,9 @@
         "role": "modulepreload"
       },
       {
-        "file": "assets/query-client-BNnco2ks.js",
-        "rawBytes": 78080,
-        "gzipBytes": 27207,
+        "file": "assets/query-client-BxUE0-qF.js",
+        "rawBytes": 78116,
+        "gzipBytes": 27214,
         "role": "modulepreload"
       },
       {
@@ -53,15 +53,15 @@
         "role": "script"
       },
       {
-        "file": "assets/use-verge-CrSdFNZc.js",
+        "file": "assets/use-verge-y4o6780f.js",
         "rawBytes": 13730,
-        "gzipBytes": 3517,
+        "gzipBytes": 3514,
         "role": "modulepreload"
       },
       {
-        "file": "assets/cmds-Bq99Q_Hl.js",
+        "file": "assets/cmds-C_DzrzYT.js",
         "rawBytes": 12136,
-        "gzipBytes": 3746,
+        "gzipBytes": 3747,
         "role": "modulepreload"
       },
       {
@@ -83,29 +83,29 @@
         "role": "modulepreload"
       },
       {
-        "file": "assets/mutate-DILDlWtx.js",
+        "file": "assets/mutate-NfpmkCAO.js",
         "rawBytes": 498,
-        "gzipBytes": 348,
+        "gzipBytes": 351,
         "role": "modulepreload"
       }
     ],
     "js": {
       "fileCount": 10,
-      "rawBytes": 1362838,
-      "gzipBytes": 425412
+      "rawBytes": 1363784,
+      "gzipBytes": 425734
     },
     "css": {
       "fileCount": 1,
       "rawBytes": 8378,
       "gzipBytes": 1662
     },
-    "rawBytes": 1371216,
-    "gzipBytes": 427074
+    "rawBytes": 1372162,
+    "gzipBytes": 427396
   },
   "async": {
     "fileCount": 266,
-    "rawBytes": 17241012,
-    "gzipBytes": 4280574,
+    "rawBytes": 17243420,
+    "gzipBytes": 4281290,
     "topByRaw": [
       {
         "file": "assets/ts.worker-AG_zREvT.js",
@@ -158,14 +158,14 @@
         "gzipBytes": 51664
       },
       {
-        "file": "assets/settings-CpYRWADE.js",
+        "file": "assets/settings-Cgn91OMm.js",
         "rawBytes": 128902,
-        "gzipBytes": 31806
+        "gzipBytes": 31803
       },
       {
-        "file": "assets/profiles-BLVpjJ8c.js",
-        "rawBytes": 115649,
-        "gzipBytes": 34952
+        "file": "assets/profiles-B_D612vv.js",
+        "rawBytes": 115757,
+        "gzipBytes": 35004
       },
       {
         "file": "assets/editor-VadRs2RM.css",
@@ -193,9 +193,9 @@
         "gzipBytes": 11464
       },
       {
-        "file": "assets/settings-zsHbFe9K.js",
-        "rawBytes": 37226,
-        "gzipBytes": 10607
+        "file": "assets/settings-DFigVmdZ.js",
+        "rawBytes": 37478,
+        "gzipBytes": 10655
       },
       {
         "file": "assets/index.esm-BAicYlFk.js",
@@ -203,9 +203,9 @@
         "gzipBytes": 12010
       },
       {
-        "file": "assets/settings-C8-VkTB9.js",
-        "rawBytes": 30563,
-        "gzipBytes": 10288
+        "file": "assets/settings-Dt-VbLLX.js",
+        "rawBytes": 30751,
+        "gzipBytes": 10348
       }
     ]
   },
@@ -228,7 +228,7 @@
   },
   "totals": {
     "jsCssFileCount": 277,
-    "rawBytes": 18612228,
-    "gzipBytes": 4707648
+    "rawBytes": 18615582,
+    "gzipBytes": 4708686
   }
 }

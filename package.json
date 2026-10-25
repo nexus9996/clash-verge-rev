@@ -45,7 +45,7 @@
     "perf:run": "bun scripts/perf/run.mjs",
     "perf:compare": "bun scripts/perf/compare.mjs",
     "perf:test": "bun test scripts/perf/report.test.mjs scripts/perf/bundle-budget.test.mjs",
-    "perf:frontend-baseline": "bun scripts/perf/frontend-baseline.mjs --dist dist --label react-router-c6 --out docs/perf/frontend-baseline.json",
+    "perf:frontend-baseline": "bun scripts/perf/frontend-baseline.mjs --dist dist --label local-2026-10-26 --out docs/perf/frontend-baseline.json",
     "check:bundle-budget": "bun scripts/check-bundle-budget.mjs --dist dist",
     "check:hex-budget": "bun scripts/check-hex-budget.mjs"
   },

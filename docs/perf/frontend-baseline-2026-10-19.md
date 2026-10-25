@@ -2,7 +2,8 @@
 
 > 日期：2026-10-19
 > 历史记录：本基线由 2026-10-19 的前端架构评估采集（该评估的路由迁移部分已于 2026-10-22 回滚，见 [ADR-0001](../adr/0001-router-choice.md)）；`frontend-baseline.json` 仍作为 bundle 预算基线使用
-> 机器：Apple M1 / macOS 27.2.0（arm64）/ Node v24.22.0 / pnpm 12.14.0
+> 2026-10-26 更新：`frontend-baseline.json` 已在迁移后的干净 `local` 树（bun 1.4.4 / `local@9038c023`，`dirty: false`）上重新采样，继续作为 bundle 预算基线；下文 §1–§6 的数字与 pnpm 命令仍是 2026-10-19 评估时的历史记录
+> 机器：Apple M1 / macOS 27.2.0（arm64）/ 采集时为 Node v24.22.0 + pnpm 12.14.0，现为 bun 工具链
 > 机器可读基线：[`frontend-baseline.json`](frontend-baseline.json)（由 `scripts/perf/frontend-baseline.mjs` 生成）
 > 协议：本报告只记录**静态构建产物与门禁**；运行时路由计时见 §6（G1 PoC 执行），当前基线给出"eager 路由"的对照口径。
 
