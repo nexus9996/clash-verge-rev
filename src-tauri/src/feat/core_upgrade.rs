@@ -79,11 +79,19 @@ pub struct CoreUpgradeReport {
 
 const RELEASE_INDEX_URL: &str = "https://api.github.com/repos/MetaCubeX/mihomo/releases?per_page=30";
 const INDEX_TIMEOUT_SECS: u64 = 20;
-/// The release index is far smaller than this; reject an oversized or wrong response early.
-const MAX_INDEX_BYTES: usize = 2 * 1024 * 1024;
+/// Every release entry carries ~127 asset objects: the unauthenticated index for 30 releases
+/// measured ~7.3 MiB in 2026-10. Only reject bodies clearly larger than that plausible payload
+/// (the generic text response limit is 16 MiB) so a normal GitHub response is never mistaken
+/// for an oversized one.
+const MAX_INDEX_BYTES: usize = 16 * 1024 * 1024;
 const MAX_INDEX_VERSIONS: usize = 30;
 /// Unauthenticated GitHub API requests are rejected without a user agent.
 const RELEASE_INDEX_USER_AGENT: &str = "clash-verge-rev";
+
+/// Guard for the release index body; kept as a helper so the size policy is unit tested.
+const fn index_body_within_limit(len: usize) -> bool {
+    len <= MAX_INDEX_BYTES
+}
 
 #[derive(Debug, Clone, serde::Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -220,8 +228,11 @@ async fn fetch_release_index() -> Result<Vec<GithubRelease>> {
         match attempt {
             Ok(response) if response.status().is_success() => {
                 let body = response.text();
-                if body.len() > MAX_INDEX_BYTES {
-                    last_error = Some(anyhow!("{RELEASE_INDEX_URL} returned an oversized release index"));
+                if !index_body_within_limit(body.len()) {
+                    last_error = Some(anyhow!(
+                        "{RELEASE_INDEX_URL} returned an oversized release index ({} bytes)",
+                        body.len()
+                    ));
                     continue;
                 }
                 match serde_json::from_str::<Vec<GithubRelease>>(body) {
@@ -726,8 +737,8 @@ fn read_core_version(path: &Path) -> Result<std::string::String> {
 #[allow(clippy::expect_used, reason = "tests assert by panicking")]
 mod tests {
     use super::{
-        BoundedWriter, GithubAsset, GithubRelease, expected_asset_name, installable_release_versions,
-        is_usable_version, package_url, unpack_with_limit, usable_channel_version,
+        BoundedWriter, GithubAsset, GithubRelease, MAX_INDEX_BYTES, expected_asset_name, index_body_within_limit,
+        installable_release_versions, is_usable_version, package_url, unpack_with_limit, usable_channel_version,
     };
     use std::fs::File;
 
@@ -818,6 +829,14 @@ mod tests {
         assert!(!usable_channel_version(false, "alpha-94b13ae"));
         assert!(!usable_channel_version(true, "v1.19.32"));
         assert!(!usable_channel_version(false, "../v1.19.32"));
+    }
+
+    #[test]
+    fn a_real_github_release_index_fits_the_size_guard() {
+        // The unauthenticated index for 30 mihomo releases is ~7.3 MiB: every release carries
+        // ~127 asset entries, which is what made the previous 2 MiB guard reject real responses.
+        assert!(index_body_within_limit(7_271_645));
+        assert!(!index_body_within_limit(MAX_INDEX_BYTES + 1));
     }
 
     #[test]
