@@ -80,6 +80,7 @@ pub mod tun {
         "auto-redirect",
         "auto-detect-interface",
         "dns-hijack",
+        "dns-mode",
         "strict-route",
         "mtu",
     ];

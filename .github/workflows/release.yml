@@ -233,7 +233,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v7
         with:
-          node-version: '24.22.0'
+          node-version: '24.22.1'
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
@@ -334,7 +334,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v7
         with:
-          node-version: '24.22.0'
+          node-version: '24.22.1'
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
@@ -471,7 +471,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v7
         with:
-          node-version: '24.22.0'
+          node-version: '24.22.1'
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
