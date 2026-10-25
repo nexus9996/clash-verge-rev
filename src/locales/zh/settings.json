@@ -760,7 +760,8 @@
         "permissionRejectedReason": "服务无法确认内核文件及所在目录是否安全，已拒绝高权限运行。",
         "permissionRepairGuide": "查看修复方法",
         "sidecarFallback": "服务无法启动内核，已降级为 Sidecar 模式运行，服务仍不可用。",
-        "uninstallSuccess": "已成功卸载服务"
+        "uninstallSuccess": "已成功卸载服务",
+        "coreVersionDrift": "服务模式正在运行的内核 {{running}} 与内置内核 {{bundled}} 不一致。请打开「设置 → Mihomo 版本」安装 {{bundled}}，或重新安装/修复服务后重启内核。"
       },
       "updater": {
         "withClashProxySuccess": "使用 Clash 代理更新成功",

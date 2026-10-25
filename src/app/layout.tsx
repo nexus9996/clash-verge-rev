@@ -22,6 +22,7 @@ import {
   usePendingFailures,
 } from '@/hooks/layout'
 import { useI18n } from '@/hooks/use-i18n'
+import { useServiceCoreDrift } from '@/hooks/use-service-core-drift'
 import { useVerge } from '@/hooks/use-verge'
 import { useWindowMaximized } from '@/hooks/use-window-maximized'
 import { useEventBus } from '@/services/bus'
@@ -62,6 +63,7 @@ const Layout = () => {
   )
 
   useLoadingOverlay(themeReady)
+  useServiceCoreDrift()
 
   const handleNotice = useCallback(
     (payload: [string, string]) => {

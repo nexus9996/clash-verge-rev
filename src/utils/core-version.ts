@@ -27,3 +27,18 @@ export const supportsTunDnsMode = (rawVersion?: string | null): boolean => {
   if (!semver) return true
   return compareVersions(semver, TUN_DNS_MODE_MIN_CORE_VERSION) >= 0
 }
+
+/**
+ * Whether the running core differs from the bundled one. Short tokens only
+ * (`v1.19.33`, `alpha-6780eee`); an unknown side never counts as drift.
+ */
+export const coreVersionsDiffer = (
+  running?: string | null,
+  bundled?: string | null,
+): boolean => {
+  const normalize = (value?: string | null) => value?.trim().toLowerCase() ?? ''
+  const runningVersion = normalize(running)
+  const bundledVersion = normalize(bundled)
+  if (!runningVersion || !bundledVersion) return false
+  return runningVersion !== bundledVersion
+}

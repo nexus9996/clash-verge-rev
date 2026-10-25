@@ -760,7 +760,8 @@
         "permissionRejectedReason": "Хезмәт төш файлларын һәм папкаларын югары хокуклар белән имин эшләтеп булачагын раслый алмады.",
         "permissionRepairGuide": "Төзәтү күрсәтмәләрен карау",
         "sidecarFallback": "Хезмәт төшне эшләтеп җибәрә алмады. Эш Sidecar режимында дәвам итә; хезмәт һаман да эшләми.",
-        "uninstallSuccess": "Сервис уңышлы салдырылды"
+        "uninstallSuccess": "Сервис уңышлы салдырылды",
+        "coreVersionDrift": "Хезмәт режимы {{running}} үзәген эшләтә, ә кушылган үзәк — {{bundled}}. {{bundled}} урнаштыру өчен Көйләүләр → Mihomo версияләре бүлеген ачыгыз, яки хезмәтне яңадан урнаштырыгыз/төзәтегез һәм үзәкне яңадан эшләтегез."
       },
       "updater": {
         "withClashProxySuccess": "Update with Clash proxy successfully",

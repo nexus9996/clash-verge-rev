@@ -760,7 +760,8 @@
         "permissionRejectedReason": "Hizmet, çekirdek dosya ve klasörlerinin yükseltilmiş yetkilerle güvenle çalıştırılabileceğini doğrulayamadı.",
         "permissionRepairGuide": "Düzeltme adımlarını görüntüle",
         "sidecarFallback": "Hizmet çekirdeği başlatamadı. Sidecar moduna geçildi; hizmet hâlâ kullanılamıyor.",
-        "uninstallSuccess": "Hizmet Başarıyla Kaldırıldı"
+        "uninstallSuccess": "Hizmet Başarıyla Kaldırıldı",
+        "coreVersionDrift": "Servis modu {{running}} çekirdeğini çalıştırıyor, ancak paketlenmiş çekirdek {{bundled}}. {{bundled}} sürümünü kurmak için Ayarlar → Mihomo Sürümleri'ni açın veya servisi yeniden kurun/onarın ve çekirdeği yeniden başlatın."
       },
       "updater": {
         "withClashProxySuccess": "Clash vekil ile güncelleme başarılı",

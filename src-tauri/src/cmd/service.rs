@@ -102,6 +102,18 @@ pub async fn reinstall_service() -> CmdResult<ServiceInstallOutcome> {
     execute_service_operation_sync(ServiceStatus::ReinstallRequired, "SERVICE_REINSTALL_FAILED").await
 }
 
+/// Version reported by the core bundled beside the app (`verge-mihomo`/`verge-mihomo-alpha`).
+///
+/// Service mode runs the Service's approved copy, so the frontend compares this bundled version
+/// with the live core version to detect an app update that the Service has not accepted yet.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_bundled_core_version() -> CmdResult<std::string::String> {
+    crate::core::service::bundled_core_version()
+        .await
+        .map_err(|error| proxy_aware_coded_error(&error, "BUNDLED_CORE_VERSION_FAILED"))
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn repair_service() -> CmdResult<ServiceInstallOutcome> {

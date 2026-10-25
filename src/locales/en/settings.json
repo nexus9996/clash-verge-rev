@@ -760,7 +760,8 @@
         "permissionRejectedReason": "The service could not confirm that the core files and folders are safe to run with elevated privileges.",
         "permissionRepairGuide": "View repair instructions",
         "sidecarFallback": "The service could not start the core. Switched to Sidecar mode; the service remains unavailable.",
-        "uninstallSuccess": "Service Uninstalled Successfully"
+        "uninstallSuccess": "Service Uninstalled Successfully",
+        "coreVersionDrift": "The service is running kernel {{running}} while the bundled kernel is {{bundled}}. Open Settings → Mihomo Versions to install {{bundled}}, or reinstall/repair the service and restart the core."
       },
       "updater": {
         "withClashProxySuccess": "Update with Clash proxy successfully",

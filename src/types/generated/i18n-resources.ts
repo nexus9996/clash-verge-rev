@@ -886,6 +886,7 @@ export interface TranslationResources {
           }
           clashService: {
             appDataNotOwned: string
+            coreVersionDrift: string
             installSuccess: string
             permissionFallback: string
             permissionRejectedReason: string

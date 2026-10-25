@@ -760,7 +760,8 @@
         "permissionRejectedReason": "服務無法確認核心檔案及所在目錄是否安全，已拒絕以高權限執行。",
         "permissionRepairGuide": "查看修復方法",
         "sidecarFallback": "服務無法啟動核心，已降級為 Sidecar 模式執行，服務仍無法使用。",
-        "uninstallSuccess": "已成功解除安裝服務"
+        "uninstallSuccess": "已成功解除安裝服務",
+        "coreVersionDrift": "服務模式正在執行的核心 {{running}} 與內建核心 {{bundled}} 不一致。請開啟「設定 → Mihomo 版本」安裝 {{bundled}}，或重新安裝/修復服務後重新啟動核心。"
       },
       "updater": {
         "withClashProxySuccess": "使用 Clash 代理更新成功",

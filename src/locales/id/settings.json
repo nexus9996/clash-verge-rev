@@ -760,7 +760,8 @@
         "permissionRejectedReason": "Layanan tidak dapat memastikan bahwa berkas dan folder inti aman dijalankan dengan hak istimewa.",
         "permissionRepairGuide": "Lihat panduan perbaikan",
         "sidecarFallback": "Layanan tidak dapat memulai inti. Beralih ke mode Sidecar; layanan masih tidak tersedia.",
-        "uninstallSuccess": "Layanan Berhasil Dicopot"
+        "uninstallSuccess": "Layanan Berhasil Dicopot",
+        "coreVersionDrift": "Mode layanan menjalankan inti {{running}} sementara inti bawaan adalah {{bundled}}. Buka Pengaturan → Versi Mihomo untuk memasang {{bundled}}, atau pasang ulang/perbaiki layanan lalu mulai ulang inti."
       },
       "updater": {
         "withClashProxySuccess": "Update with Clash proxy successfully",
