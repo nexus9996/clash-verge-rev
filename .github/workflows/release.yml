@@ -275,14 +275,14 @@ jobs:
         run: |
           stable=$(curl -fsSL https://github.com/MetaCubeX/mihomo/releases/latest/download/version.txt)
           alpha=$(curl -fsSL https://github.com/MetaCubeX/mihomo/releases/download/Prerelease-Alpha/version.txt)
-          printf 'stable=%s\nalpha=%s\n' "$stable" "$alpha" > "kernel-version-${{ matrix.target }}.txt"
-          cat "kernel-version-${{ matrix.target }}.txt"
+          printf 'stable=%s\nalpha=%s\n' "$stable" "$alpha" > "kernel-version-${{ github.job }}-${{ matrix.target }}.txt"
+          cat "kernel-version-${{ github.job }}-${{ matrix.target }}.txt"
 
       - name: Upload Mihomo kernel version
         uses: actions/upload-artifact@v4
         with:
-          name: kernel-version-${{ matrix.target }}
-          path: kernel-version-${{ matrix.target }}.txt
+          name: kernel-version-${{ github.job }}-${{ matrix.target }}
+          path: kernel-version-${{ github.job }}-${{ matrix.target }}.txt
           if-no-files-found: error
 
 
@@ -392,14 +392,14 @@ jobs:
         run: |
           stable=$(curl -fsSL https://github.com/MetaCubeX/mihomo/releases/latest/download/version.txt)
           alpha=$(curl -fsSL https://github.com/MetaCubeX/mihomo/releases/download/Prerelease-Alpha/version.txt)
-          printf 'stable=%s\nalpha=%s\n' "$stable" "$alpha" > "kernel-version-${{ matrix.target }}.txt"
-          cat "kernel-version-${{ matrix.target }}.txt"
+          printf 'stable=%s\nalpha=%s\n' "$stable" "$alpha" > "kernel-version-${{ github.job }}-${{ matrix.target }}.txt"
+          cat "kernel-version-${{ github.job }}-${{ matrix.target }}.txt"
 
       - name: Upload Mihomo kernel version
         uses: actions/upload-artifact@v4
         with:
-          name: kernel-version-${{ matrix.target }}
-          path: kernel-version-${{ matrix.target }}.txt
+          name: kernel-version-${{ github.job }}-${{ matrix.target }}
+          path: kernel-version-${{ github.job }}-${{ matrix.target }}.txt
           if-no-files-found: error
 
 
@@ -545,14 +545,14 @@ jobs:
         run: |
           stable=$(curl -fsSL https://github.com/MetaCubeX/mihomo/releases/latest/download/version.txt)
           alpha=$(curl -fsSL https://github.com/MetaCubeX/mihomo/releases/download/Prerelease-Alpha/version.txt)
-          printf 'stable=%s\nalpha=%s\n' "$stable" "$alpha" > "kernel-version-${{ matrix.target }}.txt"
-          cat "kernel-version-${{ matrix.target }}.txt"
+          printf 'stable=%s\nalpha=%s\n' "$stable" "$alpha" > "kernel-version-${{ github.job }}-${{ matrix.target }}.txt"
+          cat "kernel-version-${{ github.job }}-${{ matrix.target }}.txt"
 
       - name: Upload Mihomo kernel version
         uses: actions/upload-artifact@v4
         with:
-          name: kernel-version-${{ matrix.target }}
-          path: kernel-version-${{ matrix.target }}.txt
+          name: kernel-version-${{ github.job }}-${{ matrix.target }}
+          path: kernel-version-${{ github.job }}-${{ matrix.target }}.txt
           if-no-files-found: error
 
 
