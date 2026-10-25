@@ -56,6 +56,7 @@
 <summary><strong> 🚀 优化改进 </strong></summary>
 
 - 订阅、设置与连接页改为按需加载，首屏主包体积降低约 33%
+- 「DNS 模式」仅在 mihomo v1.19.33 及以上内核显示，避免旧内核出现无效选项
 
 **🖥️ Windows**
 
