@@ -20,6 +20,7 @@
     "web:build": "tsc --noEmit && vite build",
     "web:serve": "vite preview",
     "prebuild:download": "bun scripts/prebuild.mjs",
+    "sync:dev": "bun scripts/sync-dev.mjs",
     "updater": "bun scripts/updater.mjs",
     "updater-fixed-webview2": "bun scripts/updater-fixed-webview2.mjs",
     "release-version": "bun scripts/release-version.mjs",
