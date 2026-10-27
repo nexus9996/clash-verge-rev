@@ -613,7 +613,7 @@ function NormalProxyGroups(props: { mode: string }) {
         />
       </DragDropProvider>
 
-      {mode === 'rule' && navigatorReady && (
+      {(mode === 'rule' || mode === 'global') && navigatorReady && (
         <ProxyGroupNavigator
           proxyGroupNames={proxyGroupNames}
           onGroupLocation={handleGroupLocationByName}
