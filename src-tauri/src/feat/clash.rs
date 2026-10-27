@@ -9,6 +9,7 @@ use crate::{
     utils,
 };
 use bytes::BytesMut;
+use clash_verge_draft::DraftTransaction;
 use clash_verge_logging::{Type, logging};
 use serde_yaml_ng::{Mapping, Value};
 use smartstring::alias::String;
@@ -94,25 +95,42 @@ fn after_change_clash_mode() {
 
 /// Propagates mihomo PATCH failures so the frontend can roll back its optimistic mode.
 pub async fn change_clash_mode(mode: String) -> Result<(), String> {
+    let _config_write = Config::lock_config_write().await;
+    let clash = Config::clash().await;
+    let previous_mode = clash.data_arc().get_mode().unwrap_or_else(|| "rule".into());
+    let transaction = DraftTransaction::begin(vec![&clash]).map_err(|error| error.to_string())?;
+
     let mut mapping = Mapping::new();
     mapping.insert(Value::from("mode"), Value::from(mode.as_str()));
     let json_value = serde_json::json!({
         "mode": mode
     });
     if let Err(err) = handle::Handle::mihomo().patch_base_config(&json_value).await {
+        transaction.rollback();
         logging!(error, Type::Core, "change clash mode failed: {err}");
         return Err(err.to_string().into());
     }
 
-    let clash = Config::clash().await;
     clash.edit_draft(|d| d.patch_config(&mapping));
-    clash.apply();
-
-    let clash_data = clash.data_arc();
-    if clash_data.save_config().await.is_ok() {
-        announce(Refresh::Clash);
-        tray::Tray::global().update_menu_and_icon().await;
+    if let Err(save_error) = clash.latest_arc().save_config().await {
+        transaction.rollback();
+        let rollback = serde_json::json!({ "mode": previous_mode });
+        if let Err(rollback_error) = handle::Handle::mihomo().patch_base_config(&rollback).await {
+            logging!(
+                error,
+                Type::Core,
+                "failed to restore clash mode after config save failure: {rollback_error}"
+            );
+            return Err(format!(
+                "failed to save clash config: {save_error}; failed to restore running mode: {rollback_error}"
+            )
+            .into());
+        }
+        return Err(format!("failed to save clash config: {save_error}").into());
     }
+    transaction.commit();
+    announce(Refresh::Clash);
+    tray::Tray::global().update_menu_and_icon().await;
 
     let is_auto_close_connection = Config::verge().await.data_arc().auto_close_connection.unwrap_or(false);
     if is_auto_close_connection {

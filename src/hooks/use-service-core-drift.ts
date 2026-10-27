@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 
 import { useClash } from '@/hooks/use-clash'
 import { getBundledCoreVersion } from '@/services/cmds'
-import { showNotice } from '@/services/notice-service'
+import { hideNotice, showNotice } from '@/services/notice-service'
 import { useRunState } from '@/store/app-store-context'
 import { coreVersionsDiffer } from '@/utils/core-version'
 
@@ -14,23 +14,43 @@ import { coreVersionsDiffer } from '@/utils/core-version'
 export const useServiceCoreDrift = () => {
   const { coreVersion } = useClash()
   const runState = useRunState()
-  const reported = useRef(false)
+  const notice = useRef<{
+    id: number
+    running: string
+    bundled: string
+  } | null>(null)
   const serviceMode = runState?.mode === 'Service'
 
   useEffect(() => {
-    if (!serviceMode || !coreVersion || reported.current) return
+    if (!serviceMode || !coreVersion) {
+      if (notice.current) hideNotice(notice.current.id)
+      notice.current = null
+      return
+    }
 
     let cancelled = false
     void getBundledCoreVersion()
       .then((bundled) => {
-        if (cancelled || reported.current) return
-        if (!coreVersionsDiffer(coreVersion, bundled)) return
-        reported.current = true
-        showNotice.warning(
-          'settings.feedback.notifications.clashService.coreVersionDrift',
-          { running: coreVersion, bundled },
-          0,
-        )
+        if (cancelled) return
+        const current = notice.current
+        if (!coreVersionsDiffer(coreVersion, bundled)) {
+          if (current) hideNotice(current.id)
+          notice.current = null
+          return
+        }
+        if (current?.running === coreVersion && current.bundled === bundled) {
+          return
+        }
+        if (current) hideNotice(current.id)
+        notice.current = {
+          id: showNotice.warning(
+            'settings.feedback.notifications.clashService.coreVersionDrift',
+            { running: coreVersion, bundled },
+            0,
+          ),
+          running: coreVersion,
+          bundled,
+        }
       })
       .catch((error) => {
         console.warn('Failed to compare the bundled core version:', error)
