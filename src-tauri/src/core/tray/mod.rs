@@ -678,7 +678,8 @@ fn build_tray_menu(
         .tray_proxy_groups_display_mode
         .as_deref()
         .unwrap_or("default");
-    let include_proxy_groups = options.include_proxy_groups && tray_proxy_groups_display_mode != "disable";
+    let include_proxy_groups =
+        options.include_proxy_groups && verge_settings.tray_proxy_groups_display_mode.as_deref() != Some("disable");
 
     let show_outbound_modes_inline = verge_settings.tray_inline_outbound_modes.unwrap_or(false);
 

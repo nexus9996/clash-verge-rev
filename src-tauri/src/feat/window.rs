@@ -130,9 +130,7 @@ pub async fn open_or_close_dashboard() {
     logging!(info, Type::Window, "Window toggle result: {result:?}");
 }
 
-pub async fn quit() {
-    logging!(debug, Type::System, "启动退出流程");
-    // 设置退出标志
+pub(crate) async fn run_exit_cleanup_flow(stop_failed_notice: NoticeStatus) -> CleanupResult {
     handle::Handle::global().set_is_exiting();
 
     Config::apply_all_and_save_file().await;
@@ -170,14 +168,21 @@ pub async fn quit() {
             }
         }
         handle::Handle::notice(
-            NoticeStatus::AppQuitCoreStopFailed,
-            cleanup_result.stop_error.unwrap_or_default(),
+            stop_failed_notice,
+            cleanup_result.stop_error.clone().unwrap_or_default(),
         );
         // A failed controlled stop cancels the quit. Cleanup already skipped the DNS restore and
         // left the core running, so tearing down the embedded server or exiting now would abandon
         // a live core behind an app that is gone.
-        return;
+        return cleanup_result;
     }
+
+    cleanup_result
+}
+
+pub async fn quit() {
+    logging!(debug, Type::System, "启动退出流程");
+    let cleanup_result = run_exit_cleanup_flow(NoticeStatus::AppQuitCoreStopFailed).await;
 
     utils::server::shutdown_embedded_server();
     let app_handle = handle::Handle::app_handle();

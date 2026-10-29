@@ -437,7 +437,7 @@ export type IVerge_Deserialize = {
   start_page?: string | null
   startup_script?: string | null
   traffic_graph?: boolean | null
-  /**  show memory info (only for Clash Meta) */
+  /**  show memory info (only for Mihomo) */
   enable_memory_usage?: boolean | null
   enable_group_icon?: boolean | null
   pause_render_traffic_stats_on_blur?: boolean | null
@@ -536,7 +536,7 @@ export type IVerge_Serialize = {
   start_page: string | null
   startup_script: string | null
   traffic_graph: boolean | null
-  /**  show memory info (only for Clash Meta) */
+  /**  show memory info (only for Mihomo) */
   enable_memory_usage: boolean | null
   enable_group_icon?: boolean | null
   pause_render_traffic_stats_on_blur: boolean | null

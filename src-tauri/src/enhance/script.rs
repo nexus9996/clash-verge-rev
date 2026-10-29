@@ -1,6 +1,6 @@
 use crate::{process::AsyncHandler, utils::tmpl};
 
-use super::field::use_lowercase_owned;
+use super::field::use_lowercase;
 use anyhow::{Error, Result};
 use clash_verge_logging::{Type, logging};
 use parking_lot::Mutex;
@@ -119,7 +119,7 @@ impl serde::Serialize for LowercaseKeys<'_> {
 pub(super) async fn use_script(script: String, config: Mapping, name: String) -> ScriptResult {
     // The template is identity-plus-lowercasing; skip the engine round-trip.
     if script == tmpl::ITEM_SCRIPT {
-        return (use_lowercase_owned(config), vec![], vec![]);
+        return (use_lowercase(&config), vec![], vec![]);
     }
 
     let json = match serde_json::to_string(&LowercaseKeys(&config)) {
@@ -258,7 +258,7 @@ JSON.stringify(main(JSON.parse(globalThis.__verge_config__),'{safe_name}')||'')
         }
 
         match parse_json_safely(&result) {
-            Ok(config) => Ok(use_lowercase_owned(config)),
+            Ok(config) => Ok(use_lowercase(&config)),
             Err(err) => {
                 logging!(
                     error,
