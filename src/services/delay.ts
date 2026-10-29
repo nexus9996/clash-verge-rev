@@ -299,6 +299,8 @@ class DelayManager {
     group: string,
     timeout: number,
   ): Promise<DelayUpdate> {
+    // Entry points own the pending mark; measureDelay only writes results.
+    this.setDelay(member.ref.name, group, -2)
     const update = await this.measureDelay(member, group, timeout)
     this.queueGroupNotification(group)
     return update
@@ -319,8 +321,6 @@ class DelayManager {
     debugLog(
       `[DelayManager] 开始测试延迟，代理: ${name}, 组: ${group}, 超时: ${timeout}ms`,
     )
-
-    this.setDelay(name, group, -2)
 
     const startTime = Date.now()
     let timeoutId: Parameters<typeof clearTimeout>[0] | undefined
