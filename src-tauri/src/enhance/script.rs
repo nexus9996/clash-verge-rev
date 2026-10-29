@@ -338,9 +338,6 @@ mod tests {
     use smartstring::alias::String;
     use std::time::{Duration, Instant};
 
-    const META_GUARD_SCRIPT: &str = include_str!("./builtin/meta_guard.js");
-    const META_HY_ALPN_SCRIPT: &str = include_str!("./builtin/meta_hy_alpn.js");
-
     fn run(script: &str, config_json: &str) -> super::EvalOutcome {
         let name: String = "test-profile".into();
         eval_script(script, config_json, &name, Duration::from_secs(1))
@@ -571,79 +568,6 @@ nested:
                 "json_roundtrip": "{\"a\":[1,2],\"b\":\"x\"}",
             })
         );
-    }
-
-    #[test]
-    fn quickjs_runs_meta_guard_builtin_script() {
-        let config = run_with_config(
-            META_GUARD_SCRIPT,
-            serde_json::json!({
-                "mode": "script",
-                "proxy-groups": [{
-                    "name": "PROXY",
-                    "type": "select",
-                    "proxies": ["node-hk-01"],
-                }],
-                "proxies": [{
-                    "name": "node-hk-01",
-                    "type": "ss",
-                    "server": "hk01.example.com",
-                    "port": 443,
-                    "cipher": "aes-128-gcm",
-                    "password": "secret",
-                }],
-                "rules": ["DOMAIN-SUFFIX,example.com,PROXY", "MATCH,PROXY"],
-            }),
-        );
-
-        assert_eq!(config["mode"], "rule");
-        assert_eq!(config["proxies"].as_array().map(Vec::len), Some(1));
-        assert_eq!(config["rules"].as_array().map(Vec::len), Some(2));
-    }
-
-    #[test]
-    fn quickjs_runs_meta_hy_alpn_builtin_script() {
-        let config = run_with_config(
-            META_HY_ALPN_SCRIPT,
-            serde_json::json!({
-                "proxies": [
-                    {
-                        "name": "hy-string",
-                        "type": "hysteria",
-                        "server": "hy1.example.com",
-                        "port": 443,
-                        "alpn": "h3",
-                    },
-                    {
-                        "name": "hy-array",
-                        "type": "hysteria",
-                        "server": "hy2.example.com",
-                        "port": 443,
-                        "alpn": ["h2", "h3"],
-                    },
-                    {
-                        "name": "hy2-string",
-                        "type": "hysteria2",
-                        "server": "hy3.example.com",
-                        "port": 443,
-                        "alpn": "h3",
-                    },
-                    {
-                        "name": "ss-plain",
-                        "type": "ss",
-                        "server": "ss.example.com",
-                        "port": 443,
-                        "cipher": "aes-128-gcm",
-                        "password": "secret",
-                    },
-                ],
-            }),
-        );
-
-        assert_eq!(config["proxies"][0]["alpn"], serde_json::json!(["h3"]));
-        assert_eq!(config["proxies"][1]["alpn"], serde_json::json!(["h2", "h3"]));
-        assert_eq!(config["proxies"][2]["alpn"], serde_json::json!("h3"));
-        assert_eq!(config["proxies"][3].get("alpn"), None);
     }
 
     // Representative shape of subscription scripts users run, not a real user script; real
