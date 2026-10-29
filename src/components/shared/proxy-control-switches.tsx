@@ -240,10 +240,16 @@ const ProxyControlSwitches = ({
         />
       )}
 
-      <Suspense fallback={null}>
-        <LazySysproxyViewer ref={sysproxyRef} />
-        <LazyTunViewer ref={tunRef} />
-      </Suspense>
+      {isSystemProxyMode && (
+        <Suspense fallback={null}>
+          <LazySysproxyViewer ref={sysproxyRef} />
+        </Suspense>
+      )}
+      {isTunMode && (
+        <Suspense fallback={null}>
+          <LazyTunViewer ref={tunRef} />
+        </Suspense>
+      )}
     </Box>
   )
 }
