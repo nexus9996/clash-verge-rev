@@ -66,6 +66,14 @@ mod app_init {
                     .protocol(tauri_plugin_mihomo::models::Protocol::LocalSocket)
                     .socket_path(crate::config::IClashTemp::guard_external_controller_ipc())
                     .build(),
+            )
+            // v3 cleanup hook: also runs on exit paths that skip the event loop
+            // (AppHandle::restart), so a missed interactive cleanup cannot leave
+            // the kernel or the embedded server behind.
+            .plugin(
+                tauri::plugin::Builder::<tauri::DynRuntime, ()>::new("clash-verge-exit-cleanup")
+                    .on_cleanup_before_exit(|_app| crate::feat::cleanup_before_exit_safety_net())
+                    .build(),
             );
 
         // Devtools plugin only in debug mode with feature tauri-dev

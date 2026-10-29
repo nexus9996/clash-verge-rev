@@ -237,6 +237,32 @@ pub fn clean_session_ending_with_hard_deadline() -> Option<CleanupResult> {
     }
 }
 
+/// Last-chance cleanup for exit paths that bypass the event loop.
+///
+/// The plugin cleanup hook runs on paths like AppHandle::restart that never
+/// reach RunEvent::Exit. The interactive quit and restart flows set the
+/// exiting flag before cleaning up, so this only takes over when a caller
+/// skipped them; reuse the bounded cleanup written for OS session end instead
+/// of repeating the async interactive flow on the main thread.
+pub fn cleanup_before_exit_safety_net() {
+    if !handle::Handle::global().is_exiting() {
+        logging!(warn, Type::System, "退出路径未经过常规清理流程，执行兜底清理");
+        handle::Handle::global().set_is_exiting();
+        if let Some(result) = clean_session_ending_with_hard_deadline() {
+            logging!(
+                info,
+                Type::System,
+                "兜底清理完成 - 内核已停止: {}, 全部清理成功: {}",
+                result.core_stopped,
+                result.all_success
+            );
+        }
+        utils::server::shutdown_embedded_server();
+    }
+
+    crate::core::logger::Logger::global().flush_logs();
+}
+
 /// Avoids the app runtime, whose workers may wait on the blocked main thread.
 fn run_with_hard_deadline<F, Fut, T>(cleanup: F, deadline: Duration) -> anyhow::Result<T>
 where
