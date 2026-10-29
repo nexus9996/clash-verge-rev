@@ -179,7 +179,7 @@ jobs:
         if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libclang-dev clang libxslt1.1 libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libclang-dev clang libxslt1.1 libwebkit2gtk-4.1-dev librsvg2-dev patchelf
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
@@ -330,7 +330,6 @@ jobs:
             clang \
             libxslt1.1:${{ matrix.arch }} \
             libwebkit2gtk-4.1-dev:${{ matrix.arch }} \
-            libayatana-appindicator3-dev:${{ matrix.arch }} \
             libssl-dev:${{ matrix.arch }} \
             patchelf:${{ matrix.arch }} \
             librsvg2-dev:${{ matrix.arch }}

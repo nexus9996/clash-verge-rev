@@ -76,7 +76,7 @@ bun install
 Ubuntu-only system packages:
 
 ```bash
-sudo apt-get install -y libxslt1.1 libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+sudo apt-get install -y libxslt1.1 libwebkit2gtk-4.1-dev librsvg2-dev patchelf
 ```
 
 ### Download the Mihomo Core Binary (Automatic)

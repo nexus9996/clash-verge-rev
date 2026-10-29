@@ -100,7 +100,7 @@
   },
   "devDependencies": {
     "@actions/github": "^9.1.1",
-    "@tauri-apps/cli": "3.0.0-alpha.4",
+    "@tauri-apps/cli": "3.0.0-alpha.5",
     "@types/lodash-es": "^4.17.12",
     "@types/node": "^26.0.0",
     "@types/react": "19.3.0",

@@ -72,6 +72,11 @@
 
 - 更新下载完成改为提示用户重启应用以应用新版本，不再自动重启（Windows 安装器仍会自动退出并重启）
 
+**🐧 Linux**
+
+- Linux：托盘改用 StatusNotifierItem（ksni）后端，安装包不再捆绑 libayatana-appindicator 与 dbusmenu 运行库，并移除对应的 deb/rpm 依赖，体积更小
+- Linux：RPM 安装包改用 zstd 压缩（level 19）
+
 </details>
 
 ## v2.5.9
@@ -107,6 +112,9 @@
 - 新增虚拟网卡设置的「DNS 模式」选项，支持配置 mihomo 系统 DNS 行为
 - 新增「IP 信息」自动刷新开关，关闭后仍可手动刷新
 - 新增 Muse AI 解锁检测，针对 Muse AI 特有的 Cloudflare 人机验证增加「Risky」状态标记
+
+**🍎 macOS**
+
 - macOS：新增实验性菜单栏快捷面板（默认关闭，可在「系统」设置中开启；开启后右击托盘图标唤起）
 
 </details>
