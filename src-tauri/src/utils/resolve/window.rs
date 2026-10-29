@@ -1,4 +1,5 @@
 use dark_light::{Mode as SystemTheme, detect as detect_system_theme};
+use tauri::Manager as _;
 use tauri::utils::config::Color;
 use tauri::webview::PageLoadEvent;
 use tauri::{Theme, WebviewWindow};
@@ -194,7 +195,10 @@ pub fn take_webview_needs_reload() -> bool {
 /// reload visible webviews immediately, and defer a hidden main-window reload until activation.
 /// Registering this callback replaces Tauri's default automatic reload.
 #[cfg(target_os = "macos")]
-pub fn on_web_content_process_terminated(webview: &tauri::Webview) {
+pub fn on_web_content_process_terminated(
+    webview: &tauri::Webview,
+    _termination: &tauri::webview::WebContentProcessTermination,
+) {
     if handle::Handle::global().is_exiting() {
         return;
     }

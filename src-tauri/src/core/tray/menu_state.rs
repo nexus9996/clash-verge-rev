@@ -10,14 +10,14 @@ use smartstring::alias::String;
 use std::collections::HashMap;
 use tauri::menu::{CheckMenuItem, IsMenuItem, Submenu};
 use tauri::tray::TrayIcon;
-use tauri::{AppHandle, Wry};
+use tauri::{AppHandle, DynRuntime};
 use tauri_plugin_mihomo::models::Proxies;
 
 use super::{TrayMenuOptions, build_tray_menu, create_subcreate_proxy_menu_item};
 
 pub(super) struct ProxyNodeItem {
     pub(super) name: String,
-    pub(super) item: CheckMenuItem<Wry>,
+    pub(super) item: CheckMenuItem<DynRuntime>,
     pub(super) text: String,
     pub(super) checked: bool,
 }
@@ -28,12 +28,12 @@ pub(super) struct ProxyGroupItems {
 }
 
 pub(super) struct TrayMenuState {
-    pub(super) mode_items: [CheckMenuItem<Wry>; 3],
-    pub(super) system_proxy_item: CheckMenuItem<Wry>,
-    pub(super) tun_item: CheckMenuItem<Wry>,
-    pub(super) lightweight_item: CheckMenuItem<Wry>,
-    pub(super) profile_items: Vec<(String, CheckMenuItem<Wry>)>,
-    pub(super) proxies_submenu: Option<Submenu<Wry>>,
+    pub(super) mode_items: [CheckMenuItem<DynRuntime>; 3],
+    pub(super) system_proxy_item: CheckMenuItem<DynRuntime>,
+    pub(super) tun_item: CheckMenuItem<DynRuntime>,
+    pub(super) lightweight_item: CheckMenuItem<DynRuntime>,
+    pub(super) profile_items: Vec<(String, CheckMenuItem<DynRuntime>)>,
+    pub(super) proxies_submenu: Option<Submenu<DynRuntime>>,
     pub(super) proxy_groups: Vec<ProxyGroupItems>,
     pub(super) signature: String,
     pub(super) proxy_signature: Option<String>,
@@ -105,8 +105,8 @@ pub(super) fn proxy_structure_signature(
 }
 
 pub(super) struct ReconcileContext<'a> {
-    pub(super) app_handle: &'a AppHandle<Wry>,
-    pub(super) tray: &'a TrayIcon<Wry>,
+    pub(super) app_handle: &'a AppHandle<DynRuntime>,
+    pub(super) tray: &'a TrayIcon<DynRuntime>,
     pub(super) options: TrayMenuOptions<'a>,
     pub(super) verge: &'a IVerge,
     pub(super) profiles: &'a IProfiles,
@@ -212,7 +212,7 @@ impl TrayMenuState {
 
     fn swap_proxy_section(
         &mut self,
-        app_handle: &AppHandle<Wry>,
+        app_handle: &AppHandle<DynRuntime>,
         proxy_mode: &str,
         order_map: Option<&HashMap<String, usize>>,
         proxy_nodes_data: &Proxies,
@@ -227,8 +227,10 @@ impl TrayMenuState {
             return false;
         }
         while proxies_submenu.remove_at(0).is_ok_and(|item| item.is_some()) {}
-        let group_menus_refs: Vec<&dyn IsMenuItem<Wry>> =
-            group_menus.iter().map(|menu| menu as &dyn IsMenuItem<Wry>).collect();
+        let group_menus_refs: Vec<&dyn IsMenuItem<DynRuntime>> = group_menus
+            .iter()
+            .map(|menu| menu as &dyn IsMenuItem<DynRuntime>)
+            .collect();
         logging_error!(Type::Tray, proxies_submenu.append_items(&group_menus_refs));
         self.proxy_groups = group_state;
         self.proxy_signature = proxy_signature.map(Into::into);

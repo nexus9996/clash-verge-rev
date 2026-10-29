@@ -1,19 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::process::ExitCode;
-#[cfg(not(all(feature = "perf-harness", target_os = "macos")))]
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-#[cfg(all(feature = "perf-harness", target_os = "macos"))]
-#[path = "../../scripts/perf/app.rs"]
-mod perf;
-
-#[cfg(all(feature = "perf-harness", target_os = "macos"))]
-fn main() -> ExitCode {
-    perf::run()
-}
-
-#[cfg(not(all(feature = "perf-harness", target_os = "macos")))]
 fn main() -> ExitCode {
     // The privileged replacement must run before the runtime, the singleton check or any window.
     #[cfg(target_os = "linux")]

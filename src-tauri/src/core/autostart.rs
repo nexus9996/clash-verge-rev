@@ -82,7 +82,7 @@ pub async fn update_launch() -> Result<()> {
         #[cfg(target_os = "macos")]
         cleanup_legacy_autostart();
         let app_handle = Handle::app_handle();
-        let autostart_manager = app_handle.autolaunch();
+        let autostart_manager = app_handle.autostart();
         if is_enable {
             logging_error!(Type::System, "{:?}", autostart_manager.enable());
         } else {
