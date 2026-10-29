@@ -96,6 +96,9 @@ async fn finalize_restored_verge_config(
     webdav_username: Option<String>,
     webdav_password: Option<String>,
 ) -> Result<()> {
+    // The lock must cover every restored layer; an unlocked apply races a concurrently staged draft.
+    let config_write = Config::lock_config_write().await;
+
     // A broken restored `verge.yaml` is a restore failure, not a reason to load defaults.
     let mut restored = help::read_yaml::<IVerge>(&verge_path()?).await?;
     if strip_untrusted_startup_script(&mut restored) {
@@ -125,30 +128,29 @@ async fn finalize_restored_verge_config(
     profiles_draft.apply();
 
     let verge_draft = Config::verge().await;
-    {
-        // Hold the write lock so a concurrent patch cannot stage a draft the proxy write reads.
-        let _config_write = Config::lock_config_write().await;
-        verge_draft.edit_draft(|d| {
-            *d = restored.clone();
-        });
-        verge_draft.apply();
+    verge_draft.edit_draft(|d| {
+        *d = restored.clone();
+    });
+    verge_draft.apply();
 
-        // Turn it off here; a failing core side effect below would otherwise skip this step.
-        if !restored.enable_system_proxy.unwrap_or_default() {
-            let result = async {
-                let _lifecycle = CoreManager::global().lifecycle_lock.lock().await;
-                proxy_control::apply().await?;
-                proxy_control::refresh_guard().await
-            }
-            .await;
-            if let Err(err) = result {
-                logging!(error, Type::Backup, "Failed to turn the system proxy off: {err:#}");
-                if SystemProxyStateUnknown::is_in(&err) {
-                    return Err(err);
-                }
+    // Turn it off here; a failing core side effect below would otherwise skip this step.
+    if !restored.enable_system_proxy.unwrap_or_default() {
+        let result = async {
+            let _lifecycle = CoreManager::global().lifecycle_lock.lock().await;
+            proxy_control::apply().await?;
+            proxy_control::refresh_guard().await
+        }
+        .await;
+        if let Err(err) = result {
+            logging!(error, Type::Backup, "Failed to turn the system proxy off: {err:#}");
+            if SystemProxyStateUnknown::is_in(&err) {
+                return Err(err);
             }
         }
     }
+
+    // `patch_verge` re-acquires the lock through `try_lock_config_write`.
+    drop(config_write);
 
     // Run configuration side effects without rewriting the already-restored file.
     if let Err(err) = super::patch_verge(&restored, true).await {
@@ -233,8 +235,9 @@ pub async fn restore_webdav_backup(filename: String) -> Result<()> {
         let _ = std::fs::remove_file(path);
     });
 
-    let _profile_write = crate::config::profiles::PROFILE_WRITE_LOCK.lock().await;
+    // Extraction is plain filesystem work; serialize only the config-data transition.
     extract_backup(backup_storage_path).await?;
+    let _profile_write = crate::config::profiles::PROFILE_WRITE_LOCK.lock().await;
     finalize_restored_verge_config(webdav_url, webdav_username, webdav_password).await
 }
 
@@ -467,8 +470,9 @@ pub async fn restore_local_backup(filename: String) -> Result<()> {
         )
     };
 
-    let _profile_write = crate::config::profiles::PROFILE_WRITE_LOCK.lock().await;
+    // Extraction is plain filesystem work; serialize only the config-data transition.
     extract_backup(target_path).await?;
+    let _profile_write = crate::config::profiles::PROFILE_WRITE_LOCK.lock().await;
     finalize_restored_verge_config(webdav_url, webdav_username, webdav_password).await?;
     Ok(())
 }
