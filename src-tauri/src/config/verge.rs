@@ -461,6 +461,7 @@ impl IVerge {
         patch_opt_field!(self, patch, language);
         patch_opt_field!(self, patch, theme_mode);
         patch_opt_field!(self, patch, tray_event);
+        patch_opt_field!(self, patch, enable_quick_panel);
         patch_opt_field!(self, patch, env_type);
         patch_opt_field!(self, patch, start_page);
         patch_opt_field!(self, patch, startup_script);
@@ -559,5 +560,45 @@ impl IVerge {
         } else {
             LevelFilter::Info
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::IVerge;
+
+    /// The shipped template is the complete default configuration, so patching a
+    /// default draft with it must reproduce it exactly: every field the template
+    /// sets has to travel through `patch_config`. A missing line here applies the
+    /// runtime effect of a patch (via the effect registry) while the draft and the
+    /// persisted file keep the old value, which the frontend then revalidates and
+    /// shows as an unchanged switch.
+    #[test]
+    fn template_round_trips_through_patch_config() {
+        let template = IVerge::template();
+        let mut patched = IVerge::default();
+        patched.patch_config(&template);
+
+        assert_eq!(
+            serde_yaml_ng::to_value(&patched).expect("patched config serializes"),
+            serde_yaml_ng::to_value(&template).expect("template config serializes"),
+        );
+    }
+
+    #[test]
+    fn quick_panel_switch_round_trips_through_patch_config() {
+        let mut config = IVerge::default();
+
+        config.patch_config(&IVerge {
+            enable_quick_panel: Some(true),
+            ..Default::default()
+        });
+        assert_eq!(config.enable_quick_panel, Some(true));
+
+        config.patch_config(&IVerge {
+            enable_quick_panel: Some(false),
+            ..Default::default()
+        });
+        assert_eq!(config.enable_quick_panel, Some(false));
     }
 }
