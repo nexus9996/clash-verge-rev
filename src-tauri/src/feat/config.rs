@@ -9,7 +9,7 @@ use std::{sync::OnceLock, time::Duration};
 use tokio::sync::{MutexGuard, mpsc, oneshot};
 
 /// Give a queued transaction a chance to release the write lock before reporting the queue stuck.
-const CONFIG_WRITE_WAIT: Duration = Duration::from_secs(2);
+pub(super) const CONFIG_WRITE_WAIT: Duration = Duration::from_secs(2);
 /// Bounds how many UI patches can wait behind a slow configuration transaction.
 const PATCH_QUEUE_CAPACITY: usize = 64;
 /// Collect a short burst before applying so adjacent compatible patches share one transaction.
