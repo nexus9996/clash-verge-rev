@@ -33,6 +33,10 @@ export default defineConfig({
     // isolated already, so a chunk over ~1 MB signals an accidental import.
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
+      input: {
+        main: path.resolve('src/index.html'),
+        quickPanel: path.resolve('src/quick-panel-live.html'),
+      },
       output: {
         // Vendor groups are intentionally narrow: only libraries that every
         // route shares are pinned so route-level code splitting stays intact.
@@ -40,9 +44,9 @@ export default defineConfig({
           groups: [
             {
               name: 'vendor-react',
-              test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/,
+              test: /node_modules[\/](react|react-dom|scheduler)[\/]/,
             },
-            { name: 'vendor-mui', test: /node_modules[\\/]@mui[\\/]/ },
+            { name: 'vendor-mui', test: /node_modules[\/]@mui[\/]/ },
           ],
         },
       },

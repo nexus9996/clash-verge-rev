@@ -16,11 +16,13 @@
         "systemProxy": "系统代理"
       },
       "tooltips": {
-        "silentStart": "程序启动时以后台模式运行，不显示程序面板"
+        "silentStart": "程序启动时以后台模式运行，不显示程序面板",
+        "quickPanel": "从 macOS 菜单栏右击托盘图标显示实验性快捷面板。"
       },
       "fields": {
         "autoLaunch": "开机自启",
-        "silentStart": "静默启动"
+        "silentStart": "静默启动",
+        "quickPanel": "菜单栏快捷面板"
       },
       "notifications": {
         "tunMode": {

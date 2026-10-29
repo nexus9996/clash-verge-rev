@@ -16,11 +16,13 @@
         "systemProxy": "Proxy do Sistema"
       },
       "tooltips": {
-        "silentStart": "Inicia o programa em segundo plano sem exibir o painel"
+        "silentStart": "Inicia o programa em segundo plano sem exibir o painel",
+        "quickPanel": "Show an experimental panel from the macOS menu bar (right-click the tray icon)."
       },
       "fields": {
         "autoLaunch": "Iniciar com o Sistema",
-        "silentStart": "Início Silencioso"
+        "silentStart": "Início Silencioso",
+        "quickPanel": "Menu-bar quick panel"
       },
       "notifications": {
         "tunMode": {

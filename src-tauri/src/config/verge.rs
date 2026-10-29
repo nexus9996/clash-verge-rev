@@ -30,6 +30,8 @@ pub struct IVerge {
     pub theme_mode: Option<String>,
     #[specta(type = Option<std::string::String>)]
     pub tray_event: Option<String>,
+    /// Show the experimental macOS menu-bar quick panel on tray right-click.
+    pub enable_quick_panel: Option<bool>,
     #[specta(type = Option<std::string::String>)]
     pub env_type: Option<String>,
     #[specta(type = Option<std::string::String>)]
@@ -396,6 +398,7 @@ impl IVerge {
             common_tray_icon: Some(false),
             sysproxy_tray_icon: Some(false),
             tun_tray_icon: Some(false),
+            enable_quick_panel: Some(false),
             enable_auto_launch: Some(false),
             enable_silent_start: Some(false),
             enable_hover_jump_navigator: Some(true),

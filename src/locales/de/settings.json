@@ -16,11 +16,13 @@
         "systemProxy": "Systemproxy"
       },
       "tooltips": {
-        "silentStart": "Die Anwendung wird im Hintergrund gestartet, ohne dass das Programmfenster angezeigt wird."
+        "silentStart": "Die Anwendung wird im Hintergrund gestartet, ohne dass das Programmfenster angezeigt wird.",
+        "quickPanel": "Show an experimental panel from the macOS menu bar (right-click the tray icon)."
       },
       "fields": {
         "autoLaunch": "Automatischer Start",
-        "silentStart": "Leiser Start"
+        "silentStart": "Leiser Start",
+        "quickPanel": "Menu-bar quick panel"
       },
       "notifications": {
         "tunMode": {

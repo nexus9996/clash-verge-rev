@@ -14,6 +14,7 @@ pub(super) enum Effect {
     TrayIcon,
     TrayTooltip,
     TrayClick,
+    QuickPanel,
     Lightweight,
     LogLevel,
     LogFile,
@@ -52,6 +53,7 @@ verge_registry! {
     language => [Language, TrayMenu, TrayTooltip];
     theme_mode => NoEffect;
     tray_event => [TrayClick];
+    enable_quick_panel => [QuickPanel];
     env_type => NoEffect;
     start_page => NoEffect;
     startup_script => NoEffect;
@@ -215,6 +217,10 @@ mod tests {
             (
                 verge_patch(|p| p.tray_event = Some("show_main_window".into())),
                 &[Effect::TrayClick],
+            ),
+            (
+                verge_patch(|p| p.enable_quick_panel = Some(true)),
+                &[Effect::QuickPanel],
             ),
             (verge_patch(|p| p.theme_mode = Some("dark".into())), &[]),
         ];

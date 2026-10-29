@@ -121,6 +121,7 @@ mod app_init {
             tauri_plugin_window_state::StateFlags::all() & !tauri_plugin_window_state::StateFlags::DECORATIONS;
         let window_state_plugin = tauri_plugin_window_state::Builder::new()
             .with_filename(files::WINDOW_STATE)
+            .with_denylist(&["quick-panel"])
             .with_state_flags(state_flags)
             .build();
         app.handle().plugin(window_state_plugin)?;

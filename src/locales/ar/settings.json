@@ -16,11 +16,13 @@
         "systemProxy": "وكيل النظام"
       },
       "tooltips": {
-        "silentStart": "بدء البرنامج في الخلفية دون عرض الواجهة"
+        "silentStart": "بدء البرنامج في الخلفية دون عرض الواجهة",
+        "quickPanel": "Show an experimental panel from the macOS menu bar (right-click the tray icon)."
       },
       "fields": {
         "autoLaunch": "تشغيل تلقائي",
-        "silentStart": "تشغيل صامت"
+        "silentStart": "تشغيل صامت",
+        "quickPanel": "Menu-bar quick panel"
       },
       "notifications": {
         "tunMode": {

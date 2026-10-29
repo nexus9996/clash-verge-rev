@@ -16,11 +16,13 @@
         "systemProxy": "پراکسی سیستم"
       },
       "tooltips": {
-        "silentStart": "برنامه را در حالت پس‌زمینه بدون نمایش پانل اجرا کنید"
+        "silentStart": "برنامه را در حالت پس‌زمینه بدون نمایش پانل اجرا کنید",
+        "quickPanel": "Show an experimental panel from the macOS menu bar (right-click the tray icon)."
       },
       "fields": {
         "autoLaunch": "اجرای خودکار",
-        "silentStart": "اجرای بی‌صدا"
+        "silentStart": "اجرای بی‌صدا",
+        "quickPanel": "Menu-bar quick panel"
       },
       "notifications": {
         "tunMode": {

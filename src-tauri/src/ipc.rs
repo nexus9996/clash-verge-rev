@@ -76,6 +76,8 @@ pub fn builder() -> tauri_specta::Builder<tauri::DynRuntime> {
             cmd::copy_icon_file,
             cmd::download_icon_cache,
             cmd::open_devtools,
+            cmd::open_quick_panel_dashboard,
+            cmd::quick_panel_state,
             cmd::exit_app,
             cmd::set_native_window_theme,
             cmd::get_network_interfaces_info,

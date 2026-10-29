@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Switch, TooltipIcon } from '@/components/base'
 import ProxyControlSwitches from '@/components/shared/proxy-control-switches'
 import { useVerge } from '@/hooks/use-verge'
+import getSystem from '@/utils/get-system'
 
 import { GuardState } from './mods/guard-state'
 import { SettingList, SettingItem } from './mods/setting-comp'
@@ -12,12 +13,15 @@ interface Props {
   onError?: (err: Error) => void
 }
 
+const OS = getSystem()
+
 const SettingSystem = ({ onError }: Props) => {
   const { t } = useTranslation()
 
   const { verge, mutateVerge, patchVerge } = useVerge()
 
-  const { enable_auto_launch, enable_silent_start } = verge ?? {}
+  const { enable_auto_launch, enable_silent_start, enable_quick_panel } =
+    verge ?? {}
 
   const onSwitchFormat = (
     _e: React.ChangeEvent<HTMLInputElement>,
@@ -83,6 +87,29 @@ const SettingSystem = ({ onError }: Props) => {
           <Switch edge="end" />
         </GuardState>
       </SettingItem>
+
+      {OS === 'macos' && (
+        <SettingItem
+          label={t('settings.sections.system.fields.quickPanel')}
+          extra={
+            <TooltipIcon
+              title={t('settings.sections.system.tooltips.quickPanel')}
+              sx={{ opacity: '0.7' }}
+            />
+          }
+        >
+          <GuardState
+            value={enable_quick_panel ?? false}
+            valueProps="checked"
+            onCatch={onError}
+            onFormat={onSwitchFormat}
+            onChange={(e) => onChangeData({ enable_quick_panel: e })}
+            onGuard={(e) => patchVerge({ enable_quick_panel: e })}
+          >
+            <Switch edge="end" />
+          </GuardState>
+        </SettingItem>
+      )}
     </SettingList>
   )
 }

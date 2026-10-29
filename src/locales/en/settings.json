@@ -16,11 +16,13 @@
         "systemProxy": "System Proxy"
       },
       "tooltips": {
-        "silentStart": "Start the program in background mode without displaying the panel"
+        "silentStart": "Start the program in background mode without displaying the panel",
+        "quickPanel": "Show an experimental panel from the macOS menu bar (right-click the tray icon)."
       },
       "fields": {
         "autoLaunch": "Auto Launch",
-        "silentStart": "Silent Start"
+        "silentStart": "Silent Start",
+        "quickPanel": "Menu-bar quick panel"
       },
       "notifications": {
         "tunMode": {

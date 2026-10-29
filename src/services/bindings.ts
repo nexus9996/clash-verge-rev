@@ -28,13 +28,7 @@ export const commands = {
   getSystemHostname: () => __TAURI_INVOKE<string>('get_system_hostname'),
   restartApp: () => __TAURI_INVOKE<null>('restart_app'),
   checkUpdateAvailable: () =>
-    __TAURI_INVOKE<{
-      currentVersion: string
-      version: string
-      date: string | null
-      body: string | null
-      rawJson: JsonValue
-    } | null>('check_update_available'),
+    __TAURI_INVOKE<UpdateInfo | null>('check_update_available'),
   installUpdate: (version: string, onEvent: Channel<DownloadEvent>) =>
     __TAURI_INVOKE<boolean>('install_update', { version, onEvent }),
   cancelUpdateDownload: () => __TAURI_INVOKE<void>('cancel_update_download'),
@@ -83,7 +77,7 @@ export const commands = {
       clashCore,
     }),
   getRuntimeConfig: () =>
-    __TAURI_INVOKE<YamlMapping | null>('get_runtime_config'),
+    __TAURI_INVOKE<{ [key in string]: JsonValue } | null>('get_runtime_config'),
   getProxyView: () => __TAURI_INVOKE<ProxyViewV1_Serialize>('get_proxy_view'),
   getRuntimeYaml: () => __TAURI_INVOKE<string>('get_runtime_yaml'),
   getRuntimeLogs: () => __TAURI_INVOKE<RuntimeLogs>('get_runtime_logs'),
@@ -168,6 +162,10 @@ export const commands = {
   downloadIconCache: (url: string, name: string) =>
     __TAURI_INVOKE<string>('download_icon_cache', { url, name }),
   openDevtools: () => __TAURI_INVOKE<void>('open_devtools'),
+  openQuickPanelDashboard: (route: string) =>
+    __TAURI_INVOKE<null>('open_quick_panel_dashboard', { route }),
+  quickPanelState: (height: number | null, close: boolean) =>
+    __TAURI_INVOKE<boolean>('quick_panel_state', { height, close }),
   exitApp: () => __TAURI_INVOKE<void>('exit_app'),
   setNativeWindowTheme: (theme: string) =>
     __TAURI_INVOKE<null>('set_native_window_theme', { theme }),
@@ -409,6 +407,8 @@ export type IVerge_Deserialize = {
   /**  `light` or `dark` or `system` */
   theme_mode?: string | null
   tray_event?: string | null
+  /**  Show the experimental macOS menu-bar quick panel on tray right-click. */
+  enable_quick_panel?: boolean | null
   env_type?: string | null
   start_page?: string | null
   startup_script?: string | null
@@ -508,6 +508,8 @@ export type IVerge_Serialize = {
   /**  `light` or `dark` or `system` */
   theme_mode: string | null
   tray_event: string | null
+  /**  Show the experimental macOS menu-bar quick panel on tray right-click. */
+  enable_quick_panel: boolean | null
   env_type: string | null
   start_page: string | null
   startup_script: string | null
@@ -522,7 +524,7 @@ export type IVerge_Serialize = {
   proxy_group_tools_position?: string
   notice_position?: string
   collapse_navbar: boolean | null
-  enable_system_titlebar?: boolean | null
+  enable_system_titlebar?: boolean
   sysproxy_tray_icon: boolean | null
   tun_tray_icon: boolean | null
   enable_tun_mode: boolean | null
