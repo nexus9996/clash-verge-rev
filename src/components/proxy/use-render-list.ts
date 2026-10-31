@@ -130,7 +130,7 @@ const GLOBAL_HEAD_STATE: HeadState = { ...DEFAULT_STATE, open: true }
  * no way to choose the global proxy. Configured groups follow it so they stay
  * expandable instead of being flattened into GLOBAL's member rows.
  */
-export const resolveRenderGroups = (
+const resolveRenderGroups = (
   mode: string,
   proxyView: ProxyViewV1 | null | undefined,
 ): ProxyGroupView[] => {
