@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "label": "local-2026-10-26-bundle-split",
-  "generatedAt": "2026-10-25T18:10:34.175Z",
+  "label": "local-2026-10-31-auto-polyfills",
+  "generatedAt": "2026-10-31T02:39:37.191Z",
   "build": {
     "distDir": "dist",
     "indexHtml": "index.html",
     "gzipLevel": 9
   },
   "git": {
-    "commit": "cc113966e55d0da630192f95e44a190de70704b1",
+    "commit": "97c1167bc8ca832aa620f58ebd6037d244d6fb7a",
     "branch": "local",
     "dirty": false
   },
@@ -23,15 +23,15 @@
   "initial": {
     "files": [
       {
-        "file": "assets/vendor-mui-D52JKeri.js",
-        "rawBytes": 429357,
-        "gzipBytes": 129478,
+        "file": "assets/vendor-mui-CK2KOn-K.js",
+        "rawBytes": 430130,
+        "gzipBytes": 129688,
         "role": "modulepreload"
       },
       {
-        "file": "assets/index-BivfQCcC.js",
-        "rawBytes": 307151,
-        "gzipBytes": 98332,
+        "file": "assets/main-zL6YNJpm.js",
+        "rawBytes": 269337,
+        "gzipBytes": 87805,
         "role": "script"
       },
       {
@@ -41,69 +41,45 @@
         "role": "modulepreload"
       },
       {
-        "file": "assets/debug-Coiku_qd.js",
-        "rawBytes": 65067,
-        "gzipBytes": 21774,
+        "file": "assets/use-record-selection-CA2GItWy.js",
+        "rawBytes": 143240,
+        "gzipBytes": 46605,
         "role": "modulepreload"
       },
       {
-        "file": "assets/polyfills-D2sRUmRE.js",
-        "rawBytes": 25713,
-        "gzipBytes": 9631,
+        "file": "assets/polyfills-3ZWRmlTs.js",
+        "rawBytes": 75076,
+        "gzipBytes": 25810,
         "role": "script"
       },
       {
-        "file": "assets/use-verge-CmdTI7cg.js",
-        "rawBytes": 13758,
-        "gzipBytes": 3526,
+        "file": "assets/use-verge-BSgJ5TFH.js",
+        "rawBytes": 14989,
+        "gzipBytes": 3754,
         "role": "modulepreload"
       },
       {
-        "file": "assets/query-client-Spi7Kj25.js",
-        "rawBytes": 12993,
-        "gzipBytes": 5752,
-        "role": "modulepreload"
-      },
-      {
-        "file": "assets/cmds-NOnaO-Fu.js",
-        "rawBytes": 12129,
-        "gzipBytes": 3739,
-        "role": "modulepreload"
-      },
-      {
-        "file": "assets/index-DmwMXwj0.css",
+        "file": "assets/main-DmwMXwj0.css",
         "rawBytes": 8378,
         "gzipBytes": 1662,
         "role": "stylesheet"
       },
       {
-        "file": "assets/network-DHSbxnpQ.js",
-        "rawBytes": 6465,
-        "gzipBytes": 2625,
+        "file": "assets/useTranslation-BQfNFtZO.js",
+        "rawBytes": 4601,
+        "gzipBytes": 2244,
         "role": "modulepreload"
       },
       {
-        "file": "assets/delay-BaRLEsXb.js",
-        "rawBytes": 6452,
-        "gzipBytes": 2409,
+        "file": "assets/use-proxy-selection-Cbly3pFU.js",
+        "rawBytes": 1988,
+        "gzipBytes": 1054,
         "role": "modulepreload"
       },
       {
-        "file": "assets/dist-js-IWz5ZrxR.js",
-        "rawBytes": 2738,
-        "gzipBytes": 929,
-        "role": "modulepreload"
-      },
-      {
-        "file": "assets/proxy-view-BJsoIfGj.js",
-        "rawBytes": 2073,
-        "gzipBytes": 863,
-        "role": "modulepreload"
-      },
-      {
-        "file": "assets/preload-helper-BZ1Pz5am.js",
-        "rawBytes": 1218,
-        "gzipBytes": 691,
+        "file": "assets/use-clash-4fUzoycx.js",
+        "rawBytes": 1333,
+        "gzipBytes": 669,
         "role": "modulepreload"
       },
       {
@@ -117,37 +93,25 @@
         "rawBytes": 716,
         "gzipBytes": 430,
         "role": "modulepreload"
-      },
-      {
-        "file": "assets/mutate-vfjoIVPZ.js",
-        "rawBytes": 531,
-        "gzipBytes": 371,
-        "role": "modulepreload"
-      },
-      {
-        "file": "assets/noop-mXPS5vjY.js",
-        "rawBytes": 28,
-        "gzipBytes": 48,
-        "role": "modulepreload"
       }
     ],
     "js": {
-      "fileCount": 17,
-      "rawBytes": 1106057,
-      "gzipBytes": 348670
+      "fileCount": 11,
+      "rawBytes": 1161078,
+      "gzipBytes": 366131
     },
     "css": {
       "fileCount": 1,
       "rawBytes": 8378,
       "gzipBytes": 1662
     },
-    "rawBytes": 1114435,
-    "gzipBytes": 350332
+    "rawBytes": 1169456,
+    "gzipBytes": 367793
   },
   "async": {
-    "fileCount": 287,
-    "rawBytes": 17512937,
-    "gzipBytes": 4374209,
+    "fileCount": 303,
+    "rawBytes": 17590514,
+    "gzipBytes": 4404850,
     "topByRaw": [
       {
         "file": "assets/ts.worker-AG_zREvT.js",
@@ -155,14 +119,14 @@
         "gzipBytes": 1486818
       },
       {
-        "file": "assets/editor.api-CoCHLsT4.js",
-        "rawBytes": 2734585,
-        "gzipBytes": 699736
+        "file": "assets/editor.api-Cx5Sx0OT.js",
+        "rawBytes": 2734597,
+        "gzipBytes": 699741
       },
       {
-        "file": "assets/vs-DbKyhNll.js",
-        "rawBytes": 1295450,
-        "gzipBytes": 323200
+        "file": "assets/vs-DwP9ne8J.js",
+        "rawBytes": 1295468,
+        "gzipBytes": 323209
       },
       {
         "file": "assets/css.worker-9fKlqoM8.js",
@@ -200,14 +164,14 @@
         "gzipBytes": 51664
       },
       {
-        "file": "assets/settings-Dz-k6XRJ.js",
-        "rawBytes": 129323,
-        "gzipBytes": 31959
+        "file": "assets/settings-BmH1N3dl.js",
+        "rawBytes": 128905,
+        "gzipBytes": 31814
       },
       {
-        "file": "assets/profiles-DNe0MAcu.js",
-        "rawBytes": 116216,
-        "gzipBytes": 35179
+        "file": "assets/profiles-0fswU4HT.js",
+        "rawBytes": 117139,
+        "gzipBytes": 35386
       },
       {
         "file": "assets/editor-VadRs2RM.css",
@@ -230,14 +194,14 @@
         "gzipBytes": 13690
       },
       {
-        "file": "assets/js-yaml-DYwBLrKG.js",
+        "file": "assets/js-yaml-C2hYV-fc.js",
         "rawBytes": 56333,
-        "gzipBytes": 16710
+        "gzipBytes": 16709
       },
       {
-        "file": "assets/proxies-DYsDmIBk.js",
-        "rawBytes": 47079,
-        "gzipBytes": 15177
+        "file": "assets/proxies-B1swGEYt.js",
+        "rawBytes": 46886,
+        "gzipBytes": 15090
       },
       {
         "file": "assets/remark-gfm-DwsCTbn8.js",
@@ -245,9 +209,9 @@
         "gzipBytes": 11464
       },
       {
-        "file": "assets/settings-DFigVmdZ.js",
-        "rawBytes": 37478,
-        "gzipBytes": 10655
+        "file": "assets/settings-5rDJAS4F.js",
+        "rawBytes": 37954,
+        "gzipBytes": 10822
       }
     ]
   },
@@ -269,8 +233,8 @@
     ]
   },
   "totals": {
-    "jsCssFileCount": 305,
-    "rawBytes": 18627372,
-    "gzipBytes": 4724541
+    "jsCssFileCount": 315,
+    "rawBytes": 18759970,
+    "gzipBytes": 4772643
   }
 }
