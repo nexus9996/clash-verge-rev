@@ -14,11 +14,9 @@ export default defineConfig({
     legacy({
       modernTargets: ['edge>=109', 'safari>=14'],
       renderLegacyChunks: false,
-      modernPolyfills: [
-        'es.object.has-own',
-        'es.array.at',
-        'web.structured-clone',
-      ],
+      // Auto-detected from the emitted bundle, dependencies included,
+      // so post-Safari-14 APIs never depend on extending a manual list.
+      modernPolyfills: true,
       additionalModernPolyfills: [
         path.resolve('./src/polyfills/matchMedia.js'),
         path.resolve('./src/polyfills/WeakRef.js'),
@@ -44,9 +42,9 @@ export default defineConfig({
           groups: [
             {
               name: 'vendor-react',
-              test: /node_modules[\/](react|react-dom|scheduler)[\/]/,
+              test: /node_modules[/](react|react-dom|scheduler)[/]/,
             },
-            { name: 'vendor-mui', test: /node_modules[\/]@mui[\/]/ },
+            { name: 'vendor-mui', test: /node_modules[/]@mui[/]/ },
           ],
         },
       },

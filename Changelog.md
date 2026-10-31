@@ -34,6 +34,7 @@
 - macOS：修复 TUN + `redir-host` 时局域网 DNS 绕过 TUN、部分网站无法访问的问题
 - macOS：修复系统外观切换后原生标题栏偶尔仍停留在旧主题的问题
 - macOS：修复旧版 WebKit 上更新说明弹窗因正则 lookbehind 无法加载的问题
+- macOS：修复 Bigsur 上首页测速和流量图无法显示的问题
 
 **🐧 Linux**
 

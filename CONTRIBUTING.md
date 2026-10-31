@@ -86,6 +86,12 @@ bun run prebuild:download
 bun run prebuild:download --force  # Re-download and overwrite Mihomo core and service binaries
 ```
 
+### Prepare the Development Service Source
+
+`bun run dev` builds the development service from a sibling checkout of [`clash-verge-service-ipc`](https://github.com/clash-verge-rev/clash-verge-service-ipc). The binaries downloaded by `bun run prebuild:download` do not replace this source checkout.
+
+Check the `clash_verge_service_ipc` dependency in [`src-tauri/Cargo.toml`](src-tauri/Cargo.toml), then clone the service repository alongside `clash-verge-rev` and check out the matching tag. Set `CLASH_VERGE_DEV_SERVICE_DIR` when the checkout lives elsewhere. Without that checkout, `bun run dev` fails before the app starts.
+
 ### Run the Development Server
 
 ```bash
