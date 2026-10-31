@@ -119,6 +119,31 @@ const virtualGroup = (members: ProxyGroupView['members']): ProxyGroupView => ({
   members,
 })
 
+/** Global mode opens the GLOBAL selector by default so its nodes stay one click away. */
+const GLOBAL_HEAD_STATE: HeadState = { ...DEFAULT_STATE, open: true }
+
+/**
+ * Groups the page draws for a running mode.
+ *
+ * Global mode keeps the GLOBAL selector as its own section: the node (or group)
+ * it points at is what global mode actually routes through, so hiding it leaves
+ * no way to choose the global proxy. Configured groups follow it so they stay
+ * expandable instead of being flattened into GLOBAL's member rows.
+ */
+export const resolveRenderGroups = (
+  mode: string,
+  proxyView: ProxyViewV1 | null | undefined,
+): ProxyGroupView[] => {
+  if (!proxyView) return []
+  if (mode === 'rule') return proxyView.groups
+  if (mode === 'global') {
+    return proxyView.global
+      ? [proxyView.global, ...proxyView.groups]
+      : proxyView.groups
+  }
+  return proxyView.global ? [proxyView.global] : []
+}
+
 export const useRenderList = (
   mode: string,
   isChainMode?: boolean,
@@ -219,11 +244,7 @@ export const useRenderList = (
     if (!proxyView) return []
     if (isChainMode)
       return selectedGroup ? [selectedGroup] : [CHAIN_DELAY_GROUP]
-    return mode === 'rule' || mode === 'global'
-      ? proxyView.groups.map(({ name }) => name)
-      : proxyView.global
-        ? [proxyView.global.name]
-        : []
+    return resolveRenderGroups(mode, proxyView).map(({ name }) => name)
   }, [isChainMode, mode, proxyView, selectedGroup])
   const groupDelays = useGroupsDelays(renderedGroupNames)
 
@@ -266,16 +287,14 @@ export const useRenderList = (
     }
 
     const useRule = mode === 'rule' || mode === 'global'
-    const renderGroups = useRule
-      ? proxyView.groups
-      : proxyView.global === null
-        ? []
-        : [proxyView.global]
+    const renderGroups = resolveRenderGroups(mode, proxyView)
     const cache = groupCacheRef.current
     let anyChanged = false
 
     const retList = renderGroups.flatMap((group) => {
-      const headState = headStates[group.name] || DEFAULT_STATE
+      const headState =
+        headStates[group.name] ||
+        (group === proxyView.global ? GLOBAL_HEAD_STATE : DEFAULT_STATE)
       const cached = cache.get(group.name)
       if (
         cached &&
