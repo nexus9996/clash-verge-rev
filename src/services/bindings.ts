@@ -162,10 +162,6 @@ export const commands = {
   downloadIconCache: (url: string, name: string) =>
     __TAURI_INVOKE<string>('download_icon_cache', { url, name }),
   openDevtools: () => __TAURI_INVOKE<void>('open_devtools'),
-  openQuickPanelDashboard: (route: string) =>
-    __TAURI_INVOKE<null>('open_quick_panel_dashboard', { route }),
-  quickPanelState: (height: number | null, close: boolean) =>
-    __TAURI_INVOKE<boolean>('quick_panel_state', { height, close }),
   exitApp: () => __TAURI_INVOKE<void>('exit_app'),
   setNativeWindowTheme: (theme: string) =>
     __TAURI_INVOKE<null>('set_native_window_theme', { theme }),
@@ -407,8 +403,6 @@ export type IVerge_Deserialize = {
   /**  `light` or `dark` or `system` */
   theme_mode?: string | null
   tray_event?: string | null
-  /**  Show the experimental macOS menu-bar quick panel on tray right-click. */
-  enable_quick_panel?: boolean | null
   env_type?: string | null
   start_page?: string | null
   startup_script?: string | null
@@ -508,8 +502,6 @@ export type IVerge_Serialize = {
   /**  `light` or `dark` or `system` */
   theme_mode: string | null
   tray_event: string | null
-  /**  Show the experimental macOS menu-bar quick panel on tray right-click. */
-  enable_quick_panel: boolean | null
   env_type: string | null
   start_page: string | null
   startup_script: string | null

@@ -98,13 +98,6 @@ async fn ensure_effect(
         }
         Effect::TrayTooltip => tray::Tray::global().update_tooltip().await?,
         Effect::TrayClick => tray::Tray::global().update_click_behavior().await?,
-        Effect::QuickPanel =>
-        {
-            #[cfg(target_os = "macos")]
-            if let Some(enabled) = patch.enable_quick_panel {
-                crate::utils::quick_panel::apply_enabled(enabled);
-            }
-        }
         Effect::Lightweight => {
             if patch.enable_auto_light_weight_mode.unwrap_or(false) {
                 lightweight::enable_auto_light_weight_mode().await;

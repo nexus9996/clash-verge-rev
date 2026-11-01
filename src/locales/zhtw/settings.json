@@ -16,13 +16,11 @@
         "systemProxy": "系統代理"
       },
       "tooltips": {
-        "silentStart": "程序啟動時以後台模式執行，不顯示程序面板",
-        "quickPanel": "Show an experimental panel from the macOS menu bar (right-click the tray icon)."
+        "silentStart": "程序啟動時以後台模式執行，不顯示程序面板"
       },
       "fields": {
         "autoLaunch": "開機自啟",
-        "silentStart": "靜默啟動",
-        "quickPanel": "Menu-bar quick panel"
+        "silentStart": "靜默啟動"
       },
       "notifications": {
         "tunMode": {

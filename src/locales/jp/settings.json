@@ -16,13 +16,11 @@
         "systemProxy": "システムプロキシ"
       },
       "tooltips": {
-        "silentStart": "アプリケーションを起動すると、バックグラウンドモードで実行され、アプリケーションパネルは表示されません。",
-        "quickPanel": "Show an experimental panel from the macOS menu bar (right-click the tray icon)."
+        "silentStart": "アプリケーションを起動すると、バックグラウンドモードで実行され、アプリケーションパネルは表示されません。"
       },
       "fields": {
         "autoLaunch": "自動起動",
-        "silentStart": "サイレント起動",
-        "quickPanel": "Menu-bar quick panel"
+        "silentStart": "サイレント起動"
       },
       "notifications": {
         "tunMode": {

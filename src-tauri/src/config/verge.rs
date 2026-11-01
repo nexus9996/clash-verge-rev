@@ -30,8 +30,6 @@ pub struct IVerge {
     pub theme_mode: Option<String>,
     #[specta(type = Option<std::string::String>)]
     pub tray_event: Option<String>,
-    /// Show the experimental macOS menu-bar quick panel on tray right-click.
-    pub enable_quick_panel: Option<bool>,
     #[specta(type = Option<std::string::String>)]
     pub env_type: Option<String>,
     #[specta(type = Option<std::string::String>)]
@@ -398,7 +396,6 @@ impl IVerge {
             common_tray_icon: Some(false),
             sysproxy_tray_icon: Some(false),
             tun_tray_icon: Some(false),
-            enable_quick_panel: Some(false),
             enable_auto_launch: Some(false),
             enable_silent_start: Some(false),
             enable_hover_jump_navigator: Some(true),
@@ -461,7 +458,6 @@ impl IVerge {
         patch_opt_field!(self, patch, language);
         patch_opt_field!(self, patch, theme_mode);
         patch_opt_field!(self, patch, tray_event);
-        patch_opt_field!(self, patch, enable_quick_panel);
         patch_opt_field!(self, patch, env_type);
         patch_opt_field!(self, patch, start_page);
         patch_opt_field!(self, patch, startup_script);
@@ -584,22 +580,5 @@ mod tests {
             serde_yaml_ng::to_value(&patched).expect("patched config serializes"),
             serde_yaml_ng::to_value(&template).expect("template config serializes"),
         );
-    }
-
-    #[test]
-    fn quick_panel_switch_round_trips_through_patch_config() {
-        let mut config = IVerge::default();
-
-        config.patch_config(&IVerge {
-            enable_quick_panel: Some(true),
-            ..Default::default()
-        });
-        assert_eq!(config.enable_quick_panel, Some(true));
-
-        config.patch_config(&IVerge {
-            enable_quick_panel: Some(false),
-            ..Default::default()
-        });
-        assert_eq!(config.enable_quick_panel, Some(false));
     }
 }

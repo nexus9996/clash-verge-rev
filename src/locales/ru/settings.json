@@ -16,13 +16,11 @@
         "systemProxy": "Системный прокси"
       },
       "tooltips": {
-        "silentStart": "Запускать программу в фоновом режиме без отображения окна",
-        "quickPanel": "Show an experimental panel from the macOS menu bar (right-click the tray icon)."
+        "silentStart": "Запускать программу в фоновом режиме без отображения окна"
       },
       "fields": {
         "autoLaunch": "Автозапуск",
-        "silentStart": "Тихий запуск",
-        "quickPanel": "Menu-bar quick panel"
+        "silentStart": "Тихий запуск"
       },
       "notifications": {
         "tunMode": {

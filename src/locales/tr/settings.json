@@ -16,13 +16,11 @@
         "systemProxy": "Sistem Vekil'i"
       },
       "tooltips": {
-        "silentStart": "Programı paneli görüntülemeden arka plan modunda başlatır",
-        "quickPanel": "Show an experimental panel from the macOS menu bar (right-click the tray icon)."
+        "silentStart": "Programı paneli görüntülemeden arka plan modunda başlatır"
       },
       "fields": {
         "autoLaunch": "Otomatik Başlat",
-        "silentStart": "Sessiz Başlatma",
-        "quickPanel": "Menu-bar quick panel"
+        "silentStart": "Sessiz Başlatma"
       },
       "notifications": {
         "tunMode": {

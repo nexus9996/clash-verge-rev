@@ -555,14 +555,3 @@ export async function checkMediaUnlock(onComplete: Channel<UnlockItem>) {
 export async function checkMediaUnlockItem(name: string) {
   return commands.checkMediaUnlockItem(name)
 }
-
-export async function openQuickPanelDashboard(route: string) {
-  return commands.openQuickPanelDashboard(route)
-}
-
-export async function quickPanelState(
-  height: number | null = null,
-  close = false,
-) {
-  return commands.quickPanelState(height, close)
-}

@@ -16,13 +16,11 @@
         "systemProxy": "Proksi Sistem"
       },
       "tooltips": {
-        "silentStart": "Mulai program dalam mode latar belakang tanpa menampilkan panel",
-        "quickPanel": "Show an experimental panel from the macOS menu bar (right-click the tray icon)."
+        "silentStart": "Mulai program dalam mode latar belakang tanpa menampilkan panel"
       },
       "fields": {
         "autoLaunch": "Mulai otomatis",
-        "silentStart": "Mulai senyap",
-        "quickPanel": "Menu-bar quick panel"
+        "silentStart": "Mulai senyap"
       },
       "notifications": {
         "tunMode": {

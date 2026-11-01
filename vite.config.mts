@@ -33,7 +33,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: path.resolve('src/index.html'),
-        quickPanel: path.resolve('src/quick-panel-live.html'),
       },
       output: {
         // Vendor groups are intentionally narrow: only libraries that every

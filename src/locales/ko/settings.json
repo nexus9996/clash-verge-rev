@@ -16,13 +16,11 @@
         "systemProxy": "시스템 프록시"
       },
       "tooltips": {
-        "silentStart": "패널을 표시하지 않고 백그라운드에서 시작합니다",
-        "quickPanel": "Show an experimental panel from the macOS menu bar (right-click the tray icon)."
+        "silentStart": "패널을 표시하지 않고 백그라운드에서 시작합니다"
       },
       "fields": {
         "autoLaunch": "자동 실행",
-        "silentStart": "백그라운드 시작",
-        "quickPanel": "Menu-bar quick panel"
+        "silentStart": "백그라운드 시작"
       },
       "notifications": {
         "tunMode": {

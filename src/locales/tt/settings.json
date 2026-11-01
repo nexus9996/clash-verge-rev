@@ -16,13 +16,11 @@
         "systemProxy": "Системалы прокси"
       },
       "tooltips": {
-        "silentStart": "Программаны фоновый режимда, тәрәзәсез эшләтеп җибәрү",
-        "quickPanel": "Show an experimental panel from the macOS menu bar (right-click the tray icon)."
+        "silentStart": "Программаны фоновый режимда, тәрәзәсез эшләтеп җибәрү"
       },
       "fields": {
         "autoLaunch": "Автоматик башлау",
-        "silentStart": "Тын башлау",
-        "quickPanel": "Menu-bar quick panel"
+        "silentStart": "Тын башлау"
       },
       "notifications": {
         "tunMode": {
