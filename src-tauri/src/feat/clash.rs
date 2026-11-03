@@ -59,7 +59,7 @@ fn after_change_clash_mode() {
 
 /// Propagates mihomo PATCH failures so the frontend can roll back its optimistic mode.
 pub async fn change_clash_mode(mode: String) -> Result<(), String> {
-    let _config_write = Config::lock_config_write().await;
+    let config_write = Config::lock_config_write().await;
     let clash = Config::clash().await;
     let previous_mode = clash.data_arc().get_mode().unwrap_or_else(|| "rule".into());
     let transaction = DraftTransaction::begin(vec![&clash]).map_err(|error| error.to_string())?;
@@ -93,6 +93,8 @@ pub async fn change_clash_mode(mode: String) -> Result<(), String> {
         return Err(format!("failed to save clash config: {save_error}").into());
     }
     transaction.commit();
+    // Persisted and applied: release the write lock before announcing and refreshing the tray.
+    drop(config_write);
     announce(Refresh::Clash);
     tray::Tray::global().update_menu_and_icon().await;
 

@@ -149,7 +149,7 @@ async fn finalize_restored_verge_config(
         }
     }
 
-    // `patch_verge` re-acquires the lock through `try_lock_config_write`.
+    // `patch_verge` re-acquires the configuration write lock.
     drop(config_write);
 
     // Run configuration side effects without rewriting the already-restored file.
