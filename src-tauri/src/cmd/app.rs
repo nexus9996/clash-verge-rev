@@ -3,7 +3,7 @@ use crate::{
     cmd::StringifyErr as _,
     core::{
         SilentUpdater,
-        updater::{DownloadEvent, UpdateInfo},
+        updater::{DownloadEvent, InstallUpdateOutcome, UpdateInfo},
     },
     feat,
     utils::{dirs, resolve::window::set_native_window_theme as apply_native_window_theme},
@@ -89,8 +89,7 @@ pub async fn install_update(
     app_handle: AppHandle,
     version: std::string::String,
     on_event: Channel<DownloadEvent>,
-) -> CmdResult<bool> {
-    let version: String = version.into();
+) -> CmdResult<InstallUpdateOutcome> {
     SilentUpdater::global()
         .install_update(&app_handle, &version, |event| {
             let _ = on_event.send(event);

@@ -174,7 +174,7 @@ const ProxyControlSwitches = ({
       })
       return false
     }
-    mutateVerge({ ...verge, enable_tun_mode: value }, false)
+    mutateVerge({ ...verge, enable_tun_mode: value })
     await patchVerge({ enable_tun_mode: value })
   }
 

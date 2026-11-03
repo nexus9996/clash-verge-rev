@@ -17,9 +17,11 @@ const PRESET_PROXY_NAMES = [
   'COMPATIBLE',
 ]
 
-const reuseEqual = (current: DelayUpdate, next: DelayUpdate): DelayUpdate =>
-  current.delay === next.delay && current.updatedAt === next.updatedAt
-    ? current
+const identity = (previous: DelayUpdate, next: DelayUpdate): DelayUpdate =>
+  previous.delay === next.delay &&
+  previous.elapsed === next.elapsed &&
+  previous.updatedAt === next.updatedAt
+    ? previous
     : next
 
 const INITIAL_DELAY: DelayUpdate = { delay: -1, updatedAt: 0 }
@@ -40,7 +42,7 @@ export function useProxyDelayState(
   const details = memberDetails(member)
   const unresolved = member.kind === 'unresolved'
   const isPreset = unresolved || PRESET_PROXY_NAMES.includes(name)
-  const [delayState, setDelayState] = useReducer(reuseEqual, INITIAL_DELAY)
+  const [delayState, setDelayState] = useReducer(identity, INITIAL_DELAY)
   const { verge } = useVerge()
   const timeout = verge?.default_latency_timeout || 10000
 

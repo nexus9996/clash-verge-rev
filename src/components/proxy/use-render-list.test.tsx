@@ -126,15 +126,84 @@ const headerNames = (mode: string) =>
     .filter(({ type }) => type === 0)
     .map(({ group }) => group)
 
-test('global mode keeps GLOBAL selectable before the configured groups', () => {
-  expect(headerNames('global')).toEqual(['GLOBAL', 'Auto', 'Proxy'])
+const flatHeaders = (mode: string) =>
+  renderRows(mode)
+    .filter(({ type }) => type === 1)
+    .map(({ group }) => group)
 
-  const global = renderRows('global').filter(({ group }) => group === 'GLOBAL')
+test('global mode lists only GLOBAL members and the group it selects', () => {
+  // GLOBAL selects a node, so no configured group is drawn beneath it.
+  expect(headerNames('global')).toEqual([])
+  expect(flatHeaders('global')).toEqual(['GLOBAL'])
+
+  const rows = renderRows('global')
   // A member row under GLOBAL is what selects the proxy global mode routes through.
-  expect(global.some(({ type }) => type === 2)).toBe(true)
-  expect(global.map(({ text }) => text)).toEqual(
+  expect(rows.every(({ group }) => group === 'GLOBAL')).toBe(true)
+  expect(rows.some(({ type }) => type === 2)).toBe(true)
+  expect(rows.map(({ text }) => text)).toEqual(
     expect.arrayContaining(['member:node-a', 'member:node-b']),
   )
+})
+
+test('global mode reveals the group GLOBAL selects below its rows', () => {
+  const global = proxyView.global!
+  const previousNow = global.now
+
+  global.now = 'Auto'
+  try {
+    expect(flatHeaders('global')).toEqual(['GLOBAL'])
+    expect(headerNames('global')).toEqual(['Auto'])
+  } finally {
+    global.now = previousNow
+  }
+})
+
+test('global mode hides DIRECT and REJECT unless GLOBAL selects them', () => {
+  const global = proxyView.global!
+  const previousMembers = global.members
+  const previousNow = global.now
+  const directMember = {
+    kind: 'node' as const,
+    name: 'DIRECT',
+    recordId: 'c:direct',
+  }
+  const rejectMember = {
+    kind: 'node' as const,
+    name: 'REJECT',
+    recordId: 'c:reject',
+  }
+
+  proxyView.records['c:reject'] = {
+    recordId: 'c:reject',
+    name: 'REJECT',
+    type: 'Reject',
+    history: [],
+    udp: false,
+    xudp: false,
+    tfo: false,
+    mptcp: false,
+    smux: false,
+    source: { kind: 'core', proxyName: 'REJECT' },
+  } as unknown as ProxyViewV1['records'][string]
+  global.members = [...previousMembers, directMember, rejectMember]
+
+  try {
+    expect(renderRows('global').map(({ text }) => text)).toEqual(
+      expect.arrayContaining(['member:node-a']),
+    )
+    const hiddenTexts = renderRows('global').map(({ text }) => text)
+    expect(hiddenTexts).not.toContain('member:DIRECT')
+    expect(hiddenTexts).not.toContain('member:REJECT')
+
+    global.now = 'DIRECT'
+    expect(renderRows('global').map(({ text }) => text)).toEqual(
+      expect.arrayContaining(['member:DIRECT']),
+    )
+  } finally {
+    global.members = previousMembers
+    global.now = previousNow
+    delete proxyView.records['c:reject']
+  }
 })
 
 test('rule mode still renders only the configured groups', () => {

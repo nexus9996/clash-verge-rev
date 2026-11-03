@@ -1,14 +1,7 @@
 import { alpha, Box, Button, LinearProgress, Typography } from '@mui/material'
 import { useLockFn } from 'ahooks'
 import type { Ref } from 'react'
-import {
-  lazy,
-  Suspense,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { lazy, Suspense, useImperativeHandle, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Options as ReactMarkdownOptions } from 'react-markdown'
 
@@ -23,6 +16,7 @@ import {
 import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'
 import { useSetUpdateState, useUpdateState } from '@/services/states'
+import type { Update } from '@/services/update'
 import { openExternalUrl } from '@/utils/open-external-url'
 
 type MarkdownNode = {
@@ -180,13 +174,17 @@ export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
   const updateState = useUpdateState()
   const setUpdateState = useSetUpdateState()
 
-  const { updateInfo } = useUpdate()
+  const { updateInfo: detectedUpdate, checkUpdate } = useUpdate()
+  const [refreshedUpdate, setRefreshedUpdate] = useState<Update | null>()
+  const updateInfo =
+    refreshedUpdate === undefined ? detectedUpdate : refreshedUpdate
 
-  const [downloaded, setDownloaded] = useState(0)
-  const [total, setTotal] = useState(0)
+  const [download, setDownload] = useState({
+    downloaded: 0,
+    total: 0,
+  })
+  const { downloaded, total } = download
   const [restartPrompt, setRestartPrompt] = useState(false)
-  const downloadedRef = useRef(0)
-  const totalRef = useRef(0)
 
   const openUrlWithNotice = (url: string) => {
     void openExternalUrl(url).catch(showNotice.error)
@@ -198,7 +196,10 @@ export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
   }, [downloaded, total])
 
   useImperativeHandle(ref, () => ({
-    open: () => setOpen(true),
+    open: () => {
+      setRefreshedUpdate(undefined)
+      setOpen(true)
+    },
     close: () => setOpen(false),
   }))
 
@@ -243,32 +244,21 @@ export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
     }
     if (updateState) return
     setUpdateState(true)
-    setDownloaded(0)
-    setTotal(0)
-    downloadedRef.current = 0
-    totalRef.current = 0
+    setDownload({ downloaded: 0, total: 0 })
 
     const onDownloadEvent = (event: DownloadEvent) => {
       if (event.event === 'Started') {
-        const contentLength = event.data.contentLength ?? 0
-        totalRef.current = contentLength
-        setTotal(contentLength)
-        setDownloaded(0)
-        downloadedRef.current = 0
-        return
-      }
-
-      if (event.event === 'Progress') {
-        setDownloaded((prev) => {
-          const next = prev + event.data.chunkLength
-          downloadedRef.current = next
-          return next
-        })
-      }
-
-      if (event.event === 'Finished' && totalRef.current === 0) {
-        totalRef.current = downloadedRef.current
-        setTotal(downloadedRef.current)
+        setDownload({ downloaded: 0, total: event.data.contentLength ?? 0 })
+      } else if (event.event === 'Progress') {
+        setDownload((prev) => ({
+          ...prev,
+          downloaded: prev.downloaded + event.data.chunkLength,
+        }))
+      } else if (event.event === 'Finished') {
+        setDownload((prev) => ({
+          ...prev,
+          total: prev.total || prev.downloaded,
+        }))
       }
     }
 
@@ -280,17 +270,25 @@ export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
           errorNotice: false,
         },
       )
-      if (result.ok && result.value) {
+      if (result.ok && result.value === 'update_changed') {
+        const { data } = await checkUpdate()
+        setRefreshedUpdate(data)
+        if (data) {
+          showNotice.info('settings.modals.update.messages.available')
+        } else {
+          setOpen(false)
+          showNotice.info(
+            'settings.components.verge.advanced.notifications.latestVersion',
+          )
+        }
+      } else if (result.ok && result.value === 'installed') {
         setRestartPrompt(true)
       }
     } catch (err: any) {
       showNotice.error(err)
     } finally {
       setUpdateState(false)
-      setDownloaded(0)
-      setTotal(0)
-      downloadedRef.current = 0
-      totalRef.current = 0
+      setDownload({ downloaded: 0, total: 0 })
     }
   })
 

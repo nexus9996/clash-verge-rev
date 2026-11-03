@@ -183,6 +183,7 @@ function useProxyRenderState(
     proxyView,
     onProxies,
     onHeadState,
+    setHeadState: setListHeadState,
     handleCheckAll,
     saveScrollPosition,
     getScrollPosition,
@@ -378,12 +379,16 @@ function NormalProxyGroups(props: { mode: string }) {
     proxyView,
     onProxies,
     onHeadState,
+    setHeadState,
     handleCheckAll,
     getScrollPosition,
     saveScrollPosition,
   } = useProxyRenderState(mode, false, null)
   const emptyList = useEmptyRenderList()
   const { onDragEnd: onHeaderDragEnd } = useProxyGroupHeaderLayout()
+  const globalGroupName = proxyView?.global?.name
+  // The revealed group sits below GLOBAL's rows, so a click must bring it into view.
+  const pendingRevealRef = useRef<string | null>(null)
   const [navigatorReady, setNavigatorReady] = useState(false)
 
   useEffect(() => {
@@ -430,7 +435,7 @@ function NormalProxyGroups(props: { mode: string }) {
     }
   }, [handleScroll])
 
-  const { handleProxyGroupChange } = useProxySelection({
+  const { select } = useProxySelection({
     onSuccess: () => {
       onProxies()
     },
@@ -445,9 +450,17 @@ function NormalProxyGroups(props: { mode: string }) {
       if (!['Selector', 'URLTest', 'Fallback'].includes(group.type)) return
       if (!isInteractableMember(member)) return
 
-      handleProxyGroupChange(group, { name: member.ref.name })
+      if (group.name === globalGroupName) {
+        pendingRevealRef.current =
+          member.kind === 'group' ? member.ref.name : null
+        // The selection refetches the view, so skip onHeadState's refetch.
+        if (member.kind === 'group') {
+          setHeadState(member.ref.name, { open: true })
+        }
+      }
+      select(group.name, member.ref.name, group.now!, group.fixed!)
     },
-    [handleProxyGroupChange],
+    [globalGroupName, select, setHeadState],
   )
 
   const handleLocation = useStableCallback((group: ProxyGroupView) => {
@@ -515,6 +528,18 @@ function NormalProxyGroups(props: { mode: string }) {
     (nodeName: string) => nodeGroupsMap.get(nodeName) ?? [],
     [nodeGroupsMap],
   )
+
+  // Selecting a group in GLOBAL reveals its header below GLOBAL's rows.
+  useEffect(() => {
+    if (mode !== 'global') {
+      pendingRevealRef.current = null
+      return
+    }
+    const groupName = pendingRevealRef.current
+    if (!groupName || !proxyGroupNames.includes(groupName)) return
+    pendingRevealRef.current = null
+    handleGroupLocationByName(groupName)
+  }, [handleGroupLocationByName, mode, proxyGroupNames])
 
   const handleGroupToggle = useCallback(
     async (group: ProxyGroupView) => {
@@ -613,7 +638,7 @@ function NormalProxyGroups(props: { mode: string }) {
         />
       </DragDropProvider>
 
-      {(mode === 'rule' || mode === 'global') && navigatorReady && (
+      {mode === 'rule' && navigatorReady && (
         <ProxyGroupNavigator
           proxyGroupNames={proxyGroupNames}
           onGroupLocation={handleGroupLocationByName}

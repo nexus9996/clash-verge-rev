@@ -3,7 +3,6 @@ import { Outlet, useNavigate } from 'react-router'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import { useCallback, useEffect, useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
 
 import { BaseErrorBoundary } from '@/components/base'
 import { LayoutSidebar } from '@/components/layout/layout-sidebar'
@@ -41,7 +40,6 @@ const OS = getSystem()
 const Layout = () => {
   const mode = useThemeMode()
   const isDark = mode !== 'light'
-  const { t } = useTranslation()
   const { theme } = useCustomTheme()
   const { verge } = useVerge()
   const { language } = verge ?? {}
@@ -69,14 +67,14 @@ const Layout = () => {
     (payload: [string, string]) => {
       const [status, msg] = payload
       try {
-        handleNoticeMessage(status, msg, t, (path) =>
+        handleNoticeMessage(status, msg, (path) =>
           navigate(resolveNavigationPath(path)),
         )
       } catch (error) {
         console.error('[通知处理] 失败:', error)
       }
     },
-    [t, navigate],
+    [navigate],
   )
 
   useEventBus(handleNotice)

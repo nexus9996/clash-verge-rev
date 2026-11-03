@@ -35,8 +35,8 @@ it('applies and records independent group selections while another group is pend
   const secondSuccess = vi.fn()
   const first = useProxySelection({ onSuccess: firstSuccess })
   const second = useProxySelection({ onSuccess: secondSuccess })
-  first.changeProxy('Group A', 'Node A')
-  second.changeProxy('Group B', 'Node B')
+  first.select('Group A', 'Node A')
+  second.select('Group B', 'Node B')
   await vi.waitFor(() =>
     expect(record).toHaveBeenCalledWith('Group B', 'Node B'),
   )
@@ -64,9 +64,9 @@ it('executes every requested group once from a single hook instance', async () =
   const success = vi.fn()
   const selection = useProxySelection({ onSuccess: success })
 
-  selection.changeProxy('Group A', 'Node A')
-  selection.changeProxy('Group B', 'Node B')
-  selection.changeProxy('Group C', 'Node C')
+  selection.select('Group A', 'Node A')
+  selection.select('Group B', 'Node B')
+  selection.select('Group C', 'Node C')
 
   await vi.waitFor(() => expect(selectNodeForGroup).toHaveBeenCalledTimes(1))
   finishFirst()

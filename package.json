@@ -1,6 +1,6 @@
 {
   "name": "clash-verge",
-  "version": "2.5.10",
+  "version": "2.6.0",
   "license": "GPL-3.0-only",
   "overrides": {
     "mdast-util-gfm-autolink-literal": "2.0.0"

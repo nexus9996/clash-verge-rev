@@ -20,7 +20,7 @@
      HTML comments are stripped by the update dialog's sanitizer and hidden on
      GitHub, so they never reach users. -->
 
-## v(Version Goes Here)
+## v2.6.0
 
 <details>
 <summary><strong> 🐞 修复问题 </strong></summary>
@@ -47,6 +47,7 @@
 - 修复服务模式下，SSH 节点的 `private-key` 使用私钥文件时内核无法启动的问题
 - 修复服务模式下，内核更新的 GEO 数据库不会同步回应用目录，导致使用新分类的规则无法通过校验的问题
 - 修复订阅的 DNS 配置变化后，「DNS 覆写」实际已关闭但开关仍显示开启且没有提示的问题
+- 修复检测更新后又发布新版时，应用内更新失败
 
 **🖥️ Windows**
 
