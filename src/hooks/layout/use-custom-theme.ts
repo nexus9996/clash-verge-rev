@@ -1,4 +1,9 @@
-import { createTheme, Theme as MuiTheme, Shadows } from '@mui/material'
+import {
+  createTheme,
+  Theme as MuiTheme,
+  Shadows,
+  type ThemeOptions,
+} from '@mui/material'
 import {
   getCurrentWebviewWindow,
   WebviewWindow,
@@ -10,7 +15,12 @@ import {
   createThemeCssVariables,
   defaultDarkTheme,
   defaultTheme,
+  MOTION,
+  RADIUS,
+  resolveModeSurfaces,
   resolveThemeColors,
+  SHADOW,
+  SPACE,
   type ResolvedThemeColors,
 } from '@/config/theme'
 import { useVerge } from '@/hooks/use-verge'
@@ -36,31 +46,160 @@ const THEME_BREAKPOINTS = {
   values: { xs: 0, sm: 650, md: 900, lg: 1200, xl: 1536 },
 } as const
 
+const MOTION_TRANSITION = [
+  'background-color',
+  'border-color',
+  'color',
+  'box-shadow',
+  'transform',
+]
+  .map((property) => `${property} ${MOTION.fast} ${MOTION.standard}`)
+  .join(', ')
+
 const buildThemeOptions = (
   mode: 'light' | 'dark',
   colors: ResolvedThemeColors,
-) => ({
-  breakpoints: THEME_BREAKPOINTS,
-  palette: {
-    mode,
-    primary: { main: colors.primary },
-    secondary: { main: colors.secondary },
-    info: { main: colors.info },
-    error: { main: colors.error },
-    warning: { main: colors.warning },
-    success: { main: colors.success },
-    text: {
-      primary: colors.textPrimary,
-      secondary: colors.textSecondary,
+): ThemeOptions => {
+  const surfaces = resolveModeSurfaces(mode)
+
+  return {
+    breakpoints: THEME_BREAKPOINTS,
+    palette: {
+      mode,
+      primary: { main: colors.primary },
+      secondary: { main: colors.secondary },
+      info: { main: colors.info },
+      error: { main: colors.error },
+      warning: { main: colors.warning },
+      success: { main: colors.success },
+      text: {
+        primary: colors.textPrimary,
+        secondary: colors.textSecondary,
+      },
+      background: {
+        paper: colors.paper,
+        default: colors.background,
+      },
     },
-    background: {
-      paper: colors.paper,
-      default: colors.background,
+    shadows: Array(25).fill('none') as Shadows,
+    typography: {
+      fontFamily: colors.fontFamily,
+      button: { textTransform: 'none', fontWeight: 600 },
     },
-  },
-  shadows: Array(25).fill('none') as Shadows,
-  typography: { fontFamily: colors.fontFamily },
-})
+    shape: { borderRadius: RADIUS.sm },
+    components: {
+      MuiButton: {
+        defaultProps: { disableElevation: true },
+        styleOverrides: {
+          root: {
+            borderRadius: RADIUS.sm,
+            fontWeight: 600,
+            transition: MOTION_TRANSITION,
+          },
+        },
+      },
+      MuiIconButton: {
+        styleOverrides: {
+          root: { borderRadius: RADIUS.sm, transition: MOTION_TRANSITION },
+        },
+      },
+      MuiListItemButton: {
+        styleOverrides: { root: { transition: MOTION_TRANSITION } },
+      },
+      MuiMenuItem: {
+        styleOverrides: {
+          root: {
+            borderRadius: RADIUS.xs,
+            marginInline: SPACE.xxs,
+            transition: MOTION_TRANSITION,
+          },
+        },
+      },
+      MuiPaper: {
+        styleOverrides: {
+          root: {
+            backgroundImage: 'none',
+            transition: `background-color ${MOTION.base} ${MOTION.standard}`,
+          },
+          rounded: { borderRadius: RADIUS.md },
+        },
+      },
+      MuiDialog: {
+        styleOverrides: {
+          paper: {
+            backgroundImage: 'none',
+            borderRadius: RADIUS.lg,
+            border: `1px solid ${surfaces.divider}`,
+            boxShadow: SHADOW.lg,
+          },
+        },
+      },
+      MuiPopover: {
+        styleOverrides: {
+          paper: {
+            backgroundImage: 'none',
+            borderRadius: RADIUS.md,
+            border: `1px solid ${surfaces.divider}`,
+            boxShadow: SHADOW.md,
+          },
+        },
+      },
+      MuiMenu: {
+        styleOverrides: {
+          paper: {
+            backgroundImage: 'none',
+            borderRadius: RADIUS.md,
+            border: `1px solid ${surfaces.divider}`,
+            boxShadow: SHADOW.md,
+          },
+        },
+      },
+      MuiTooltip: {
+        styleOverrides: {
+          tooltip: {
+            borderRadius: RADIUS.sm,
+            padding: `${SPACE.xs}px ${SPACE.sm}px`,
+            fontSize: 12,
+            lineHeight: 1.5,
+            color: colors.textPrimary,
+            backgroundColor: surfaces.raisedBackground,
+            border: `1px solid ${surfaces.divider}`,
+            boxShadow: SHADOW.md,
+          },
+        },
+      },
+      MuiLinearProgress: {
+        styleOverrides: {
+          root: { borderRadius: RADIUS.pill, overflow: 'hidden' },
+          bar: { borderRadius: RADIUS.pill },
+        },
+      },
+      MuiAlert: {
+        styleOverrides: { root: { borderRadius: RADIUS.md } },
+      },
+      MuiCard: {
+        styleOverrides: {
+          root: { borderRadius: RADIUS.md, backgroundImage: 'none' },
+        },
+      },
+      MuiTab: {
+        styleOverrides: {
+          root: { textTransform: 'none', fontWeight: 600 },
+        },
+      },
+      MuiDialogTitle: {
+        styleOverrides: {
+          root: { fontWeight: 700, letterSpacing: '-0.01em' },
+        },
+      },
+      MuiDialogActions: {
+        styleOverrides: {
+          root: { padding: `${SPACE.sm}px ${SPACE.lg}px ${SPACE.lg}px` },
+        },
+      },
+    },
+  }
+}
 
 let cssScopeSupport: boolean | null = null
 
@@ -245,15 +384,22 @@ export const useCustomTheme = () => {
       }
       const effectiveInjectedCss = scopedCss ?? setting.css_injection ?? ''
       const globalStyles = `
-        /* 修复滚动条样式 */
+        /* 细圆角滚动条：轨道透明、滑块留内边距，明暗主题共用 */
         ::-webkit-scrollbar {
-          width: 8px;
-          height: 8px;
-          background-color: var(--scrollbar-bg);
+          width: 10px;
+          height: 10px;
+          background-color: transparent;
+        }
+        ::-webkit-scrollbar-track,
+        ::-webkit-scrollbar-corner {
+          background-color: transparent;
         }
         ::-webkit-scrollbar-thumb {
           background-color: var(--scrollbar-thumb);
-          border-radius: 4px;
+          border: 2px solid transparent;
+          border-radius: var(--radius-pill);
+          background-clip: padding-box;
+          transition: background-color var(--motion-fast) var(--motion-standard);
         }
         ::-webkit-scrollbar-thumb:hover {
           background-color: var(--scrollbar-thumb-hover);
@@ -261,8 +407,9 @@ export const useCustomTheme = () => {
 
         /* 背景图处理 */
         body {
-          font-family: ${dt.font_family};
+          font-family: ${colors.fontFamily};
           background-color: var(--background-color);
+          transition: background-color var(--motion-base) var(--motion-standard);
           ${
             hasUserBackground
               ? `
@@ -287,10 +434,25 @@ export const useCustomTheme = () => {
           background-color: var(--dialog-background) !important;
         }
 
-        /* 移除可能的白色点或线条 */
-        * {
-          outline: none !important;
-          box-shadow: none !important;
+        /* 键盘用户可见的焦点环；鼠标点击不显示默认轮廓 */
+        :focus:not(:focus-visible) {
+          outline: none;
+        }
+        :focus-visible {
+          outline: 2px solid var(--color-primary);
+          outline-offset: 2px;
+        }
+
+        /* 尊重系统的“减少动态效果”设置 */
+        @media (prefers-reduced-motion: reduce) {
+          *,
+          *::before,
+          *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+          }
         }
       `
 

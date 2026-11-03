@@ -29,11 +29,16 @@ export const BaseEmpty = ({
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
+        gap: 1.5,
+        px: 3,
+        textAlign: 'center',
         color: alpha(palette.text.secondary, 0.75),
       })}
     >
-      <InboxRounded sx={{ fontSize: '4em' }} />
-      <Typography sx={{ fontSize: '1.25em' }}>{resolvedText}</Typography>
+      <InboxRounded sx={{ fontSize: '3.5em', opacity: 0.6 }} />
+      <Typography sx={{ fontSize: '1.1em', fontWeight: 500, maxWidth: 420 }}>
+        {resolvedText}
+      </Typography>
       {extra}
     </Box>
   )
