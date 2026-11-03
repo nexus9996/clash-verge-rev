@@ -122,28 +122,6 @@ const virtualGroup = (members: ProxyGroupView['members']): ProxyGroupView => ({
 /** Global mode opens the GLOBAL selector by default so its nodes stay one click away. */
 const GLOBAL_HEAD_STATE: HeadState = { ...DEFAULT_STATE, open: true }
 
-/**
- * Groups the page draws for a running mode.
- *
- * Global mode keeps the GLOBAL selector as its own section: the node (or group)
- * it points at is what global mode actually routes through, so hiding it leaves
- * no way to choose the global proxy. Configured groups follow it so they stay
- * expandable instead of being flattened into GLOBAL's member rows.
- */
-const resolveRenderGroups = (
-  mode: string,
-  proxyView: ProxyViewV1 | null | undefined,
-): ProxyGroupView[] => {
-  if (!proxyView) return []
-  if (mode === 'rule') return proxyView.groups
-  if (mode === 'global') {
-    return proxyView.global
-      ? [proxyView.global, ...proxyView.groups]
-      : proxyView.groups
-  }
-  return proxyView.global ? [proxyView.global] : []
-}
-
 export const useRenderList = (
   mode: string,
   isChainMode?: boolean,
@@ -239,13 +217,20 @@ export const useRenderList = (
     verge?.default_latency_timeout,
   ])
 
+  const renderGroups = useMemo(() => {
+    if (!proxyView) return []
+    if (mode === 'rule') return proxyView.groups
+    const global = proxyView.global ? [proxyView.global] : []
+    return mode === 'global' ? [...global, ...proxyView.groups] : global
+  }, [mode, proxyView])
+
   // Every group this list draws, so a test settling in any of them re-sorts that group.
   const renderedGroupNames = useMemo(() => {
     if (!proxyView) return []
     if (isChainMode)
       return selectedGroup ? [selectedGroup] : [CHAIN_DELAY_GROUP]
-    return resolveRenderGroups(mode, proxyView).map(({ name }) => name)
-  }, [isChainMode, mode, proxyView, selectedGroup])
+    return renderGroups.map(({ name }) => name)
+  }, [isChainMode, proxyView, renderGroups, selectedGroup])
   const groupDelays = useGroupsDelays(renderedGroupNames)
 
   const groupCacheRef = useRef<Map<string, GroupCache>>(new Map())
@@ -287,9 +272,7 @@ export const useRenderList = (
     }
 
     const useRule = mode === 'rule' || mode === 'global'
-    const renderGroups = resolveRenderGroups(mode, proxyView)
     const cache = groupCacheRef.current
-    let anyChanged = false
 
     const retList = renderGroups.flatMap((group) => {
       const headState =
@@ -308,7 +291,6 @@ export const useRenderList = (
         return cached.items
       }
 
-      anyChanged = true
       const ret: IRenderItem[] = [
         {
           type: 0,
@@ -377,7 +359,10 @@ export const useRenderList = (
     const filtered = !useRule
       ? retList.slice(1)
       : retList.filter((item) => !item.group.hidden)
-    if (!anyChanged && prevListRef.current.length === filtered.length) {
+    if (
+      prevListRef.current.length === filtered.length &&
+      filtered.every((item, index) => item === prevListRef.current[index])
+    ) {
       return prevListRef.current
     }
     prevListRef.current = filtered
@@ -391,6 +376,7 @@ export const useRenderList = (
     latencyTimeout,
     mode,
     proxyView,
+    renderGroups,
     selectedGroup,
   ])
 
