@@ -57,6 +57,16 @@ export default defineConfig({
       '@root': path.resolve('.'),
       'monaco-editor/esm/vs/editor/editor.worker.js':
         'monaco-editor/editor/editor.worker',
+      // Monaco's export map only forwards `.js` entries, so its codicon
+      // stylesheets need explicit paths. They style the editor's icons.
+      'monaco-editor/base/browser/ui/codicons/codicon/codicon.css':
+        path.resolve(
+          'node_modules/monaco-editor/esm/vs/base/browser/ui/codicons/codicon/codicon.css',
+        ),
+      'monaco-editor/base/browser/ui/codicons/codicon/codicon-modifiers.css':
+        path.resolve(
+          'node_modules/monaco-editor/esm/vs/base/browser/ui/codicons/codicon/codicon-modifiers.css',
+        ),
     },
   },
   define: {
