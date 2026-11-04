@@ -64,6 +64,8 @@
 - macOS：修复系统外观切换后原生标题栏偶尔仍停留在旧主题的问题
 - macOS：修复旧版 WebKit 上更新说明弹窗因正则 lookbehind 无法加载的问题
 - macOS：修复 Bigsur 上首页测速和流量图无法显示的问题
+- macOS：修复 TUN 模式下原有 DNS 被清除、关闭后 DNS 未恢复及联网后设置未生效
+- macOS：修复断网时误报代理已回退直连，恢复联网后自动重试系统代理
 
 **🐧 Linux**
 
@@ -162,5 +164,9 @@
 **🖥️ Windows**
 
 - Windows 系统代理默认绕过 `*.local` 域名，访问局域网设备的 `.local` 主机名时不再经过代理
+
+**🍎 macOS**
+
+- 优化 macOS TUN 模式的系统 DNS，增加阿里和 Cloudflare 地址
 
 </details>

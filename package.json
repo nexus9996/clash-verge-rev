@@ -115,7 +115,6 @@
     "eslint-plugin-es-x": "^10.0.1",
     "eslint-plugin-sukka": "^10.2.0",
     "eslint-plugin-unused-imports": "^4.4.1",
-    "glob": "^14.0.0",
     "https-proxy-agent": "^9.1.0",
     "husky": "^9.1.7",
     "jsdom": "^30.1.3",
