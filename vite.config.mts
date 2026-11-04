@@ -27,9 +27,11 @@ export default defineConfig({
   build: {
     outDir: '../dist',
     emptyOutDir: true,
-    // Keep the default 500 kB warning meaningful: lazy Monaco chunks are
-    // isolated already, so a chunk over ~1 MB signals an accidental import.
-    chunkSizeWarningLimit: 1000,
+    // The lazy Monaco editor chunk is ~2.7 MB minified: splitting it further
+    // cuts Monaco's module graph into mutually dependent chunks, so the
+    // threshold sits just above it. An accidental eager import still fails
+    // `check:bundle-budget`, which is the regression this guard protects.
+    chunkSizeWarningLimit: 2800,
     rollupOptions: {
       input: {
         main: path.resolve('src/index.html'),
