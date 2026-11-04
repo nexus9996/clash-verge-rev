@@ -78,7 +78,7 @@ interface GroupSelectMenuProps {
 
 interface ProxyGroupsChainProps {
   mode: string
-  chainConfigData?: string | null
+  chainConfigItems?: ProxyChainItem[] | null
   onExitChainMode: () => void
   availableGroups: any[]
   activeSelectedGroup: string | null
@@ -309,7 +309,7 @@ export function ProxyGroupsChain(props: ProxyGroupsChainProps) {
   const { t } = useTranslation()
   const {
     mode,
-    chainConfigData,
+    chainConfigItems,
     onExitChainMode,
     availableGroups,
     activeSelectedGroup,
@@ -358,6 +358,16 @@ export function ProxyGroupsChain(props: ProxyGroupsChainProps) {
     },
     [chainDelaySnapshot],
   )
+
+  // Each fetched runtime chain replaces the stored one once.
+  const configItems = chainConfigItems ?? null
+  const [appliedConfigItems, setAppliedConfigItems] = useState<
+    ProxyChainItem[] | null
+  >(null)
+  if (configItems !== appliedConfigItems) {
+    setAppliedConfigItems(configItems)
+    if (configItems?.length) setProxyChain(configItems)
+  }
 
   const candidateNodes = useMemo(
     () =>
@@ -546,7 +556,6 @@ export function ProxyGroupsChain(props: ProxyGroupsChainProps) {
           <ProxyChain
             proxyChain={currentProxyChain}
             onUpdateChain={setProxyChain}
-            chainConfigData={chainConfigData}
             mode={mode}
             selectedGroup={activeSelectedGroup}
             onExitChainMode={onExitChainMode}

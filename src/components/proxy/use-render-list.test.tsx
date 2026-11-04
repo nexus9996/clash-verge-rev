@@ -158,7 +158,7 @@ test('global mode reveals the group GLOBAL selects below its rows', () => {
   }
 })
 
-test('global mode hides DIRECT and REJECT unless GLOBAL selects them', () => {
+test('global mode keeps DIRECT and REJECT listed as members', () => {
   const global = proxyView.global!
   const previousMembers = global.members
   const previousNow = global.now
@@ -191,13 +191,9 @@ test('global mode hides DIRECT and REJECT unless GLOBAL selects them', () => {
     expect(renderRows('global').map(({ text }) => text)).toEqual(
       expect.arrayContaining(['member:node-a']),
     )
-    const hiddenTexts = renderRows('global').map(({ text }) => text)
-    expect(hiddenTexts).not.toContain('member:DIRECT')
-    expect(hiddenTexts).not.toContain('member:REJECT')
-
-    global.now = 'DIRECT'
-    expect(renderRows('global').map(({ text }) => text)).toEqual(
-      expect.arrayContaining(['member:DIRECT']),
+    const listedTexts = renderRows('global').map(({ text }) => text)
+    expect(listedTexts).toEqual(
+      expect.arrayContaining(['member:DIRECT', 'member:REJECT']),
     )
   } finally {
     global.members = previousMembers
