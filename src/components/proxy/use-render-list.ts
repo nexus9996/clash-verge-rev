@@ -92,6 +92,22 @@ type GroupCache = {
   items: IRenderItem[]
 }
 
+type ChainItemRecord = {
+  signature: string
+  item: IRenderItem
+}
+
+type ChainCache = {
+  /** Content of the chain group (name/now/etc.) the items embed. */
+  groupKey: string
+  contentKey: string
+  col: number
+  members: Map<string, CachedMember>
+  /** Per-row items keyed by member identity + occurrence index, for partial reuse. */
+  itemsByMember: Map<string, ChainItemRecord>
+  items: IRenderItem[]
+}
+
 type RuntimeConfigWithProxySequence = IConfigData & { proxies?: unknown }
 
 const delaySignature = (
@@ -351,45 +367,15 @@ export const useRenderList = (
   const groupDelays = useGroupsDelays(renderedGroupNames)
 
   const groupCacheRef = useRef<Map<string, GroupCache>>(new Map())
+  const chainCacheRef = useRef<ChainCache | null>(null)
   const signatureCacheRef = useRef<ViewSignatureCache | null>(null)
   const prevListRef = useRef<IRenderItem[]>([])
 
   const renderList = useMemo<IRenderItem[]>(() => {
     if (!proxyView) return []
 
-    if (isChainMode) {
-      const selected =
-        mode === 'rule'
-          ? proxyView.groups.find(({ name }) => name === selectedGroup)
-          : undefined
-      const group = selected ?? virtualGroup([])
-      const occurrences = filterSort(
-        chainOccurrences,
-        selected?.name ?? CHAIN_DELAY_GROUP,
-        '',
-        0,
-        latencyTimeout!,
-      )
-      if (col > 1) {
-        return groupOccurrences(occurrences, col).map((memberCol) => ({
-          type: 4,
-          key: `chain-col:${memberKey(group, memberCol[0])}`,
-          group,
-          headState: DEFAULT_STATE,
-          col,
-          memberCol,
-        }))
-      }
-      return occurrences.map((member) => ({
-        type: 2,
-        key: `chain:${memberKey(group, member)}`,
-        group,
-        member,
-        headState: DEFAULT_STATE,
-      }))
-    }
-
-    const cache = groupCacheRef.current
+    // Content signatures serve both list shapes; they are rebuilt only when the
+    // view object is replaced.
     const signatureCache =
       signatureCacheRef.current?.view === proxyView
         ? signatureCacheRef.current
@@ -400,13 +386,120 @@ export const useRenderList = (
           }
     signatureCacheRef.current = signatureCache
 
+    const getMemberSignature = (ref: ProxyMemberRef) =>
+      memberContentSignature(proxyView, ref, signatureCache.nodeSignatures)
+
+    if (isChainMode) {
+      const selected =
+        mode === 'rule'
+          ? proxyView.groups.find(({ name }) => name === selectedGroup)
+          : undefined
+      const group = selected ?? virtualGroup([])
+      const groupKey = groupSignature(group)
+      const chainEntries = chainOccurrences.map(({ member, memberIndex }) => ({
+        identity: memberIdentity(member.ref),
+        memberIndex,
+        signature: getMemberSignature(member.ref),
+        member,
+      }))
+      const contentKey = [
+        groupKey,
+        String(col),
+        ...chainEntries.map(
+          ({ identity, memberIndex, signature }) =>
+            `${identity}#${memberIndex}#${signature}`,
+        ),
+      ].join('\u0000')
+
+      const cached = chainCacheRef.current
+      if (cached && cached.contentKey === contentKey) return cached.items
+
+      const groupContentUnchanged = cached?.groupKey === groupKey
+      const signaturesByKey = new Map<string, string>()
+      for (const entry of chainEntries) {
+        signaturesByKey.set(
+          `${entry.identity}#${entry.memberIndex}`,
+          entry.signature,
+        )
+      }
+
+      const nextMembers = new Map<string, CachedMember>()
+      const nextItemsByMember = new Map<string, ChainItemRecord>()
+      const occurrences = filterSort(
+        chainEntries.map(({ identity, memberIndex, signature, member }) => {
+          const cachedMember = cached?.members.get(identity)
+          const resolvedMember =
+            cachedMember && cachedMember.signature === signature
+              ? cachedMember.member
+              : member
+          nextMembers.set(identity, { signature, member: resolvedMember })
+          return { memberIndex, member: resolvedMember }
+        }),
+        selected?.name ?? CHAIN_DELAY_GROUP,
+        '',
+        0,
+        latencyTimeout!,
+      )
+
+      if (col > 1) {
+        const items = groupOccurrences(occurrences, col).map((memberCol) => ({
+          type: 4 as const,
+          key: `chain-col:${memberKey(group, memberCol[0])}`,
+          group,
+          headState: DEFAULT_STATE,
+          col,
+          memberCol,
+        }))
+        chainCacheRef.current = {
+          groupKey,
+          contentKey,
+          col,
+          members: nextMembers,
+          itemsByMember: nextItemsByMember,
+          items,
+        }
+        return items
+      }
+
+      const items = occurrences.map((occurrence) => {
+        const identity = memberIdentity(occurrence.member.ref)
+        const cacheKey = `${identity}#${occurrence.memberIndex}`
+        const signature = signaturesByKey.get(cacheKey) ?? ''
+        const cachedItem = groupContentUnchanged
+          ? cached?.itemsByMember.get(cacheKey)
+          : undefined
+        const item =
+          cachedItem && cachedItem.signature === signature
+            ? cachedItem.item
+            : {
+                type: 2 as const,
+                key: `chain:${memberKey(group, occurrence)}`,
+                group,
+                member: occurrence,
+                headState: DEFAULT_STATE,
+              }
+        nextItemsByMember.set(cacheKey, { signature, item })
+        return item
+      })
+
+      chainCacheRef.current = {
+        groupKey,
+        contentKey,
+        col,
+        members: nextMembers,
+        itemsByMember: nextItemsByMember,
+        items,
+      }
+      return items
+    }
+
+    const cache = groupCacheRef.current
+
     const getGroupSignatures = (group: ProxyGroupView) => {
       const existing = signatureCache.groups.get(group.name)
       if (existing) return existing
 
-      const memberSignatures = group.members.map((ref) =>
-        memberContentSignature(proxyView, ref, signatureCache.nodeSignatures),
-      )
+      const memberSignatures = group.members.map(getMemberSignature)
       const computed: GroupSignatures = {
         contentKey: [groupSignature(group), ...memberSignatures].join('\u0000'),
         memberSignatures,

@@ -113,14 +113,18 @@ type Control = {
 
 const Probe = ({
   mode,
+  chain = false,
+  selectedGroup = null,
   capture,
   onControl,
 }: {
   mode: string
+  chain?: boolean
+  selectedGroup?: string | null
   capture?: (renderList: IRenderItem[]) => void
   onControl?: (control: Control) => void
 }) => {
-  const { renderList, onHeadState } = useRenderList(mode, false, null)
+  const { renderList, onHeadState } = useRenderList(mode, chain, selectedGroup)
   capture?.(renderList)
   onControl?.({ onHeadState })
   return (
@@ -237,7 +241,10 @@ test('rule mode still renders only the configured groups', () => {
 const cloneView = () => JSON.parse(JSON.stringify(proxyView)) as ProxyViewV1
 
 /** Mounts a probe whose hook instance survives rerenders, so its caches persist. */
-const mountRerenderingProbe = async (mode: string) => {
+const mountRerenderingProbe = async (
+  mode: string,
+  options?: { chain?: boolean; selectedGroup?: string | null },
+) => {
   const container = document.createElement('div')
   document.body.appendChild(container)
   const root: Root = createRoot(container)
@@ -249,6 +256,8 @@ const mountRerenderingProbe = async (mode: string) => {
       root.render(
         <Probe
           mode={mode}
+          chain={options?.chain}
+          selectedGroup={options?.selectedGroup}
           capture={(renderList) => {
             latest = renderList
           }}
@@ -261,9 +270,10 @@ const mountRerenderingProbe = async (mode: string) => {
     return latest
   }
 
-  await render()
+  const first = await render()
 
   return {
+    first,
     setHeadState: async (groupName: string, patch: Partial<HeadState>) => {
       await act(async () => {
         control?.onHeadState(groupName, patch)
@@ -394,6 +404,78 @@ test('search filtering still drives the rows and stays cached across refetches',
 
     const refetched = await probe.rerender(cloneView())
     expect(refetched).toBe(filtered)
+  } finally {
+    await probe.unmount()
+  }
+})
+
+const CHAIN_OPTIONS = { chain: true, selectedGroup: 'Auto' }
+
+const findChainRow = (items: IRenderItem[], name: string) =>
+  items.find((item) => item.member?.member.ref.name === name)
+
+test('refetching equal chain content keeps the chain list stable', async () => {
+  const probe = await mountRerenderingProbe('rule', CHAIN_OPTIONS)
+  try {
+    const first = probe.first
+    expect(first.map((item) => item.member?.member.ref.name)).toEqual([
+      'node-a',
+      'node-b',
+    ])
+
+    const refetched = await probe.rerender(cloneView())
+    expect(refetched).toBe(first)
+  } finally {
+    await probe.unmount()
+  }
+})
+
+test('chain refetch only rebuilds rows whose member content changed', async () => {
+  const probe = await mountRerenderingProbe('rule', CHAIN_OPTIONS)
+  try {
+    const first = probe.first
+    const nodeABefore = findChainRow(first, 'node-a')
+    const nodeBBefore = findChainRow(first, 'node-b')
+
+    const nextView = cloneView()
+    Object.assign(nextView.records['c:1'], {
+      history: [{ time: '2026-01-01T00:00:00Z', delay: 321 }],
+    })
+    const second = await probe.rerender(nextView)
+    expect(second).not.toBe(first)
+
+    // The unchanged node keeps its exact row object.
+    expect(findChainRow(second, 'node-a')).toBe(nodeABefore)
+
+    const nodeBAfter = findChainRow(second, 'node-b')
+    expect(nodeBAfter).not.toBe(nodeBBefore)
+    expect(nodeBAfter?.member?.member.kind).toBe('node')
+    if (nodeBAfter?.member?.member.kind === 'node') {
+      expect(nodeBAfter.member.member.node.history.at(-1)?.delay).toBe(321)
+    }
+  } finally {
+    await probe.unmount()
+  }
+})
+
+test('chain selection changes rebuild rows but reuse resolved members', async () => {
+  const probe = await mountRerenderingProbe('rule', CHAIN_OPTIONS)
+  try {
+    const first = probe.first
+    const nodeABefore = findChainRow(first, 'node-a')
+    const memberBefore = nodeABefore?.member?.member
+
+    const nextView = cloneView()
+    Object.assign(nextView.groups[0], { now: 'node-b' })
+    const second = await probe.rerender(nextView)
+    expect(second).not.toBe(first)
+
+    const nodeAAfter = findChainRow(second, 'node-a')
+    // Selection is drawn from the embedded group, so rows rebuild with it...
+    expect(nodeAAfter).not.toBe(nodeABefore)
+    expect(nodeAAfter?.group.now).toBe('node-b')
+    // ...while the resolved members stay identical.
+    expect(nodeAAfter?.member?.member).toBe(memberBefore)
   } finally {
     await probe.unmount()
   }
