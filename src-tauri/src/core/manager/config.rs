@@ -3,7 +3,7 @@ use crate::core::notify::NoticeStatus;
 use crate::core::service::StageRequest;
 use crate::{
     config::{Config, IProfiles, runtime::IRuntime},
-    constants::timing,
+    constants::{files, timing},
     core::{
         handle,
         validate::{CoreConfigValidator, ValidationOutcome, ValidationSkipReason},
@@ -19,8 +19,9 @@ use serde_yaml_ng::Mapping;
 use smartstring::alias::String;
 use std::{
     collections::HashSet,
+    hash::{DefaultHasher, Hasher as _},
     path::PathBuf,
-    sync::Arc,
+    sync::{Arc, LazyLock},
     time::{Duration, Instant},
 };
 use tauri_plugin_mihomo::Error as MihomoError;
@@ -43,6 +44,37 @@ enum ConfigApplication {
     ReloadFrom(String),
     ReplaceCore,
     Fail(String),
+}
+
+/// Version of the applied-runtime identity; bump it when the meaning of an apply changes and the
+/// short-circuit must not fire for a runtime recorded by an older build.
+const APPLIED_RUNTIME_VERSION: u64 = 1;
+
+/// Identity of the runtime bytes and Core state that were last applied successfully.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct AppliedRuntimeKey {
+    version: u64,
+    yaml_hash: u64,
+    core: String,
+    mode: RunningMode,
+    generation: Option<u64>,
+}
+
+/// Last successful apply, or `None` until one completes.
+static LAST_APPLIED: LazyLock<parking_lot::Mutex<Option<AppliedRuntimeKey>>> =
+    LazyLock::new(|| parking_lot::Mutex::new(None));
+
+/// Whether `current` describes a runtime that `last` already applied to a ready Core.
+///
+/// An unknown readiness generation never matches: the running Core may still have to pick these
+/// bytes up, so the apply has to run.
+fn applied_runtime_matches(last: Option<&AppliedRuntimeKey>, current: &AppliedRuntimeKey) -> bool {
+    current.generation.is_some() && last.is_some_and(|last| last == current)
+}
+
+/// Forgets the last applied runtime so the next apply runs even when the bytes match.
+fn forget_applied_runtime() {
+    *LAST_APPLIED.lock() = None;
 }
 
 pub(crate) struct ConfigUpdateGuard<'a>(&'a CoreManager);
@@ -132,6 +164,27 @@ where
 }
 
 impl CoreManager {
+    /// Forgets the last applied runtime so the next apply runs even when the bytes match.
+    ///
+    /// Callers that change the running Core outside the apply path must invalidate the record
+    /// first; otherwise a later unchanged apply would skip repairing the Core.
+    pub(crate) fn forget_applied_runtime(&self) {
+        forget_applied_runtime();
+    }
+
+    /// Identity of the runtime the running Core would hold for these bytes.
+    async fn applied_runtime_key(&self, yaml: &str) -> AppliedRuntimeKey {
+        let mut hasher = DefaultHasher::new();
+        hasher.write(yaml.as_bytes());
+        AppliedRuntimeKey {
+            version: APPLIED_RUNTIME_VERSION,
+            yaml_hash: hasher.finish(),
+            core: Config::verge().await.latest_arc().get_valid_clash_core(),
+            mode: *self.get_running_mode(),
+            generation: self.current_core_readiness_generation(),
+        }
+    }
+
     pub(crate) fn claim_config_update(
         &self,
         _config_write: &tokio::sync::MutexGuard<'_, ()>,
@@ -175,6 +228,8 @@ impl CoreManager {
         });
 
         help::save_yaml(&runtime_path, &clash_config, Some("# Clash Verge Runtime")).await?;
+        // These bytes are written outside an apply, so the next apply must not be skipped.
+        self.forget_applied_runtime();
         handle::Handle::notice(status, message);
         Ok(())
     }
@@ -354,6 +409,26 @@ impl CoreManager {
     async fn validate_and_apply_draft(&self) -> Result<ValidationOutcome> {
         // One serialization feeds check and run files; the core never applies unvalidated bytes.
         let yaml = Config::runtime_config_yaml().await?;
+        let key = self.applied_runtime_key(&yaml).await;
+        let already_applied = {
+            let last = LAST_APPLIED.lock();
+            applied_runtime_matches(last.as_ref(), &key)
+        };
+        if already_applied {
+            // A runtime file deleted after the last apply still has to be written back.
+            let runtime_path = dirs::app_home_dir()?.join(files::RUNTIME_CONFIG);
+            let runtime_file_present = tokio::fs::metadata(&runtime_path).await.is_ok();
+            if runtime_file_present {
+                logging!(
+                    debug,
+                    Type::Core,
+                    "runtime configuration unchanged (core readiness generation {:?}); skipping write/validation/reload",
+                    key.generation
+                );
+                return Ok(ValidationOutcome::Valid);
+            }
+        }
+
         let outcome = CoreConfigValidator::global()
             .validate_config_outcome_with(&yaml)
             .await?;
@@ -373,6 +448,14 @@ impl CoreManager {
             let _lifecycle = self.lifecycle_lock.lock().await;
             crate::utils::resolve::dns::sync_public_dns().await;
         }
+        // Re-read mode and readiness: the apply may have restarted the Core, while the YAML hash and
+        // core name stay those of the bytes that were actually applied. Record only after every
+        // side effect succeeded, so a failed apply is retried next time.
+        *LAST_APPLIED.lock() = Some(AppliedRuntimeKey {
+            mode: *self.get_running_mode(),
+            generation: self.current_core_readiness_generation(),
+            ..key
+        });
         Ok(ValidationOutcome::Valid)
     }
 
@@ -486,7 +569,10 @@ impl CoreManager {
 
 #[cfg(test)]
 mod tests {
-    use super::{ConfigApplication, StageAttempt, StageRequest, plan_config_application, stage_with_confirmation};
+    use super::{
+        APPLIED_RUNTIME_VERSION, AppliedRuntimeKey, ConfigApplication, RunningMode, StageAttempt, StageRequest,
+        applied_runtime_matches, plan_config_application, stage_with_confirmation,
+    };
     use clash_verge_service_ipc::{StageRejection, StageRuntimeOutcome};
     use std::{cell::Cell, time::Duration};
 
@@ -690,5 +776,52 @@ mod tests {
             CONFIRM_WITHIN,
             "the caller must be released at the deadline, not at the service's convenience"
         );
+    }
+
+    fn applied_key(yaml_hash: u64, core: &str, mode: RunningMode, generation: Option<u64>) -> AppliedRuntimeKey {
+        AppliedRuntimeKey {
+            version: APPLIED_RUNTIME_VERSION,
+            yaml_hash,
+            core: core.into(),
+            mode,
+            generation,
+        }
+    }
+
+    #[test]
+    fn an_unchanged_runtime_is_recognized_as_applied() {
+        let applied = applied_key(7, "verge-mihomo", RunningMode::Sidecar, Some(3));
+        assert!(applied_runtime_matches(Some(&applied), &applied));
+    }
+
+    #[test]
+    fn a_changed_runtime_identity_is_applied_again() {
+        let applied = applied_key(7, "verge-mihomo", RunningMode::Sidecar, Some(3));
+        for changed in [
+            applied_key(8, "verge-mihomo", RunningMode::Sidecar, Some(3)),
+            applied_key(7, "verge-mihomo-alpha", RunningMode::Sidecar, Some(3)),
+            applied_key(7, "verge-mihomo", RunningMode::Service, Some(3)),
+            applied_key(7, "verge-mihomo", RunningMode::Sidecar, Some(4)),
+            applied_key(7, "verge-mihomo", RunningMode::Sidecar, None),
+        ] {
+            assert!(!applied_runtime_matches(Some(&applied), &changed));
+        }
+        assert!(!applied_runtime_matches(None, &applied));
+    }
+
+    #[test]
+    fn an_unknown_core_readiness_never_matches() {
+        let unready = applied_key(7, "verge-mihomo", RunningMode::NotRunning, None);
+        assert!(!applied_runtime_matches(Some(&unready), &unready));
+    }
+
+    #[test]
+    fn a_version_bump_invalidates_the_applied_runtime() {
+        let mut changed = applied_key(7, "verge-mihomo", RunningMode::Sidecar, Some(3));
+        changed.version += 1;
+        assert!(!applied_runtime_matches(
+            Some(&applied_key(7, "verge-mihomo", RunningMode::Sidecar, Some(3))),
+            &changed
+        ));
     }
 }

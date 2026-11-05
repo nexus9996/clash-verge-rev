@@ -245,6 +245,9 @@ pub(super) async fn apply(config_write: &MutexGuard<'_, ()>, patch: Patch<'_>, e
             // from the restored configuration so the Core cannot keep serving discarded state.
             // Ownership must be released first: a forced update refuses to run while it is held.
             drop(update);
+            // The restored bytes are usually identical to the last applied runtime; invalidate the
+            // short-circuit record so this repair cannot be skipped.
+            manager.forget_applied_runtime();
             logging_error!(Type::Core, manager.update_config_forced().await);
         }
         return match restore_result {
