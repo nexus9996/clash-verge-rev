@@ -1,5 +1,12 @@
 import { Box } from '@mui/material'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BaseEmpty, BasePage } from '@/components/base'
@@ -50,7 +57,13 @@ const RulesPage = () => {
     }
   }, [refreshRules, refreshRuleProviders, pageVisible])
 
-  const searchMatcher = useMemo(() => createRuleSearchMatcher(search), [search])
+  // Defer only the filter derivation: input state stays immediate, while a
+  // burst of keystrokes cannot block the render with a full rules scan.
+  const deferredSearch = useDeferredValue(search)
+  const searchMatcher = useMemo(
+    () => createRuleSearchMatcher(deferredSearch),
+    [deferredSearch],
+  )
 
   const refreshExtras = useCallback(async () => {
     try {
@@ -92,17 +105,21 @@ const RulesPage = () => {
     [refreshExtras],
   )
 
-  const filteredRules = useMemo(() => {
-    const rulesWithLineNo = rules.map((item, index) => ({
-      ...item,
-      // UI-only derived data; keep app context/SWR data immutable
-      lineNo: index + 1,
-    }))
-
-    return rulesWithLineNo.filter((item) =>
-      searchMatcher(item, item.payload ?? ''),
-    )
+  // Only original indexes are collected, so a keystroke no longer clones ~12k
+  // rule objects; lineNo and all lookups fall out of the index when rendering.
+  const visibleIndexes = useMemo(() => {
+    const indexes: number[] = []
+    for (let index = 0; index < rules.length; index += 1) {
+      const rule = rules[index]
+      if (searchMatcher(rule, rule.payload ?? '')) indexes.push(index)
+    }
+    return indexes
   }, [rules, searchMatcher])
+
+  const getItemKey = useCallback(
+    (index: number) => rules[visibleIndexes[index]]?.index ?? index,
+    [rules, visibleIndexes],
+  )
 
   const handleScroll = useCallback((e: Event) => {
     setShowScrollTop((e.target as HTMLElement).scrollTop > 100)
@@ -141,22 +158,23 @@ const RulesPage = () => {
         <RuleSearchBox onSearch={setSearch} />
       </Box>
 
-      {filteredRules && filteredRules.length > 0 ? (
+      {visibleIndexes.length > 0 ? (
         <>
           <VirtualList
             ref={virtuosoRef}
-            count={filteredRules.length}
+            count={visibleIndexes.length}
             estimateSize={40}
+            getItemKey={getItemKey}
             renderItem={(i) => {
-              const rule = filteredRules[i]
+              const ruleIndex = visibleIndexes[i]
+              const rule = rules[ruleIndex]
               return (
                 <RuleItem
                   value={rule}
+                  lineNo={ruleIndex + 1}
                   extra={ruleExtras.get(rule.index)}
                   pending={pendingRuleIndexes.has(rule.index)}
-                  onToggleDisabled={(disabled) =>
-                    void handleToggleRule(rule.index, disabled)
-                  }
+                  onToggleDisabled={handleToggleRule}
                 />
               )
             }}

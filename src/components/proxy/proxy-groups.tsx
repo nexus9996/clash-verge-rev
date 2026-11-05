@@ -257,7 +257,9 @@ function ChainProxyGroups(props: {
     count: renderList.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 56,
-    overscan: 15,
+    // Sticky group headers are injected by rangeExtractor, so overscan only
+    // needs to cover row measurement while scrolling.
+    overscan: 6,
     getItemKey: (index) => renderList[index]?.key ?? index,
     rangeExtractor,
   })

@@ -5,6 +5,7 @@ use smartstring::alias::String;
 use std::{
     fmt,
     hash::{DefaultHasher, Hash as _, Hasher as _},
+    path::{Path, PathBuf},
     sync::LazyLock,
     sync::atomic::{AtomicBool, Ordering},
 };
@@ -19,11 +20,18 @@ use clash_verge_logging::{Type, logging};
 
 const SYNTAX_CHECK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 
+/// Bump whenever validation semantics change: older persisted verdicts must not skip the core.
+const VALIDATOR_VERSION: u32 = 1;
+
+/// Last fingerprint accepted in this process; the same value is persisted across restarts.
 static LAST_VALIDATED: LazyLock<parking_lot::Mutex<Option<u64>>> = LazyLock::new(|| parking_lot::Mutex::new(None));
 
 async fn validation_fingerprint(yaml: &str) -> u64 {
     let core = Config::verge().await.latest_arc().get_valid_clash_core();
     let mut hasher = DefaultHasher::new();
+    // A persisted verdict is only reusable while the validator and the app agree on semantics.
+    VALIDATOR_VERSION.hash(&mut hasher);
+    env!("CARGO_PKG_VERSION").hash(&mut hasher);
     yaml.hash(&mut hasher);
     core.as_str().hash(&mut hasher);
     let binary = std::env::current_exe()
@@ -45,6 +53,24 @@ async fn validation_fingerprint(yaml: &str) -> u64 {
         }
     }
     hasher.finish()
+}
+
+fn validation_state_path() -> Result<PathBuf> {
+    Ok(dirs::app_home_dir()?.join(crate::constants::files::VALIDATION_STATE))
+}
+
+/// A corrupt or missing state file only costs one extra validation, so read failures are not errors.
+async fn read_persisted_fingerprint(path: &Path) -> Option<u64> {
+    let content = fs::read_to_string(path).await.ok()?;
+    content.trim().parse().ok()
+}
+
+/// Replaces the persisted verdict atomically so a crash cannot leave a half-written fingerprint.
+async fn persist_fingerprint(path: &Path, fingerprint: u64) -> Result<()> {
+    let temp = path.with_extension("tmp");
+    fs::write(&temp, fingerprint.to_string()).await?;
+    fs::rename(&temp, path).await?;
+    Ok(())
 }
 
 pub struct CoreConfigValidator {
@@ -460,12 +486,33 @@ impl CoreConfigValidator {
             logging!(info, Type::Validate, "配置与上次通过验证的字节一致，跳过内核检查");
             return Ok(ValidationOutcome::Valid);
         }
+        // The verdict survives restarts, so cold start and repeated profile switches reuse it.
+        if let Ok(state_path) = validation_state_path()
+            && read_persisted_fingerprint(&state_path).await == Some(fingerprint)
+        {
+            logging!(
+                info,
+                Type::Validate,
+                "配置与上次通过验证的字节一致（跨重启），跳过内核检查"
+            );
+            *LAST_VALIDATED.lock() = Some(fingerprint);
+            return Ok(ValidationOutcome::Valid);
+        }
 
         let check_path = dirs::app_home_dir()?.join(crate::constants::files::CHECK_CONFIG);
         help::save_yaml_str(&check_path, yaml).await?;
         let outcome = Self::validate_config_internal_outcome(dirs::path_to_str(&check_path)?).await?;
         if outcome.is_valid() {
             *LAST_VALIDATED.lock() = Some(fingerprint);
+            if let Ok(state_path) = validation_state_path()
+                && let Err(error) = persist_fingerprint(&state_path, fingerprint).await
+            {
+                logging!(
+                    warn,
+                    Type::Validate,
+                    "failed to persist validation fingerprint: {error:#}"
+                );
+            }
             let _ = fs::remove_file(&check_path).await;
         }
         Ok(outcome)
@@ -498,3 +545,46 @@ fn contains_any_keyword<'a>(buf: &'a [u8], keywords: &'a [&str]) -> bool {
 }
 
 singleton!(CoreConfigValidator, CORECONFIGVALIDATOR);
+
+#[cfg(test)]
+mod tests {
+    use super::{persist_fingerprint, read_persisted_fingerprint};
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_state_path(label: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or_default();
+        std::env::temp_dir().join(format!("clash-verge-validate-{label}-{}-{nanos}", std::process::id()))
+    }
+
+    #[tokio::test]
+    async fn persisted_fingerprint_survives_a_rewrite() -> anyhow::Result<()> {
+        let path = unique_state_path("roundtrip");
+        let first = u64::from(0xdead_beef_u32);
+        persist_fingerprint(&path, first).await?;
+        assert_eq!(read_persisted_fingerprint(&path).await, Some(first));
+
+        // A newer verdict replaces the previous one instead of accumulating state files.
+        let next = first + 1;
+        persist_fingerprint(&path, next).await?;
+        assert_eq!(read_persisted_fingerprint(&path).await, Some(next));
+
+        let _ = tokio::fs::remove_file(&path).await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn missing_or_corrupt_state_only_triggers_revalidation() -> anyhow::Result<()> {
+        let path = unique_state_path("corrupt");
+        assert_eq!(read_persisted_fingerprint(&path).await, None);
+
+        tokio::fs::write(&path, b"not a fingerprint").await?;
+        assert_eq!(read_persisted_fingerprint(&path).await, None);
+
+        let _ = tokio::fs::remove_file(&path).await;
+        Ok(())
+    }
+}

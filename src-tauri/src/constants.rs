@@ -70,6 +70,8 @@ pub mod files {
     pub const CHECK_CONFIG: &str = "clash-verge-check.yaml";
     pub const DNS_CONFIG: &str = "dns_config.yaml";
     pub const WINDOW_STATE: &str = "window_state.json";
+    /// Last runtime YAML verdict accepted by the bundled core validator, reused across restarts.
+    pub const VALIDATION_STATE: &str = "validation-state";
 }
 
 pub mod tun {

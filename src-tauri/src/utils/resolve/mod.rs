@@ -64,10 +64,19 @@ async fn resolve_setup() {
         // when the auto-launch setting changes.
         crate::core::autostart::cleanup_legacy_autostart();
     }
-    init_startup_script().await;
-    init_service_manager().await;
     let config_initialized = init_verge_config_before_window().await;
+
+    // Create the window as soon as the pre-window configuration is ready. Building the window
+    // hands the page to Tauri's own WebView thread, so it starts loading immediately while this
+    // task keeps running; the window itself stays hidden until `PageLoadEvent::Finished`.
     init_window().await;
+
+    // Yield to the loading WebView above: run the startup script and the service health probe
+    // alongside the page load instead of making the window wait for them. The probe must still
+    // finish before the TUN reconcile and core startup below, which read the settled service
+    // state, so both tasks are joined here rather than detached.
+    let _ = futures::join!(init_startup_script(), init_service_manager());
+
     feat::reconcile_startup_tun_availability().await;
     init_resources().await;
     if let Err(e) = init::init_dns_config().await {

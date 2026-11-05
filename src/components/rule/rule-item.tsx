@@ -1,4 +1,5 @@
 import { Box, Switch, styled, Tooltip, Typography } from '@mui/material'
+import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Rule } from 'tauri-plugin-mihomo-api'
 
@@ -20,10 +21,12 @@ const COLOR = [
 ]
 
 interface Props {
-  value: Rule & { lineNo: number }
+  value: Rule
+  /** 1-based position in the unfiltered rule list; the page derives it. */
+  lineNo: number
   extra?: RuleExtraInfo
   pending?: boolean
-  onToggleDisabled?: (disabled: boolean) => void
+  onToggleDisabled?: (index: number, disabled: boolean) => void
 }
 
 const parseColor = (text: string) => {
@@ -38,7 +41,7 @@ const parseColor = (text: string) => {
 }
 
 const RuleItem = (props: Props) => {
-  const { value, extra, pending, onToggleDisabled } = props
+  const { value, lineNo, extra, pending, onToggleDisabled } = props
   const { t } = useTranslation()
   const disabled = extra?.disabled ?? false
 
@@ -54,7 +57,7 @@ const RuleItem = (props: Props) => {
         variant="body2"
         sx={{ lineHeight: 2, minWidth: 30, mr: 2.25, textAlign: 'center' }}
       >
-        {value.lineNo}
+        {lineNo}
       </Typography>
 
       <Box sx={{ userSelect: 'text', flex: 1, minWidth: 0 }}>
@@ -91,7 +94,9 @@ const RuleItem = (props: Props) => {
             size="small"
             checked={!disabled}
             disabled={pending || !onToggleDisabled}
-            onChange={(_event, checked) => onToggleDisabled?.(!checked)}
+            onChange={(_event, checked) =>
+              onToggleDisabled?.(value.index, !checked)
+            }
             slotProps={{ input: { 'aria-label': t('rules.page.rule.toggle') } }}
           />
         </Tooltip>
@@ -100,4 +105,6 @@ const RuleItem = (props: Props) => {
   )
 }
 
-export default RuleItem
+// Memoized: the virtualized list re-renders on every search keystroke, but
+// unchanged rows keep their original rule object identity.
+export default memo(RuleItem)
