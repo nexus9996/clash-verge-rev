@@ -219,6 +219,50 @@ impl Tray {
         self.update_menu_internal(app_handle, true).await
     }
 
+    /// Signature the attached menu was built with, mirroring `update_menu_internal`'s inputs.
+    async fn current_menu_signature(&self) -> String {
+        let verge = Config::verge().await.latest_arc();
+        let mode = Config::clash()
+            .await
+            .latest_arc()
+            .0
+            .get("mode")
+            .map(|val| val.as_str().unwrap_or("rule"))
+            .unwrap_or("rule")
+            .to_owned();
+        let profiles = Config::profiles().await.latest_arc();
+        menu_signature(&verge, &profiles, &mode)
+    }
+
+    /// Refreshes the menu's in-place state items (checks and text) without fetching `/proxies`.
+    ///
+    /// The reconcile only mutates existing items when the menu signature is unchanged, which is
+    /// exactly the case for toggles. Without an attached menu, or when its structure is stale, a
+    /// full update runs instead so the proxy section is rebuilt rather than dropped.
+    pub async fn update_menu_state(&self) -> Result<()> {
+        if handle::Handle::global().is_exiting() {
+            logging!(debug, Type::Tray, "应用正在退出，跳过托盘菜单状态更新");
+            return Ok(());
+        }
+        let signature = self.current_menu_signature().await;
+        let attached = self
+            .menu_state
+            .lock()
+            .as_ref()
+            .is_some_and(|state| state.signature == signature);
+        logging!(
+            debug,
+            Type::Tray,
+            "托盘菜单状态更新（in-place，不请求 /proxies，attached: {attached}）"
+        );
+        let app_handle = handle::Handle::app_handle();
+        if attached {
+            self.update_menu_internal(app_handle, false).await
+        } else {
+            self.update_menu().await
+        }
+    }
+
     async fn update_menu_internal(&self, app_handle: &AppHandle, include_proxy_groups: bool) -> Result<()> {
         let Some(tray) = app_handle.tray_by_id(TRAY_ID) else {
             logging!(warn, Type::Tray, "Failed to update tray menu: tray not found");

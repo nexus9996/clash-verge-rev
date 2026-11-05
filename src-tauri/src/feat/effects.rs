@@ -15,6 +15,9 @@ pub(super) enum Effect {
     SystemProxy,
     Hotkey,
     TrayMenu,
+    /// Refreshes only the menu's in-place state items (checks and text) and never fetches
+    /// `/proxies`; a full `TrayMenu` update supersedes it.
+    TrayMenuState,
     TrayIcon,
     TrayTooltip,
     TrayClick,
@@ -31,7 +34,7 @@ macro_rules! select_field {
         if $field.is_some() { $effects.extend([$(Effect::$effect),*]); }
     };
     ($effects:ident, $field:ident, Tun) => {
-        select_field!($effects, $field, [ClashConfig, TrayMenu, TrayTooltip, TrayIcon]);
+        select_field!($effects, $field, [ClashConfig, TrayMenuState, TrayTooltip, TrayIcon]);
         #[cfg(target_os = "linux")]
         if *$field == Some(true) { $effects.insert(Effect::RestartCore); }
     };
@@ -77,7 +80,7 @@ verge_registry! {
     enable_tun_mode => Tun;
     enable_auto_launch => [Autostart];
     enable_silent_start => NoEffect;
-    enable_system_proxy => [SystemProxy, TrayMenu, TrayTooltip, TrayIcon];
+    enable_system_proxy => [SystemProxy, TrayMenuState, TrayTooltip, TrayIcon];
     enable_proxy_guard => [SystemProxy];
     enable_bypass_check => NoEffect;
     ipv6_mode => [ClashConfig];
@@ -219,7 +222,7 @@ mod tests {
                 &[
                     Effect::SystemProxy,
                     Effect::TrayIcon,
-                    Effect::TrayMenu,
+                    Effect::TrayMenuState,
                     Effect::TrayTooltip,
                 ],
             ),
@@ -257,7 +260,7 @@ mod tests {
                 Effect::RestartCore,
                 Effect::ClashConfig,
                 Effect::TrayIcon,
-                Effect::TrayMenu,
+                Effect::TrayMenuState,
                 Effect::TrayTooltip,
             ]
             .into_iter()
@@ -269,12 +272,60 @@ mod tests {
             [
                 Effect::ClashConfig,
                 Effect::TrayIcon,
-                Effect::TrayMenu,
+                Effect::TrayMenuState,
                 Effect::TrayTooltip,
             ]
             .into_iter()
             .collect::<Effects>()
         );
+    }
+
+    #[test]
+    fn toggle_fields_only_refresh_menu_state_in_place() {
+        for patch in [
+            verge_patch(|p| p.enable_system_proxy = Some(true)),
+            verge_patch(|p| p.enable_tun_mode = Some(true)),
+        ] {
+            let effects = verge_effects(&patch);
+            assert!(
+                effects.contains(&Effect::TrayMenuState),
+                "the state item must still refresh"
+            );
+            assert!(
+                !effects.contains(&Effect::TrayMenu),
+                "a toggle must not ask for a full menu update"
+            );
+        }
+    }
+
+    #[test]
+    fn a_full_menu_update_covers_the_state_items() {
+        // The executor skips the in-place pass when a full update runs in the same patch.
+        let patch = verge_patch(|p| {
+            p.language = Some("zh".into());
+            p.enable_system_proxy = Some(true);
+        });
+        let effects = verge_effects(&patch);
+        assert!(effects.contains(&Effect::TrayMenu));
+        assert!(effects.contains(&Effect::TrayMenuState));
+    }
+
+    #[test]
+    fn menu_structure_fields_still_request_a_full_menu_update() {
+        for patch in [
+            verge_patch(|p| p.language = Some("zh".into())),
+            verge_patch(|p| p.tray_proxy_groups_display_mode = Some("default".into())),
+            verge_patch(|p| p.tray_inline_outbound_modes = Some(true)),
+            verge_patch(|p| p.hotkeys = Some(vec!["CmdOrCtrl+K".into()])),
+        ] {
+            let effects = verge_effects(&patch);
+            assert!(effects.contains(&Effect::TrayMenu), "the menu structure changed");
+            assert!(!effects.contains(&Effect::TrayMenuState));
+        }
+
+        let mode = clash_effects(&clash_mapping(&[("mode", "rule")]));
+        assert!(mode.contains(&Effect::TrayMenu));
+        assert!(!mode.contains(&Effect::TrayMenuState));
     }
 
     fn clash_mapping(pairs: &[(&str, &str)]) -> serde_yaml_ng::Mapping {

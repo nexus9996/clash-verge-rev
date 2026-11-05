@@ -94,6 +94,7 @@ async fn ensure_effect(
             }
         }
         Effect::TrayMenu => tray::Tray::global().update_menu().await?,
+        Effect::TrayMenuState => tray::Tray::global().update_menu_state().await?,
         Effect::TrayIcon => {
             tray::Tray::global()
                 .update_icon(&Config::verge().await.latest_arc())
@@ -204,6 +205,10 @@ pub(super) async fn apply(config_write: &MutexGuard<'_, ()>, patch: Patch<'_>, e
     }
     let result: Result<()> = async {
         for effect in effects.iter().copied() {
+            // A full menu update in the same patch already refreshes the in-place state items.
+            if effect == Effect::TrayMenuState && effects.contains(&Effect::TrayMenu) {
+                continue;
+            }
             let result = if effect == Effect::LiveClashPatch {
                 Box::pin(apply_live_clash_patch(
                     clash_patch,
