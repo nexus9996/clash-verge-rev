@@ -85,6 +85,10 @@ pub async fn build_new_window() -> Result<WebviewWindow, String> {
 
     let initial_script = build_window_initial_script(initial_theme_mode, DARK_BACKGROUND_HEX, LIGHT_BACKGROUND_HEX);
 
+    // 首次页面加载是否已经执行过提前 show。只让首次加载在 Started 显示，后续导航（含渲染
+    // 进程被终止后的恢复 reload）仍走 Finished 逻辑。
+    let first_load_shown = std::sync::atomic::AtomicBool::new(false);
+
     let mut builder = tauri::WebviewWindowBuilder::new(
         app_handle,
         "main", /* the unique window label */
@@ -96,16 +100,31 @@ pub async fn build_new_window() -> Result<WebviewWindow, String> {
     .fullscreen(false)
     .inner_size(DEFAULT_WIDTH, DEFAULT_HEIGHT)
     .min_inner_size(MINIMAL_WIDTH, MINIMAL_HEIGHT)
-    .visible(false) // 等待主题色准备好后再展示，避免启动色差
+    .visible(false) // 隐藏创建，待首个 PageLoadEvent::Started 显示；原生背景色已就绪，不会白闪
     .initialization_script(&initial_script)
     .general_autofill_enabled(false) // 禁用自动填充
     .on_page_load(move |window, payload| {
-        if payload.event() != PageLoadEvent::Finished {
-            return;
+        match payload.event() {
+            // 首个 Started 就显示：builder.background_color / set_background_color 已按初始主题
+            // 设置原生背景色，提前显示不会白闪，只会让用户短暂看到主题色空窗，窗口可见时间
+            // 由此提前“Started -> Finished”的页面加载耗时，这也是本次改动的唯一真实风险。
+            // 重复 show() 幂等；只让首次加载提前，是因为渲染进程被系统终止后的恢复 reload
+            //（见 WindowManager::activate_window 的 defer_show_to_page_load）要等 Finished 后
+            // 再显示才不白闪，dev/HMR 的后续导航也保持原有 Finished 行为。
+            // A/B 验证：同一构建分别还原/应用本改动各启动一次，录屏逐帧或 probe 记录 window_ms，
+            // 对比窗口可见时间戳与主题色空窗时长。
+            PageLoadEvent::Started => {
+                if !first_load_shown.swap(true, std::sync::atomic::Ordering::AcqRel) {
+                    logging_error!(Type::Window, window.show());
+                }
+            }
+            // 首次加载时 show 已是 no-op；恢复 reload 依赖这里再次 show。焦点仍等页面
+            // Finished 后再设置，避免为空窗抢焦点，也与原有焦点时机保持一致。
+            PageLoadEvent::Finished => {
+                logging_error!(Type::Window, window.show());
+                logging_error!(Type::Window, window.set_focus());
+            }
         }
-
-        logging_error!(Type::Window, window.show());
-        logging_error!(Type::Window, window.set_focus());
     });
 
     #[cfg(target_os = "macos")]
