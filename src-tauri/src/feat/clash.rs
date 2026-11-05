@@ -112,6 +112,57 @@ pub async fn change_clash_mode(mode: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Top-level Clash keys mihomo applies in `PATCH /configs` (its `patchConfigs` handler).
+///
+/// mihomo silently ignores unknown fields, so a patch may only be sent live when every key it
+/// carries is listed here; anything else has to take the full reload path.
+const LIVE_PATCH_KEYS: &[&str] = &[
+    "port",
+    "socks-port",
+    "mixed-port",
+    "redir-port",
+    "tproxy-port",
+    "allow-lan",
+    "log-level",
+    "mode",
+    "ipv6",
+    "tcp-concurrent",
+    "bind-address",
+    "find-process-mode",
+    "interface-name",
+    "sniffing",
+];
+
+/// The live-applicable subset of a Clash patch, or `None` when any key needs a full reload.
+///
+/// The returned pairs are the keys mihomo will actually apply, so callers can mirror exactly
+/// those values into the runtime draft instead of guessing.
+pub(crate) fn live_patch_fields(patch: &Mapping) -> Option<Vec<(Value, Value)>> {
+    if patch.is_empty() {
+        return None;
+    }
+    let mut fields = Vec::with_capacity(patch.len());
+    for (key, value) in patch {
+        let key = key.as_str()?;
+        if !LIVE_PATCH_KEYS.contains(&key) {
+            return None;
+        }
+        fields.push((Value::from(key), value.clone()));
+    }
+    Some(fields)
+}
+
+/// Converts a Clash patch into a live `PATCH /configs` body, or `None` when it needs a reload.
+pub(crate) fn live_patch_payload(patch: &Mapping) -> Option<serde_json::Value> {
+    let fields = live_patch_fields(patch)?;
+    let mut payload = serde_json::Map::with_capacity(fields.len());
+    for (key, value) in fields {
+        let key = key.as_str()?.to_owned();
+        let _ = payload.insert(key, serde_json::to_value(value).ok()?);
+    }
+    Some(serde_json::Value::Object(payload))
+}
+
 /// Reads the CONNECT reply up to the end of its headers before the stream becomes TLS.
 async fn read_connect_response(stream: &mut tokio::net::TcpStream) -> anyhow::Result<()> {
     let mut response = Vec::with_capacity(256);
@@ -228,4 +279,77 @@ pub async fn test_delay(url: String) -> anyhow::Result<u32> {
     })
     .await
     .unwrap_or(Ok(10000u32))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Mapping, Value, live_patch_fields, live_patch_payload};
+
+    fn mapping(pairs: &[(&str, Value)]) -> Mapping {
+        let mut mapping = Mapping::new();
+        for (key, value) in pairs {
+            mapping.insert(Value::from(*key), value.clone());
+        }
+        mapping
+    }
+
+    #[test]
+    fn live_fields_extract_only_whitelisted_keys() {
+        let fields = live_patch_fields(&mapping(&[
+            ("mixed-port", Value::from(7897)),
+            ("allow-lan", Value::from(true)),
+            ("log-level", Value::from("info")),
+        ]));
+        assert!(fields.is_some(), "a fully live patch must be extracted");
+    }
+
+    #[test]
+    fn live_fields_keep_patch_order_and_values() {
+        let fields = live_patch_fields(&mapping(&[
+            ("allow-lan", Value::from(true)),
+            ("log-level", Value::from("info")),
+        ]));
+        assert_eq!(
+            fields,
+            Some(vec![
+                (Value::from("allow-lan"), Value::from(true)),
+                (Value::from("log-level"), Value::from("info")),
+            ])
+        );
+    }
+
+    #[test]
+    fn live_payload_carries_scalars_as_json() {
+        let payload = live_patch_payload(&mapping(&[
+            ("mixed-port", Value::from(7897)),
+            ("allow-lan", Value::from(true)),
+            ("log-level", Value::from("info")),
+        ]));
+        assert_eq!(
+            payload,
+            Some(serde_json::json!({
+                "mixed-port": 7897,
+                "allow-lan": true,
+                "log-level": "info",
+            }))
+        );
+    }
+
+    #[test]
+    fn keys_that_need_a_reload_are_not_sent_live() {
+        for patch in [
+            mapping(&[("tun", Value::from("x"))]),
+            mapping(&[("unified-delay", Value::from(true))]),
+            mapping(&[("not-a-known-key", Value::from(1))]),
+        ] {
+            assert_eq!(live_patch_fields(&patch), None);
+            assert_eq!(live_patch_payload(&patch), None);
+        }
+    }
+
+    #[test]
+    fn an_empty_patch_has_no_live_body() {
+        assert_eq!(live_patch_fields(&Mapping::new()), None);
+        assert_eq!(live_patch_payload(&Mapping::new()), None);
+    }
 }

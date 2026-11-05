@@ -6,6 +6,10 @@ use std::collections::BTreeSet;
 pub(super) enum Effect {
     RestartCore,
     ClashConfig,
+    /// Applies scalars mihomo accepts in `PATCH /configs` without regenerating the runtime.
+    /// Ordered after `ClashConfig`; classification removes it whenever the same patch also
+    /// needs a full reload, so the two never run together.
+    LiveClashPatch,
     Autostart,
     Language,
     SystemProxy,
@@ -140,23 +144,42 @@ pub(super) fn clash_effects(patch: &serde_yaml_ng::Mapping) -> Effects {
     for key in patch.keys() {
         effects.extend(match key.as_str() {
             Some("secret" | "external-controller") => &[Effect::RestartCore][..],
-            Some("allow-lan") => &[Effect::ClashConfig][..],
+            // mihomo's `PATCH /configs` applies these scalars live; the executor still falls back
+            // to a full reload whenever the payload is not entirely live-applicable.
+            Some("allow-lan" | "log-level" | "port" | "socks-port" | "mixed-port" | "redir-port" | "tproxy-port") => {
+                &[Effect::LiveClashPatch][..]
+            }
             Some("mode") => &[Effect::ClashConfig, Effect::TrayMenu, Effect::TrayIcon][..],
-            _ => {
-                logging!(
-                    warn,
-                    Type::Config,
-                    "Unregistered Clash configuration key {key:?}; reloading configuration"
+            other => {
+                // Known keys that cannot be patched live (nested shapes or absent from mihomo's
+                // patch struct) still reload the whole configuration; they are never dropped.
+                let known = matches!(
+                    other,
+                    Some("tun" | "tunnels" | "unified-delay" | "external-controller-cors")
                 );
+                if known {
+                    logging!(
+                        debug,
+                        Type::Config,
+                        "Clash configuration key {other:?} is not live-applicable; reloading configuration"
+                    );
+                } else {
+                    logging!(
+                        warn,
+                        Type::Config,
+                        "Unregistered Clash configuration key {other:?}; reloading configuration"
+                    );
+                }
                 &[Effect::ClashConfig][..]
             }
         });
     }
-    // These branches were exclusive: restart supersedes reload, and allow-lan precedes mode.
+    // A restart rebuilds everything and a reload regenerates everything, so either supersedes a
+    // live patch that would only cover part of the same patch.
     if effects.contains(&Effect::RestartCore) {
         effects.retain(|effect| *effect == Effect::RestartCore);
-    } else if patch.contains_key("allow-lan") {
-        effects.retain(|effect| *effect == Effect::ClashConfig);
+    } else if effects.contains(&Effect::ClashConfig) {
+        effects.remove(&Effect::LiveClashPatch);
     }
     if patch.is_empty() {
         effects.insert(Effect::ClashConfig);
@@ -264,23 +287,39 @@ mod tests {
 
     #[test]
     fn clash_keys_map_to_frozen_effects() {
-        let cases: [(serde_yaml_ng::Mapping, &[Effect]); 7] = [
+        let cases: [(serde_yaml_ng::Mapping, &[Effect]); 14] = [
             (clash_mapping(&[]), &[Effect::ClashConfig]),
             (clash_mapping(&[("secret", "s")]), &[Effect::RestartCore]),
             (
                 clash_mapping(&[("mode", "rule")]),
                 &[Effect::ClashConfig, Effect::TrayIcon, Effect::TrayMenu],
             ),
-            (clash_mapping(&[("allow-lan", "true")]), &[Effect::ClashConfig]),
-            (clash_mapping(&[("not-a-known-key", "1")]), &[Effect::ClashConfig]),
-            // Restart supersedes reload; allow-lan precedes mode.
+            (clash_mapping(&[("allow-lan", "true")]), &[Effect::LiveClashPatch]),
+            (clash_mapping(&[("log-level", "info")]), &[Effect::LiveClashPatch]),
+            (clash_mapping(&[("mixed-port", "7897")]), &[Effect::LiveClashPatch]),
             (
-                clash_mapping(&[("secret", "s"), ("mode", "rule")]),
-                &[Effect::RestartCore],
+                clash_mapping(&[("allow-lan", "true"), ("log-level", "info")]),
+                &[Effect::LiveClashPatch],
+            ),
+            (
+                clash_mapping(&[("allow-lan", "true"), ("unified-delay", "true")]),
+                &[Effect::ClashConfig],
             ),
             (
                 clash_mapping(&[("allow-lan", "true"), ("mode", "rule")]),
-                &[Effect::ClashConfig],
+                &[Effect::ClashConfig, Effect::TrayIcon, Effect::TrayMenu],
+            ),
+            (
+                clash_mapping(&[("secret", "s"), ("log-level", "info")]),
+                &[Effect::RestartCore],
+            ),
+            (clash_mapping(&[("tun", "x")]), &[Effect::ClashConfig]),
+            (clash_mapping(&[("tunnels", "x")]), &[Effect::ClashConfig]),
+            (clash_mapping(&[("not-a-known-key", "1")]), &[Effect::ClashConfig]),
+            // Restart supersedes reload, and reload supersedes the live patch.
+            (
+                clash_mapping(&[("secret", "s"), ("mode", "rule")]),
+                &[Effect::RestartCore],
             ),
         ];
         for (patch, expected) in cases {

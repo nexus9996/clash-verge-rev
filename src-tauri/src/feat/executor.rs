@@ -1,19 +1,21 @@
+use super::clash::{live_patch_fields, live_patch_payload};
 use super::effects::{Effect, Effects};
 use crate::core::notify::{Refresh, announce};
 use crate::{
     config::{
         Config, IVerge,
+        runtime::IRuntime,
         snapshot::{capture_config_files, restore_files},
     },
     core::auto_backup::AutoBackupManager,
     core::{
-        CoreManager, SilentUpdater, autostart, hotkey, lightweight, logger, manager::ConfigUpdateGuard, proxy_control,
-        tray,
+        CoreManager, SilentUpdater, autostart, handle, hotkey, lightweight, logger, manager::ConfigUpdateGuard,
+        proxy_control, tray,
     },
 };
 use anyhow::Result;
-use clash_verge_draft::DraftTransaction;
-use clash_verge_logging::{Type, logging_error};
+use clash_verge_draft::{Draft, DraftTransaction};
+use clash_verge_logging::{Type, logging, logging_error};
 use serde_yaml_ng::Mapping;
 use std::sync::Arc;
 use tokio::sync::MutexGuard;
@@ -25,7 +27,10 @@ pub(super) enum Patch<'a> {
 
 /// The configuration layers a patch can change, and therefore must snapshot.
 fn snapshot_scope(patch: &Patch<'_>, effects: &Effects) -> (bool, bool, bool) {
-    let runtime = effects.contains(&Effect::RestartCore) || effects.contains(&Effect::ClashConfig);
+    // A failed live patch falls back to a full reload, so the runtime can change either way.
+    let runtime = effects.contains(&Effect::RestartCore)
+        || effects.contains(&Effect::ClashConfig)
+        || effects.contains(&Effect::LiveClashPatch);
     match patch {
         Patch::Verge { persist, .. } => (false, *persist, runtime),
         Patch::Clash(_) => (true, false, runtime),
@@ -57,7 +62,9 @@ async fn ensure_effect(
         Effect::RestartCore => {
             ensure_restart(manager).await?;
         }
-        Effect::ClashConfig => {
+        // The apply loop intercepts `LiveClashPatch`; reaching here means the whole patch must
+        // take the full path, which is also the safe fallback for a partially live patch.
+        Effect::ClashConfig | Effect::LiveClashPatch => {
             manager.update_config_in_patch(update).await?;
         }
         Effect::Autostart => autostart::update_launch().await?,
@@ -117,6 +124,50 @@ async fn ensure_effect(
     Ok(())
 }
 
+/// Applies the live-applicable scalars of a Clash patch through mihomo's `PATCH /configs`.
+///
+/// mihomo silently ignores unknown fields, so only a patch whose every key is live-applicable is
+/// sent; anything else (or a failed PATCH) falls back to the full regenerate-and-reload path.
+async fn apply_live_clash_patch(
+    patch: Option<&Mapping>,
+    manager: &CoreManager,
+    update: &ConfigUpdateGuard<'_>,
+    runtime: &Draft<IRuntime>,
+    applied: &mut bool,
+) -> Result<()> {
+    let Some(payload) = patch.and_then(live_patch_payload) else {
+        logging!(
+            warn,
+            Type::Core,
+            "live configuration patch is not entirely live-applicable; reloading configuration"
+        );
+        return manager.update_config_in_patch(update).await;
+    };
+    if let Err(err) = handle::Handle::mihomo().patch_base_config(&payload).await {
+        logging!(
+            warn,
+            Type::Core,
+            "live configuration patch failed, reloading configuration: {err}"
+        );
+        return manager.update_config_in_patch(update).await;
+    }
+
+    // The settings UI reads the runtime draft, not the saved Clash draft, so mirror exactly the
+    // keys mihomo just accepted or the toggles flip back on the next refresh.
+    if let Some(fields) = patch.and_then(live_patch_fields) {
+        runtime.edit_draft(|draft| {
+            if let Some(config) = draft.config.as_mut() {
+                for (key, value) in fields {
+                    let _ = config.insert(key, value);
+                }
+            }
+            draft.invalidate_yaml();
+        });
+    }
+    *applied = true;
+    Ok(())
+}
+
 #[tracing::instrument(
     name = "config_apply",
     skip_all,
@@ -141,13 +192,30 @@ pub(super) async fn apply(config_write: &MutexGuard<'_, ()>, patch: Patch<'_>, e
         Patch::Verge { patch, .. } => patch,
         Patch::Clash(_) => &empty,
     };
+    // The live path needs the Clash mapping the caller sent, not the merged draft.
+    let clash_patch = match &patch {
+        Patch::Verge { .. } => None,
+        Patch::Clash(patch) => Some(*patch),
+    };
+    let mut live_patch_applied = false;
     match &patch {
         Patch::Verge { patch, .. } => verge.edit_draft(|draft| draft.patch_config(patch)),
         Patch::Clash(patch) => clash.edit_draft(|draft| draft.patch_config(patch)),
     }
     let result: Result<()> = async {
         for effect in effects.iter().copied() {
-            let result = Box::pin(ensure_effect(effect, verge_patch, manager, &update)).await;
+            let result = if effect == Effect::LiveClashPatch {
+                Box::pin(apply_live_clash_patch(
+                    clash_patch,
+                    manager,
+                    &update,
+                    &runtime,
+                    &mut live_patch_applied,
+                ))
+                .await
+            } else {
+                Box::pin(ensure_effect(effect, verge_patch, manager, &update)).await
+            };
             if matches!(patch, Patch::Clash(_)) && matches!(effect, Effect::TrayMenu | Effect::TrayIcon) {
                 // Tray failures must not reject an applied Clash mode change.
                 logging_error!(Type::Tray, result);
@@ -171,7 +239,15 @@ pub(super) async fn apply(config_write: &MutexGuard<'_, ()>, patch: Patch<'_>, e
             let runtime_path = crate::utils::dirs::app_home_dir()?.join(crate::constants::files::RUNTIME_CONFIG);
             snapshots.retain(|snapshot| snapshot.path != runtime_path);
         }
-        return match restore_files(&snapshots).await {
+        let restore_result = restore_files(&snapshots).await;
+        if live_patch_applied {
+            // The Core already took the live scalars, but the transaction rolled back; regenerate
+            // from the restored configuration so the Core cannot keep serving discarded state.
+            // Ownership must be released first: a forced update refuses to run while it is held.
+            drop(update);
+            logging_error!(Type::Core, manager.update_config_forced().await);
+        }
+        return match restore_result {
             Ok(()) => Err(error),
             Err(rollback_error) => Err(proxy_control::rollback_failure(error, rollback_error)),
         };
@@ -241,6 +317,10 @@ mod tests {
         assert_eq!(scope(&Patch::Clash(&clash), &[]), (true, false, false));
         assert_eq!(
             scope(&Patch::Clash(&clash), &[Effect::RestartCore]),
+            (true, false, true)
+        );
+        assert_eq!(
+            scope(&Patch::Clash(&clash), &[Effect::LiveClashPatch]),
             (true, false, true)
         );
     }
