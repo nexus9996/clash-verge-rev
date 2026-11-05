@@ -28,6 +28,8 @@ interface Props {
   group: ProxyGroupView
   member: ResolvedProxyMember
   selected: boolean
+  /** Latency-test timeout from the owning renderer; rows must not read verge. */
+  latencyTimeout: number
   showType?: boolean
   sx?: SxProps<Theme>
   groupNames?: readonly string[]
@@ -59,6 +61,7 @@ export const ProxyItem = (props: Props) => {
     group,
     member,
     selected,
+    latencyTimeout,
     showType = true,
     sx,
     groupNames,
@@ -77,6 +80,7 @@ export const ProxyItem = (props: Props) => {
   const { delayValue, isPreset, timeout, onDelay } = useProxyDelayState(
     member,
     group.name,
+    latencyTimeout,
   )
 
   return (

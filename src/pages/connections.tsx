@@ -39,16 +39,15 @@ import {
   useConnectionRowViews,
 } from '@/components/connection/connection-row-view'
 import { ConnectionTable } from '@/components/connection/connection-table'
+import { ConnectionsTrafficSummary } from '@/components/connection/connections-traffic-summary'
 import { useConnectionData } from '@/hooks/use-connection-data'
 import { useConnectionSetting } from '@/hooks/use-connection-setting'
-import { useTrafficData } from '@/hooks/use-traffic-data'
 import { useVisibility } from '@/hooks/use-visibility'
 import { mutate } from '@/services/mutate'
 import {
   type ConnectionFilter,
   createConnectionFilterMatcher,
 } from '@/utils/connection-filter'
-import parseTraffic from '@/utils/parse-traffic'
 
 type OrderFunc = (list: IConnectionsItem[]) => IConnectionsItem[]
 
@@ -102,9 +101,6 @@ const ConnectionsPage = () => {
     response: { data: connections },
     clearClosedConnections,
   } = useConnectionData({ enabled: pageVisible })
-  const {
-    response: { data: traffic },
-  } = useTrafficData({ enabled: pageVisible })
 
   const [setting, setSetting] = useConnectionSetting()
 
@@ -232,13 +228,7 @@ const ConnectionsPage = () => {
       }}
       header={
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Box sx={{ mx: 1 }}>
-            {t('shared.labels.downloaded')}:{' '}
-            {parseTraffic(traffic?.downTotal || 0)}
-          </Box>
-          <Box sx={{ mx: 1 }}>
-            {t('shared.labels.uploaded')}: {parseTraffic(traffic?.upTotal || 0)}
-          </Box>
+          <ConnectionsTrafficSummary enabled={pageVisible} />
           <IconButton
             color="inherit"
             size="small"
