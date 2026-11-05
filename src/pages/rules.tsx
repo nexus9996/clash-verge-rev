@@ -32,7 +32,8 @@ import {
   createRuleSearchMatcher,
 } from '@/utils/rule-search'
 
-const HIT_REFRESH_INTERVAL_MS = 5000
+// Hit counts are secondary information; refresh often enough to stay useful
+const HIT_REFRESH_INTERVAL_MS = 15000
 
 const RulesPage = () => {
   const { t } = useTranslation()

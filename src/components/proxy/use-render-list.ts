@@ -12,6 +12,8 @@ import {
   selectGlobalChainNodes,
   selectRuleChainMembers,
   type ProxyGroupView,
+  type ProxyMemberRef,
+  type ProxyNodeView,
   type ProxyViewV1,
   type ResolvedProxyMember,
 } from '@/types/proxy-view'
@@ -59,9 +61,28 @@ export const hasRenderableItems = (
   renderList: readonly IRenderItem[],
 ): boolean => renderList.some((item) => item.type !== 0 || !item.group.hidden)
 
+type CachedMember = {
+  signature: string
+  member: ResolvedProxyMember
+}
+
+type GroupSignatures = {
+  contentKey: string
+  memberSignatures: string[]
+}
+
+/** Per-proxyView content signatures; rebuilt only when the view object changes. */
+type ViewSignatureCache = {
+  view: ProxyViewV1
+  nodeSignatures: Map<string, string>
+  groups: Map<string, GroupSignatures>
+}
+
 type GroupCache = {
-  now: string | undefined
-  members: ProxyGroupView['members']
+  /** Header + member content; replaces array/object identity checks. */
+  contentKey: string
+  /** Resolved members keyed by ref identity, reused while their content is equal. */
+  members: Map<string, CachedMember>
   headState: HeadState
   col: number
   latencyTimeout: number | undefined
@@ -73,11 +94,107 @@ type GroupCache = {
 
 type RuntimeConfigWithProxySequence = IConfigData & { proxies?: unknown }
 
-const resolveOccurrences = (view: ProxyViewV1, group: ProxyGroupView) =>
-  group.members.map((member, memberIndex) => ({
-    memberIndex,
-    member: resolveMember(view, member),
-  }))
+const delaySignature = (
+  history: readonly { time: string; delay: number }[],
+) => {
+  if (history.length === 0) return 'no-history'
+  const latest = history[history.length - 1]
+  return `${latest.time}:${latest.delay}`
+}
+
+/**
+ * Stable description of everything a node row draws (plus the delay fallback that
+ * reads its history). A refetch that re-serialises the same node keeps this equal.
+ */
+const nodeSignature = (node: ProxyNodeView) =>
+  [
+    node.recordId,
+    node.name,
+    node.type,
+    node.id ?? '',
+    node.icon ?? '',
+    node.testUrl ?? '',
+    node.hidden ?? false,
+    node.source.kind,
+    node.source.proxyName,
+    node.source.kind === 'provider' ? node.source.providerName : '',
+    node.udp,
+    node.xudp,
+    node.tfo,
+    node.mptcp,
+    node.smux,
+    delaySignature(node.history),
+  ].join('\u0001')
+
+/** Same idea for groups: header fields, row-visible fields and the history fallback. */
+const groupSignature = (group: ProxyGroupView) =>
+  [
+    group.name,
+    group.type,
+    group.now ?? '',
+    group.fixed ?? '',
+    group.hidden ?? false,
+    group.icon ?? '',
+    group.testUrl ?? '',
+    group.udp,
+    group.xudp,
+    group.tfo,
+    group.mptcp,
+    group.smux,
+    delaySignature(group.history),
+  ].join('\u0001')
+
+const memberIdentity = (ref: ProxyMemberRef) =>
+  ref.kind === 'node'
+    ? `node:${ref.name}:${ref.recordId}`
+    : ref.kind === 'group'
+      ? `group:${ref.name}`
+      : `unresolved:${ref.name}:${ref.reason}`
+
+/** Content of one member ref; only members whose content changed get re-resolved. */
+const memberContentSignature = (
+  view: ProxyViewV1,
+  ref: ProxyMemberRef,
+  nodeSignatures: Map<string, string>,
+): string => {
+  if (ref.kind === 'unresolved') {
+    return `unresolved:${ref.name}:${ref.reason}`
+  }
+  if (ref.kind === 'group') {
+    const group =
+      view.global?.name === ref.name
+        ? view.global
+        : view.groups.find(({ name }) => name === ref.name)
+    return `group:${ref.name}:${group ? groupSignature(group) : 'missing'}`
+  }
+
+  let signature = nodeSignatures.get(ref.recordId)
+  if (signature === undefined) {
+    const node = view.records[ref.recordId]
+    signature = node ? nodeSignature(node) : 'missing'
+    nodeSignatures.set(ref.recordId, signature)
+  }
+  return `node:${ref.name}:${ref.recordId}:${signature}`
+}
+
+const resolveOccurrences = (
+  view: ProxyViewV1,
+  group: ProxyGroupView,
+  memberSignatures: readonly string[],
+  cachedMembers: ReadonlyMap<string, CachedMember> | undefined,
+  nextMembers: Map<string, CachedMember>,
+): ResolvedMemberOccurrence[] =>
+  group.members.map((ref, memberIndex) => {
+    const identity = memberIdentity(ref)
+    const signature = memberSignatures[memberIndex] ?? ''
+    const cached = cachedMembers?.get(identity)
+    const member =
+      cached && cached.signature === signature
+        ? cached.member
+        : resolveMember(view, ref)
+    nextMembers.set(identity, { signature, member })
+    return { memberIndex, member }
+  })
 
 const memberKey = (
   group: ProxyGroupView,
@@ -234,6 +351,7 @@ export const useRenderList = (
   const groupDelays = useGroupsDelays(renderedGroupNames)
 
   const groupCacheRef = useRef<Map<string, GroupCache>>(new Map())
+  const signatureCacheRef = useRef<ViewSignatureCache | null>(null)
   const prevListRef = useRef<IRenderItem[]>([])
 
   const renderList = useMemo<IRenderItem[]>(() => {
@@ -272,15 +390,39 @@ export const useRenderList = (
     }
 
     const cache = groupCacheRef.current
+    const signatureCache =
+      signatureCacheRef.current?.view === proxyView
+        ? signatureCacheRef.current
+        : {
+            view: proxyView,
+            nodeSignatures: new Map<string, string>(),
+            groups: new Map<string, GroupSignatures>(),
+          }
+    signatureCacheRef.current = signatureCache
+
+    const getGroupSignatures = (group: ProxyGroupView) => {
+      const existing = signatureCache.groups.get(group.name)
+      if (existing) return existing
+
+      const memberSignatures = group.members.map((ref) =>
+        memberContentSignature(proxyView, ref, signatureCache.nodeSignatures),
+      )
+      const computed: GroupSignatures = {
+        contentKey: [groupSignature(group), ...memberSignatures].join('\u0000'),
+        memberSignatures,
+      }
+      signatureCache.groups.set(group.name, computed)
+      return computed
+    }
 
     const retList = renderGroups.flatMap((group) => {
       const isFlat = group === proxyView.global
       const headState = headStates[group.name] || DEFAULT_STATE
       const cached = cache.get(group.name)
+      const groupSignatures = getGroupSignatures(group)
       if (
         cached &&
-        cached.now === group.now &&
-        cached.members === group.members &&
+        cached.contentKey === groupSignatures.contentKey &&
         cached.headState === headState &&
         cached.col === col &&
         cached.latencyTimeout === latencyTimeout &&
@@ -289,6 +431,7 @@ export const useRenderList = (
         return cached.items
       }
 
+      const nextMembers = new Map<string, CachedMember>()
       const ret: IRenderItem[] = [
         isFlat
           ? { type: 1, key: `head-${group.name}`, group, headState }
@@ -304,7 +447,13 @@ export const useRenderList = (
 
       if (headState.open || isFlat) {
         const occurrences = filterSort(
-          resolveOccurrences(proxyView, group),
+          resolveOccurrences(
+            proxyView,
+            group,
+            groupSignatures.memberSignatures,
+            cached?.members,
+            nextMembers,
+          ),
           group.name,
           headState.filterText,
           headState.sortType,
@@ -342,8 +491,8 @@ export const useRenderList = (
       }
 
       cache.set(group.name, {
-        now: group.now!,
-        members: group.members,
+        contentKey: groupSignatures.contentKey,
+        members: nextMembers,
         headState,
         col,
         latencyTimeout: latencyTimeout!,
