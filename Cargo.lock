@@ -992,7 +992,6 @@ dependencies = [
  "tauri-plugin-mihomo",
  "tauri-plugin-notification",
  "tauri-plugin-opener",
- "tauri-plugin-process",
  "tauri-plugin-shell",
  "tauri-plugin-updater",
  "tauri-plugin-window-state",
@@ -1000,7 +999,6 @@ dependencies = [
  "tauri-specta",
  "tokio",
  "tokio-rustls",
- "tokio-stream",
  "tokio-util",
  "tracing",
  "warp",
@@ -7006,16 +7004,6 @@ dependencies = [
  "url",
  "windows 0.62.2",
  "zbus",
-]
-
-[[package]]
-name = "tauri-plugin-process"
-version = "3.0.0-alpha.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd60a494f144af72d33e43640ca37f876101b513f647cca45fc346810bc76831"
-dependencies = [
- "tauri",
- "tauri-plugin",
 ]
 
 [[package]]
