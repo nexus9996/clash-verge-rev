@@ -2,6 +2,19 @@ name: Frontend Check
 
 on:
   pull_request:
+    paths:
+      - "src/**"
+      - "scripts/**"
+      - "**/*.js"
+      - "**/*.ts"
+      - "**/*.tsx"
+      - "**/*.css"
+      - "**/*.scss"
+      - "**/*.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "vite.config.*"
+      - ".github/workflows/frontend-check.yml"
   workflow_dispatch:
 
 permissions:

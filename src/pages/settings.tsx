@@ -9,6 +9,7 @@ import SettingClash from '@/components/setting/setting-clash'
 import SettingSystem from '@/components/setting/setting-system'
 import SettingVergeAdvanced from '@/components/setting/setting-verge-advanced'
 import SettingVergeBasic from '@/components/setting/setting-verge-basic'
+import { SettingsSearch } from '@/components/setting/settings-search'
 import { showNotice } from '@/services/notice-service'
 import { openExternalUrl } from '@/utils/open-external-url'
 
@@ -49,90 +50,112 @@ const SettingPage = () => {
   )
 
   return (
-    <BasePage
-      title={t('settings.page.title')}
-      header={
-        <ButtonGroup
-          variant="contained"
-          aria-label={t('settings.page.actionsGroupLabel')}
-        >
-          <IconButton
-            size="medium"
-            color="inherit"
-            title={t('settings.page.actions.manual')}
-            onClick={toGithubDoc}
-          >
-            <HelpOutlineRounded fontSize="inherit" />
-          </IconButton>
-          <IconButton
-            size="medium"
-            color="inherit"
-            title={t('settings.page.actions.telegram')}
-            onClick={toTelegramChannel}
-          >
-            <Telegram fontSize="inherit" />
-          </IconButton>
+    <SettingsSearch>
+      {(searchHeader, results, hidden) => (
+        <BasePage
+          title={t('settings.page.title')}
+          header={
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 1,
+                flexWrap: 'wrap',
+                alignItems: 'center',
+              }}
+            >
+              {searchHeader}
+              <ButtonGroup
+                variant="contained"
+                aria-label={t('settings.page.actionsGroupLabel')}
+              >
+                <IconButton
+                  size="medium"
+                  color="inherit"
+                  title={t('settings.page.actions.manual')}
+                  onClick={toGithubDoc}
+                >
+                  <HelpOutlineRounded fontSize="inherit" />
+                </IconButton>
+                <IconButton
+                  size="medium"
+                  color="inherit"
+                  title={t('settings.page.actions.telegram')}
+                  onClick={toTelegramChannel}
+                >
+                  <Telegram fontSize="inherit" />
+                </IconButton>
 
-          <IconButton
-            size="medium"
-            color="inherit"
-            title={t('settings.page.actions.github')}
-            onClick={toGithubRepo}
+                <IconButton
+                  size="medium"
+                  color="inherit"
+                  title={t('settings.page.actions.github')}
+                  onClick={toGithubRepo}
+                >
+                  <GitHub fontSize="inherit" />
+                </IconButton>
+              </ButtonGroup>
+            </Box>
+          }
+        >
+          {results}
+          <Grid
+            container
+            spacing={1.5}
+            columns={{ xs: 6, sm: 6, md: 12 }}
+            sx={{ display: hidden ? 'none' : undefined }}
           >
-            <GitHub fontSize="inherit" />
-          </IconButton>
-        </ButtonGroup>
-      }
-    >
-      <Grid container spacing={1.5} columns={{ xs: 6, sm: 6, md: 12 }}>
-        <Grid size={6}>
-          <Box
-            sx={{
-              borderRadius: 2,
-              marginBottom: 1.5,
-              backgroundColor: 'var(--surface-card)',
-              contentVisibility: 'auto',
-              containIntrinsicSize: 'auto 640px',
-            }}
-          >
-            <SettingSystem onError={onError} />
-          </Box>
-          <Box
-            sx={{
-              borderRadius: 2,
-              backgroundColor: 'var(--surface-card)',
-              contentVisibility: 'auto',
-              containIntrinsicSize: 'auto 640px',
-            }}
-          >
-            {showDeferredSections && <SettingClash onError={onError} />}
-          </Box>
-        </Grid>
-        <Grid size={6}>
-          <Box
-            sx={{
-              borderRadius: 2,
-              marginBottom: 1.5,
-              backgroundColor: 'var(--surface-card)',
-              contentVisibility: 'auto',
-              containIntrinsicSize: 'auto 640px',
-            }}
-          >
-            <SettingVergeBasic onError={onError} />
-          </Box>
-          <Box
-            sx={{
-              borderRadius: 2,
-              backgroundColor: 'var(--surface-card)',
-              contentVisibility: 'auto',
-              containIntrinsicSize: 'auto 640px',
-            }}
-          >
-            {showDeferredSections && <SettingVergeAdvanced onError={onError} />}
-          </Box>
-        </Grid>
-      </Grid>
-    </BasePage>
+            <Grid size={6}>
+              <Box
+                sx={{
+                  borderRadius: 2,
+                  marginBottom: 1.5,
+                  backgroundColor: 'var(--surface-card)',
+                  contentVisibility: 'auto',
+                  containIntrinsicSize: 'auto 640px',
+                }}
+              >
+                <SettingSystem onError={onError} />
+              </Box>
+              <Box
+                sx={{
+                  borderRadius: 2,
+                  backgroundColor: 'var(--surface-card)',
+                  contentVisibility: 'auto',
+                  containIntrinsicSize: 'auto 640px',
+                }}
+              >
+                {showDeferredSections && <SettingClash onError={onError} />}
+              </Box>
+            </Grid>
+            <Grid size={6}>
+              <Box
+                sx={{
+                  borderRadius: 2,
+                  marginBottom: 1.5,
+                  backgroundColor: 'var(--surface-card)',
+                  contentVisibility: 'auto',
+                  containIntrinsicSize: 'auto 640px',
+                }}
+              >
+                <SettingVergeBasic onError={onError} />
+              </Box>
+              <Box
+                sx={{
+                  borderRadius: 2,
+                  backgroundColor: 'var(--surface-card)',
+                  contentVisibility: 'auto',
+                  containIntrinsicSize: 'auto 640px',
+                }}
+              >
+                {showDeferredSections && (
+                  <SettingVergeAdvanced onError={onError} />
+                )}
+              </Box>
+            </Grid>
+          </Grid>
+        </BasePage>
+      )}
+    </SettingsSearch>
   )
 }
 

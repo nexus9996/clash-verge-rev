@@ -11,13 +11,15 @@ import {
   Tooltip,
 } from '@mui/material'
 import { useLockFn } from 'ahooks'
-import { useImperativeHandle, useState, type Ref } from 'react'
+import { useState, type Ref } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BaseDialog, DialogRef, Switch } from '@/components/base'
 import { getExternalController, saveExternalController } from '@/services/cmds'
 import { showNotice } from '@/services/notice-service'
 import { revalidateQueries } from '@/services/query-client'
+
+import { useSettingDialog } from '../settings-search-context'
 
 export function ControllerViewer({ ref }: { ref?: Ref<DialogRef> }) {
   const { t } = useTranslation()
@@ -29,7 +31,8 @@ export function ControllerViewer({ ref }: { ref?: Ref<DialogRef> }) {
   const [secret, setSecret] = useState('')
   const [enableController, setEnableController] = useState(false)
 
-  useImperativeHandle(ref, () => ({
+  // 对话框打开时初始化配置
+  useSettingDialog(ref, 'controller-viewer', open, () => ({
     open: async () => {
       try {
         const settings = await getExternalController()
@@ -117,8 +120,10 @@ export function ControllerViewer({ ref }: { ref?: Ref<DialogRef> }) {
       onCancel={onClose}
       onOk={onSave}
     >
+      <span data-settings-dialog="controller-viewer" />
       <List>
         <ListItem
+          data-setting-target="settings.sections.externalController.fields.enable"
           sx={{
             padding: '5px 2px',
             display: 'flex',
@@ -137,6 +142,7 @@ export function ControllerViewer({ ref }: { ref?: Ref<DialogRef> }) {
         </ListItem>
 
         <ListItem
+          data-setting-target="settings.sections.externalController.fields.address"
           sx={{
             padding: '5px 2px',
             display: 'flex',
@@ -177,6 +183,7 @@ export function ControllerViewer({ ref }: { ref?: Ref<DialogRef> }) {
         </ListItem>
 
         <ListItem
+          data-setting-target="settings.sections.externalController.fields.secret"
           sx={{
             padding: '5px 2px',
             display: 'flex',

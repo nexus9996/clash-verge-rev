@@ -15,7 +15,7 @@ import { join } from '@tauri-apps/api/path'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { exists } from '@tauri-apps/plugin-fs'
-import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
+import { forwardRef, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -30,6 +30,8 @@ import { copyIconFile, getAppDir, restartApp } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'
 import getSystem from '@/utils/get-system'
+
+import { useSettingDialog } from '../settings-search-context'
 
 import { GuardState } from './guard-state'
 
@@ -100,7 +102,7 @@ export const LayoutViewer = forwardRef<DialogRef>((_, ref) => {
     }
   }
 
-  useImperativeHandle(ref, () => ({
+  useSettingDialog(ref, 'layout-viewer', open, () => ({
     open: () => setOpen(true),
     close: () => setOpen(false),
   }))
@@ -123,8 +125,9 @@ export const LayoutViewer = forwardRef<DialogRef>((_, ref) => {
       onClose={() => setOpen(false)}
       onCancel={() => setOpen(false)}
     >
+      <span data-settings-dialog="layout-viewer" />
       <List>
-        <Item>
+        <Item data-setting-target="settings.components.verge.layout.fields.preferSystemTitlebar">
           <ListItemText
             primary={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -176,7 +179,7 @@ export const LayoutViewer = forwardRef<DialogRef>((_, ref) => {
           </GuardState>
         </Item>
 
-        <Item>
+        <Item data-setting-target="settings.components.verge.layout.fields.trafficGraph">
           <ListItemText
             primary={t('settings.components.verge.layout.fields.trafficGraph')}
           />
@@ -192,7 +195,7 @@ export const LayoutViewer = forwardRef<DialogRef>((_, ref) => {
           </GuardState>
         </Item>
 
-        <Item>
+        <Item data-setting-target="settings.components.verge.layout.fields.memoryUsage">
           <ListItemText
             primary={t('settings.components.verge.layout.fields.memoryUsage')}
           />
@@ -208,7 +211,7 @@ export const LayoutViewer = forwardRef<DialogRef>((_, ref) => {
           </GuardState>
         </Item>
 
-        <Item>
+        <Item data-setting-target="settings.components.verge.layout.fields.proxyGroupIcon">
           <ListItemText
             primary={t(
               'settings.components.verge.layout.fields.proxyGroupIcon',
@@ -226,7 +229,7 @@ export const LayoutViewer = forwardRef<DialogRef>((_, ref) => {
           </GuardState>
         </Item>
 
-        <Item>
+        <Item data-setting-target="settings.components.verge.layout.fields.pauseRenderTrafficStatsOnBlur">
           <ListItemText
             primary={t(
               'settings.components.verge.layout.fields.pauseRenderTrafficStatsOnBlur',
@@ -248,7 +251,7 @@ export const LayoutViewer = forwardRef<DialogRef>((_, ref) => {
           </GuardState>
         </Item>
 
-        <Item>
+        <Item data-setting-target="settings.components.verge.layout.fields.toastPosition">
           <ListItemText
             primary={t('settings.components.verge.layout.fields.toastPosition')}
           />
@@ -284,7 +287,7 @@ export const LayoutViewer = forwardRef<DialogRef>((_, ref) => {
           </GuardState>
         </Item>
 
-        <Item>
+        <Item data-setting-target="settings.components.verge.layout.fields.hoverNavigator">
           <ListItemText
             primary={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -312,7 +315,7 @@ export const LayoutViewer = forwardRef<DialogRef>((_, ref) => {
           </GuardState>
         </Item>
 
-        <Item>
+        <Item data-setting-target="settings.components.verge.layout.fields.hoverNavigatorDelay">
           <ListItemText
             primary={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -371,7 +374,7 @@ export const LayoutViewer = forwardRef<DialogRef>((_, ref) => {
           </GuardState>
         </Item>
 
-        <Item>
+        <Item data-setting-target="settings.components.verge.layout.fields.navIcon">
           <ListItemText
             primary={t('settings.components.verge.layout.fields.navIcon')}
           />
@@ -396,7 +399,7 @@ export const LayoutViewer = forwardRef<DialogRef>((_, ref) => {
           </GuardState>
         </Item>
 
-        <Item>
+        <Item data-setting-target="settings.components.verge.layout.fields.collapseNavBar">
           <ListItemText
             primary={t(
               'settings.components.verge.layout.fields.collapseNavBar',
@@ -415,7 +418,7 @@ export const LayoutViewer = forwardRef<DialogRef>((_, ref) => {
         </Item>
 
         {OS === 'macos' && (
-          <Item>
+          <Item data-setting-target="settings.components.verge.layout.fields.trayIcon">
             <ListItemText
               primary={t('settings.components.verge.layout.fields.trayIcon')}
             />
@@ -443,7 +446,7 @@ export const LayoutViewer = forwardRef<DialogRef>((_, ref) => {
           </Item>
         )}
         {OS === 'macos' && (
-          <Item>
+          <Item data-setting-target="settings.components.verge.layout.fields.enableTraySpeed">
             <ListItemText
               primary={t(
                 'settings.components.verge.layout.fields.enableTraySpeed',
@@ -481,7 +484,7 @@ export const LayoutViewer = forwardRef<DialogRef>((_, ref) => {
             </GuardState>
           </Item>
         )} */}
-        <Item>
+        <Item data-setting-target="settings.components.verge.layout.fields.proxyGroupsDisplayMode">
           <ListItemText
             primary={t(
               'settings.components.verge.layout.fields.proxyGroupsDisplayMode',
@@ -517,7 +520,7 @@ export const LayoutViewer = forwardRef<DialogRef>((_, ref) => {
             </Select>
           </GuardState>
         </Item>
-        <Item>
+        <Item data-setting-target="settings.components.verge.layout.fields.showOutboundModesInline">
           <ListItemText
             primary={t(
               'settings.components.verge.layout.fields.showOutboundModesInline',
@@ -535,7 +538,7 @@ export const LayoutViewer = forwardRef<DialogRef>((_, ref) => {
           </GuardState>
         </Item>
 
-        <Item>
+        <Item data-setting-target="settings.components.verge.layout.fields.commonTrayIcon">
           <ListItemText
             primary={t(
               'settings.components.verge.layout.fields.commonTrayIcon',
@@ -548,6 +551,7 @@ export const LayoutViewer = forwardRef<DialogRef>((_, ref) => {
             onGuard={(e) => patchVerge({ common_tray_icon: e })}
           >
             <Button
+              data-setting-target="settings.components.verge.basic.actions.browse"
               variant="outlined"
               size="small"
               startIcon={
@@ -590,7 +594,7 @@ export const LayoutViewer = forwardRef<DialogRef>((_, ref) => {
           </GuardState>
         </Item>
 
-        <Item>
+        <Item data-setting-target="settings.components.verge.layout.fields.systemProxyTrayIcon">
           <ListItemText
             primary={t(
               'settings.components.verge.layout.fields.systemProxyTrayIcon',
@@ -645,7 +649,7 @@ export const LayoutViewer = forwardRef<DialogRef>((_, ref) => {
           </GuardState>
         </Item>
 
-        <Item>
+        <Item data-setting-target="settings.components.verge.layout.fields.tunTrayIcon">
           <ListItemText
             primary={t('settings.components.verge.layout.fields.tunTrayIcon')}
           />
