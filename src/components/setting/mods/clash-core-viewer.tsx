@@ -128,7 +128,7 @@ export function ClashCoreViewer({ ref }: { ref?: Ref<DialogRef> }) {
               startIcon={<RestartAltRounded />}
               loadingPosition="start"
               loading={restarting}
-              disabled={upgrading}
+              disabled={restarting || changingCore !== null}
               data-setting-target="core-restart"
               onClick={onRestart}
             >

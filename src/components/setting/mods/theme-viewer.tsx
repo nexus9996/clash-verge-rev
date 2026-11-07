@@ -31,6 +31,16 @@ import { showNotice } from '@/services/notice-service'
 
 import { useSettingDialog } from '../settings-search-context'
 
+type EditMode = 'light' | 'dark'
+type ThemeSetting = NonNullable<IVergeConfig['theme_setting']>
+type ThemeSettingColorKey = Exclude<
+  keyof ThemeSetting,
+  | 'font_family'
+  | 'css_injection'
+  | 'background_image'
+  | 'background_blend_mode'
+  | 'background_opacity'
+>
 export function ThemeViewer(props: { ref?: React.Ref<DialogRef> }) {
   const { ref } = props
   const { t } = useTranslation()
