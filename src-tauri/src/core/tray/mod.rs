@@ -1103,7 +1103,9 @@ fn on_menu_event(_: &AppHandle, event: MenuEvent) {
                 let Some((group_name, proxy_name)) = parse_proxy_item_id(id) else {
                     return;
                 };
-                feat::switch_proxy_node(group_name, proxy_name).await;
+                if let Err(err) = feat::switch_proxy_node(group_name, proxy_name, false).await {
+                    logging!(error, Type::Tray, "Failed to switch proxy: {err:#}");
+                }
             }
             _ => {
                 logging!(debug, Type::Tray, "Unhandled tray menu event: {:?}", event.id);
