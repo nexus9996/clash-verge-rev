@@ -273,7 +273,7 @@ impl NetworkManager {
             request_builder = request_builder.header(key, value);
         }
 
-        let mut response = match request_builder.send().await {
+        let response = match request_builder.send().await {
             Ok(resp) => resp,
             Err(e) => {
                 return Err(Self::context_reqwest_error(e, "Request failed"));
@@ -281,7 +281,7 @@ impl NetworkManager {
         };
 
         let response: tauri::http::Response<reqwest::Body> = response.into();
-        let response = reqwest::Response::from(
+        let mut response = reqwest::Response::from(
             response.map(|body| reqwest::Body::wrap(http_body_util::Limited::new(body, 4 * 1024 * 1024))),
         );
 
