@@ -15,7 +15,7 @@ describe('app-data refreshers', () => {
       'getProxyView',
       'getClashConfig',
       'getRules',
-      'getSystemProxy',
+      'getSystemProxyState',
       'getRuleProviders',
     ])
   })

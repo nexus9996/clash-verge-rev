@@ -171,7 +171,7 @@ pub async fn get_core_versions() -> Result<CoreVersionCatalog> {
     let core = Config::verge().await.latest_arc().get_valid_clash_core();
     let alpha = core.ends_with("-alpha");
     let target = managed_core_path(&core)?;
-    let installed = read_core_version(&target).ok();
+    let installed = read_core_version_async(&target).await.ok();
 
     let versions = if alpha {
         let (_, latest) = resolve_latest_version(true).await?;
@@ -206,7 +206,7 @@ pub async fn install_core_version(version: std::string::String) -> Result<CoreUp
     }
 
     let target = managed_core_path(&core)?;
-    let installed = read_core_version(&target).unwrap_or_default();
+    let installed = read_core_version_async(&target).await.unwrap_or_default();
     tracing::Span::current().record("from", tracing::field::display(&installed));
 
     if installed == version {
@@ -343,7 +343,7 @@ pub async fn upgrade_core(force: bool) -> Result<CoreUpgradeReport> {
     let target = managed_core_path(&core)?;
 
     // A core already broken by the in-place updater cannot report a version; upgrading is the repair.
-    let installed = read_core_version(&target).unwrap_or_else(|error| {
+    let installed = read_core_version_async(&target).await.unwrap_or_else(|error| {
         logging!(warn, Type::Core, "core upgrade: unreadable installed core: {error:#}");
         std::string::String::new()
     });
@@ -961,6 +961,15 @@ fn new_command(program: impl AsRef<OsStr>) -> Command {
 #[cfg(not(windows))]
 fn new_command(program: impl AsRef<OsStr>) -> Command {
     Command::new(program)
+}
+
+/// `read_core_version` spawns the core binary and waits for it, so the async
+/// callers (version listing, install, upgrade) run it off the runtime worker.
+pub(crate) async fn read_core_version_async(path: &Path) -> Result<std::string::String> {
+    let path = path.to_path_buf();
+    crate::process::AsyncHandler::spawn_blocking(move || read_core_version(&path))
+        .await
+        .unwrap_or_else(|join| Err(anyhow!("core version task failed: {join}")))
 }
 
 /// Parses the version out of `Mihomo Meta v1.19.30 darwin arm64 with go1.22.12 ...`.

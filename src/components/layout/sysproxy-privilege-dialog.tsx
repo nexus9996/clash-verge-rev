@@ -2,7 +2,7 @@ import { Alert, LinearProgress, Typography } from '@mui/material'
 import { useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { BaseDialog } from '@/components/base'
+import { BaseDialog } from '@/components/base/base-dialog'
 import { useDialogFailure } from '@/hooks/layout'
 import {
   installService,

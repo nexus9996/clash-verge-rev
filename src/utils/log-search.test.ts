@@ -1,6 +1,10 @@
 import { expect, test } from 'vitest'
 
-import { filterLogsBySearch, getLogSearchText } from './log-search'
+import {
+  filterLogsBySearch,
+  filterLogsForView,
+  getLogSearchText,
+} from './log-search'
 import { compileStringMatcher } from './search-matcher'
 
 const log = (payload: string, type = 'info', time = '2024/01/01 00:00:00') => ({
@@ -40,4 +44,32 @@ test('empty matcher keeps every log', () => {
   const logs = [log('one'), log('two')]
   const { matcher } = compileStringMatcher('')
   expect(filterLogsBySearch(logs, matcher)).toEqual(logs)
+})
+
+test('unfiltered view keeps the source array instead of rebuilding it', () => {
+  const logs = [log('one'), log('two')]
+
+  const visible = filterLogsForView(logs, {
+    level: 'all',
+    text: '',
+    match: () => true,
+  })
+
+  expect(visible).toBe(logs)
+})
+
+test('applies the level and text filters in that order', () => {
+  const logs = [
+    log('connect ok', 'info'),
+    log('connect failed', 'error'),
+    log('timeout', 'error'),
+  ]
+  const { matcher } = compileStringMatcher('connect')
+
+  expect(
+    filterLogsForView(logs, { level: 'err', text: 'connect', match: matcher }),
+  ).toEqual([logs[1]])
+  expect(
+    filterLogsForView(logs, { level: 'err', text: '', match: () => true }),
+  ).toEqual([logs[1], logs[2]])
 })

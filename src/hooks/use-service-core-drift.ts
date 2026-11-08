@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 
-import { useClash } from '@/hooks/use-clash'
+import { useClashVersion } from '@/hooks/use-clash'
 import { getBundledCoreVersion } from '@/services/cmds'
 import { hideNotice, showNotice } from '@/services/notice-service'
 import { useRunState } from '@/store/app-store-context'
@@ -12,7 +12,7 @@ import { coreVersionsDiffer } from '@/utils/core-version'
  * of letting the old kernel run silently.
  */
 export const useServiceCoreDrift = () => {
-  const { coreVersion } = useClash()
+  const coreVersion = useClashVersion()
   const runState = useRunState()
   const notice = useRef<{
     id: number

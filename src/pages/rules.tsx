@@ -26,6 +26,7 @@ import {
   type RuleExtraInfo,
 } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
+import { mergeRuleExtras } from '@/utils/rule-extras'
 import {
   EMPTY_RULE_SEARCH,
   type RuleSearchState,
@@ -69,7 +70,7 @@ const RulesPage = () => {
   const refreshExtras = useCallback(async () => {
     try {
       const extras = await getRulesExtra()
-      setRuleExtras(new Map(extras.map((extra) => [extra.index, extra])))
+      setRuleExtras((previous) => mergeRuleExtras(previous, extras))
     } catch (error) {
       console.warn('Failed to load rule hit information', error)
     }

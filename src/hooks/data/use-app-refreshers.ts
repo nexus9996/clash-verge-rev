@@ -16,14 +16,14 @@ export const createAppRefreshers = (
   refreshProxy: () => revalidate(APP_DATA_QUERY_KEYS.proxyView),
   refreshClashConfig: () => revalidate(APP_DATA_QUERY_KEYS.clashConfig),
   refreshRules: () => revalidate(APP_DATA_QUERY_KEYS.rules),
-  refreshSysproxy: () => revalidate(APP_DATA_QUERY_KEYS.sysproxy),
+  refreshSystemProxy: () => revalidate(APP_DATA_QUERY_KEYS.systemProxyState),
   refreshRuleProviders: () => revalidate(APP_DATA_QUERY_KEYS.ruleProviders),
   refreshAll: () =>
     Promise.all([
       revalidate(APP_DATA_QUERY_KEYS.proxyView),
       revalidate(APP_DATA_QUERY_KEYS.clashConfig),
       revalidate(APP_DATA_QUERY_KEYS.rules),
-      revalidate(APP_DATA_QUERY_KEYS.sysproxy),
+      revalidate(APP_DATA_QUERY_KEYS.systemProxyState),
       revalidate(APP_DATA_QUERY_KEYS.ruleProviders),
     ]),
 })

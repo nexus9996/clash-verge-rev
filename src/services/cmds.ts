@@ -2,7 +2,6 @@ import { Channel } from '@tauri-apps/api/core'
 import dayjs from 'dayjs'
 
 import { showNotice } from '@/services/notice-service'
-import { debugLog } from '@/utils/debug'
 
 import { commands } from './bindings'
 import type {
@@ -277,23 +276,8 @@ export async function takeDiscardedKeysNotice() {
   return commands.takeDiscardedKeysNotice()
 }
 
-export async function getSystemProxy() {
-  return commands.getSysProxy()
-}
-
-export async function getAutoProxy() {
-  try {
-    debugLog('[API] 开始调用 get_auto_proxy')
-    const result = await commands.getAutoProxy()
-    debugLog('[API] get_auto_proxy 调用成功:', result)
-    return result
-  } catch (error) {
-    console.error('[API] get_auto_proxy 调用失败:', error)
-    return {
-      enable: false,
-      url: '',
-    }
-  }
+export async function getSystemProxyState() {
+  return commands.getSystemProxyState()
 }
 
 export async function getEmbeddedServerPort() {

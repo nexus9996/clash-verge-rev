@@ -2,13 +2,14 @@ use super::patch_opt_field;
 
 use crate::{
     config::profiles,
+    process::AsyncHandler,
     utils::{
         dirs, help,
         network::{NetworkManager, ProxyType},
         tmpl,
     },
 };
-use anyhow::{Context as _, Result, bail};
+use anyhow::{Context as _, Result, anyhow, bail};
 use serde::{Deserialize, Serialize};
 use serde_yaml_ng::Mapping;
 use smartstring::alias::String;
@@ -378,11 +379,23 @@ impl PrfItem {
 
         let data = data.trim_start_matches('\u{feff}');
 
-        let yaml = serde_yaml_ng::from_str::<Mapping>(data).context("the remote profile data is invalid yaml")?;
+        // A subscription body can be multi-megabyte and the check below only
+        // needs two top-level keys, so the parse runs on a blocking worker; the
+        // owned text travels through the task so `file_data` does not copy it again.
+        let data: String = data.into();
+        let data = AsyncHandler::spawn_blocking(move || {
+            let yaml =
+                serde_yaml_ng::from_str::<Mapping>(data.as_str()).context("the remote profile data is invalid yaml")?;
 
-        if !yaml.contains_key("proxies") && !yaml.contains_key("proxy-providers") {
-            bail!("profile does not contain `proxies` or `proxy-providers`");
-        }
+            if !yaml.contains_key("proxies") && !yaml.contains_key("proxy-providers") {
+                bail!("profile does not contain `proxies` or `proxy-providers`");
+            }
+
+            drop(yaml);
+            Ok::<_, anyhow::Error>(data)
+        })
+        .await
+        .map_err(|join| anyhow!("profile parse task failed: {join}"))??;
 
         Self::ensure_companion_items(&mut merge, &mut script, &mut rules, &mut proxies, &mut groups).await?;
 
@@ -407,7 +420,7 @@ impl PrfItem {
             }),
             home,
             updated: Some(chrono::Local::now().timestamp() as usize),
-            file_data: Some(data.into()),
+            file_data: Some(data),
         })
     }
 

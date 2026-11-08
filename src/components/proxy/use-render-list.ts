@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 
 import { useAppRefreshers, useProxiesData } from '@/hooks/data'
 import { useRuntimeConfig } from '@/hooks/use-clash'
@@ -25,7 +25,7 @@ import {
   useHeadStateNew,
   type HeadState,
 } from './use-head-state'
-import { useWindowWidth } from './use-window-width'
+import { useWindowColumns } from './use-window-width'
 
 export interface ResolvedMemberOccurrence {
   memberIndex: number
@@ -261,18 +261,18 @@ export const useRenderList = (
   const { proxyView } = useProxiesData()
   const { refreshProxy } = useAppRefreshers()
   const { verge } = useVerge()
-  const { width } = useWindowWidth()
+  const layoutColumns = verge?.proxy_layout_column || 6
+  const calculateColumnsForLayout = useCallback(
+    (width: number) => calculateColumns(width, layoutColumns),
+    [layoutColumns],
+  )
+  const col = useWindowColumns(calculateColumnsForLayout)
   const [headStates, setHeadState] = useHeadStateNew()
   const latencyTimeout = verge?.default_latency_timeout
   const { data: runtimeConfig } = useRuntimeConfig(!!isChainMode)
   const runtimeProxies = (
     runtimeConfig as RuntimeConfigWithProxySequence | null
   )?.proxies
-
-  const col = useMemo(
-    () => calculateColumns(width, verge?.proxy_layout_column || 6),
-    [width, verge?.proxy_layout_column],
-  )
 
   const chainOccurrences = useMemo(() => {
     if (!proxyView || !isChainMode) return []

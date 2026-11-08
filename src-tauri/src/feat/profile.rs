@@ -9,6 +9,7 @@ use crate::{
 };
 use anyhow::{Result, bail};
 use clash_verge_logging::{Type, logging};
+use futures::stream::{self, StreamExt as _};
 use smartstring::alias::String;
 
 /// Toggle proxy profile
@@ -73,7 +74,9 @@ pub async fn switch_proxy_node(group_name: &str, proxy_name: &str, unfix: bool) 
                     return;
                 }
             };
-            futures::future::join_all(
+            // One POST per affected connection; keep a small in-flight window so a
+            // busy session cannot queue hundreds of requests on mihomo's API.
+            stream::iter(
                 connections
                     .connections
                     .unwrap_or_default()
@@ -90,15 +93,28 @@ pub async fn switch_proxy_node(group_name: &str, proxy_name: &str, unfix: bool) 
                         }
                     }),
             )
+            .buffer_unordered(8)
+            .collect::<Vec<_>>()
             .await;
         });
     }
-    if let Err(err) = tray::Tray::global().update_menu().await {
-        logging!(
-            warn,
-            Type::Tray,
-            "Failed to refresh tray after switching proxy: {err:#}"
-        );
+    // The tray only carries node checks while its proxy section is displayed; with
+    // it disabled there is nothing to rebuild after a selection.
+    let tray_shows_groups = Config::verge()
+        .await
+        .latest_arc()
+        .tray_proxy_groups_display_mode
+        .as_deref()
+        != Some("disable");
+    if tray_shows_groups {
+        let tray_update = tray::Tray::global().update_menu().await;
+        if let Err(err) = tray_update {
+            logging!(
+                warn,
+                Type::Tray,
+                "Failed to refresh tray after switching proxy: {err:#}"
+            );
+        }
     }
     Ok(())
 }

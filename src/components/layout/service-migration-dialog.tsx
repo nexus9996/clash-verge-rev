@@ -2,7 +2,7 @@ import { Alert } from '@mui/material'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { BaseDialog } from '@/components/base'
+import { BaseDialog } from '@/components/base/base-dialog'
 import {
   continueWithSidecar,
   installService,

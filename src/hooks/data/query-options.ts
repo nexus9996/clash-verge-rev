@@ -8,7 +8,7 @@ export const APP_DATA_QUERY_KEYS = {
   clashConfig: ['getClashConfig'],
   ruleProviders: ['getRuleProviders'],
   rules: ['getRules'],
-  sysproxy: ['getSystemProxy'],
+  systemProxyState: ['getSystemProxyState'],
 } as const
 
 export const MIHOMO_QUERY_OPTIONS = {

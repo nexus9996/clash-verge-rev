@@ -562,6 +562,19 @@ function NormalProxyGroups(props: { mode: string }) {
     [renderList],
   )
 
+  // Stable per sticky-ness, so the memoised rows keep bailing out of re-render:
+  // a sticky header has to scroll its group into view before a filter edit lands.
+  const onStickyHeadState = useCallback(
+    async (groupName: string, patch: Partial<HeadState>) => {
+      if (patch.filterText !== undefined) {
+        handleGroupLocationByName(groupName)
+        await stickyListRef.current?.waitForScrollEnd()
+      }
+      onHeadState(groupName, patch)
+    },
+    [handleGroupLocationByName, onHeadState],
+  )
+
   const renderGroupItem = useCallback(
     (item: IRenderItem, _index: number, stickyed: boolean) => (
       <ProxyRender
@@ -569,13 +582,7 @@ function NormalProxyGroups(props: { mode: string }) {
         stickyed={stickyed}
         onLocation={handleLocation}
         onCheckAll={handleCheckAll}
-        onHeadState={async (groupName, patch) => {
-          if (stickyed && patch.filterText !== undefined) {
-            handleGroupLocationByName(groupName)
-            await stickyListRef.current?.waitForScrollEnd()
-          }
-          onHeadState(groupName, patch)
-        }}
+        onHeadState={stickyed ? onStickyHeadState : onHeadState}
         onChangeProxy={handleChangeProxy}
         onGroupToggle={handleGroupToggle}
         getGroupsContainingNode={getGroupsContainingNode}
@@ -586,6 +593,7 @@ function NormalProxyGroups(props: { mode: string }) {
       handleChangeProxy,
       handleCheckAll,
       onHeadState,
+      onStickyHeadState,
       handleLocation,
       handleGroupToggle,
       handleGroupLocationByName,

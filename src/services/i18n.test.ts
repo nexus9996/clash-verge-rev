@@ -1,6 +1,7 @@
+import i18n from 'i18next'
 import { expect, test } from 'vitest'
 
-import { FALLBACK_LANGUAGE, resolveLanguage } from './i18n'
+import { FALLBACK_LANGUAGE, initializeLanguage, resolveLanguage } from './i18n'
 
 test('maps Japanese locales to the shipped jp bundle', () => {
   expect(resolveLanguage('ja')).toBe('jp')
@@ -26,4 +27,17 @@ test('keeps simplified Chinese and generic base fallbacks', () => {
 test('falls back for unsupported languages', () => {
   expect(resolveLanguage('fr-FR')).toBe(FALLBACK_LANGUAGE)
   expect(resolveLanguage()).toBe(FALLBACK_LANGUAGE)
+})
+
+test('startup loads the shell and home sections only', async () => {
+  await initializeLanguage('en')
+
+  const sections = Object.keys(i18n.getResourceBundle('en', 'translation'))
+
+  expect(sections).toEqual(
+    expect.arrayContaining(['layout', 'home', 'shared', 'settings']),
+  )
+  expect(sections).toEqual(
+    expect.not.arrayContaining(['connections', 'logs', 'rules']),
+  )
 })

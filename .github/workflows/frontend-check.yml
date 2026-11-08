@@ -11,8 +11,7 @@ on:
       - "**/*.css"
       - "**/*.scss"
       - "**/*.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
+      - "bun.lock"
       - "vite.config.*"
       - ".github/workflows/frontend-check.yml"
   workflow_dispatch:

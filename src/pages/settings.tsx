@@ -1,7 +1,6 @@
 import { GitHub, HelpOutlineRounded, Telegram } from '@mui/icons-material'
 import { Box, ButtonGroup, IconButton, Grid } from '@mui/material'
 import { useLockFn } from 'ahooks'
-import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BasePage } from '@/components/base'
@@ -13,21 +12,13 @@ import { SettingsSearch } from '@/components/setting/settings-search'
 import { showNotice } from '@/services/notice-service'
 import { openExternalUrl } from '@/utils/open-external-url'
 
+const cardSx = {
+  borderRadius: 2,
+  backgroundColor: 'var(--surface-card)',
+}
+
 const SettingPage = () => {
   const { t } = useTranslation()
-  const [showDeferredSections, setShowDeferredSections] = useState(false)
-
-  useEffect(() => {
-    if (typeof window.requestIdleCallback === 'function') {
-      const id = window.requestIdleCallback(
-        () => setShowDeferredSections(true),
-        { timeout: 1200 },
-      )
-      return () => window.cancelIdleCallback?.(id)
-    }
-    const id = window.setTimeout(() => setShowDeferredSections(true), 500)
-    return () => window.clearTimeout(id)
-  }, [])
 
   const onError = (err: any) => {
     showNotice.error(err)
@@ -105,51 +96,19 @@ const SettingPage = () => {
             sx={{ display: hidden ? 'none' : undefined }}
           >
             <Grid size={6}>
-              <Box
-                sx={{
-                  borderRadius: 2,
-                  marginBottom: 1.5,
-                  backgroundColor: 'var(--surface-card)',
-                  contentVisibility: 'auto',
-                  containIntrinsicSize: 'auto 640px',
-                }}
-              >
+              <Box sx={{ ...cardSx, marginBottom: 1.5 }}>
                 <SettingSystem onError={onError} />
               </Box>
-              <Box
-                sx={{
-                  borderRadius: 2,
-                  backgroundColor: 'var(--surface-card)',
-                  contentVisibility: 'auto',
-                  containIntrinsicSize: 'auto 640px',
-                }}
-              >
-                {showDeferredSections && <SettingClash onError={onError} />}
+              <Box sx={cardSx}>
+                <SettingClash onError={onError} />
               </Box>
             </Grid>
             <Grid size={6}>
-              <Box
-                sx={{
-                  borderRadius: 2,
-                  marginBottom: 1.5,
-                  backgroundColor: 'var(--surface-card)',
-                  contentVisibility: 'auto',
-                  containIntrinsicSize: 'auto 640px',
-                }}
-              >
+              <Box sx={{ ...cardSx, marginBottom: 1.5 }}>
                 <SettingVergeBasic onError={onError} />
               </Box>
-              <Box
-                sx={{
-                  borderRadius: 2,
-                  backgroundColor: 'var(--surface-card)',
-                  contentVisibility: 'auto',
-                  containIntrinsicSize: 'auto 640px',
-                }}
-              >
-                {showDeferredSections && (
-                  <SettingVergeAdvanced onError={onError} />
-                )}
+              <Box sx={cardSx}>
+                <SettingVergeAdvanced onError={onError} />
               </Box>
             </Grid>
           </Grid>

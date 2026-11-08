@@ -13,7 +13,7 @@ describe('app-data query keys', () => {
       clashConfig: ['getClashConfig'],
       ruleProviders: ['getRuleProviders'],
       rules: ['getRules'],
-      sysproxy: ['getSystemProxy'],
+      systemProxyState: ['getSystemProxyState'],
     })
   })
 

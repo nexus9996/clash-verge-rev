@@ -13,6 +13,7 @@ pub struct ProxyViewInput {
 }
 
 /// The providers a group draws from (Mihomo order) and its `exclude-type` entries.
+#[derive(Clone)]
 pub struct GroupScope {
     pub providers: Vec<String>,
     pub exclude_types: Vec<String>,

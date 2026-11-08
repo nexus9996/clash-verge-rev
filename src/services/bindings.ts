@@ -16,8 +16,8 @@ export const commands = {
     __TAURI_INVOKE<ExternalControllerSettings>('get_external_controller'),
   saveExternalController: (settings: ExternalControllerSettings) =>
     __TAURI_INVOKE<null>('save_external_controller', { settings }),
-  getSysProxy: () => __TAURI_INVOKE<SystemProxy>('get_sys_proxy'),
-  getAutoProxy: () => __TAURI_INVOKE<AutoProxy>('get_auto_proxy'),
+  getSystemProxyState: () =>
+    __TAURI_INVOKE<SystemProxyState>('get_system_proxy_state'),
   getEmbeddedServerPort: () =>
     __TAURI_INVOKE<number>('get_embedded_server_port'),
   openAppDir: () => __TAURI_INVOKE<null>('open_app_dir'),
@@ -1081,6 +1081,15 @@ export type SystemProxy = {
   enable: boolean
   server: string
   bypass: string
+}
+
+/**
+ *  Both proxy modes come from the same OS settings and a refresh needs them
+ *  together, so one command returns both from a single blocking round-trip.
+ */
+export type SystemProxyState = {
+  sysproxy: SystemProxy
+  autoproxy: AutoProxy
 }
 
 export type ToggleableProxyPort = {

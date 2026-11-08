@@ -1,6 +1,5 @@
 interface MixedPortSources {
   live?: number | null
-  runtime?: number | null
   selected?: number | null
   merge?: number | null
 }
@@ -13,8 +12,7 @@ const isValidPort = (port: number | null | undefined): port is number =>
 
 export const resolveDisplayedMixedPort = ({
   live,
-  runtime,
   selected,
   merge,
 }: MixedPortSources): number =>
-  [live, runtime, selected, merge].find(isValidPort) ?? 7897
+  [live, selected, merge].find(isValidPort) ?? 7897

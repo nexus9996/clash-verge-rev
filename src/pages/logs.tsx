@@ -21,7 +21,7 @@ import {
 import LogItem from '@/components/log/log-item'
 import { useClashLog } from '@/hooks/use-clash-log'
 import { useLogData } from '@/hooks/use-log-data'
-import { filterLogsBySearch } from '@/utils/log-search'
+import { filterLogsForView } from '@/utils/log-search'
 
 const LogPage = () => {
   const { t } = useTranslation()
@@ -38,17 +38,15 @@ const LogPage = () => {
     refreshGetClashLog,
   } = useLogData()
 
-  const filterLogs = useMemo(() => {
-    if (!logData || logData.length === 0) {
-      return []
-    }
-
-    // Server-side filtering handles level filtering via query parameters
-    // We only need to apply search filtering here
-    return filterLogsBySearch(logData, match).filter((data) =>
-      logState == 'all' ? true : data.type.includes(logState),
-    )
-  }, [logData, logState, match])
+  const filterLogs = useMemo(
+    () =>
+      filterLogsForView(logData ?? [], {
+        level: logState,
+        text: searchState?.text ?? '',
+        match,
+      }),
+    [logData, logState, match, searchState?.text],
+  )
 
   const filteredLogs = useMemo(
     () => (isDescending ? [...filterLogs].reverse() : filterLogs),

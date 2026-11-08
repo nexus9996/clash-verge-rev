@@ -2,13 +2,10 @@ import { useRef } from 'react'
 import { closeAllConnections } from 'tauri-plugin-mihomo-api'
 
 import { useSystemData } from '@/hooks/data'
+import { APP_DATA_QUERY_KEYS } from '@/hooks/data/query-options'
 import { useDisplayedMixedPort } from '@/hooks/use-displayed-mixed-port'
 import { useVerge } from '@/hooks/use-verge'
-import {
-  getAutoProxy,
-  getEmbeddedServerPort,
-  patchVergeConfig,
-} from '@/services/cmds'
+import { getEmbeddedServerPort, patchVergeConfig } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import {
   removeCacheData,
@@ -16,16 +13,12 @@ import {
   useQuery,
 } from '@/services/query-client'
 
+const SYSTEM_PROXY_KEY = APP_DATA_QUERY_KEYS.systemProxyState
+
 export const useSystemProxyState = () => {
   const { verge, mutateVerge } = useVerge()
-  const { sysproxy } = useSystemData()
+  const { sysproxy, autoproxy } = useSystemData()
   const displayedMixedPort = useDisplayedMixedPort()
-  const { data: autoproxy } = useQuery({
-    queryKey: ['getAutoProxy'],
-    queryFn: getAutoProxy,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-  })
   const { data: pacPort } = useQuery({
     queryKey: ['getEmbeddedServerPort'],
     queryFn: getEmbeddedServerPort,
@@ -97,7 +90,7 @@ export const useSystemProxyState = () => {
       }
       // Kept separate so an unreadable config cannot discard OS state that did read.
       try {
-        await revalidateQueries([['getSystemProxy'], ['getAutoProxy']])
+        await revalidateQueries([SYSTEM_PROXY_KEY])
       } catch (error) {
         console.warn(
           '[system-proxy] rereading the OS proxy after a toggle failed:',
@@ -105,16 +98,12 @@ export const useSystemProxyState = () => {
         )
         // The indicator reports observed OS state, so an unreadable one must read as inactive
         // rather than stay live from a stale cache.
-        await Promise.all([
-          removeCacheData(['getSystemProxy']),
-          removeCacheData(['getAutoProxy']),
-        ])
+        await removeCacheData(SYSTEM_PROXY_KEY)
       }
     }
   }
 
-  const invalidateProxyState = () =>
-    revalidateQueries([['getSystemProxy'], ['getAutoProxy']])
+  const invalidateProxyState = () => revalidateQueries([SYSTEM_PROXY_KEY])
 
   return {
     indicator,

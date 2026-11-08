@@ -8,7 +8,10 @@ use crate::{
     },
 };
 use serde_yaml_ng::Mapping;
-use std::collections::{BTreeMap, HashSet};
+use std::{
+    collections::{BTreeMap, HashSet},
+    sync::{Mutex, OnceLock},
+};
 
 /// Merges one selection pair into fresh backend state to avoid stale-list overwrites.
 #[tauri::command]
@@ -26,6 +29,10 @@ pub async fn switch_proxy_node(group_name: String, proxy_name: String, unfix: bo
         .await
         .stringify_err()
 }
+
+type GroupLayout = (Vec<String>, BTreeMap<String, GroupScope>);
+
+static GROUP_LAYOUT_CACHE: OnceLock<Mutex<Option<(u64, GroupLayout)>>> = OnceLock::new();
 
 fn runtime_group_order(config: Option<&Mapping>) -> Vec<String> {
     let mut seen = HashSet::new();
@@ -96,13 +103,33 @@ fn runtime_group_scopes(config: Option<&Mapping>) -> BTreeMap<String, GroupScope
         .collect()
 }
 
+/// The order and scopes are pure functions of the generated config, whose
+/// `revision` bumps on every mutation. The proxies page polls every 15 s, so the
+/// walk (and the per-`include-all` provider clone) is cached across polls.
+fn derived_group_layout(revision: u64, config: Option<&Mapping>) -> GroupLayout {
+    let cache = GROUP_LAYOUT_CACHE.get_or_init(Default::default);
+
+    if let Ok(cache) = cache.lock()
+        && let Some((cached_revision, layout)) = cache.as_ref()
+        && *cached_revision == revision
+    {
+        return layout.clone();
+    }
+
+    let layout = (runtime_group_order(config), runtime_group_scopes(config));
+    if let Ok(mut cache) = cache.lock() {
+        *cache = Some((revision, layout.clone()));
+    }
+    layout
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn get_proxy_view() -> CmdResult<ProxyViewV1> {
     let runtime = Config::runtime().await;
     let latest_runtime = runtime.latest_arc();
-    let runtime_group_order = runtime_group_order(latest_runtime.config.as_ref());
-    let group_scopes = runtime_group_scopes(latest_runtime.config.as_ref());
+    let (runtime_group_order, group_scopes) =
+        derived_group_layout(latest_runtime.revision, latest_runtime.config.as_ref());
 
     let mihomo = Handle::mihomo();
     let (proxies, providers) = tokio::join!(mihomo.get_proxies(), mihomo.get_proxy_providers(),);

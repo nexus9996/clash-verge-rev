@@ -43,7 +43,13 @@ const appendLogs = (
   if (dropFromBase >= base.length) {
     return incoming.slice(incoming.length - MAX_LOG_NUM)
   }
-  return base.slice(dropFromBase).concat(incoming)
+  // Trim and append into one preallocated array: the page flushes up to 20
+  // times a second, so `slice().concat()` would copy the buffer twice per tick.
+  const keepBase = base.length - dropFromBase
+  const next = new Array<ILogItem>(MAX_LOG_NUM)
+  for (let i = 0; i < keepBase; i += 1) next[i] = base[dropFromBase + i]
+  for (let i = 0; i < incoming.length; i += 1) next[keepBase + i] = incoming[i]
+  return next
 }
 
 export const useLogData = () => {
