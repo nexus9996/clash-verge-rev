@@ -20,13 +20,24 @@ pub async fn save_webdav_config(
     let url: String = url.into();
     let username: String = username.into();
     let password: String = password.into();
-    let patch = IVerge {
-        webdav_url: Some(url),
-        webdav_username: Some(username),
-        webdav_password: Some(password),
-        ..IVerge::default()
-    };
-    verge.edit_draft(|e| e.patch_config(&patch));
+
+    // The password is a credential: prefer the OS keychain and clear any legacy
+    // encrypted copy. Fall back to the encrypted config field only where no
+    // keychain service is available, so WebDAV keeps working on minimal Linux.
+    let password_in_keychain = crate::utils::keychain::set_webdav_password(password.as_str()).is_ok();
+    let legacy_password = if password_in_keychain { None } else { Some(password) };
+
+    verge.edit_draft(|e| {
+        e.patch_config(&IVerge {
+            webdav_url: Some(url),
+            webdav_username: Some(username),
+            webdav_password: legacy_password,
+            ..IVerge::default()
+        });
+        if password_in_keychain {
+            e.webdav_password = None;
+        }
+    });
     if let Err(error) = verge.latest_arc().save_file().await {
         transaction.rollback();
         return Err(error.to_string().into());

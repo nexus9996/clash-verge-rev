@@ -726,6 +726,7 @@ export type PrfItem_Deserialize = {
   updated?: number | null
   option?: PrfOption_Deserialize | null
   home?: string | null
+  proxy_chain?: string[] | null
 }
 
 export type PrfItem_Serialize = {
@@ -741,6 +742,7 @@ export type PrfItem_Serialize = {
   updated: number | null
   option?: PrfOption_Serialize
   home?: string
+  proxy_chain?: string[]
 }
 
 export type PrfOption = PrfOption_Serialize | PrfOption_Deserialize

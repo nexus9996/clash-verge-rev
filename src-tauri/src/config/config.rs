@@ -277,6 +277,20 @@ impl Config {
 
         resolve_provider_path_conflicts(&mut config, &dirs::app_home_dir()?)?;
         sanitize_tunnels_proxy(&mut config);
+
+        // Apply the current profile's persisted chain intent after enhance so it
+        // survives restart / subscription refresh. Generation stays lenient: a
+        // chain whose nodes went missing is skipped, never a hard error (D4).
+        if let Some(chain) = current_profile_proxy_chain(profiles)
+            && let Err(error) = super::proxy_chain::apply_proxy_chain(&mut config, &chain)
+        {
+            logging!(
+                warn,
+                Type::Config,
+                "saved proxy chain is not applicable, keeping the intent and skipping: {error:#}"
+            );
+        }
+
         // Apply only to generated core config so the saved choice survives the next launch.
         if let Some(port) = MixedPort::session_fallback() {
             config.insert(MIXED_PORT_KEY.into(), port.into());
@@ -350,6 +364,12 @@ impl Config {
         let _ = tokio::join!(save_clash_task, save_verge_task, save_profiles_task);
         logging!(info, Type::Config, "save all draft data finished");
     }
+}
+
+/// Returns the current profile's persisted proxy chain intent, if any.
+fn current_profile_proxy_chain(profiles: &IProfiles) -> Option<Vec<String>> {
+    let current = profiles.current.as_deref()?;
+    profiles.get_item(current).ok()?.proxy_chain.clone()
 }
 
 fn sanitize_tunnels_proxy(config: &mut Mapping) {

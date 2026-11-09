@@ -68,6 +68,11 @@ pub struct PrfItem {
     #[specta(type = Option<std::string::String>)]
     pub home: Option<String>,
 
+    /// Ordered proxy chain intent (entry first), persisted per profile. See ADR-0005.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(type = Option<Vec<std::string::String>>)]
+    pub proxy_chain: Option<Vec<String>>,
+
     #[serde(skip)]
     #[specta(type = Option<std::string::String>)]
     pub file_data: Option<String>,
@@ -251,6 +256,7 @@ impl PrfItem {
                 ..PrfOption::default()
             }),
             home: None,
+            proxy_chain: None,
             updated: Some(chrono::Local::now().timestamp() as usize),
             file_data: Some(file_data.unwrap_or_else(|| tmpl::ITEM_LOCAL.into())),
         })
@@ -419,6 +425,7 @@ impl PrfItem {
                 ..PrfOption::default()
             }),
             home,
+            proxy_chain: None,
             updated: Some(chrono::Local::now().timestamp() as usize),
             file_data: Some(data),
         })
