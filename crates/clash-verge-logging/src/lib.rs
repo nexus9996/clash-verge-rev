@@ -71,6 +71,15 @@ impl fmt::Display for Type {
 
 #[macro_export]
 macro_rules! logging {
+    ($level:ident, $type:expr, $($arg:tt)* ; $($key:ident = $value:expr),+ $(,)?) => {
+        log::$level!(
+            target: "app",
+            "{} {} {}",
+            $type,
+            $crate::format_fields(&[$((stringify!($key), &$value as &dyn std::fmt::Display)),+]),
+            format_args!($($arg)*)
+        )
+    };
     ($level:ident, $type:expr, $($arg:tt)*) => {
         log::$level!(target: "app", "{} {}", $type, format_args!($($arg)*))
     };
@@ -87,6 +96,23 @@ macro_rules! logging_error {
     ($type:expr, $fmt:literal $(, $arg:expr)*) => {
         log::error!(target: "app", "[{}] {}", $type, format_args!($fmt $(, $arg)*));
     };
+}
+
+/// Renders key=value pairs for the structured `logging!` form. Empty when no
+/// fields are supplied; values are formatted with `Display`.
+pub fn format_fields(fields: &[(&str, &dyn fmt::Display)]) -> String {
+    use std::fmt::Write as _;
+
+    let mut out = String::new();
+    for (index, (key, value)) in fields.iter().enumerate() {
+        if index > 0 {
+            out.push(' ');
+        }
+        out.push_str(key);
+        out.push('=');
+        let _ = write!(out, "{value}");
+    }
+    out
 }
 
 const LOGS_QUEUE_LEN: usize = 100;
