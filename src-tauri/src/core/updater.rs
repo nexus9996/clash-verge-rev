@@ -683,6 +683,19 @@ impl SilentUpdater {
         let version = update.version.clone();
         logging!(info, Type::System, "Silent updater: update available: v{version}");
 
+        // The updater plugin's version comparator already rejects downgrades;
+        // assert it here too so a misconfigured comparator can't silently
+        // install an older build.
+        let current_version = env!("CARGO_PKG_VERSION");
+        if version_lte(&version, current_version) && !is_build_to_stable(current_version, &version) {
+            logging!(
+                warn,
+                Type::System,
+                "Silent updater: remote v{version} is not newer than current v{current_version}, ignoring"
+            );
+            return Ok(());
+        }
+
         if let Some(body) = &update.body
             && body.to_lowercase().contains("break change")
         {
@@ -748,7 +761,15 @@ impl SilentUpdater {
                 logging!(warn, Type::System, "Silent updater: cycle error: {e}");
             }
 
-            tokio::time::sleep(std::time::Duration::from_secs(24 * 60 * 60)).await;
+            // Stagger the daily cycle by up to 2 hours so clients that auto-start
+            // together don't hit the update endpoint at the same instant.
+            let mut jitter = [0u8; 8];
+            let jitter_secs = if getrandom::fill(&mut jitter).is_ok() {
+                u64::from_le_bytes(jitter) % (2 * 60 * 60)
+            } else {
+                0
+            };
+            tokio::time::sleep(std::time::Duration::from_secs(24 * 60 * 60 + jitter_secs)).await;
         }
     }
 }

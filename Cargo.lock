@@ -7389,7 +7389,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-mihomo"
 version = "0.6.0"
-source = "git+https://github.com/clash-verge-rev/tauri-plugin-mihomo?branch=feat%2Ftauri-v3#7e5d90afca7b9fde172f6e542f5f43078eacee31"
+source = "git+https://github.com/clash-verge-rev/tauri-plugin-mihomo?rev=7e5d90afca7b9fde172f6e542f5f43078eacee31#7e5d90afca7b9fde172f6e542f5f43078eacee31"
 dependencies = [
  "arc-swap",
  "clashmap",
@@ -7576,7 +7576,7 @@ dependencies = [
 [[package]]
 name = "tauri-specta"
 version = "2.0.0-rc.25"
-source = "git+https://github.com/tauri-apps/tauri-specta?branch=tauri-v3#6bcec0cdec0c92decf404c85ff01b4d8c3868599"
+source = "git+https://github.com/tauri-apps/tauri-specta?rev=6bcec0cdec0c92decf404c85ff01b4d8c3868599#6bcec0cdec0c92decf404c85ff01b4d8c3868599"
 dependencies = [
  "heck 0.5.0",
  "serde",
@@ -7593,7 +7593,7 @@ dependencies = [
 [[package]]
 name = "tauri-specta-macros"
 version = "2.0.0-rc.25"
-source = "git+https://github.com/tauri-apps/tauri-specta?branch=tauri-v3#6bcec0cdec0c92decf404c85ff01b4d8c3868599"
+source = "git+https://github.com/tauri-apps/tauri-specta?rev=6bcec0cdec0c92decf404c85ff01b4d8c3868599#6bcec0cdec0c92decf404c85ff01b4d8c3868599"
 dependencies = [
  "darling",
  "heck 0.5.0",
@@ -8275,7 +8275,7 @@ dependencies = [
 [[package]]
 name = "tracing-estuary"
 version = "0.1.0"
-source = "git+https://github.com/Tunglies/tracing-estuary.git?branch=main#dbfce033fa4cff8f936f3e7c2282af1277546f3c"
+source = "git+https://github.com/Tunglies/tracing-estuary.git?rev=dbfce033fa4cff8f936f3e7c2282af1277546f3c#dbfce033fa4cff8f936f3e7c2282af1277546f3c"
 dependencies = [
  "anyhow",
  "compact_str",

@@ -100,7 +100,7 @@ tauri-plugin-notification = "3.0.0-alpha.2"
 backon = { version = "1.6.0", features = ["tokio-sleep"] }
 tracing = { workspace = true }
 tauri-plugin-devtools = { version = "3.0.0-alpha.0", optional = true }
-tauri-plugin-mihomo = { git = "https://github.com/clash-verge-rev/tauri-plugin-mihomo", branch = "feat/tauri-v3" }
+tauri-plugin-mihomo = { git = "https://github.com/clash-verge-rev/tauri-plugin-mihomo", rev = "7e5d90afca7b9fde172f6e542f5f43078eacee31" }
 async-trait = "0.1.92"
 clash_verge_service_ipc = { git = "https://github.com/clash-verge-rev/clash-verge-service-ipc.git", tag = "v2.7.7", version = "2.7.7", features = [
   "client",
