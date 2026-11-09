@@ -24,14 +24,17 @@ import { useTranslation } from 'react-i18next'
 import type { RuleSearchMode, RuleSearchState } from '@/utils/rule-search'
 
 type Props = {
+  initialState?: RuleSearchState
   onSearch: (state: RuleSearchState) => void
 }
 
 export const RuleSearchBox = (props: Props) => {
-  const { onSearch } = props
+  const { initialState, onSearch } = props
   const { t } = useTranslation()
-  const [text, setText] = useState('')
-  const [mode, setMode] = useState<RuleSearchMode>('content')
+  const [text, setText] = useState(() => initialState?.text ?? '')
+  const [mode, setMode] = useState<RuleSearchMode>(
+    () => initialState?.mode ?? 'content',
+  )
 
   const modeOptions = useMemo(
     () => [

@@ -36,11 +36,14 @@ import {
 // Hit counts are secondary information; refresh often enough to stay useful
 const HIT_REFRESH_INTERVAL_MS = 15000
 
+// Keep the rule filters when the page unmounts, like the other list pages.
+let lastRuleSearch: RuleSearchState = EMPTY_RULE_SEARCH
+
 const RulesPage = () => {
   const { t } = useTranslation()
   const { rules = [] } = useRulesData()
   const { refreshRules, refreshRuleProviders } = useAppRefreshers()
-  const [search, setSearch] = useState<RuleSearchState>(EMPTY_RULE_SEARCH)
+  const [search, setSearch] = useState<RuleSearchState>(lastRuleSearch)
   const [ruleExtras, setRuleExtras] = useState<
     ReadonlyMap<number, RuleExtraInfo>
   >(() => new Map())
@@ -66,6 +69,11 @@ const RulesPage = () => {
     () => createRuleSearchMatcher(deferredSearch),
     [deferredSearch],
   )
+
+  const handleSearch = useCallback((next: RuleSearchState) => {
+    lastRuleSearch = next
+    setSearch(next)
+  }, [])
 
   const refreshExtras = useCallback(async () => {
     try {
@@ -157,7 +165,7 @@ const RulesPage = () => {
           alignItems: 'center',
         }}
       >
-        <RuleSearchBox onSearch={setSearch} />
+        <RuleSearchBox initialState={search} onSearch={handleSearch} />
       </Box>
 
       {visibleIndexes.length > 0 ? (

@@ -4,7 +4,7 @@ import {
   SwapVertRounded,
 } from '@mui/icons-material'
 import { Box, Button, IconButton, MenuItem } from '@mui/material'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -12,7 +12,6 @@ import {
   BasePage,
   BaseSearchBox,
   BaseStyledSelect,
-  type SearchState,
 } from '@/components/base'
 import {
   VirtualList,
@@ -21,6 +20,7 @@ import {
 import LogItem from '@/components/log/log-item'
 import { useClashLog } from '@/hooks/use-clash-log'
 import { useLogData } from '@/hooks/use-log-data'
+import { usePageSearch } from '@/hooks/use-page-search'
 import { filterLogsForView } from '@/utils/log-search'
 
 const LogPage = () => {
@@ -31,8 +31,7 @@ const LogPage = () => {
   const logOrder = clashLog.logOrder ?? 'asc'
   const isDescending = logOrder === 'desc'
 
-  const [match, setMatch] = useState(() => (_: string) => true)
-  const [searchState, setSearchState] = useState<SearchState>()
+  const { searchState, match, onSearch } = usePageSearch('logs')
   const {
     response: { data: logData },
     refreshGetClashLog,
@@ -166,10 +165,9 @@ const LogPage = () => {
           <MenuItem value="err">{t('shared.filters.logLevels.error')}</MenuItem>
         </BaseStyledSelect>
         <BaseSearchBox
-          onSearch={(matcher, state) => {
-            setMatch(() => matcher)
-            setSearchState(state)
-          }}
+          defaultValue={searchState.text}
+          {...searchState}
+          onSearch={onSearch}
         />
       </Box>
 
