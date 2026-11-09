@@ -2,9 +2,10 @@ import { useCallback, useRef } from 'react'
 
 import { switchProxyNode } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
+import { showNotice } from '@/services/notice-service'
 
 interface ProxySelectionOptions {
-  onError?: (error: any) => void
+  onError?: (error: unknown) => void
 }
 
 interface ProxyChangeRequest {
@@ -37,6 +38,7 @@ export const useProxySelection = (options: ProxySelectionOptions = {}) => {
           `[ProxySelection] Failed to switch proxy: ${groupName} -> ${proxyName}`,
           error,
         )
+        showNotice.error(error)
         onError?.(error)
       }
     },

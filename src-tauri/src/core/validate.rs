@@ -1,5 +1,5 @@
 use anyhow::Result;
-use scopeguard::defer;
+use scopeguard::{defer, guard};
 use serde::Serialize;
 use smartstring::alias::String;
 use std::{
@@ -259,7 +259,7 @@ impl CoreConfigValidator {
             Err(err) => {
                 let error_msg: String = format!("Failed to read file: {err}").into();
                 logging!(error, Type::Validate, "Failed to read file {config_path}: {err}");
-                return Ok(ValidationOutcome::invalid_from_message(error_msg));
+                return Ok(ValidationOutcome::invalid(ValidationErrorKind::FileRead, error_msg));
             }
         };
         logging!(info, Type::Validate, "进行YAML语法检查");
@@ -271,7 +271,7 @@ impl CoreConfigValidator {
             Err(err) => {
                 let error_msg: String = format!("YAML syntax error: {err}").into();
                 logging!(error, Type::Validate, "YAML syntax error in {config_path}: {err}");
-                Ok(ValidationOutcome::invalid_from_message(error_msg))
+                Ok(ValidationOutcome::invalid(ValidationErrorKind::YamlSyntax, error_msg))
             }
         }
     }
@@ -282,7 +282,7 @@ impl CoreConfigValidator {
             Err(err) => {
                 let error_msg: String = format!("Failed to read script file: {err}").into();
                 logging!(warn, Type::Validate, "Failed to read script file {path}: {err}");
-                return Ok(ValidationOutcome::invalid_from_message(error_msg));
+                return Ok(ValidationOutcome::invalid(ValidationErrorKind::FileRead, error_msg));
             }
         };
 
@@ -321,7 +321,12 @@ impl CoreConfigValidator {
         let result = match tokio::time::timeout(SYNTAX_CHECK_TIMEOUT, syntax).await {
             Ok(Ok(evaluated)) => evaluated,
             Ok(Err(join_err)) => Err(format!("syntax check task failed: {join_err}")),
-            Err(_) => Err("syntax check timed out".to_owned()),
+            Err(_) => {
+                return Ok(ValidationOutcome::invalid(
+                    ValidationErrorKind::Timeout,
+                    "Script syntax check timed out",
+                ));
+            }
         };
 
         match result {
@@ -331,7 +336,10 @@ impl CoreConfigValidator {
                 if !has_main {
                     let error_msg = "Script must contain a main function";
                     logging!(warn, Type::Validate, "脚本缺少main函数: {}", path);
-                    return Ok(ValidationOutcome::invalid_from_message(error_msg));
+                    return Ok(ValidationOutcome::invalid(
+                        ValidationErrorKind::ScriptMissingMain,
+                        error_msg,
+                    ));
                 }
 
                 Ok(ValidationOutcome::Valid)
@@ -339,7 +347,7 @@ impl CoreConfigValidator {
             Err(err) => {
                 let error_msg: String = format!("Script syntax error: {err}").into();
                 logging!(warn, Type::Validate, "Script syntax error in {path}: {err}");
-                Ok(ValidationOutcome::invalid_from_message(error_msg))
+                Ok(ValidationOutcome::invalid(ValidationErrorKind::ScriptSyntax, error_msg))
             }
         }
     }
@@ -357,7 +365,7 @@ impl CoreConfigValidator {
 
         if !std::path::Path::new(config_path).exists() {
             let error_msg: String = format!("File not found: {config_path}").into();
-            return Ok(ValidationOutcome::invalid_from_message(error_msg));
+            return Ok(ValidationOutcome::invalid(ValidationErrorKind::FileMissing, error_msg));
         }
 
         if is_merge_file.unwrap_or(false) {
@@ -501,6 +509,10 @@ impl CoreConfigValidator {
 
         let check_path = dirs::app_home_dir()?.join(crate::constants::files::CHECK_CONFIG);
         help::save_yaml_str(&check_path, yaml).await?;
+        // Remove the temporary check file on every exit path, not only after a valid run.
+        let _cleanup = guard(check_path.clone(), |path| {
+            let _ = std::fs::remove_file(path);
+        });
         let outcome = Self::validate_config_internal_outcome(dirs::path_to_str(&check_path)?).await?;
         if outcome.is_valid() {
             *LAST_VALIDATED.lock() = Some(fingerprint);
@@ -513,7 +525,6 @@ impl CoreConfigValidator {
                     "failed to persist validation fingerprint: {error:#}"
                 );
             }
-            let _ = fs::remove_file(&check_path).await;
         }
         Ok(outcome)
     }

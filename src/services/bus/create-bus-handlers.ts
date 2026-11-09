@@ -3,6 +3,8 @@ import delayManager from '@/services/delay'
 import { forgetShownStartupError } from '@/services/notice-handlers'
 import type { AppStoreAction } from '@/store/app-state'
 
+import { resetPageFilters } from '@/hooks/use-page-filter'
+
 /** Frontend-internal event: home test card → test items. Not in the backend contract. */
 export const TEST_ALL_EVENT = 'verge://test-all'
 
@@ -45,8 +47,12 @@ export const createEventBus = (deps: BusHandlerDeps) => {
     ) {
       return
     }
+    const changed = lastProfileId !== newProfileId
     lastProfileId = newProfileId
     lastProfileChangeTime = now
+    if (changed) {
+      resetPageFilters()
+    }
     delayManager.clear()
     deps.revalidateKeys(['getProfiles'])
   }

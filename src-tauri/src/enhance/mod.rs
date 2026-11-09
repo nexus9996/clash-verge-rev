@@ -7,7 +7,7 @@ pub mod seq;
 mod tun;
 
 use self::{
-    chain::{AsyncChainItemFrom as _, ChainItem, ChainType},
+    chain::{ChainItem, ChainType},
     field::{use_keys, use_lowercase, use_sort},
     merge::use_merge,
     script::use_script,
@@ -28,6 +28,7 @@ use parking_lot::Mutex;
 use serde_yaml_ng::{Mapping, Value};
 use smartstring::alias::String;
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use tokio::fs;
 
 type ResultLog = Vec<(String, String)>;
@@ -70,7 +71,7 @@ impl Default for ProfileItems {
             profile_name: Default::default(),
             merge_item: ChainItem {
                 uid: "".into(),
-                data: ChainType::Merge(Mapping::new()),
+                data: ChainType::Merge(Arc::new(Mapping::new())),
             },
             script_item: ChainItem {
                 uid: "".into(),
@@ -90,7 +91,7 @@ impl Default for ProfileItems {
             },
             global_merge: ChainItem {
                 uid: "Merge".into(),
-                data: ChainType::Merge(Mapping::new()),
+                data: ChainType::Merge(Arc::new(Mapping::new())),
             },
             global_script: ChainItem {
                 uid: "Script".into(),
@@ -102,7 +103,7 @@ impl Default for ProfileItems {
 
 async fn chain_item_or_default(item: Option<&PrfItem>, default_item: impl FnOnce() -> ChainItem) -> ChainItem {
     if let Some(item) = item {
-        <Option<ChainItem>>::from_async(item).await.unwrap_or_else(default_item)
+        ChainItem::from_profile(item).await.unwrap_or_else(default_item)
     } else {
         default_item()
     }
@@ -1459,7 +1460,7 @@ mod authoritative_field_tests {
 #[cfg(test)]
 mod tests {
     use super::{
-        AuthoritativeFields, ChainItem, ChainType, Mapping, cleanup_proxy_groups, ensure_lan_bind_address,
+        Arc, AuthoritativeFields, ChainItem, ChainType, Mapping, cleanup_proxy_groups, ensure_lan_bind_address,
         process_override_items, use_keys,
     };
     use std::collections::HashMap;
@@ -1505,7 +1506,7 @@ mod tests {
             let authoritative = AuthoritativeFields::capture(&config, &[], dns_settings);
             let merge_item = |uid: &str| ChainItem {
                 uid: uid.into(),
-                data: ChainType::Merge(merge.clone()),
+                data: ChainType::Merge(Arc::new(merge.clone())),
             };
             let profile_name = "test-profile".into();
             let (config, keys, logs) = process_override_items(
@@ -1568,11 +1569,11 @@ mod tests {
 
         let global_merge = ChainItem {
             uid: "Merge".into(),
-            data: ChainType::Merge(mapping(
+            data: ChainType::Merge(Arc::new(mapping(
                 r"{global-merge-wins: global-merge, global-script-wins: global-merge,
                    profile-merge-wins: global-merge, profile-script-wins: global-merge,
                    nested: {winner: global-merge}, dns: {enable: false}, tun: {enable: false}}",
-            )),
+            ))),
         };
         let global_script = ChainItem {
             uid: "Script".into(),
@@ -1589,10 +1590,10 @@ mod tests {
         };
         let profile_merge = ChainItem {
             uid: "profile-merge".into(),
-            data: ChainType::Merge(mapping(
+            data: ChainType::Merge(Arc::new(mapping(
                 r"{profile-merge-wins: profile-merge, profile-script-wins: profile-merge,
                    nested: {winner: profile-merge}}",
-            )),
+            ))),
         };
         let profile_script = ChainItem {
             uid: "profile-script".into(),

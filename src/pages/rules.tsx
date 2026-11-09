@@ -19,6 +19,7 @@ import { ProviderButton } from '@/components/rule/provider-button'
 import RuleItem from '@/components/rule/rule-item'
 import { RuleSearchBox } from '@/components/rule/rule-search-box'
 import { useAppRefreshers, useRulesData } from '@/hooks/data'
+import { usePageFilter } from '@/hooks/use-page-filter'
 import { useVisibility } from '@/hooks/use-visibility'
 import {
   getRulesExtra,
@@ -36,14 +37,14 @@ import {
 // Hit counts are secondary information; refresh often enough to stay useful
 const HIT_REFRESH_INTERVAL_MS = 15000
 
-// Keep the rule filters when the page unmounts, like the other list pages.
-let lastRuleSearch: RuleSearchState = EMPTY_RULE_SEARCH
-
 const RulesPage = () => {
   const { t } = useTranslation()
   const { rules = [] } = useRulesData()
   const { refreshRules, refreshRuleProviders } = useAppRefreshers()
-  const [search, setSearch] = useState<RuleSearchState>(lastRuleSearch)
+  const [search, setSearch] = usePageFilter<RuleSearchState>(
+    'page-search:rules',
+    EMPTY_RULE_SEARCH,
+  )
   const [ruleExtras, setRuleExtras] = useState<
     ReadonlyMap<number, RuleExtraInfo>
   >(() => new Map())
@@ -69,11 +70,6 @@ const RulesPage = () => {
     () => createRuleSearchMatcher(deferredSearch),
     [deferredSearch],
   )
-
-  const handleSearch = useCallback((next: RuleSearchState) => {
-    lastRuleSearch = next
-    setSearch(next)
-  }, [])
 
   const refreshExtras = useCallback(async () => {
     try {
@@ -165,7 +161,7 @@ const RulesPage = () => {
           alignItems: 'center',
         }}
       >
-        <RuleSearchBox initialState={search} onSearch={handleSearch} />
+        <RuleSearchBox initialState={search} onSearch={setSearch} />
       </Box>
 
       {visibleIndexes.length > 0 ? (

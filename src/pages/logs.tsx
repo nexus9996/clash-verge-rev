@@ -41,10 +41,10 @@ const LogPage = () => {
     () =>
       filterLogsForView(logData ?? [], {
         level: logState,
-        text: searchState?.text ?? '',
+        text: searchState.text,
         match,
       }),
-    [logData, logState, match, searchState?.text],
+    [logData, logState, match, searchState.text],
   )
 
   const filteredLogs = useMemo(
@@ -166,7 +166,7 @@ const LogPage = () => {
         </BaseStyledSelect>
         <BaseSearchBox
           defaultValue={searchState.text}
-          {...searchState}
+          searchState={searchState}
           onSearch={onSearch}
         />
       </Box>

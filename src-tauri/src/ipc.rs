@@ -189,10 +189,10 @@ fn platform_types() -> specta::Types {
         .find(|ty| ty.name == "PlatformVergeFields")
         .and_then(|ty| ty.ty.clone());
     let Some(DataType::Struct(platform)) = platform else {
-        unreachable!()
+        return types;
     };
     let Fields::Named(platform) = platform.fields else {
-        unreachable!()
+        return types;
     };
     types.iter_mut(|ty| {
         if ty.name != "IVerge" {

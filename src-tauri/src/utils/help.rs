@@ -28,29 +28,24 @@ static MAPPING_CACHE: LazyLock<parking_lot::Mutex<VecDeque<CachedMapping>>> =
     LazyLock::new(|| parking_lot::Mutex::new(VecDeque::new()));
 
 pub async fn read_yaml<T: DeserializeOwned>(path: &Path) -> Result<T> {
-    if !tokio::fs::try_exists(path).await.unwrap_or(false) {
-        bail!("file not found \"{}\"", path.display());
-    }
-
-    let yaml_str = tokio::fs::read_to_string(path)
-        .await
-        .with_context(|| format!("failed to read YAML file {}", path.display()))?;
+    let yaml_str = read_text(path, "YAML file").await?;
 
     with_encryption(|| async { serde_yaml_ng::from_str::<T>(&yaml_str) })
         .await
         .with_context(|| format!("failed to parse YAML file {}", path.display()))
 }
 
-pub async fn read_mapping(path: &Path) -> Result<Mapping> {
+async fn read_text(path: &Path, what: &str) -> Result<std::string::String> {
     if !tokio::fs::try_exists(path).await.unwrap_or(false) {
         bail!("file not found \"{}\"", path.display());
     }
-
-    let bytes = tokio::fs::read(path)
+    tokio::fs::read_to_string(path)
         .await
-        .with_context(|| format!("failed to read the file \"{}\"", path.display()))?;
-    let yaml_str =
-        String::from_utf8(bytes).with_context(|| format!("failed to read the file \"{}\"", path.display()))?;
+        .with_context(|| format!("failed to read {what} \"{}\"", path.display()))
+}
+
+pub async fn read_mapping(path: &Path) -> Result<Mapping> {
+    let yaml_str = read_text(path, "the file").await?;
     let label = path.to_path_buf();
 
     // Parsing a multi-megabyte profile is pure CPU; keep it off the async worker.
@@ -62,8 +57,9 @@ pub async fn read_mapping(path: &Path) -> Result<Mapping> {
 /// Reads a mapping while reusing a parse of identical bytes.
 ///
 /// The hash is the cache identity, so an external edit that preserves size and
-/// timestamp still cannot serve a stale mapping.
-pub async fn read_mapping_cached(path: &Path) -> Result<Mapping> {
+/// timestamp still cannot serve a stale mapping. The returned `Arc` lets
+/// callers that only read the mapping skip the per-hit deep clone.
+pub async fn read_mapping_cached(path: &Path) -> Result<Arc<Mapping>> {
     if !tokio::fs::try_exists(path).await.unwrap_or(false) {
         bail!("file not found \"{}\"", path.display());
     }
@@ -76,7 +72,7 @@ pub async fn read_mapping_cached(path: &Path) -> Result<Mapping> {
     let hash = hasher.finish();
 
     if let Some(mapping) = cached_mapping(path, hash) {
-        return Ok((*mapping).clone());
+        return Ok(mapping);
     }
 
     let yaml_str =
@@ -84,11 +80,13 @@ pub async fn read_mapping_cached(path: &Path) -> Result<Mapping> {
     let cacheable = yaml_str.len() <= MAPPING_CACHE_MAX_BYTES;
     let label = path.to_path_buf();
 
-    let mapping = AsyncHandler::spawn_blocking(move || parse_mapping(yaml_str, label))
-        .await
-        .map_err(|join| anyhow!("yaml parse task failed: {join}"))??;
+    let mapping = Arc::new(
+        AsyncHandler::spawn_blocking(move || parse_mapping(yaml_str, label))
+            .await
+            .map_err(|join| anyhow!("yaml parse task failed: {join}"))??,
+    );
     if cacheable {
-        store_mapping(path.to_path_buf(), hash, Arc::new(mapping.clone()));
+        store_mapping(path.to_path_buf(), hash, Arc::clone(&mapping));
     }
     Ok(mapping)
 }

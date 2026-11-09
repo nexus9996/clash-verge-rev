@@ -382,7 +382,9 @@ impl IProfiles {
                         Some(file) => dirs::app_profiles_dir()?.join(file.as_str()),
                         None => bail!("failed to get the file field"),
                     };
-                    return help::read_mapping_cached(&file_path).await;
+                    return help::read_mapping_cached(&file_path)
+                        .await
+                        .map(|mapping| (*mapping).clone());
                 }
                 bail!("failed to find the current profile \"uid:{current}\"");
             }

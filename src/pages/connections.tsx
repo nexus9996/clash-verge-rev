@@ -89,7 +89,7 @@ const ConnectionsPage = () => {
   const { t } = useTranslation()
   const pageVisible = useVisibility()
   const { searchState, match, onSearch } = usePageSearch('connections')
-  const hasSearch = searchState.text.length > 0
+  const hasSearch = searchState.text.trim().length > 0
   const [curOrderOpt, setCurOrderOpt] = useState<OrderKey>('default')
   const [connectionsType, setConnectionsType] = useState<'active' | 'closed'>(
     'active',
@@ -307,7 +307,7 @@ const ConnectionsPage = () => {
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <BaseSearchBox
               defaultValue={searchState.text}
-              {...searchState}
+              searchState={searchState}
               onSearch={onSearch}
             />
           </Box>
