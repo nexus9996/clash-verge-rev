@@ -191,7 +191,7 @@ impl IProfiles {
                 .ok_or_else(|| anyhow::anyhow!("file field is required when file_data is provided"))?;
             let path = dirs::app_profiles_dir()?.join(file.as_str());
 
-            fs::write(&path, file_data.as_bytes())
+            help::save_bytes_atomic(&path, file_data.as_bytes())
                 .await
                 .with_context(|| format!("failed to write to file \"{file}\""))?;
         }
@@ -1113,7 +1113,7 @@ async fn write_profile_file_if_changed(path: &Path, bytes: &[u8]) -> Result<bool
     {
         return Ok(false);
     }
-    fs::write(path, bytes).await?;
+    help::save_bytes_atomic(path, bytes).await?;
     Ok(true)
 }
 
