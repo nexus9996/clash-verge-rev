@@ -1,5 +1,5 @@
 use super::{CoreManager, PROFILE_SELECTIONS_PENDING_COMMIT, RunningMode};
-use crate::core::notify::NoticeStatus;
+use crate::core::notify::{NoticeStatus, Refresh, announce};
 use crate::core::service::StageRequest;
 use crate::{
     config::{Config, IProfiles, runtime::IRuntime},
@@ -365,25 +365,57 @@ impl CoreManager {
         self.validate_and_apply(transaction).await
     }
 
-    pub(crate) async fn update_runtime_config<F>(&self, f: F) -> Result<ValidationOutcome>
-    where
-        F: FnOnce(&mut IRuntime),
-    {
-        if !self.try_start_config_update() {
-            logging!(debug, Type::Core, "Configuration update is already running");
-            return Ok(ValidationOutcome::Busy);
-        }
-        defer! {
-            self.finish_config_update();
+    /// Persists the proxy chain intent on the current profile and regenerates
+    /// through the validated profile transaction. A `None` chain clears the
+    /// intent (disconnect). The chain is validated against the current runtime
+    /// proxies before the profile is touched, so a rejected chain never mutates
+    /// persisted state (ADR-0005 D4).
+    pub async fn update_proxy_chain_config(&self, chain: Option<Vec<String>>) -> Result<ValidationOutcome> {
+        if let Some(chain) = &chain {
+            let runtime = Config::runtime().await.latest_arc();
+            let Some(config) = runtime.config.as_ref() else {
+                return Ok(ValidationOutcome::invalid_from_message("runtime config is unavailable"));
+            };
+            if let Err(error) = crate::config::proxy_chain::validate_proxy_chain(config, chain) {
+                return Ok(ValidationOutcome::invalid_from_message(error.to_string()));
+            }
         }
 
-        let runtime = Config::runtime().await;
-        let transaction = DraftTransaction::begin(vec![&runtime])?;
-        runtime.edit_draft(|draft| {
-            f(draft);
-            draft.invalidate_yaml();
-        });
-        self.validate_and_apply(transaction).await
+        let _profile_write = crate::config::profiles::PROFILE_WRITE_LOCK.lock().await;
+        let profiles = Config::profiles().await;
+        let outcome = profiles
+            .with_data_modify(|mut candidate| async move {
+                let original = candidate.clone();
+                let Some(current) = candidate.current.clone() else {
+                    anyhow::bail!("no current profile");
+                };
+                let Some(items) = candidate.items.as_mut() else {
+                    anyhow::bail!("no profile items");
+                };
+                let Some(item) = items
+                    .iter_mut()
+                    .find(|item| item.uid.as_deref() == Some(current.as_str()))
+                else {
+                    anyhow::bail!("current profile not found");
+                };
+                item.proxy_chain = chain.clone();
+
+                match self.update_config_forced_with_profiles(&candidate, &original).await? {
+                    Ok(guard) => Ok((candidate, Ok(guard))),
+                    Err(outcome) => Ok((original, Err(outcome))),
+                }
+            })
+            .await?;
+
+        match outcome {
+            Ok(_guard) => {
+                crate::config::profiles::restore_selected_nodes().await;
+                Config::sync_dns_override().await?;
+                announce(Refresh::Profiles);
+                Ok(ValidationOutcome::Valid)
+            }
+            Err(outcome) => Ok(outcome),
+        }
     }
 
     /// Commits the applied runtime even if restoring the system proxy subsequently fails.
