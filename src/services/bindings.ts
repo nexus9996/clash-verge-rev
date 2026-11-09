@@ -726,6 +726,7 @@ export type PrfItem_Deserialize = {
   updated?: number | null
   option?: PrfOption_Deserialize | null
   home?: string | null
+  /**  Ordered proxy chain intent (entry first), persisted per profile. See ADR-0005. */
   proxy_chain?: string[] | null
 }
 
@@ -742,6 +743,7 @@ export type PrfItem_Serialize = {
   updated: number | null
   option?: PrfOption_Serialize
   home?: string
+  /**  Ordered proxy chain intent (entry first), persisted per profile. See ADR-0005. */
   proxy_chain?: string[]
 }
 
