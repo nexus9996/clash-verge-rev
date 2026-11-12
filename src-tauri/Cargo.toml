@@ -73,7 +73,7 @@ nanoid = "0.5"
 chrono = { workspace = true }
 rquickjs = { version = "0.14", features = ["bindgen"] }
 boa_engine = "0.22.0"
-http-body-util = "0.1.4"
+http-body-util = "0.1.5"
 percent-encoding = "2.3.2"
 reqwest = { workspace = true }
 encoding_rs = { workspace = true }
@@ -87,8 +87,8 @@ tauri-plugin-dialog = "3.0.0-alpha.3"
 tauri-plugin-fs = "3.0.0-alpha.2"
 tauri-plugin-deep-link = "3.0.0-alpha.2"
 tauri-plugin-window-state = "3.0.0-alpha.2"
-zip = "9.3.0"
-flate2 = "1.1.10"
+zip = "9.5.1"
+flate2 = "1.1.11"
 reqwest_dav = "0.3.3"
 aes-gcm = { version = "0.11.1" }
 base64 = "0.23.1"
