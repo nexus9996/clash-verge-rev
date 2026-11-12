@@ -76,6 +76,10 @@ const ORDER_OPTIONS = [
 
 type OrderKey = (typeof ORDER_OPTIONS)[number]['id']
 
+type NetworkFilter = 'all' | 'tcp' | 'udp'
+
+let savedNetworkFilter: NetworkFilter = 'all'
+
 const orderFunctionMap = ORDER_OPTIONS.reduce<Record<OrderKey, OrderFunc>>(
   (acc, option) => {
     acc[option.id] = option.fn
@@ -91,6 +95,9 @@ const ConnectionsPage = () => {
   const { searchState, match, onSearch } = usePageSearch('connections')
   const hasSearch = searchState.text.trim().length > 0
   const [curOrderOpt, setCurOrderOpt] = useState<OrderKey>('default')
+  const [networkFilter, setNetworkFilter] =
+    useState<NetworkFilter>(savedNetworkFilter)
+  const hasFilter = networkFilter !== 'all'
   const [connectionsType, setConnectionsType] = useState<'active' | 'closed'>(
     'active',
   )
@@ -141,17 +148,20 @@ const ConnectionsPage = () => {
     const orderFunc = orderFunctionMap[curOrderOpt]
     const hasFilters = connectionFilters.length > 0
 
-    if (!hasSearch && !hasFilters) {
+    if (!hasSearch && !hasFilters && !hasFilter) {
       if (isTableLayout) return selectedConnections
       return orderFunc([...selectedConnections])
     }
 
     const matchConns = selectedConnections.filter((conn) => {
       if (!connectionFilterMatcher(conn)) return false
+      const { host, destinationIP, process, network } = conn.metadata
+      if (networkFilter !== 'all' && network !== networkFilter) return false
       if (!hasSearch) return true
-      const { host, destinationIP, process } = conn.metadata
       return (
-        match(host || '') || match(destinationIP || '') || match(process || '')
+        match(host || '') ||
+        match(destinationIP || '') ||
+        match(process || '')
       )
     })
 
@@ -162,6 +172,8 @@ const ConnectionsPage = () => {
     hasSearch,
     connectionFilters.length,
     connectionFilterMatcher,
+    hasFilter,
+    networkFilter,
     match,
     curOrderOpt,
   ])
@@ -290,6 +302,24 @@ const ConnectionsPage = () => {
             ))}
           </BaseStyledSelect>
         )}
+        <BaseStyledSelect
+          style={{ width: 80 }}
+          value={networkFilter}
+          onChange={(e) => {
+            savedNetworkFilter = e.target.value as NetworkFilter
+            setNetworkFilter(savedNetworkFilter)
+          }}
+        >
+          <MenuItem value="all">
+            <span style={{ fontSize: 14 }}>All</span>
+          </MenuItem>
+          <MenuItem value="tcp">
+            <span style={{ fontSize: 14 }}>TCP</span>
+          </MenuItem>
+          <MenuItem value="udp">
+            <span style={{ fontSize: 14 }}>UDP</span>
+          </MenuItem>
+        </BaseStyledSelect>
         <Box
           sx={{
             flex: 1,

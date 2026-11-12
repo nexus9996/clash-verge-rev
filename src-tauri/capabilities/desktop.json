@@ -16,6 +16,8 @@
     "autostart:allow-disable",
     "autostart:allow-is-enabled",
     "core:window:allow-set-theme",
+    "core:window:allow-set-background-color",
+    "core:webview:allow-set-webview-background-color",
     "notification:default",
     "mihomo:default"
   ]
