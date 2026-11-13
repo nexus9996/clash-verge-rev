@@ -6,7 +6,7 @@
 //! secret service).
 
 use anyhow::{Context as _, Result};
-use keyring_core::{set_default_store, Entry};
+use keyring_core::{Entry, set_default_store};
 use smartstring::alias::String;
 use std::sync::Once;
 

@@ -10,7 +10,7 @@ fn main() -> ExitCode {
         return code;
     }
 
-    let default_parallelism = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
+    let default_parallelism = std::thread::available_parallelism().map_or(1, |n| n.get());
     let worker_limit = std::cmp::min(default_parallelism, 4);
     let blocking_limit = 2 * worker_limit;
 

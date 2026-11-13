@@ -227,8 +227,7 @@ impl Tray {
             .latest_arc()
             .0
             .get("mode")
-            .map(|val| val.as_str().unwrap_or("rule"))
-            .unwrap_or("rule")
+            .map_or("rule", |val| val.as_str().unwrap_or("rule"))
             .to_owned();
         let profiles = Config::profiles().await.latest_arc();
         menu_signature(&verge, &profiles, &mode)
@@ -278,8 +277,7 @@ impl Tray {
                 .latest_arc()
                 .0
                 .get("mode")
-                .map(|val| val.as_str().unwrap_or("rule"))
-                .unwrap_or("rule")
+                .map_or("rule", |val| val.as_str().unwrap_or("rule"))
                 .to_owned()
         };
         let is_lightweight_mode = is_in_lightweight_mode();
@@ -299,7 +297,7 @@ impl Tray {
                 config
                     .get("proxy-groups")
                     .and_then(|groups| groups.as_sequence())
-                    .map(|groups| {
+                    .map_or_default(|groups| {
                         groups
                             .iter()
                             .filter_map(|group| group.get("name"))
@@ -308,7 +306,6 @@ impl Tray {
                             .map(|(index, name)| (name.into(), index))
                             .collect::<HashMap<String, usize>>()
                     })
-                    .unwrap_or_default()
             });
 
             (proxy_nodes_data, runtime_proxy_groups_order)
@@ -534,26 +531,23 @@ impl Tray {
 }
 
 fn create_hotkeys(hotkeys: &Option<Vec<String>>) -> HashMap<&str, &str> {
-    hotkeys
-        .as_ref()
-        .map(|h| {
-            h.iter()
-                .filter_map(|item| {
-                    let mut parts = item.split(',');
-                    match (parts.next(), parts.next()) {
-                        (Some(func), Some(key)) => {
-                            // 托盘菜单的 `accelerator` 在 Linux/Windows 下不支持小键盘按键，Windows 下也不支持 Win 键（前端上报为 `CMD`）
-                            let uppercase_key = key.to_uppercase();
-                            let unsupported =
-                                uppercase_key.contains("NUMPAD") || (cfg!(windows) && uppercase_key.contains("CMD"));
-                            if unsupported { None } else { Some((func, key)) }
-                        }
-                        _ => None,
+    hotkeys.as_ref().map_or_default(|h| {
+        h.iter()
+            .filter_map(|item| {
+                let mut parts = item.split(',');
+                match (parts.next(), parts.next()) {
+                    (Some(func), Some(key)) => {
+                        // 托盘菜单的 `accelerator` 在 Linux/Windows 下不支持小键盘按键，Windows 下也不支持 Win 键（前端上报为 `CMD`）
+                        let uppercase_key = key.to_uppercase();
+                        let unsupported =
+                            uppercase_key.contains("NUMPAD") || (cfg!(windows) && uppercase_key.contains("CMD"));
+                        if unsupported { None } else { Some((func, key)) }
                     }
-                })
-                .collect::<HashMap<&str, &str>>()
-        })
-        .unwrap_or_default()
+                    _ => None,
+                }
+            })
+            .collect::<HashMap<&str, &str>>()
+    })
 }
 
 fn create_profile_menu_item(

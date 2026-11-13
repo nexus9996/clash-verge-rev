@@ -332,9 +332,10 @@ impl NetworkManager {
         };
 
         // 设置 User-Agent
-        let user_agent = user_agent
-            .map(|user_agent| user_agent.to_string())
-            .unwrap_or_else(|| format!("clash-verge/v{}", env!("CARGO_PKG_VERSION")));
+        let user_agent = user_agent.map_or_else(
+            || format!("clash-verge/v{}", env!("CARGO_PKG_VERSION")),
+            |user_agent| user_agent.to_string(),
+        );
 
         self.client_for(proxy_url, user_agent, accept_invalid_certs, timeout_secs, tls_root_mode)
     }

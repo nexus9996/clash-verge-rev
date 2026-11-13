@@ -52,9 +52,10 @@ pub(super) async fn resolve_scheme(param: &str) -> Result<()> {
 async fn confirm_subscription_import(url: &str, name: Option<&String>) -> bool {
     use tauri_plugin_dialog::{DialogExt as _, MessageDialogButtons, MessageDialogKind};
 
-    let display_name = name
-        .map(|name| sanitize_dialog_value(name))
-        .unwrap_or_else(|| clash_verge_i18n::t!("notifications.subscriptionImport.unnamed").into_owned());
+    let display_name = name.map_or_else(
+        || clash_verge_i18n::t!("notifications.subscriptionImport.unnamed").into_owned(),
+        |name| sanitize_dialog_value(name),
+    );
     let display_url = help::mask_url(url);
     let title = clash_verge_i18n::t!("notifications.subscriptionImport.title");
     let body = clash_verge_i18n::t!(

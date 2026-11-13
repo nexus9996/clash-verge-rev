@@ -1,10 +1,10 @@
 use anyhow::Result;
-use scopeguard::{defer, guard};
 use serde::Serialize;
 use smartstring::alias::String;
 use std::{
     fmt,
     hash::{DefaultHasher, Hash as _, Hasher as _},
+    mem::DropGuard,
     path::{Path, PathBuf},
     sync::LazyLock,
     sync::atomic::{AtomicBool, Ordering},
@@ -482,9 +482,9 @@ impl CoreConfigValidator {
             logging!(info, Type::Validate, "验证已在进行中，跳过新的验证请求");
             return Ok(ValidationOutcome::Busy);
         }
-        defer! {
+        let _validation = DropGuard::new((), |()| {
             self.finish();
-        }
+        });
         logging!(info, Type::Validate, "生成临时配置文件用于验证");
 
         // The test run reads the app dir, which never sees updates made by a service core.
@@ -510,7 +510,7 @@ impl CoreConfigValidator {
         let check_path = dirs::app_home_dir()?.join(crate::constants::files::CHECK_CONFIG);
         help::save_yaml_str(&check_path, yaml).await?;
         // Remove the temporary check file on every exit path, not only after a valid run.
-        let _cleanup = guard(check_path.clone(), |path| {
+        let _cleanup = DropGuard::new(check_path.clone(), |path| {
             let _ = std::fs::remove_file(path);
         });
         let outcome = Self::validate_config_internal_outcome(dirs::path_to_str(&check_path)?).await?;
@@ -534,8 +534,7 @@ fn has_ext<P: AsRef<std::path::Path>>(path: P, ext: &str) -> bool {
     path.as_ref()
         .extension()
         .and_then(|s| s.to_str())
-        .map(|s| s.eq_ignore_ascii_case(ext))
-        .unwrap_or(false)
+        .is_some_and(|s| s.eq_ignore_ascii_case(ext))
 }
 
 fn contains_any_keyword<'a>(buf: &'a [u8], keywords: &'a [&str]) -> bool {
@@ -566,8 +565,7 @@ mod tests {
     fn unique_state_path(label: &str) -> PathBuf {
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map(|duration| duration.as_nanos())
-            .unwrap_or_default();
+            .map_or_default(|duration| duration.as_nanos());
         std::env::temp_dir().join(format!("clash-verge-validate-{label}-{}-{nanos}", std::process::id()))
     }
 
