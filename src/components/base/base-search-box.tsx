@@ -15,14 +15,13 @@ import { useTranslation } from 'react-i18next'
 import matchCaseIcon from '@/assets/image/component/match_case.svg?react'
 import matchWholeWordIcon from '@/assets/image/component/match_whole_word.svg?react'
 import UseRegularExpressionIcon from '@/assets/image/component/use_regular_expression.svg?react'
-import { buildRegex, compileStringMatcher } from '@/utils/search-matcher'
+import {
+  buildRegex,
+  compileStringMatcher,
+  type SearchState,
+} from '@/utils/search-matcher'
 
-export type SearchState = {
-  text: string
-  matchCase: boolean
-  matchWholeWord: boolean
-  useRegularExpression: boolean
-}
+export type { SearchState }
 
 type SearchOptionState = Omit<SearchState, 'text'>
 

@@ -159,9 +159,7 @@ const ConnectionsPage = () => {
       if (networkFilter !== 'all' && network !== networkFilter) return false
       if (!hasSearch) return true
       return (
-        match(host || '') ||
-        match(destinationIP || '') ||
-        match(process || '')
+        match(host || '') || match(destinationIP || '') || match(process || '')
       )
     })
 
