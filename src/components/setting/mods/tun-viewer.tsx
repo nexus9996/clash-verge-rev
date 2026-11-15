@@ -323,14 +323,15 @@ export function TunViewer({ ref }: { ref?: Ref<DialogRef> }) {
             autoCapitalize="off"
             spellCheck="false"
             sx={{ width: 250 }}
-            value={values.mtu}
+            value={values.mtu ?? ''}
             placeholder="1500"
-            onChange={(e) =>
+            onChange={(e) => {
+              const next = Number.parseInt(e.target.value, 10)
               setValues((v) => ({
                 ...v,
-                mtu: parseInt(e.target.value),
+                mtu: Number.isNaN(next) ? undefined : next,
               }))
-            }
+            }}
           />
         </ListItem>
 
