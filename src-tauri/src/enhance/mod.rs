@@ -380,31 +380,40 @@ impl AuthoritativeFields {
         }
     }
 
-    /// Owned keys an override moved off the app value; `enforce` discards those writes.
+    /// Owned keys an override set to a conflicting value; `enforce` discards those writes.
     fn overridden(&self, before: &Self, after: &Self) -> Vec<String> {
         let mut keys = Vec::new();
         for &key in CONTROL_PLANE_KEYS {
-            if before.control_plane.get(key) != after.control_plane.get(key)
-                && after.control_plane.get(key) != self.control_plane.get(key)
-            {
+            if conflicting_write(
+                before.control_plane.get(key),
+                after.control_plane.get(key),
+                self.control_plane.get(key),
+            ) {
                 keys.push(key.into());
             }
         }
         for key in self.tun.keys() {
-            if before.tun.get(key) != after.tun.get(key) && after.tun.get(key) != self.tun.get(key) {
+            if conflicting_write(before.tun.get(key), after.tun.get(key), self.tun.get(key)) {
                 keys.push(format!("tun.{}", key.as_str().unwrap_or_default()).into());
             }
         }
         for key in self.dns.keys() {
-            if before.dns.get(key) != after.dns.get(key) && after.dns.get(key) != self.dns.get(key) {
+            if conflicting_write(before.dns.get(key), after.dns.get(key), self.dns.get(key)) {
                 keys.push(format!("dns.{}", key.as_str().unwrap_or_default()).into());
             }
         }
-        if self.hosts.is_some() && before.hosts != after.hosts && after.hosts != self.hosts {
+        if self.hosts.is_some() && conflicting_write(before.hosts.as_ref(), after.hosts.as_ref(), self.hosts.as_ref()) {
             keys.push("hosts".into());
         }
         keys
     }
+}
+
+/// A discarded write names a value the override actually set. Dropping an owned key is not a
+/// write: enforcement restores it without contradicting anything the override said, so it must
+/// not be reported as a discarded setting.
+fn conflicting_write(before: Option<&Value>, after: Option<&Value>, owned: Option<&Value>) -> bool {
+    after.is_some() && after != before && after != owned
 }
 
 fn discarded_note(key: String) -> (String, String) {
@@ -1398,6 +1407,33 @@ mod authoritative_field_tests {
         let result = authoritative.enforce(overridden);
 
         assert_eq!(result.get(Value::from("profile-key")), Some(&Value::from(1)));
+    }
+
+    #[test]
+    fn omitting_owned_fields_is_not_a_discarded_write() {
+        let mut tun = Mapping::new();
+        tun.insert(Value::from("stack"), Value::from("mips"));
+        tun.insert(Value::from("mtu"), Value::from(1500));
+        let derived = config_with(&[("mode", Value::from("rule")), ("tun", Value::Mapping(tun))]);
+        let gui_tun_keys = vec![Value::from("stack"), Value::from("mtu")];
+        let authoritative = AuthoritativeFields::capture(&derived, &gui_tun_keys, Mapping::new());
+
+        // A script replaces the tun block with unrelated keys and drops the app-owned ones.
+        let mut scripted_tun = Mapping::new();
+        scripted_tun.insert(Value::from("gso"), Value::from(true));
+        let replaced = config_with(&[("mode", Value::from("rule")), ("tun", Value::Mapping(scripted_tun))]);
+        assert!(
+            authoritative
+                .overridden(&authoritative, &authoritative.current(&replaced))
+                .is_empty(),
+            "dropping an owned key is not a write; enforcement restores it silently"
+        );
+
+        // An explicit conflicting value is still reported.
+        let conflicting = config_with(&[("mode", Value::from("global"))]);
+        let discarded = authoritative.overridden(&authoritative, &authoritative.current(&conflicting));
+        assert_eq!(discarded.len(), 1);
+        assert!(discarded[0] == "mode");
     }
 
     #[test]
