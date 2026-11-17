@@ -7,8 +7,8 @@
 
 use anyhow::{Context as _, Result};
 use keyring_core::{Entry, set_default_store};
-use smartstring::alias::String;
 use std::sync::Once;
+use tristr::alias::String;
 
 const WEBDAV_SERVICE: &str = "clash-verge-rev";
 const WEBDAV_ACCOUNT: &str = "webdav-password";

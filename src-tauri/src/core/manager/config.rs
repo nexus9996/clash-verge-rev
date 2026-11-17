@@ -15,7 +15,6 @@ use clash_verge_draft::{DraftTransaction, SharedDraft};
 use clash_verge_logging::{Type, logging};
 use clash_verge_service_ipc::{RuntimeBundle, StageRuntimeOutcome};
 use serde_yaml_ng::Mapping;
-use smartstring::alias::String;
 use std::{
     collections::HashSet,
     hash::{DefaultHasher, Hasher as _},
@@ -25,6 +24,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tauri_plugin_mihomo::Error as MihomoError;
+use tristr::alias::String;
 
 /// A staging result separated from the policy that acts on it.
 #[derive(Debug, Clone, PartialEq, Eq)]

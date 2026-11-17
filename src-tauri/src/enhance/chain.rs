@@ -5,9 +5,9 @@ use crate::{
 };
 use clash_verge_logging::{Type, logging};
 use serde_yaml_ng::Mapping;
-use smartstring::alias::String;
 use std::sync::Arc;
 use tokio::fs;
+use tristr::alias::String;
 
 #[derive(Debug, Clone)]
 pub struct ChainItem {

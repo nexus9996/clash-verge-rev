@@ -10,11 +10,10 @@ use crate::{
 use anyhow::{Result, bail};
 use clash_verge_logging::{Type, logging};
 use futures::stream::{self, StreamExt as _};
-use smartstring::alias::String;
 
 /// Toggle proxy profile
-pub async fn toggle_proxy_profile(profile_index: String) {
-    if let Err(err) = cmd::patch_profiles_config_by_profile_index(profile_index.clone()).await {
+pub async fn toggle_proxy_profile(profile_index: &str) {
+    if let Err(err) = cmd::patch_profiles_config_by_profile_index(profile_index.into()).await {
         logging!(
             error,
             Type::Config,
@@ -119,7 +118,7 @@ pub async fn switch_proxy_node(group_name: &str, proxy_name: &str, unfix: bool) 
     Ok(())
 }
 
-async fn should_update_profile(uid: &String, ignore_auto_update: bool) -> Result<Option<(String, Option<PrfOption>)>> {
+async fn should_update_profile(uid: &str, ignore_auto_update: bool) -> Result<Option<(String, Option<PrfOption>)>> {
     let profiles = Config::profiles().await;
     let profiles = profiles.latest_arc();
     let item = profiles.get_item(uid)?;
@@ -146,7 +145,10 @@ async fn should_update_profile(uid: &String, ignore_auto_update: bool) -> Result
             )
         );
         Ok(Some((
-            item.url.clone().ok_or_else(|| anyhow::anyhow!("Profile URL is None"))?,
+            item.url
+                .as_ref()
+                .map(|url| url.as_str().into())
+                .ok_or_else(|| anyhow::anyhow!("Profile URL is None"))?,
             item.option.clone(),
         )))
     }
@@ -154,8 +156,8 @@ async fn should_update_profile(uid: &String, ignore_auto_update: bool) -> Result
 
 #[tracing::instrument(skip_all, level = "info", fields(uid = %uid, strategy = tracing::field::Empty, configured_elapsed = tracing::field::Empty, clash_elapsed = tracing::field::Empty, system_elapsed = tracing::field::Empty))]
 async fn perform_profile_update(
-    uid: &String,
-    url: &String,
+    uid: &str,
+    url: &str,
     opt: Option<&PrfOption>,
     option: Option<&PrfOption>,
     is_manual_trigger: bool,
@@ -166,8 +168,8 @@ async fn perform_profile_update(
     let profile_name = profiles_arc
         .get_item(uid)
         .ok()
-        .and_then(|item| item.name.clone())
-        .unwrap_or_else(|| String::from("UnKnown Profile"));
+        .and_then(|item| item.name.as_deref())
+        .map_or_else(|| String::from("UnKnown Profile"), |name| name.into());
 
     #[derive(Clone, Copy)]
     enum Strategy {
@@ -250,7 +252,7 @@ async fn perform_profile_update(
 }
 
 #[tracing::instrument(skip_all, level = "info", fields(uid = %uid, manual = is_manual_trigger))]
-pub async fn update_profile(uid: &String, option: Option<&PrfOption>, is_manual_trigger: bool) -> Result<()> {
+pub async fn update_profile(uid: &str, option: Option<&PrfOption>, is_manual_trigger: bool) -> Result<()> {
     let url_opt = should_update_profile(uid, is_manual_trigger).await?;
 
     let profile_persisted = match url_opt {
@@ -261,7 +263,7 @@ pub async fn update_profile(uid: &String, option: Option<&PrfOption>, is_manual_
         None => false,
     };
     let profiles = Config::profiles().await;
-    let is_current = profiles.latest_arc().current.as_ref() == Some(uid);
+    let is_current = profiles.latest_arc().current.as_deref() == Some(uid);
     let should_refresh = is_current || (!profile_persisted && is_manual_trigger);
 
     if should_refresh {

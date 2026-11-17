@@ -20,7 +20,6 @@ use tokio::fs;
 
 use super::handle;
 use anyhow::Result;
-use smartstring::alias::String;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::time::Duration;
@@ -29,6 +28,7 @@ use tauri::{
     AppHandle, DynRuntime,
     menu::{CheckMenuItem, IsMenuItem, MenuEvent, MenuItem, PredefinedMenuItem, Submenu},
 };
+use tristr::alias::String;
 
 mod menu_def;
 mod menu_state;
@@ -460,9 +460,6 @@ impl Tray {
         let verge = Config::verge().await.data_arc();
         let app_handle = handle::Handle::app_handle();
         self.update_menu_internal(app_handle, false).await?;
-        AsyncHandler::spawn(|| async {
-            logging_error!(Type::Tray, Self::global().update_menu().await);
-        });
         self.update_icon(&verge).await?;
         #[cfg(target_os = "macos")]
         self.update_speed_task(verge.enable_tray_speed.unwrap_or(false));
@@ -1091,7 +1088,7 @@ fn on_menu_event(_: &AppHandle, event: MenuEvent) {
                     Some(index_str) => index_str,
                     None => return,
                 };
-                feat::toggle_proxy_profile(profile_index.into()).await;
+                feat::toggle_proxy_profile(profile_index).await;
             }
             id if id.starts_with("proxy_") => {
                 let Some((group_name, proxy_name)) = parse_proxy_item_id(id) else {

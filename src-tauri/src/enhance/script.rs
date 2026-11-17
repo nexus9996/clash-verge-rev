@@ -6,8 +6,7 @@ use clash_verge_logging::{Type, logging};
 use parking_lot::Mutex;
 use rquickjs::{Context, Function, Runtime};
 use serde::ser::SerializeMap as _;
-use serde_yaml_ng::Mapping;
-use smartstring::alias::String;
+use serde_yaml_ng::{Mapping, Value};
 use std::{
     cell::RefCell,
     sync::Arc,
@@ -47,8 +46,15 @@ var console = Object.freeze({
   table(data){__verge_push_log("table",data)},
 });"#;
 
-type ScriptResult = (Mapping, Vec<String>, Vec<(String, String)>);
-type EvalOutcome = (Result<Mapping, std::string::String>, Vec<(String, String)>);
+type ScriptResult = (
+    Mapping,
+    Vec<tristr::alias::String>,
+    Vec<(tristr::alias::String, tristr::alias::String)>,
+);
+type EvalOutcome = (
+    Result<Mapping, std::string::String>,
+    Vec<(tristr::alias::String, tristr::alias::String)>,
+);
 
 // One runtime per worker thread: creating a QuickJS runtime per script is measurable and the
 // runtime stays usable for later script runs on the same thread.
@@ -75,13 +81,13 @@ fn with_runtime<T>(f: impl FnOnce(&Runtime) -> Result<T, std::string::String>) -
 
 #[derive(Default)]
 struct SandboxState {
-    outputs: Vec<(String, String)>,
+    outputs: Vec<(tristr::alias::String, tristr::alias::String)>,
     total_size: usize,
     aborted: Option<&'static str>,
 }
 
 impl SandboxState {
-    fn push_output(&mut self, level: std::string::String, data: std::string::String) {
+    fn push_output(&mut self, level: tristr::alias::String, data: std::string::String) {
         if self.aborted.is_some() {
             return;
         }
@@ -95,7 +101,7 @@ impl SandboxState {
             return;
         }
         self.total_size = new_size;
-        self.outputs.push((level.into(), data.into()));
+        self.outputs.push((level, data.into()));
     }
 }
 
@@ -116,22 +122,24 @@ impl serde::Serialize for LowercaseKeys<'_> {
 }
 
 /// Never fails: exceptions are logged and the input config is returned unchanged.
-pub(super) async fn use_script(script: String, config: Mapping, name: String) -> ScriptResult {
+pub(super) async fn use_script(script: String, config: Mapping, name: &tristr::alias::String) -> ScriptResult {
+    let original = config.clone();
     // The template is identity-plus-lowercasing; skip the engine round-trip.
     if script == tmpl::ITEM_SCRIPT {
-        return (use_lowercase(&config), vec![], vec![]);
+        return (use_lowercase(config), vec![], vec![]);
     }
 
-    let json = match serde_json::to_string(&LowercaseKeys(&config)) {
+    let json = match serde_json::to_string(&LowercaseKeys(&original)) {
         Ok(json) if json.len() <= MAX_JSON_SIZE => json,
         Ok(_) => {
             let message = "Configuration size exceeds maximum allowed size";
-            return (config, vec![], vec![("exception".into(), message.into())]);
+            return (original, vec![], vec![("exception".into(), message.into())]);
         }
-        Err(err) => return (config, vec![], vec![("exception".into(), err.to_string().into())]),
+        Err(err) => return (original, vec![], vec![("exception".into(), err.to_string().into())]),
     };
 
-    let mut evaluated = AsyncHandler::spawn_blocking(move || eval_script(&script, &json, &name, SCRIPT_TIMEOUT));
+    let script_name = name.to_owned();
+    let mut evaluated = AsyncHandler::spawn_blocking(move || eval_script(&script, &json, &script_name, SCRIPT_TIMEOUT));
     let (outcome, mut logs) = match tokio::time::timeout(SCRIPT_TIMEOUT, &mut evaluated).await {
         Ok(Ok(evaluated)) => evaluated,
         Ok(Err(join_err)) => (Err(format!("script task panicked: {join_err}")), vec![]),
@@ -150,24 +158,27 @@ pub(super) async fn use_script(script: String, config: Mapping, name: String) ->
             // Compared against the config as handed in, not the lowercased copy the script saw.
             let changed_keys = result
                 .iter()
-                .filter(|(key, value)| config.get(key) != Some(value))
-                .filter_map(|(key, _)| {
-                    let mut key: String = key.as_str()?.into();
-                    key.make_ascii_lowercase();
-                    Some(key)
+                .filter(|(key, value)| {
+                    key.as_str()
+                        .is_none_or(|key| original.get(Value::from(key)) != Some(value))
                 })
-                .collect();
+                .filter_map(|(key, _)| {
+                    let mut key = key.as_str()?.to_owned();
+                    key.make_ascii_lowercase();
+                    Some(key.into())
+                })
+                .collect::<Vec<tristr::alias::String>>();
             (result, changed_keys, logs)
         }
         Err(reason) => {
-            logs.push(("exception".into(), reason.into()));
-            (config, vec![], logs)
+            logs.push(("exception".into(), reason.as_str().into()));
+            (original, vec![], logs)
         }
     }
 }
 
 /// Runs one script under the engine limits; console logs survive every failure path.
-fn eval_script(script: &str, config_json: &str, name: &String, timeout: Duration) -> EvalOutcome {
+fn eval_script(script: &str, config_json: &str, name: &str, timeout: Duration) -> EvalOutcome {
     let state = Arc::new(Mutex::new(SandboxState::default()));
     let deadline = Instant::now() + timeout;
     let state_for_interrupt = Arc::clone(&state);
@@ -201,7 +212,7 @@ fn eval_in_context(
     runtime: &Runtime,
     script: &str,
     config_json: &str,
-    name: &String,
+    name: &str,
     state: &Arc<Mutex<SandboxState>>,
 ) -> Result<Mapping, std::string::String> {
     let abort_reason = || state.lock().aborted.map(str::to_owned);
@@ -212,7 +223,7 @@ fn eval_in_context(
         let log = Function::new(
             ctx.clone(),
             move |level: std::string::String, data: std::string::String| {
-                log_state.lock().push_output(level, data);
+                log_state.lock().push_output(level.into(), data);
             },
         )
         .map_err(|err| format!("Failed to register the script logger: {err}"))?;
@@ -258,7 +269,7 @@ JSON.stringify(main(JSON.parse(globalThis.__verge_config__),'{safe_name}')||'')
         }
 
         match parse_json_safely(&result) {
-            Ok(config) => Ok(use_lowercase(&config)),
+            Ok(config) => Ok(use_lowercase(config)),
             Err(err) => {
                 logging!(
                     error,
@@ -326,7 +337,7 @@ fn escape_js_string_for_single_quote(s: &str) -> String {
         }
     }
 
-    escaped.into()
+    escaped
 }
 
 #[cfg(test)]
@@ -335,12 +346,11 @@ mod tests {
     use super::{LowercaseKeys, MAX_OUTPUTS, eval_script, with_runtime};
     use crate::enhance::field::use_lowercase;
     use serde_yaml_ng::Mapping;
-    use smartstring::alias::String;
     use std::time::{Duration, Instant};
 
     fn run(script: &str, config_json: &str) -> super::EvalOutcome {
-        let name: String = "test-profile".into();
-        eval_script(script, config_json, &name, Duration::from_secs(1))
+        let name = "test-profile";
+        eval_script(script, config_json, name, Duration::from_secs(1))
     }
 
     /// Runs a script against a JSON config and returns the transformed config as JSON.
@@ -365,7 +375,7 @@ nested:
 
         assert_eq!(
             serde_json::to_value(LowercaseKeys(&config))?,
-            serde_json::to_value(use_lowercase(&config))?
+            serde_json::to_value(use_lowercase(config))?
         );
         Ok(())
     }
@@ -435,12 +445,12 @@ nested:
 
     #[test]
     fn runaway_loop_is_interrupted_by_the_deadline() {
-        let name: String = "test-profile".into();
+        let name = "test-profile";
         let started = std::time::Instant::now();
         let (outcome, _logs) = eval_script(
             r"function main() { while (true) {} }",
             "{}",
-            &name,
+            name,
             Duration::from_millis(200),
         );
         let reason = outcome.expect_err("runaway loop should be interrupted");
@@ -656,7 +666,7 @@ nested:
             return config;
         }"#;
         let config_json = r#"{"proxies":[{"name":"alpha","type":"ss"},{"name":"beta","type":"trojan"}],"rules":["DOMAIN-SUFFIX,alpha.example.com,PROXY"]}"#;
-        let name: String = "test-profile".into();
+        let name = "test-profile";
 
         let measure = || {
             with_runtime(|runtime| {
@@ -669,13 +679,13 @@ nested:
         // The thread-local runtime keeps bounded one-time state: interned atoms, compiled shapes and
         // shape-hash capacity. Warm it up so the assertion below observes only per-run growth.
         for _ in 0..100 {
-            let (outcome, _logs) = eval_script(script, config_json, &name, Duration::from_secs(1));
+            let (outcome, _logs) = eval_script(script, config_json, name, Duration::from_secs(1));
             outcome.expect("warm-up script should succeed");
         }
         let baseline = measure();
 
         for _ in 0..100 {
-            let (outcome, _logs) = eval_script(script, config_json, &name, Duration::from_secs(1));
+            let (outcome, _logs) = eval_script(script, config_json, name, Duration::from_secs(1));
             outcome.expect("repeated script should succeed");
         }
 

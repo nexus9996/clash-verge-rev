@@ -26,10 +26,10 @@ use anyhow::{Context as _, Result};
 use clash_verge_logging::{Type, logging};
 use parking_lot::Mutex;
 use serde_yaml_ng::{Mapping, Value};
-use smartstring::alias::String;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::fs;
+use tristr::alias::String;
 
 type ResultLog = Vec<(String, String)>;
 type EnhancedProfile = (Mapping, HashSet<String>, HashMap<String, ResultLog>, DnsOverrideState);
@@ -247,17 +247,18 @@ async fn process_override_items(
     mut result_map: HashMap<String, ResultLog>,
     merge_item: ChainItem,
     script_item: ChainItem,
-    profile_name: &String,
+    name: &tristr::alias::String,
     authoritative: &AuthoritativeFields,
 ) -> (Mapping, Vec<String>, HashMap<String, ResultLog>) {
     if let ChainType::Merge(merge) = merge_item.data {
         exists_keys.extend(use_keys(&merge));
         let before = authoritative.current(&config);
-        config = use_merge(&merge, config);
+        config = use_merge(Arc::unwrap_or_clone(merge), config);
         let notes: ResultLog = authoritative
             .overridden(&before, &authoritative.current(&config))
             .into_iter()
-            .map(discarded_note)
+            .map(|key| discarded_note(key.as_str().to_owned()))
+            .map(|note| (note.0.into(), note.1.into()))
             .collect();
         if !notes.is_empty() {
             result_map.entry(merge_item.uid).or_default().extend(notes);
@@ -266,14 +267,17 @@ async fn process_override_items(
 
     if let ChainType::Script(script) = script_item.data {
         let before = authoritative.current(&config);
-        let (res_config, changed_keys, mut logs) = use_script(script, config, profile_name.clone()).await;
+        let (res_config, changed_keys, mut logs) = use_script(script.to_string(), config, name).await;
         exists_keys.extend(changed_keys);
         config = res_config;
         logs.extend(
             authoritative
                 .overridden(&before, &authoritative.current(&config))
                 .into_iter()
-                .map(discarded_note),
+                .map(|key| {
+                    let (level, message) = discarded_note(key.as_str().to_owned());
+                    (level.into(), message.into())
+                }),
         );
         result_map.insert(script_item.uid, logs);
     }
@@ -385,9 +389,9 @@ impl AuthoritativeFields {
         let mut keys = Vec::new();
         for &key in CONTROL_PLANE_KEYS {
             if conflicting_write(
-                before.control_plane.get(key),
-                after.control_plane.get(key),
-                self.control_plane.get(key),
+                before.control_plane.get(Value::from(key)),
+                after.control_plane.get(Value::from(key)),
+                self.control_plane.get(Value::from(key)),
             ) {
                 keys.push(key.into());
             }
@@ -416,10 +420,10 @@ fn conflicting_write(before: Option<&Value>, after: Option<&Value>, owned: Optio
     after.is_some() && after != before && after != owned
 }
 
-fn discarded_note(key: String) -> (String, String) {
+fn discarded_note(key: std::string::String) -> (std::string::String, std::string::String) {
     (
         "warn".into(),
-        format!("`{key}` is managed by Settings; the value written here was discarded").into(),
+        format!("`{key}` is managed by Settings; the value written here was discarded"),
     )
 }
 
@@ -580,16 +584,15 @@ fn merge_default_config(
 ) -> Mapping {
     for (key, value) in clash_config.into_iter() {
         if key.as_str() == Some("tun") {
-            let mut tun = config.get_mut("tun").map_or_else(Mapping::new, |val| {
-                val.as_mapping().cloned().unwrap_or_else(Mapping::new)
-            });
-            let patch_tun = value.as_mapping().cloned().unwrap_or_else(Mapping::new);
-            for (key, value) in patch_tun.into_iter() {
-                if !value.is_null() {
-                    tun.insert(key, value);
+            if let Value::Mapping(patch_tun) = value {
+                let mut tun = take_mapping(&mut config, "tun");
+                for (key, value) in patch_tun {
+                    if !value.is_null() {
+                        tun.insert(key, value);
+                    }
                 }
+                config.insert(Value::from("tun"), Value::Mapping(tun));
             }
-            config.insert("tun".into(), tun.into());
         } else {
             if key.as_str() == Some("socks-port") && !socks_enabled {
                 config.remove("socks-port");
@@ -644,7 +647,7 @@ fn merge_default_config(
 fn apply_builtin_scripts(mut config: Mapping, enable_builtin: bool) -> Mapping {
     if enable_builtin {
         // The JS path saw a lowercased view; lowercase once, only when the builtin runs.
-        config = use_lowercase(&config);
+        config = use_lowercase(config);
         logging!(debug, Type::Core, "run builtin script verge_hy_alpn");
         config = builtin_hy_alpn(config);
     }
@@ -676,11 +679,8 @@ fn cleanup_proxy_groups(mut config: Mapping) -> Mapping {
         .map_or_default(|seq| {
             seq.iter()
                 .filter_map(|item| match item {
-                    Value::Mapping(map) => map
-                        .get("name")
-                        .and_then(Value::as_str)
-                        .map(|name| name.to_owned().into()),
-                    Value::String(name) => Some(name.to_owned().into()),
+                    Value::Mapping(map) => map.get("name").and_then(Value::as_str).map(Into::into),
+                    Value::String(name) => Some(name.as_str().into()),
                     _ => None,
                 })
                 .collect::<HashSet<String>>()
@@ -1551,7 +1551,7 @@ mod tests {
                 uid: uid.into(),
                 data: ChainType::Merge(Arc::new(merge.clone())),
             };
-            let profile_name = "test-profile".into();
+            let profile_name: tristr::alias::String = "test-profile".into();
             let (config, keys, logs) = process_override_items(
                 config,
                 vec![],
@@ -1650,7 +1650,7 @@ mod tests {
             ),
         };
 
-        let profile_name = "test-profile".into();
+        let profile_name: tristr::alias::String = "test-profile".into();
         let authoritative = AuthoritativeFields::capture(&config, &[], Mapping::new());
         let (config, exists_keys, result_map) = process_override_items(
             config,

@@ -8,7 +8,6 @@ use crate::{
 use anyhow::{Context as _, anyhow};
 use clash_verge_draft::SharedDraft;
 use serde::ser::SerializeMap as _;
-use smartstring::alias::String;
 use std::collections::{HashMap, HashSet};
 
 /// Bulky sections the frontend reads from mihomo APIs instead of Runtime Config.
@@ -70,10 +69,7 @@ pub async fn get_runtime_logs() -> CmdResult<RuntimeLogs> {
 
 #[derive(serde::Serialize, specta::Type)]
 #[serde(transparent)]
-pub struct RuntimeLogs(
-    #[specta(type = HashMap<std::string::String, Vec<(std::string::String, std::string::String)>>)]
-    HashMap<String, Vec<(String, String)>>,
-);
+pub struct RuntimeLogs(HashMap<String, Vec<(String, String)>>);
 
 #[tauri::command]
 #[specta::specta]
@@ -225,7 +221,7 @@ pub async fn update_proxy_chain_config_in_runtime(
 
 /// Converts the frontend payload — a sequence of node names, or `None` to
 /// disconnect — into the persisted shape. Non-string entries are rejected.
-fn parse_proxy_chain(value: Option<crate::ipc::YamlValue>) -> CmdResult<Option<Vec<String>>> {
+fn parse_proxy_chain(value: Option<crate::ipc::YamlValue>) -> CmdResult<Option<Vec<tristr::alias::String>>> {
     let Some(value) = value else {
         return Ok(None);
     };

@@ -205,12 +205,7 @@ fn is_short_id(key: &Value) -> bool {
 pub async fn save_yaml<T: Serialize + Sync>(path: &Path, data: &T, prefix: Option<&str>) -> Result<()> {
     let data_str = with_encryption(|| async { serde_yaml_ng::to_string(data) }).await?;
 
-    let yaml_str = match prefix {
-        Some(prefix) => format!("{prefix}\n\n{data_str}"),
-        None => data_str,
-    };
-
-    save_yaml_str(path, &yaml_str).await
+    save_yaml_str(path, &data_str, prefix).await
 }
 
 /// Preserves an existing mode only when it is at least as restrictive as the 0600 temporary file.
@@ -226,8 +221,11 @@ fn existing_permissions_to_preserve(metadata: &std::fs::Metadata) -> Option<std:
 }
 
 /// Atomic replace with pre-serialized content; the payload must not need the encryption scope.
-pub async fn save_yaml_str(path: &Path, yaml_str: &str) -> Result<()> {
-    save_bytes_atomic(path, yaml_str.as_bytes()).await
+pub async fn save_yaml_str(path: &Path, yaml_str: &str, prefix: Option<&str>) -> Result<()> {
+    match prefix {
+        Some(prefix) => save_bytes_atomic(path, format!("{prefix}\n\n{yaml_str}").as_bytes()).await,
+        None => save_bytes_atomic(path, yaml_str.as_bytes()).await,
+    }
 }
 
 /// Atomically replaces `path` with `bytes` via a temporary file and rename.
@@ -308,6 +306,16 @@ pub fn parse_str<T: FromStr>(target: &str, key: &str) -> Option<T> {
             _ => None,
         }
     })
+}
+
+pub fn hex_encode(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for &byte in bytes {
+        out.push(HEX[usize::from(byte >> 4)] as char);
+        out.push(HEX[usize::from(byte & 0x0f)] as char);
+    }
+    out
 }
 
 /// Masks query values and token-like path segments for logging.

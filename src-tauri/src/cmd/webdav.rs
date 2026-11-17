@@ -5,7 +5,7 @@ use crate::{
     core, feat,
 };
 use clash_verge_draft::DraftTransaction;
-use smartstring::alias::String;
+use tristr::alias::String;
 
 #[tauri::command]
 #[specta::specta]

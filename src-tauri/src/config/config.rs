@@ -20,10 +20,10 @@ use backon::{ExponentialBuilder, Retryable as _};
 use clash_verge_draft::Draft;
 use clash_verge_logging::{Type, logging, logging_error};
 use serde_yaml_ng::{Mapping, Value};
-use smartstring::alias::String;
 use std::{collections::HashSet, path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::{Mutex, MutexGuard, OnceCell};
 use tokio::time::sleep;
+use tristr::alias::String;
 
 async fn wait_for_lock<T>(timeout: Duration, acquire: impl std::future::Future<Output = T>) -> Result<T> {
     match tokio::time::timeout(timeout, acquire).await {
@@ -261,7 +261,7 @@ impl Config {
     )]
     pub(crate) async fn write_runtime_file(yaml: &str) -> Result<PathBuf> {
         let path = dirs::app_home_dir()?.join(files::RUNTIME_CONFIG);
-        help::save_yaml_str(&path, yaml).await?;
+        help::save_yaml_str(&path, yaml, None).await?;
         Ok(path)
     }
 
@@ -301,8 +301,19 @@ impl Config {
             *d = IRuntime {
                 config: Some(config),
                 dns_override: Some(dns_override),
-                exists_keys,
-                chain_logs: logs,
+                exists_keys: exists_keys.into_iter().map(std::string::String::from).collect(),
+                chain_logs: logs
+                    .into_iter()
+                    .map(|(key, value)| {
+                        (
+                            key.to_string(),
+                            value
+                                .into_iter()
+                                .map(|(now, next)| (now.to_string(), next.to_string()))
+                                .collect(),
+                        )
+                    })
+                    .collect(),
                 revision,
                 ..IRuntime::default()
             }

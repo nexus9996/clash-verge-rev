@@ -11,8 +11,8 @@ use crate::{
     utils::{dirs, help},
 };
 use clash_verge_logging::{Type, logging};
-use smartstring::alias::String;
 use tokio::fs;
+use tristr::alias::String;
 
 /// 保存profiles的配置
 #[tauri::command]
@@ -70,7 +70,9 @@ pub async fn save_profile_file(
     };
 
     // 保存新的配置文件（原子替换，避免中断留下半截文件）
-    help::save_yaml_str(&file_path, &file_data).await.stringify_err()?;
+    help::save_yaml_str(&file_path, &file_data, None)
+        .await
+        .stringify_err()?;
 
     let changes_applied = handle_saved_profile_file(
         &file_path_str,
@@ -98,7 +100,9 @@ async fn restore_original(
     original_existed: bool,
 ) -> CmdResult<()> {
     if original_existed {
-        help::save_yaml_str(file_path, original_content).await.stringify_err()
+        help::save_yaml_str(file_path, original_content, None)
+            .await
+            .stringify_err()
     } else {
         fs::remove_file(file_path).await.stringify_err()
     }

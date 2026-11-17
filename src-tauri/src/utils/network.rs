@@ -6,7 +6,6 @@ use reqwest::{
     Client, Proxy, StatusCode,
     header::{CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT},
 };
-use smartstring::alias::String;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex, OnceLock},
@@ -14,6 +13,7 @@ use std::{
 };
 use sysproxy::Sysproxy;
 use tauri::Url;
+use tristr::alias::String;
 
 const MAX_TEXT_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
 

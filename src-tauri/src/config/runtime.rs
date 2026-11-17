@@ -1,5 +1,4 @@
 use serde_yaml_ng::{Mapping, Value};
-use smartstring::alias::String;
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,

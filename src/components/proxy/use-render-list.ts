@@ -19,7 +19,7 @@ import {
 } from '@/types/proxy-view'
 import { debugLog } from '@/utils/debug'
 
-import { filterSort } from './use-filter-sort'
+import { filterSort, isDelayFilter } from './use-filter-sort'
 import {
   DEFAULT_STATE,
   useHeadStateNew,
@@ -363,13 +363,39 @@ export const useRenderList = (
     return current?.kind === 'group' ? [global, current.group] : [global]
   }, [mode, proxyView])
 
-  // Every group this list draws, so a test settling in any of them re-sorts that group.
+  const repeatedNameGroups = useMemo(() => {
+    const repeated = new Set<string>()
+    if (isChainMode) return repeated
+    for (const group of renderGroups) {
+      const names = new Set<string>()
+      if (
+        group.members.some(({ name }) => {
+          if (names.has(name)) return true
+          names.add(name)
+          return false
+        })
+      ) {
+        repeated.add(group.name)
+      }
+    }
+    return repeated
+  }, [isChainMode, renderGroups])
+
+  // Rows own delay updates unless repeated names share the current item listener.
   const renderedGroupNames = useMemo(() => {
-    if (!proxyView) return []
-    if (isChainMode)
-      return selectedGroup ? [selectedGroup] : [CHAIN_DELAY_GROUP]
-    return renderGroups.map(({ name }) => name)
-  }, [isChainMode, proxyView, renderGroups, selectedGroup])
+    if (!proxyView || isChainMode) return []
+    return renderGroups
+      .filter((group) => {
+        const state = headStates[group.name] || DEFAULT_STATE
+        return (
+          (state.open || group === proxyView.global) &&
+          (state.sortType === 1 ||
+            isDelayFilter(state.filterText) ||
+            repeatedNameGroups.has(group.name))
+        )
+      })
+      .map(({ name }) => name)
+  }, [headStates, isChainMode, proxyView, renderGroups, repeatedNameGroups])
   const groupDelays = useGroupsDelays(renderedGroupNames)
 
   const groupCacheRef = useRef<Map<string, GroupCache>>(new Map())

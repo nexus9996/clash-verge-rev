@@ -1,6 +1,5 @@
 use anyhow::Result;
 use serde::Serialize;
-use smartstring::alias::String;
 use std::{
     fmt,
     hash::{DefaultHasher, Hash as _, Hasher as _},
@@ -11,6 +10,7 @@ use std::{
 };
 use tauri_plugin_shell::ShellExt as _;
 use tokio::fs;
+use tristr::alias::String;
 
 use crate::config::Config;
 use crate::core::handle;
@@ -140,14 +140,8 @@ impl fmt::Display for ValidationSkipReason {
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum ValidationOutcome {
     Valid,
-    Invalid {
-        kind: ValidationErrorKind,
-        #[specta(type = std::string::String)]
-        message: String,
-    },
-    Skipped {
-        reason: ValidationSkipReason,
-    },
+    Invalid { kind: ValidationErrorKind, message: String },
+    Skipped { reason: ValidationSkipReason },
     Busy,
 }
 
@@ -508,11 +502,11 @@ impl CoreConfigValidator {
         }
 
         let check_path = dirs::app_home_dir()?.join(crate::constants::files::CHECK_CONFIG);
-        help::save_yaml_str(&check_path, yaml).await?;
         // Remove the temporary check file on every exit path, not only after a valid run.
         let _cleanup = DropGuard::new(check_path.clone(), |path| {
             let _ = std::fs::remove_file(path);
         });
+        help::save_yaml_str(&check_path, yaml, None).await?;
         let outcome = Self::validate_config_internal_outcome(dirs::path_to_str(&check_path)?).await?;
         if outcome.is_valid() {
             *LAST_VALIDATED.lock() = Some(fingerprint);

@@ -151,25 +151,49 @@ const mergeConnectionSnapshot = (
   const nextConnections = payload.connections ?? []
   const previousActive = previous.activeConnections ?? []
   const previousClosed = previous.closedConnections ?? []
-  const previousActiveById = new Map<string, IConnectionsItem>()
+  const sameOrder =
+    nextConnections.length === previousActive.length &&
+    nextConnections.every(
+      (connection, i) => connection.id === previousActive[i].id,
+    )
+  let previousActiveById: Map<string, IConnectionsItem> | undefined
 
-  for (let i = 0; i < previousActive.length; i++) {
-    const previousConnection = previousActive[i]
-    previousActiveById.set(previousConnection.id, previousConnection)
+  if (!sameOrder) {
+    previousActiveById = new Map()
+    for (let i = 0; i < previousActive.length; i++) {
+      const previousConnection = previousActive[i]
+      previousActiveById.set(previousConnection.id, previousConnection)
+    }
   }
 
-  const activeConnections: IConnectionsItem[] = []
+  let activeConnections = sameOrder ? previousActive : []
   for (let i = 0; i < nextConnections.length; i++) {
     const connection = nextConnections[i]
-    const previousConnection = previousActiveById.get(connection.id)
-    if (previousConnection) previousActiveById.delete(connection.id)
-    activeConnections.push(normalizeConnection(connection, previousConnection))
+    const previousConnection = sameOrder
+      ? previousActive[i]
+      : previousActiveById?.get(connection.id)
+    previousActiveById?.delete(connection.id)
+    const normalized = normalizeConnection(connection, previousConnection)
+    if (activeConnections[i] === normalized) continue
+    if (activeConnections === previousActive) {
+      activeConnections = previousActive.slice()
+    }
+    activeConnections[i] = normalized
   }
 
-  if (previousActiveById.size === 0) {
+  const uploadTotal = payload.uploadTotal ?? 0
+  const downloadTotal = payload.downloadTotal ?? 0
+  if (!previousActiveById?.size) {
+    if (
+      activeConnections === previousActive &&
+      uploadTotal === previous.uploadTotal &&
+      downloadTotal === previous.downloadTotal
+    ) {
+      return previous
+    }
     return {
-      uploadTotal: payload.uploadTotal ?? 0,
-      downloadTotal: payload.downloadTotal ?? 0,
+      uploadTotal,
+      downloadTotal,
       activeConnections,
       closedConnections: previousClosed,
     }
@@ -199,8 +223,8 @@ const mergeConnectionSnapshot = (
   }
 
   return {
-    uploadTotal: payload.uploadTotal ?? 0,
-    downloadTotal: payload.downloadTotal ?? 0,
+    uploadTotal,
+    downloadTotal,
     activeConnections,
     closedConnections,
   }

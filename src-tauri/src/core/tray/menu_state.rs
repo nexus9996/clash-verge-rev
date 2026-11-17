@@ -6,12 +6,12 @@ use crate::Type;
 use crate::config::{IProfiles, IVerge};
 use clash_verge_logging::logging_error;
 use parking_lot::Mutex;
-use smartstring::alias::String;
 use std::collections::HashMap;
 use tauri::menu::{CheckMenuItem, IsMenuItem, Submenu};
 use tauri::tray::TrayIcon;
 use tauri::{AppHandle, DynRuntime};
 use tauri_plugin_mihomo::models::Proxies;
+use tristr::alias::String;
 
 use super::{TrayMenuOptions, build_tray_menu, create_subcreate_proxy_menu_item};
 

@@ -12,9 +12,9 @@ use bytes::BytesMut;
 use clash_verge_draft::DraftTransaction;
 use clash_verge_logging::{Type, logging};
 use serde_yaml_ng::{Mapping, Value};
-use smartstring::alias::String;
 use std::sync::{Arc, LazyLock};
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+use tristr::alias::String;
 
 #[allow(clippy::expect_used)]
 static TLS_CONFIG: LazyLock<Arc<rustls::ClientConfig>> =
