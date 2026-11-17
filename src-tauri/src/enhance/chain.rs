@@ -4,8 +4,12 @@ use crate::{
     utils::{dirs, help},
 };
 use clash_verge_logging::{Type, logging};
+use parking_lot::Mutex;
 use serde_yaml_ng::Mapping;
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::{Arc, LazyLock};
+use std::time::SystemTime;
 use tokio::fs;
 use tristr::alias::String;
 
@@ -24,6 +28,14 @@ pub enum ChainType {
     Groups(SeqMap),
 }
 
+struct CachedChain {
+    mtime: SystemTime,
+    len: u64,
+    item: ChainItem,
+}
+
+static CHAIN_CACHE: LazyLock<Mutex<HashMap<PathBuf, CachedChain>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+
 impl ChainItem {
     pub async fn from_profile(item: &PrfItem) -> Option<Self> {
         let itype = item.itype.as_ref()?.as_str();
@@ -31,11 +43,16 @@ impl ChainItem {
         let uid = item.uid.clone().unwrap_or_else(|| "".into());
         let path = dirs::app_profiles_dir().ok()?.join(file.as_str());
 
-        if !path.exists() {
-            return None;
+        let meta = fs::metadata(&path).await.ok()?;
+        let (mtime, len) = (meta.modified().ok()?, meta.len());
+        if let Some(cached) = CHAIN_CACHE.lock().get(&path)
+            && cached.mtime == mtime
+            && cached.len == len
+        {
+            return Some(cached.item.clone());
         }
 
-        match itype {
+        let loaded = match itype {
             "script" => match fs::read_to_string(&path).await {
                 Ok(content) => Some(Self {
                     uid,
@@ -86,6 +103,16 @@ impl ChainItem {
                 }
             },
             _ => None,
-        }
+        }?;
+
+        CHAIN_CACHE.lock().insert(
+            path,
+            CachedChain {
+                mtime,
+                len,
+                item: loaded.clone(),
+            },
+        );
+        Some(loaded)
     }
 }

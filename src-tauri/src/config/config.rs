@@ -43,6 +43,9 @@ pub(crate) struct Config {
 
 static CONFIG_WRITE_LOCK: Mutex<()> = Mutex::const_new(());
 
+/// Serialized runtime yaml keyed by a hash of the Mapping it came from.
+static RUNTIME_YAML_CACHE: parking_lot::Mutex<Option<(u64, Arc<str>)>> = parking_lot::Mutex::new(None);
+
 impl Config {
     async fn global() -> &'static Self {
         static CONFIG: OnceCell<Config> = OnceCell::const_new();
@@ -233,8 +236,18 @@ impl Config {
                 .as_ref()
                 .or_else(|| runtime_data.config.as_ref())
                 .ok_or_else(|| anyhow!("failed to generate runtime config, might need to restart application"))?;
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            std::hash::Hash::hash(config, &mut hasher);
+            let key = std::hash::Hasher::finish(&hasher);
+            if let Some((cached_key, cached)) = RUNTIME_YAML_CACHE.lock().as_ref()
+                && *cached_key == key
+            {
+                return Ok::<_, anyhow::Error>(Arc::clone(cached));
+            }
             let yaml_str = yaml_emitter::to_runtime_config_string(config)?;
-            Ok::<_, anyhow::Error>(Arc::<str>::from(format!("{RUNTIME_YAML_HEADER}{yaml_str}")))
+            let yaml: Arc<str> = Arc::from(format!("{RUNTIME_YAML_HEADER}{yaml_str}"));
+            *RUNTIME_YAML_CACHE.lock() = Some((key, Arc::clone(&yaml)));
+            Ok(yaml)
         })
         .await
         .map_err(|join| anyhow!("runtime serialization task failed: {join}"))??;
