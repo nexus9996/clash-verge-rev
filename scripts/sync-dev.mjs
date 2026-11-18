@@ -3,8 +3,9 @@
  *
  * Prints the commits the upstream ref has that HEAD does not, the files each
  * one touches, the conflicts a `git merge` would hit, and the fixed resolution
- * rules this fork applies to its diverged toolchain (bun + oxlint/oxfmt live
- * only on `local`). The manual procedure lives in docs/upstream-sync.md.
+ * rules this fork applies to its diverged toolchain (bun + oxlint, formatting
+ * through `bun fmt`, live only on `local`). The manual procedure lives in
+ * docs/upstream-sync.md.
  *
  * Usage:
  *   bun scripts/sync-dev.mjs [--upstream origin/dev] [--no-fetch] [--json]
