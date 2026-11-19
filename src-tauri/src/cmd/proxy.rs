@@ -30,6 +30,12 @@ pub async fn switch_proxy_node(group_name: String, proxy_name: String, unfix: bo
         .stringify_err()
 }
 
+#[tauri::command]
+#[specta::specta]
+pub async fn follow_proxy_group(group_name: String) {
+    crate::feat::follow_proxy_group(&group_name).await;
+}
+
 type GroupLayout = (Vec<String>, BTreeMap<String, GroupScope>);
 
 static GROUP_LAYOUT_CACHE: OnceLock<Mutex<Option<(u64, GroupLayout)>>> = OnceLock::new();

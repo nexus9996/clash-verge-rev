@@ -101,6 +101,7 @@ verge_registry! {
     enable_global_hotkey => NoEffect;
     home_cards => NoEffect;
     auto_close_connection => NoEffect;
+    auto_switch_selector_group => NoEffect;
     auto_check_update => NoEffect;
     update_channel => NoEffect;
     default_latency_test => NoEffect;

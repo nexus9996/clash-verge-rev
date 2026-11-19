@@ -56,6 +56,7 @@ import { useGroupDelays } from '@/hooks/use-group-delays'
 import { useProfiles } from '@/hooks/use-profiles'
 import { useProxySelection } from '@/hooks/use-proxy-selection'
 import { useVerge } from '@/hooks/use-verge'
+import { followProxyGroup } from '@/services/cmds'
 import delayManager from '@/services/delay'
 import {
   findCurrentGroupMember,
@@ -668,7 +669,7 @@ export const CurrentProxyCard = () => {
     return proxyView.groups.filter(
       (group) =>
         !group.hidden &&
-        (group.type === 'Selector' || group.type === 'URLTest'),
+        ['Selector', 'URLTest', 'Fallback'].includes(group.type),
     )
   }, [proxyView])
 
@@ -768,6 +769,7 @@ export const CurrentProxyCard = () => {
       if (isGlobalMode || isDirectMode) return
       setLastGroupName(newGroupName)
       writeProfileScopedItem(STORAGE_KEY_GROUP, newGroupName)
+      void followProxyGroup(newGroupName)
     },
     [isDirectMode, isGlobalMode, writeProfileScopedItem],
   )
