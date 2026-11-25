@@ -35,6 +35,14 @@ export type {
   UnlockItem,
 } from './bindings'
 
+export async function httpGetText(
+  url: string,
+  timeoutSecs: number | null,
+  userAgent: string | null,
+) {
+  return commands.httpGetText(url, timeoutSecs, userAgent)
+}
+
 export async function copyClashEnv() {
   return commands.copyClashEnv()
 }
@@ -96,18 +104,8 @@ export async function deleteProfile(index: string) {
 }
 
 export async function patchProfile(index: string, profile: ProfilePatch) {
-  const {
-    type,
-    name,
-    desc,
-    file,
-    url,
-    selected,
-    latency_test_urls,
-    extra,
-    updated,
-    option,
-  } = profile
+  const { type, name, desc, file, url, selected, extra, updated, option } =
+    profile
   return commands.patchProfile(index, {
     type,
     name,
@@ -115,7 +113,6 @@ export async function patchProfile(index: string, profile: ProfilePatch) {
     file,
     url,
     selected,
-    latency_test_urls,
     extra,
     updated,
     option,
@@ -170,10 +167,6 @@ export async function patchClashMode(payload: string) {
 
 export async function syncTrayProxySelection() {
   return commands.syncTrayProxySelection()
-}
-
-export async function refreshTrayProxyItems() {
-  return commands.refreshTrayProxyItems()
 }
 
 /** Sends one selection pair so the backend can merge against current profile state. */
@@ -380,6 +373,10 @@ export async function openDevTools() {
 
 export async function exitApp() {
   return commands.exitApp()
+}
+
+export const setNativeWindowTheme = async (theme: string) => {
+  return commands.setNativeWindowTheme(theme)
 }
 
 export async function exportDiagnosticInfo() {

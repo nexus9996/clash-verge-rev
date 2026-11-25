@@ -131,15 +131,18 @@ const SettingVergeAdvanced = ({ onError: _ }: Props) => {
         label={t('settings.components.verge.advanced.fields.checkUpdates')}
       />
 
-      <SettingItem
-        onClick={() => {
-          void mutate(() => openDevTools(), {
-            id: 'open-devtools',
-            errorNotice: false,
-          }).catch(() => {})
-        }}
-        label={t('settings.components.verge.advanced.fields.openDevTools')}
-      />
+      {/* Devtools are only compiled for debug/`tauri-dev` builds. */}
+      {import.meta.env.DEV && (
+        <SettingItem
+          onClick={() => {
+            void mutate(() => openDevTools(), {
+              id: 'open-devtools',
+              errorNotice: false,
+            }).catch(() => {})
+          }}
+          label={t('settings.components.verge.advanced.fields.openDevTools')}
+        />
+      )}
 
       <SettingItem
         label={t('settings.components.verge.advanced.fields.liteModeSettings')}

@@ -37,6 +37,7 @@
     "filters": {
       "placeholder": "Verbindungen filtern",
       "noOptions": "Keine passenden Optionen",
+      "refineHint": "Die ersten {{count}} Werte werden angezeigt, Suche zum Eingrenzen verfeinern",
       "searchValue": "Wert suchen",
       "clear": "Filter löschen"
     }

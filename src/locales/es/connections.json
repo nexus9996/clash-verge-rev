@@ -37,6 +37,7 @@
     "filters": {
       "placeholder": "Filtrar conexiones",
       "noOptions": "No hay opciones coincidentes",
+      "refineHint": "Mostrando los primeros {{count}} valores, refine la búsqueda",
       "searchValue": "Buscar valor",
       "clear": "Borrar filtros"
     }

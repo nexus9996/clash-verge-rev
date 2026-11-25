@@ -37,6 +37,7 @@
     "filters": {
       "placeholder": "篩選連線",
       "noOptions": "沒有符合的選項",
+      "refineHint": "僅顯示前 {{count}} 個值，請縮小搜尋範圍",
       "searchValue": "搜尋值",
       "clear": "清除篩選"
     }

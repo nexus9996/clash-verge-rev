@@ -5,7 +5,11 @@ on:
   schedule:
     # UTC+8 06:00, 18:00 -> UTC 22:00, 10:00
     - cron: '0 10,22 * * *'
-permissions: write-all
+permissions:
+  contents: write
+  # check-commit-needs-build.yml declares `actions: read`; keep it available
+  # to the reusable workflow without granting anything else.
+  actions: read
 env:
   TAG_NAME: autobuild
   TAG_CHANNEL: AutoBuild
@@ -51,7 +55,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v7
         with:
-          node-version: '24.22.0'
+          node-version: '24.22.1'
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -185,7 +189,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v7
         with:
-          node-version: '24.22.0'
+          node-version: '24.22.1'
 
       - name: Bun cache
         uses: actions/cache@v6
@@ -281,7 +285,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v7
         with:
-          node-version: '24.22.0'
+          node-version: '24.22.1'
 
       - name: Bun cache
         uses: actions/cache@v6
@@ -426,7 +430,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v7
         with:
-          node-version: '24.22.0'
+          node-version: '24.22.1'
 
       - name: Bun cache
         uses: actions/cache@v6
@@ -523,7 +527,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v7
         with:
-          node-version: '24.22.0'
+          node-version: '24.22.1'
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v2

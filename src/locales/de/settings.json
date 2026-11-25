@@ -530,7 +530,7 @@
         "usePacMode": "PAC-Modus verwenden",
         "proxyGuard": "Systemproxy-Schutz",
         "guardDuration": "Proxy-Schutz-Intervall",
-        "alwaysUseDefaultBypass": "Immer die Standard-Umgehung verwenden",
+        "alwaysUseDefaultBypass": "Standard-Umgehungsliste einbeziehen",
         "enableBypassCheck": "Proxy-Bypass-Format prüfen",
         "proxyBypass": "Proxy-Umgehungseinstellungen: ",
         "bypass": "Aktuelle Umgehung: ",
@@ -558,11 +558,13 @@
         "strictRoute": "Strenges Routing",
         "autoDetectInterface": "Netzwerkschnittstelle automatisch auswählen",
         "dnsHijack": "DNS-Hijacking",
+        "dnsMode": "DNS-Modus",
         "mtu": "Maximale Übertragungseinheit",
         "autoRedirect": "Automatische Umleitung"
       },
       "tooltips": {
         "dnsHijack": "Mehrere DNS-Server durch Kommas trennen",
+        "dnsMode": "Auto behält das alte Verhalten bei; hijack erfordert Strenges Routing unter Windows oder Automatische Umleitung unter Linux",
         "autoRedirect": "Richtet TCP-Umleitungen per nftables/iptables automatisch ein"
       },
       "messages": {

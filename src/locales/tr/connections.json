@@ -37,6 +37,7 @@
     "filters": {
       "placeholder": "Bağlantıları filtrele",
       "noOptions": "Eşleşen seçenek yok",
+      "refineHint": "İlk {{count}} değer gösteriliyor, aramayı daraltın",
       "searchValue": "Değer ara",
       "clear": "Filtreleri temizle"
     }

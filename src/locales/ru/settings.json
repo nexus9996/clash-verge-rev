@@ -530,7 +530,7 @@
         "usePacMode": "Использовать режим PAC",
         "proxyGuard": "Защита прокси",
         "guardDuration": "Период защиты",
-        "alwaysUseDefaultBypass": "Всегда использовать стандартный обход",
+        "alwaysUseDefaultBypass": "Добавлять стандартный список обхода",
         "enableBypassCheck": "Проверять формат обхода прокси",
         "proxyBypass": "Игнорируемые адреса: ",
         "bypass": "Игнорируемые адреса: ",
@@ -558,11 +558,13 @@
         "strictRoute": "Строгая маршрутизация",
         "autoDetectInterface": "Автоопределение интерфейса",
         "dnsHijack": "Перехват DNS",
+        "dnsMode": "Режим DNS",
         "mtu": "MTU",
         "autoRedirect": "Автоматическое перенаправление"
       },
       "tooltips": {
         "dnsHijack": "Используйте запятую для разделения нескольких DNS-серверов",
+        "dnsMode": "Auto сохраняет прежнее поведение; для hijack нужна Строгая маршрутизация в Windows или Автоматическое перенаправление в Linux",
         "autoRedirect": "Автоматически настраивает перенаправление TCP через nftables/iptables"
       },
       "messages": {

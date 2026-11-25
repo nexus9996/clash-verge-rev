@@ -92,8 +92,6 @@ export const commands = {
   copyClashEnv: () => __TAURI_INVOKE<null>('copy_clash_env'),
   syncTrayProxySelection: () =>
     __TAURI_INVOKE<null>('sync_tray_proxy_selection'),
-  /**  Refreshes tray latency texts in place after a test; the menu structure is unchanged. */
-  refreshTrayProxyItems: () => __TAURI_INVOKE<null>('refresh_tray_proxy_items'),
   /**  Merges one selection pair into fresh backend state to avoid stale-list overwrites. */
   recordSelectedNode: (groupName: string, node: string) =>
     __TAURI_INVOKE<null>('record_selected_node', { groupName, node }),
@@ -144,6 +142,21 @@ export const commands = {
   /**  修改Verge配置 */
   patchVergeConfig: (payload: IVerge_Deserialize) =>
     __TAURI_INVOKE<null>('patch_verge_config', { payload }),
+  /**
+   *  Reads a text response through the app's shared network stack. The frontend uses this for
+   *  IP/geolocation probes so proxy, TLS, timeout and User-Agent policy stay identical to the
+   *  backend instead of depending on a second HTTP client bundled by a plugin.
+   */
+  httpGetText: (
+    url: string,
+    timeoutSecs: number | null,
+    userAgent: string | null,
+  ) =>
+    __TAURI_INVOKE<HttpTextResponse>('http_get_text', {
+      url,
+      timeoutSecs,
+      userAgent,
+    }),
   testDelay: (url: string) => __TAURI_INVOKE<number>('test_delay', { url }),
   getRulesExtra: () => __TAURI_INVOKE<RuleExtraInfo[]>('get_rules_extra'),
   /**  Rule disabling is runtime state in mihomo and resets when the core reloads. */
@@ -156,6 +169,8 @@ export const commands = {
     __TAURI_INVOKE<string>('download_icon_cache', { url, name }),
   openDevtools: () => __TAURI_INVOKE<void>('open_devtools'),
   exitApp: () => __TAURI_INVOKE<void>('exit_app'),
+  setNativeWindowTheme: (theme: string) =>
+    __TAURI_INVOKE<null>('set_native_window_theme', { theme }),
   getNetworkInterfacesInfo: () =>
     __TAURI_INVOKE<NetworkInterfaceView[]>('get_network_interfaces_info'),
   getProfiles: () => __TAURI_INVOKE<IProfiles_Serialize>('get_profiles'),
@@ -343,6 +358,11 @@ export type FailedOperation =
   | 'systemProxyDisable'
   | 'systemProxyRestore'
   | 'systemProxyGuard'
+
+export type HttpTextResponse = {
+  status: number
+  body: string
+}
 
 /**  Define the `profiles.yaml` schema */
 export type IProfiles = IProfiles_Serialize | IProfiles_Deserialize
@@ -711,7 +731,6 @@ export type PrfItem_Deserialize = {
   desc?: string | null
   url?: string | null
   selected?: PrfSelected[] | null
-  latency_test_urls?: { [key in string]: string } | null
   extra?: PrfExtra | null
   updated?: number | null
   option?: PrfOption_Deserialize | null
@@ -727,7 +746,6 @@ export type PrfItem_Serialize = {
   desc?: string | null
   url?: string | null
   selected?: PrfSelected[] | null
-  latency_test_urls?: { [key in string]: string } | null
   extra?: PrfExtra | null
   updated: number | null
   option?: PrfOption_Serialize | null
@@ -822,7 +840,6 @@ export type ProfilePatch_Deserialize = {
   file?: string | null
   url?: string | null
   selected?: PrfSelected[] | null
-  latency_test_urls?: { [key in string]: string } | null
   extra?: PrfExtra | null
   updated?: number | null
   option?: PrfOption_Deserialize | null
@@ -835,7 +852,6 @@ export type ProfilePatch_Serialize = {
   file: string | null
   url: string | null
   selected: PrfSelected[] | null
-  latency_test_urls: { [key in string]: string } | null
   extra: PrfExtra | null
   updated: number | null
   option: PrfOption_Serialize | null
@@ -870,7 +886,6 @@ export type ProxyGroupView_Deserialize = {
   icon: string | null
   testUrl: string | null
   history: DelayHistory[]
-  extra: { [key in string]: ProxyLatencyHistory }
   members: ProxyMemberRef[]
 } & ProxyCapabilities
 
@@ -883,13 +898,8 @@ export type ProxyGroupView_Serialize = {
   icon?: string | null
   testUrl?: string | null
   history: DelayHistory[]
-  extra: { [key in string]: ProxyLatencyHistory }
   members: ProxyMemberRef[]
 } & ProxyCapabilities
-
-export type ProxyLatencyHistory = {
-  history: DelayHistory[]
-}
 
 export type ProxyMemberRef =
   | { kind: 'group'; name: string }
@@ -912,7 +922,6 @@ export type ProxyNodeView_Deserialize = {
   name: string
   type: string
   history: DelayHistory[]
-  extra: { [key in string]: ProxyLatencyHistory }
   id: string | null
   hidden: boolean | null
   icon: string | null
@@ -925,7 +934,6 @@ export type ProxyNodeView_Serialize = {
   name: string
   type: string
   history: DelayHistory[]
-  extra: { [key in string]: ProxyLatencyHistory }
   id?: string | null
   hidden?: boolean | null
   icon?: string | null

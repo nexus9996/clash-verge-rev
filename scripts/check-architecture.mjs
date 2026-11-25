@@ -25,32 +25,24 @@ const EVENT_IMPORTS = new Set(['listen', 'emit', 'emitTo', 'once'])
 const INVOKE_IMPORTS = new Set(['invoke'])
 const BINDINGS_MODULE = /(^|\/)bindings(\.ts)?$/
 
-// routes -> pages -> components/hooks -> services/config. Upward imports are
+// app -> pages -> components/hooks -> services/config. Upward imports are
 // rejected here and surfaced by the arch:check layers gate.
 const ZONES = [
   { target: 'src/components', from: 'src/pages' },
-  { target: 'src/components', from: 'src/routes' },
   { target: 'src/components', from: 'src/app' },
   { target: 'src/services', from: 'src/components' },
   { target: 'src/services', from: 'src/pages' },
-  { target: 'src/services', from: 'src/routes' },
   { target: 'src/services', from: 'src/app' },
   { target: 'src/hooks', from: 'src/components' },
   { target: 'src/hooks', from: 'src/pages' },
-  { target: 'src/hooks', from: 'src/routes' },
   { target: 'src/hooks', from: 'src/app' },
   { target: 'src/config', from: 'src/components' },
   { target: 'src/config', from: 'src/pages' },
-  { target: 'src/config', from: 'src/routes' },
   { target: 'src/config', from: 'src/services' },
   { target: 'src/config', from: 'src/hooks' },
   { target: 'src/config', from: 'src/store' },
   { target: 'src/config', from: 'src/app' },
-  { target: 'src/pages', from: 'src/routes' },
   { target: 'src/pages', from: 'src/app' },
-  { target: 'src/routes', from: 'src/services' },
-  { target: 'src/routes', from: 'src/store' },
-  { target: 'src/routes', from: 'src/hooks' },
 ].map((zone) => ({
   target: path.join(ROOT, zone.target),
   from: path.join(ROOT, zone.from),
@@ -81,10 +73,7 @@ function sourceFiles(directory) {
     .flatMap((entry) => {
       const entryPath = path.join(directory, entry.name)
       if (entry.isDirectory()) return sourceFiles(entryPath)
-      return /\.(?:[cm]?[jt]sx?)$/.test(entry.name) &&
-        entry.name !== 'routeTree.gen.ts'
-        ? [entryPath]
-        : []
+      return /\.(?:[cm]?[jt]sx?)$/.test(entry.name) ? [entryPath] : []
     })
     .sort()
 }

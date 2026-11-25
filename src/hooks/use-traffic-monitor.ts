@@ -5,25 +5,6 @@ import { useVisibility } from '@/hooks/use-visibility'
 import { debugLog } from '@/utils/debug'
 import { TrafficDataSampler, isSameTrafficData } from '@/utils/traffic-sampler'
 
-// 引用计数管理器
-class ReferenceCounter {
-  private count = 0
-
-  increment(): () => void {
-    this.count++
-    debugLog(`[ReferenceCounter] 引用计数增加: ${this.count}`)
-
-    return () => {
-      this.count--
-      debugLog(`[ReferenceCounter] 引用计数减少: ${this.count}`)
-    }
-  }
-
-  getCount(): number {
-    return this.count
-  }
-}
-
 const WORKER_CONFIG = {
   rawDataMinutes: 10,
   compressedDataMinutes: 60,
@@ -318,13 +299,21 @@ class TrafficWorkerClient {
   }
 }
 
-const refCounter = new ReferenceCounter()
 let workerClient: TrafficWorkerClient | null = null
 const getWorkerClient = () => {
   if (!workerClient) {
     workerClient = new TrafficWorkerClient()
   }
   return workerClient
+}
+
+/**
+ * Tears down the sampler and its stream. Only call this on app teardown;
+ * unmounting consumers must leave the sampled history intact.
+ */
+export const disposeTrafficMonitor = () => {
+  workerClient?.stop()
+  workerClient = null
 }
 
 const EMPTY_STATS: ISamplerStats = {
@@ -366,7 +355,6 @@ export const useTrafficMonitorEnhanced = (options?: {
     const client = getWorkerClient()
     clientRef.current = client
 
-    const cleanup = refCounter.increment()
     client.start(currentRangeRef.current)
 
     let unsubscribe: (() => void) | undefined
@@ -382,10 +370,10 @@ export const useTrafficMonitorEnhanced = (options?: {
 
     return () => {
       unsubscribe?.()
-      cleanup()
-      if (refCounter.getCount() === 0) {
-        client.stop()
-      }
+      // Deliberately keep the sampler alive when the last consumer goes away
+      // (e.g. the window is hidden): disposing it here would discard the
+      // recorded traffic history. The transport is stopped separately and
+      // `disposeTrafficMonitor` runs on app teardown.
     }
   }, [enabled, subscribeToSnapshots])
 

@@ -147,15 +147,30 @@ pub async fn save_yaml<T: Serialize + Sync>(path: &Path, data: &T, prefix: Optio
     save_yaml_str(path, &yaml_str).await
 }
 
+/// Preserves an existing mode only when it is at least as restrictive as the 0600 temporary file.
+fn existing_permissions_to_preserve(metadata: &std::fs::Metadata) -> Option<std::fs::Permissions> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        if metadata.permissions().mode() & 0o077 != 0 {
+            return None;
+        }
+    }
+    Some(metadata.permissions())
+}
+
 /// Atomic replace with pre-serialized content; the payload must not need the encryption scope.
 pub async fn save_yaml_str(path: &Path, yaml_str: &str) -> Result<()> {
     let (temporary, file) = loop {
         let temporary = path.with_extension(format!("tmp-{}-{}", std::process::id(), nanoid!()));
-        match std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temporary)
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
         {
+            use std::os::unix::fs::OpenOptionsExt as _;
+            options.mode(0o600);
+        }
+        match options.open(&temporary) {
             Ok(file) => break (temporary, file),
             Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
             Err(error) => {
@@ -184,9 +199,11 @@ pub async fn save_yaml_str(path: &Path, yaml_str: &str) -> Result<()> {
 
     match tokio::fs::symlink_metadata(path).await {
         Ok(metadata) if metadata.file_type().is_file() => {
-            tokio::fs::set_permissions(temporary.as_path(), metadata.permissions())
-                .await
-                .with_context(|| format!("failed to preserve permissions for \"{}\"", path.display()))?;
+            if let Some(permissions) = existing_permissions_to_preserve(&metadata) {
+                tokio::fs::set_permissions(temporary.as_path(), permissions)
+                    .await
+                    .with_context(|| format!("failed to preserve permissions for \"{}\"", path.display()))?;
+            }
         }
         Ok(_) => {}
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
@@ -241,7 +258,17 @@ pub fn mask_url(url: &str) -> String {
     let scheme_and_host = &path_part[..host_end];
     let path = &path_part[host_end..]; // starts with '/' or empty
 
-    let mut result = scheme_and_host.to_owned();
+    // Userinfo is a credential even without a query string; drop it from the logged authority.
+    let mut result = match scheme_and_host.find("://") {
+        Some(scheme_end) => {
+            let (scheme, authority) = scheme_and_host.split_at(scheme_end + 3);
+            match authority.rfind('@') {
+                Some(at) => format!("{scheme}{}", &authority[at + 1..]),
+                None => scheme_and_host.to_owned(),
+            }
+        }
+        None => scheme_and_host.to_owned(),
+    };
 
     if !path.is_empty() {
         let masked: Vec<&str> = path
@@ -392,7 +419,59 @@ pub fn snapshot_path(original_path: &Path) -> Result<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::read_mapping_cached;
+    use super::{mask_url, read_mapping_cached, save_yaml_str};
+
+    #[test]
+    fn mask_url_removes_embedded_credentials() {
+        assert_eq!(
+            mask_url("https://user:password@example.com/api?token=secret"),
+            "https://example.com/api?token=***"
+        );
+        assert_eq!(
+            mask_url("http://user@example.com:8080/path"),
+            "http://example.com:8080/path"
+        );
+        assert_eq!(
+            mask_url("https://example.com/path?token=abc"),
+            "https://example.com/path?token=***"
+        );
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn saved_yaml_files_are_private_and_keep_only_stricter_modes() -> anyhow::Result<()> {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let root = std::env::temp_dir().join(format!("clash-verge-yaml-perms-{}", nanoid::nanoid!()));
+        tokio::fs::create_dir_all(&root).await?;
+        let path = root.join("verge.yaml");
+
+        save_yaml_str(&path, "mode: rule\n").await?;
+        assert_eq!(
+            std::fs::metadata(&path)?.permissions().mode() & 0o777,
+            0o600,
+            "new config files must not be readable by other users"
+        );
+
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o400))?;
+        save_yaml_str(&path, "mode: glob\n").await?;
+        assert_eq!(
+            std::fs::metadata(&path)?.permissions().mode() & 0o777,
+            0o400,
+            "an already stricter mode must be preserved"
+        );
+
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644))?;
+        save_yaml_str(&path, "mode: direct\n").await?;
+        assert_eq!(
+            std::fs::metadata(&path)?.permissions().mode() & 0o777,
+            0o600,
+            "a looser mode must be tightened"
+        );
+
+        tokio::fs::remove_dir_all(root).await?;
+        Ok(())
+    }
 
     #[tokio::test]
     async fn cached_mapping_reparses_changed_bytes_even_at_the_same_size() -> anyhow::Result<()> {

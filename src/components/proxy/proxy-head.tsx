@@ -11,19 +11,19 @@ import {
   SortByAlphaRounded,
   SortRounded,
 } from '@mui/icons-material'
-import { Box, IconButton, type SxProps } from '@mui/material'
-import { useEffect, useState } from 'react'
+import { Box, IconButton, TextField, type SxProps } from '@mui/material'
+import { useDebounceFn } from 'ahooks'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { BaseSearchBox } from '@/components/base'
+import { BaseSearchBox, type SearchState } from '@/components/base'
 import { useVerge } from '@/hooks/use-verge'
 import delayManager from '@/services/delay'
 import { showNotice } from '@/services/notice-service'
 import { debugLog } from '@/utils/debug'
 import { DEFAULT_LATENCY_TEST_URL } from '@/utils/delay'
-import { isValidLatencyTestUrl } from '@/utils/network'
+import { isValidUrl } from '@/utils/network'
 
-import { ProxyTestUrlInput } from './proxy-test-url-input'
 import type { ProxySortType } from './use-filter-sort'
 import type { HeadState } from './use-head-state'
 
@@ -62,6 +62,40 @@ export const ProxyHead = ({
   const { t } = useTranslation()
   const [autoFocus, setAutoFocus] = useState(false)
 
+  // Filtering re-renders every proxy in the GLOBAL group, so writes to the
+  // head state are debounced while the local input stays responsive.
+  // Only the text filter is debounced: toggles must update immediately so the
+  // box's controlled icons do not lag or lose a rapid second click.
+  const { run: applyFilter, flush: flushFilter } = useDebounceFn(
+    (state: SearchState) => {
+      onHeadState({ filterText: state.text })
+    },
+    { wait: 600 },
+  )
+
+  const handleSearch = (_: unknown, state: SearchState) => {
+    if (
+      state.matchCase !== filterMatchCase ||
+      state.matchWholeWord !== filterMatchWholeWord ||
+      state.useRegularExpression !== filterUseRegularExpression
+    ) {
+      onHeadState({
+        filterMatchCase: state.matchCase,
+        filterMatchWholeWord: state.matchWholeWord,
+        filterUseRegularExpression: state.useRegularExpression,
+      })
+    }
+    applyFilter(state)
+  }
+
+  // Apply the last keystroke when the filter box closes or unmounts.
+  useEffect(() => {
+    if (textState !== 'filter') flushFilter()
+  }, [textState, flushFilter])
+  // useDebounceFn's own unmount cleanup cancels the trailing call before a
+  // passive cleanup could flush it, so flush from a layout cleanup instead.
+  useLayoutEffect(() => () => flushFilter(), [flushFilter])
+
   useEffect(() => {
     // fix the focus conflict
     const timer = setTimeout(() => setAutoFocus(true), 100)
@@ -73,10 +107,7 @@ export const ProxyHead = ({
     verge?.default_latency_test?.trim() || DEFAULT_LATENCY_TEST_URL
 
   useEffect(() => {
-    delayManager.setUrl(
-      groupName,
-      testUrl?.trim() || url?.trim() || defaultLatencyUrl,
-    )
+    delayManager.setUrl(groupName, testUrl?.trim() || url || defaultLatencyUrl)
   }, [groupName, testUrl, defaultLatencyUrl, url])
 
   return (
@@ -101,7 +132,7 @@ export const ProxyHead = ({
             debugLog(`[ProxyHead] 使用自定义测试URL: ${testUrl}`)
             onHeadState({ textState: 'url' })
           }
-          if (testUrl?.trim() && !isValidLatencyTestUrl(testUrl)) {
+          if (testUrl?.trim() && !isValidUrl(testUrl)) {
             showNotice.warning('proxies.feedback.warnings.invalidTestUrl')
             return
           }
@@ -173,27 +204,19 @@ export const ProxyHead = ({
         <Box sx={{ ml: 0.5, flex: '1 1 auto' }}>
           <BaseSearchBox
             autoFocus={autoFocus}
-            value={filterText}
+            defaultValue={filterText}
             searchState={{
               matchCase: filterMatchCase,
               matchWholeWord: filterMatchWholeWord,
               useRegularExpression: filterUseRegularExpression,
             }}
-            onSearch={(_, state) =>
-              onHeadState({
-                filterText: state.text,
-                filterMatchCase: state.matchCase,
-                filterMatchWholeWord: state.matchWholeWord,
-                filterUseRegularExpression: state.useRegularExpression,
-              })
-            }
+            onSearch={handleSearch}
           />
         </Box>
       )}
 
       {textState === 'url' && (
-        <ProxyTestUrlInput
-          name={groupName}
+        <TextField
           autoComplete="new-password"
           autoFocus={autoFocus}
           hiddenLabel
@@ -202,7 +225,7 @@ export const ProxyHead = ({
           size="small"
           variant="outlined"
           placeholder={t('proxies.page.placeholders.delayCheckUrl')}
-          onCommit={(testUrl) => onHeadState({ testUrl })}
+          onChange={(e) => onHeadState({ testUrl: e.target.value })}
           sx={{ ml: 0.5, flex: '1 1 auto', input: { py: 0.65, px: 1 } }}
         />
       )}

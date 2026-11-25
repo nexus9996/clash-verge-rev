@@ -11,7 +11,7 @@ export interface TunFormValues {
   autoDetectInterface: boolean
   dnsHijack: string[]
   strictRoute: boolean
-  mtu?: number
+  mtu: number
   dnsMode: string
 }
 

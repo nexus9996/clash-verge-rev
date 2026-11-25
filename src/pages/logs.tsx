@@ -19,6 +19,7 @@ import {
 import LogItem from '@/components/log/log-item'
 import { useClashLog } from '@/hooks/use-clash-log'
 import { useLogData } from '@/hooks/use-log-data'
+import { filterLogsBySearch } from '@/utils/log-search'
 
 const LogPage = () => {
   const { t } = useTranslation()
@@ -42,18 +43,9 @@ const LogPage = () => {
 
     // Server-side filtering handles level filtering via query parameters
     // We only need to apply search filtering here
-    return logData.filter((data) => {
-      // 构建完整的搜索文本，包含时间、类型和内容
-      const searchText =
-        `${data.time || ''} ${data.type} ${data.payload}`.toLowerCase()
-
-      const matchesSearch = match(searchText)
-
-      return (
-        (logState == 'all' ? true : data.type.includes(logState)) &&
-        matchesSearch
-      )
-    })
+    return filterLogsBySearch(logData, match).filter((data) =>
+      logState == 'all' ? true : data.type.includes(logState),
+    )
   }, [logData, logState, match])
 
   const filteredLogs = useMemo(

@@ -1,16 +1,16 @@
 import './assets/styles/index.scss'
 
 import { ResizeObserver } from '@juggle/resize-observer'
-import { RouterProvider } from '@tanstack/react-router'
 import { ComposeContextProvider } from 'foxact/compose-context-provider'
 import React from 'react'
 import { createRoot } from 'react-dom/client'
+import { RouterProvider } from 'react-router'
 import { SWRConfig } from 'swr'
 import { MihomoWebSocket } from 'tauri-plugin-mihomo-api'
 
 import { router } from './app/router'
-import { scheduleWarmup } from './app/warmup'
 import { BaseErrorBoundary } from './components/base'
+import { disposeTrafficMonitor } from './hooks/use-traffic-monitor'
 import { preloadHomePageCards } from './pages/home'
 import { FALLBACK_LANGUAGE, initializeLanguage } from './services/i18n'
 import {
@@ -63,7 +63,6 @@ const bootstrap = async () => {
 
   const { initialThemeMode } = await appDataPromise
   initializeApp(initialThemeMode)
-  scheduleWarmup(router)
 }
 
 bootstrap().catch((error) => {
@@ -96,6 +95,8 @@ window.addEventListener('unhandledrejection', (event) => {
 window.addEventListener('beforeunload', () => {
   // Clean up all WebSocket instances to prevent memory leaks
   MihomoWebSocket.cleanupAll()
+  // The sampler is retained across visibility changes; release it on teardown.
+  disposeTrafficMonitor()
 })
 
 // Page loaded event

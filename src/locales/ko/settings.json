@@ -530,7 +530,7 @@
         "usePacMode": "PAC 모드 사용",
         "proxyGuard": "프록시 가드",
         "guardDuration": "가드 지속시간",
-        "alwaysUseDefaultBypass": "기본 우회 주소 항상 사용",
+        "alwaysUseDefaultBypass": "기본 우회 목록 포함",
         "enableBypassCheck": "프록시 우회 형식 검증",
         "proxyBypass": "프록시 우회 설정: ",
         "bypass": "우회: ",
@@ -558,11 +558,13 @@
         "strictRoute": "엄격 라우팅",
         "autoDetectInterface": "인터페이스 자동 감지",
         "dnsHijack": "DNS 하이재킹",
+        "dnsMode": "DNS 모드",
         "mtu": "MTU",
         "autoRedirect": "Auto Redirect"
       },
       "tooltips": {
         "dnsHijack": "여러 DNS 서버는 쉼표(,)로 구분하세요",
+        "dnsMode": "Auto는 기존 동작을 유지합니다. hijack은 Windows에서 엄격 라우팅 또는 Linux에서 Auto Redirect가 필요합니다",
         "autoRedirect": "Automatically configures nftables/iptables TCP redirects"
       },
       "messages": {

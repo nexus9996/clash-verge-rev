@@ -29,6 +29,9 @@ const CONSOLE_SCRIPT: &str = r#"var __verge_log_count = 0;
 var __verge_log_size = 0;
 function __verge_push_log(level, data) {
   var text = JSON.stringify(data, null, 2);
+  // JSON.stringify returns undefined for undefined, functions and symbols; logging those must
+  // not throw and abort the whole enhancement script.
+  if (text === undefined) text = String(data);
   __verge_log_count = __verge_log_count + 1;
   __verge_log_size = __verge_log_size + level.length + text.length;
   if (__verge_log_count > 1000) throw new Error("Maximum number of log outputs exceeded");
@@ -323,6 +326,7 @@ fn escape_js_string_for_single_quote(s: &str) -> String {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, reason = "tests assert by panicking")]
 mod tests {
     use super::{LowercaseKeys, MAX_OUTPUTS, eval_script, with_runtime};
     use crate::enhance::field::use_lowercase;
@@ -349,13 +353,13 @@ mod tests {
     #[test]
     fn lowercased_script_input_matches_the_owned_mapping() -> anyhow::Result<()> {
         let config: Mapping = serde_yaml_ng::from_str(
-            r#"Mode: rule
+            r"Mode: rule
 mode: global
 Rules:
   - one
 nested:
   Key: 1
-"#,
+",
         )?;
 
         assert_eq!(
@@ -386,6 +390,23 @@ nested:
     }
 
     #[test]
+    fn console_log_of_a_missing_value_still_transforms_the_config() {
+        let (outcome, logs) = run(
+            r#"function main(config) {
+                console.log(config.missing);
+                config.mode = "global";
+                return config;
+            }"#,
+            r#"{"mode":"rule"}"#,
+        );
+        let config = outcome.expect("logging an undefined value must not fail the script");
+        assert_eq!(config.get("mode").and_then(|value| value.as_str()), Some("global"));
+        assert_eq!(logs.len(), 1);
+        assert_eq!(logs[0].0.as_str(), "log");
+        assert_eq!(logs[0].1.as_str(), "undefined");
+    }
+
+    #[test]
     fn runtime_exceptions_are_reported_to_the_caller() {
         let (outcome, _logs) = run(
             r#"function main() {
@@ -400,10 +421,10 @@ nested:
     #[test]
     fn output_limit_aborts_the_script() {
         let script = format!(
-            r#"function main(config) {{
+            r"function main(config) {{
                 for (let i = 0; i < {MAX_OUTPUTS} + 5; i++) console.log({{ i }});
                 return config;
-            }}"#
+            }}"
         );
         let (outcome, logs) = run(&script, "{}");
         let reason = outcome.expect_err("over-limit logging should fail the script");
@@ -416,7 +437,7 @@ nested:
         let name: String = "test-profile".into();
         let started = std::time::Instant::now();
         let (outcome, _logs) = eval_script(
-            r#"function main() { while (true) {} }"#,
+            r"function main() { while (true) {} }",
             "{}",
             &name,
             Duration::from_millis(200),

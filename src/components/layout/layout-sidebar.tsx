@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import iconDark from '@/assets/image/icon_dark.svg?react'
 import iconLight from '@/assets/image/icon_light.svg?react'
 import LogoSvg from '@/assets/image/logo.svg?react'
+import type { NavigationId } from '@/config/navigation'
 import { NAV_ITEMS } from '@/config/navigation'
 import { useNavMenuOrder } from '@/hooks/layout'
 import { useVerge } from '@/hooks/use-verge'
@@ -23,6 +24,7 @@ type MenuContextPosition = { top: number; left: number }
 interface LayoutSidebarProps {
   isDark: boolean
   isCollapsed: boolean
+  preloadPage?: (id: NavigationId) => void
 }
 
 const SENSORS = [PointerSensor, KeyboardSensor]
@@ -33,7 +35,7 @@ const navigationItems = NAV_ITEMS.map((item) => ({
 }))
 
 export const LayoutSidebar = (props: LayoutSidebarProps) => {
-  const { isDark, isCollapsed } = props
+  const { isDark, isCollapsed, preloadPage } = props
   const { t } = useTranslation()
   const { verge, mutateVerge, patchVerge } = useVerge()
   const [menuUnlocked, setMenuUnlocked] = useState(false)
@@ -107,11 +109,19 @@ export const LayoutSidebar = (props: LayoutSidebarProps) => {
     const item = navItemMap.get(path)
     if (!item) return null
 
+    // Preloading on intent keeps the split pages from flashing a loading state.
+    const preload = preloadPage ? () => preloadPage(item.id) : undefined
+
     // A registered sortable, even a disabled one, gets the drag-and-drop ARIA
     // attributes, so screen readers announce every item as a disabled draggable.
     if (!menuUnlocked) {
       return (
-        <LayoutItem key={item.path} to={item.path} icon={item.icon}>
+        <LayoutItem
+          key={item.path}
+          to={item.path}
+          icon={item.icon}
+          preload={preload}
+        >
           {t(item.labelKey)}
         </LayoutItem>
       )
@@ -120,7 +130,12 @@ export const LayoutSidebar = (props: LayoutSidebarProps) => {
     return (
       <SortableItem key={item.path} id={item.path} index={index}>
         {(sortable) => (
-          <LayoutItem to={item.path} icon={item.icon} sortable={sortable}>
+          <LayoutItem
+            to={item.path}
+            icon={item.icon}
+            sortable={sortable}
+            preload={preload}
+          >
             {t(item.labelKey)}
           </LayoutItem>
         )}

@@ -178,7 +178,7 @@ mod tests {
     fn representative_verge_patches_map_to_frozen_effects() {
         assert_eq!(verge_effects(&IVerge::default()), Effects::new());
 
-        let cases: [(IVerge, &[Effect]); 9] = [
+        let cases: Vec<(IVerge, &[Effect])> = vec![
             (
                 verge_patch(|p| p.verge_mixed_port = Some(27899)),
                 &[Effect::RestartCore],

@@ -37,6 +37,7 @@
     "filters": {
       "placeholder": "Filter koneksi",
       "noOptions": "Tidak ada opsi yang cocok",
+      "refineHint": "Menampilkan {{count}} nilai pertama, perjelas pencarian",
       "searchValue": "Cari nilai",
       "clear": "Hapus filter"
     }
