@@ -2,7 +2,7 @@ import { Button, Stack, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useRevalidator, useRouteError } from 'react-router'
 
-import { BaseEmpty } from '@/components/base'
+import { BaseEmpty } from '@/components/base/base-empty'
 import { formatRouteError } from '@/utils/format-route-error'
 
 /**

@@ -6,30 +6,17 @@ import {
   SettingsOutlined,
   SpeedOutlined,
 } from '@mui/icons-material'
-import {
-  Box,
-  Button,
-  Checkbox,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControlLabel,
-  FormGroup,
-  Grid,
-  IconButton,
-  Skeleton,
-  Tooltip,
-} from '@mui/material'
+import { Box, Grid, IconButton, Skeleton, Tooltip } from '@mui/material'
 import { useLockFn } from 'ahooks'
 import { Suspense, lazy, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { BasePage } from '@/components/base'
+import { BasePage } from '@/components/base/base-page'
 import { ClashModeCard } from '@/components/home/clash-mode-card'
 import { CurrentProxyCard } from '@/components/home/current-proxy-card'
 import { EnhancedCard } from '@/components/home/enhanced-card'
 import { EnhancedTrafficStats } from '@/components/home/enhanced-traffic-stats'
+import type { HomeCardsSettings } from '@/components/home/home-settings-dialog'
 import { HomeProfileCard } from '@/components/home/home-profile-card'
 import { ProxyTunCard } from '@/components/home/proxy-tun-card'
 import { useProfiles } from '@/hooks/use-profiles'
@@ -55,11 +42,16 @@ const preloadSystemInfoCard = () =>
   import('@/components/home/system-info-card').then((module) => ({
     default: module.SystemInfoCard,
   }))
+const preloadHomeSettingsDialog = () =>
+  import('@/components/home/home-settings-dialog').then((module) => ({
+    default: module.HomeSettingsDialog,
+  }))
 
 const LazyTestCard = lazy(preloadTestCard)
 const LazyIpInfoCard = lazy(preloadIpInfoCard)
 const LazyClashInfoCard = lazy(preloadClashInfoCard)
 const LazySystemInfoCard = lazy(preloadSystemInfoCard)
+const LazyHomeSettingsDialog = lazy(preloadHomeSettingsDialog)
 
 // Used by bootstrap to initiate optional card imports without blocking render.
 // eslint-disable-next-line react/only-export-components
@@ -70,21 +62,6 @@ export const preloadHomePageCards = () =>
     preloadClashInfoCard().catch(() => {}),
     preloadSystemInfoCard().catch(() => {}),
   ])
-
-// 定义首页卡片设置接口
-interface HomeCardsSettings {
-  profile: boolean
-  proxy: boolean
-  network: boolean
-  mode: boolean
-  traffic: boolean
-  info: boolean
-  clashinfo: boolean
-  systeminfo: boolean
-  test: boolean
-  ip: boolean
-  [key: string]: boolean
-}
 
 const DEFAULT_HOME_CARDS: HomeCardsSettings = {
   info: false,
@@ -104,131 +81,6 @@ const serializeCardFlags = (cards: HomeCardsSettings) =>
     .sort()
     .map((key) => `${key}:${cards[key] ? 1 : 0}`)
     .join('|')
-
-// 首页设置对话框组件接口
-interface HomeSettingsDialogProps {
-  onClose: () => void
-  homeCards: HomeCardsSettings
-}
-
-// 首页设置对话框组件
-const HomeSettingsDialog = ({
-  onClose,
-  homeCards,
-}: HomeSettingsDialogProps) => {
-  const { t } = useTranslation()
-  const [cards, setCards] = useState<HomeCardsSettings>(homeCards)
-  const { patchVerge } = useVerge()
-
-  const handleToggle = (key: string) => {
-    setCards((prev: HomeCardsSettings) => ({
-      ...prev,
-      [key]: !prev[key],
-    }))
-  }
-
-  const handleSave = async () => {
-    await patchVerge({ home_cards: cards })
-    onClose()
-  }
-
-  return (
-    <Dialog open onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>{t('home.page.settings.title')}</DialogTitle>
-      <DialogContent>
-        <FormGroup>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={cards.profile || false}
-                onChange={() => handleToggle('profile')}
-              />
-            }
-            label={t('home.page.settings.cards.profile')}
-          />
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={cards.proxy || false}
-                onChange={() => handleToggle('proxy')}
-              />
-            }
-            label={t('home.page.settings.cards.currentProxy')}
-          />
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={cards.network || false}
-                onChange={() => handleToggle('network')}
-              />
-            }
-            label={t('home.page.settings.cards.network')}
-          />
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={cards.mode || false}
-                onChange={() => handleToggle('mode')}
-              />
-            }
-            label={t('home.page.settings.cards.proxyMode')}
-          />
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={cards.traffic || false}
-                onChange={() => handleToggle('traffic')}
-              />
-            }
-            label={t('home.page.settings.cards.traffic')}
-          />
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={cards.test || false}
-                onChange={() => handleToggle('test')}
-              />
-            }
-            label={t('home.page.settings.cards.tests')}
-          />
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={cards.ip || false}
-                onChange={() => handleToggle('ip')}
-              />
-            }
-            label={t('home.page.settings.cards.ip')}
-          />
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={cards.clashinfo || false}
-                onChange={() => handleToggle('clashinfo')}
-              />
-            }
-            label={t('home.page.settings.cards.clashInfo')}
-          />
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={cards.systeminfo || false}
-                onChange={() => handleToggle('systeminfo')}
-              />
-            }
-            label={t('home.page.settings.cards.systemInfo')}
-          />
-        </FormGroup>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>{t('shared.actions.cancel')}</Button>
-        <Button onClick={handleSave} color="primary">
-          {t('shared.actions.save')}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  )
-}
 
 const HomePage = () => {
   const { t } = useTranslation()
@@ -361,11 +213,13 @@ const HomePage = () => {
 
       {/* 首页设置弹窗 */}
       {settingsOpen && (
-        <HomeSettingsDialog
-          key={serializeCardFlags(homeCards)}
-          onClose={() => setSettingsOpen(false)}
-          homeCards={homeCards}
-        />
+        <Suspense fallback={null}>
+          <LazyHomeSettingsDialog
+            key={serializeCardFlags(homeCards)}
+            onClose={() => setSettingsOpen(false)}
+            homeCards={homeCards}
+          />
+        </Suspense>
       )}
     </BasePage>
   )
