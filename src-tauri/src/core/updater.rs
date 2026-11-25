@@ -333,18 +333,85 @@ async fn download_from(
     }
 }
 
+const CHANNEL_STABLE: &str = "stable";
+const CHANNEL_ALPHA: &str = "alpha";
+
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateInfo {
+    pub current_version: std::string::String,
+    pub version: std::string::String,
+    pub date: Option<std::string::String>,
+    pub body: Option<std::string::String>,
+    #[specta(type = crate::ipc::JsonValue)]
+    pub raw_json: serde_json::Value,
+}
+
+async fn current_update_channel() -> std::string::String {
+    let channel = Config::verge().await.latest_arc().update_channel.clone();
+    match channel.as_deref() {
+        Some(CHANNEL_ALPHA) => CHANNEL_ALPHA.to_string(),
+        _ => CHANNEL_STABLE.to_string(),
+    }
+}
+
+fn rewrite_channel_endpoint(endpoint: &str, channel: &str) -> std::string::String {
+    if channel == CHANNEL_ALPHA {
+        endpoint.replace("/download/updater/", "/download/updater-alpha/")
+    } else {
+        endpoint.to_string()
+    }
+}
+
+fn channel_endpoints(app_handle: &tauri::AppHandle, channel: &str) -> Result<Vec<tauri::Url>> {
+    let endpoints = app_handle
+        .config()
+        .plugins
+        .0
+        .get("updater")
+        .and_then(|config| config.get("endpoints"))
+        .and_then(|endpoints| endpoints.as_array())
+        .context("updater endpoints are not configured")?;
+
+    endpoints
+        .iter()
+        .filter_map(|endpoint| endpoint.as_str())
+        .map(|endpoint| {
+            tauri::Url::parse(&rewrite_channel_endpoint(endpoint, channel))
+                .with_context(|| format!("invalid updater endpoint {endpoint}"))
+        })
+        .collect()
+}
+
 impl SilentUpdater {
     /// Checks the server; Windows receives `/LANG` to suppress the NSIS language dialog,
     /// see `packages/windows/installer.nsi`.
-    async fn check(app_handle: &tauri::AppHandle) -> Result<Option<Update>> {
-        let updater_builder = app_handle.updater_builder();
+    async fn updater(app_handle: &tauri::AppHandle) -> Result<tauri_plugin_updater::Updater> {
+        let mut updater_builder = app_handle.updater_builder();
+        if current_update_channel().await == CHANNEL_ALPHA {
+            updater_builder = updater_builder.endpoints(channel_endpoints(app_handle, CHANNEL_ALPHA)?)?;
+        }
         #[cfg(target_os = "windows")]
         let updater_builder = {
             let verge_lang = Config::verge().await.latest_arc().language.clone();
             let lang_id = nsis_language_id(&clash_verge_i18n::current_language(verge_lang.as_deref()));
             updater_builder.installer_arg(format!("/LANG={lang_id}"))
         };
-        Ok(updater_builder.build()?.check().await?)
+        Ok(updater_builder.build()?)
+    }
+
+    async fn check(app_handle: &tauri::AppHandle) -> Result<Option<Update>> {
+        Ok(Self::updater(app_handle).await?.check().await?)
+    }
+
+    pub async fn check_available(&self, app_handle: &tauri::AppHandle) -> Result<Option<UpdateInfo>> {
+        Ok(Self::check(app_handle).await?.map(|update| UpdateInfo {
+            current_version: update.current_version,
+            version: update.version,
+            date: update.date.map(|date| date.to_string()),
+            body: update.body,
+            raw_json: update.raw_json,
+        }))
     }
 
     async fn install(update: Update, bytes: Vec<u8>) -> Result<()> {
@@ -633,7 +700,7 @@ impl SilentUpdater {
 
         logging!(info, Type::System, "Silent updater: checking for updates...");
 
-        let updater = app_handle.updater()?;
+        let updater = Self::updater(app_handle).await?;
         let update = match updater.check().await {
             Ok(Some(update)) => update,
             Ok(None) => {
@@ -716,5 +783,26 @@ impl SilentUpdater {
 
             tokio::time::sleep(std::time::Duration::from_secs(24 * 60 * 60)).await;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CHANNEL_ALPHA, CHANNEL_STABLE, rewrite_channel_endpoint};
+
+    #[test]
+    fn alpha_channel_rewrites_updater_release_endpoints() {
+        let plain = "https://github.com/clash-verge-rev/clash-verge-rev/releases/download/updater/update.json";
+        let proxied = "https://gh-proxy.org/https://github.com/clash-verge-rev/clash-verge-rev/releases/download/updater/update-proxy.json";
+
+        assert_eq!(
+            rewrite_channel_endpoint(plain, CHANNEL_ALPHA),
+            "https://github.com/clash-verge-rev/clash-verge-rev/releases/download/updater-alpha/update.json"
+        );
+        assert_eq!(rewrite_channel_endpoint(plain, CHANNEL_STABLE), plain);
+        assert_eq!(
+            rewrite_channel_endpoint(proxied, CHANNEL_ALPHA),
+            "https://gh-proxy.org/https://github.com/clash-verge-rev/clash-verge-rev/releases/download/updater-alpha/update-proxy.json"
+        );
     }
 }
