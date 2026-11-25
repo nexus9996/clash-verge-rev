@@ -13,7 +13,7 @@
 <details>
 <summary><strong> ✨ 新增功能 </strong></summary>
 
-- 规则页支持按内容、域名、IP/CIDR 三种模式搜索规则
+- 代理节点支持显示所属代理组并快速跳转到对应分组
 
 </details>
 
