@@ -27,8 +27,8 @@ These rules supplement the repository's root `AGENTS.md`.
   paths, and backend-provided paths are resolved through `resolveNavigationPath`.
 - **Layer ownership.** Routes are thin shells over pages; pages compose
   components; components, hooks, services and config never import pages or
-  routes upward. `eslint.config.ts` (`import-x/no-restricted-paths`) enforces
-  the direction and the `arch:check layers` gate surfaces violations.
+  routes upward. `scripts/check-architecture.mjs` enforces the direction and the
+  `arch:check` gate surfaces violations.
 
 - **Domain data ownership.** Ordinary reads live in `hooks/data/*` domain hooks
   over the shared query client. There is no app-wide data provider/context:

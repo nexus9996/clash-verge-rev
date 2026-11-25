@@ -1,4 +1,3 @@
-/* eslint-disable @eslint-react/set-state-in-effect */
 import { Delete, ExpandLess, ExpandMore } from '@mui/icons-material'
 import {
   Button,

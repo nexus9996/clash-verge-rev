@@ -20,7 +20,7 @@ export interface GroupedVirtualItem<T> {
   item: T
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
+// eslint-disable-next-line react/only-export-components
 export function buildGroupedItems<T>(
   prepend: T[],
   original: T[],

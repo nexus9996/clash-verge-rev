@@ -4,6 +4,7 @@
   "baseBranchPatterns": ["dev"],
   "enabledManagers": [
     "asdf",
+    "bun",
     "cargo",
     "custom.regex",
     "devcontainer",
@@ -41,8 +42,8 @@
       "rangeStrategy": "bump"
     },
     {
-      "description": "Group all npm dependencies into a single PR",
-      "matchManagers": ["npm"],
+      "description": "Group all npm/bun dependencies into a single PR",
+      "matchManagers": ["npm", "bun"],
       "groupName": "npm dependencies"
     },
     {
@@ -75,7 +76,7 @@
     },
     {
       "description": "Skip TypeScript 7.0 series",
-      "matchManagers": ["npm"],
+      "matchManagers": ["npm", "bun"],
       "matchPackageNames": ["typescript"],
       "allowedVersions": "<7.0.0 || >=7.1.0"
     },
@@ -94,9 +95,9 @@
       "groupName": "Node.js"
     },
     {
-      "description": "Group PNPM version updates across package.json, tool-versions, workflows, and devcontainer",
-      "matchPackageNames": ["pnpm"],
-      "groupName": "pnpm"
+      "description": "Group Bun version updates across package.json, tool-versions, workflows, and devcontainer",
+      "matchPackageNames": ["bun"],
+      "groupName": "bun"
     },
     {
       "description": "Group Rust toolchain updates across rust-toolchain.toml, workflows, devcontainer, and tool-versions",
@@ -151,16 +152,25 @@
     },
     {
       "customType": "regex",
-      "description": "Update pnpm in devcontainer.json",
+      "description": "Update Bun devcontainer feature",
       "fileMatch": ["^\\.devcontainer/devcontainer\\.json$"],
       "matchStrings": [
-        "\"ghcr\\.io/devcontainers/features/node:[^\"]+\":\\s*\\{[^}]*\"pnpmVersion\":\\s*\"(?<currentValue>[^\"]+)\""
+        "\"ghcr\\.io/devcontainers-extra/features/bun:[^\"]+\":\\s*\\{[^}]*\"version\":\\s*\"(?<currentValue>[^\"]+)\""
       ],
-      "depNameTemplate": "pnpm",
+      "depNameTemplate": "bun",
+      "datasourceTemplate": "npm"
+    },
+    {
+      "customType": "regex",
+      "description": "Update Bun in GitHub Workflows",
+      "fileMatch": ["^\\.github/workflows/.*\\.ya?ml$"],
+      "matchStrings": [
+        "bun-version:\\s*['\"]?(?<currentValue>\\d+\\.\\d+\\.\\d+)['\"]?"
+      ],
+      "depNameTemplate": "bun",
       "datasourceTemplate": "npm"
     }
   ],
-  "postUpdateOptions": ["pnpmDedupe"],
   "ignoreDeps": ["criterion"],
   "lockFileMaintenance": {
     "enabled": true,

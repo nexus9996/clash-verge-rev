@@ -147,6 +147,5 @@ node scripts/perf/frontend-baseline.mjs --dist dist --label rev-local-ed909350-e
 
 ## 10. 导航性能采样（2026-10-19 补齐入口）
 
-- 采样入口与协议已落地：`src/app/router-timing.ts`（dev opt-in）+ `scripts/perf/nav-timing.mjs`，桌面采集步骤见 [navigation-timing](navigation-timing.md)。
-- `--record` 写入独立的 `docs/perf/navigation-timing-baseline.json`，与 bundle 基线分离（`check-bundle-budget --record` 会重写 `frontend-baseline.json`，导航数据不能被它覆盖）。
-- 冷/热 p95 数值与 20 次随机导航录屏仍需桌面 Tauri 实例执行；该门禁不进 CI（见 [navigation-timing](navigation-timing.md) §4）。
+- 2026-10-19/20 在打包 release 实例上完成本机导航验收：cold p95 159 ms、hot p95 113 ms（hot 目标 100 ms 未完全达到），详见[迁移计划 §12.19](../frontend-architecture-migration-plan.md)。
+- 采样探针、校验脚本与协议文档为临时验收工具，验收完成后已从代码中移除；`frontend-baseline.json` 仍只用于 bundle 预算。

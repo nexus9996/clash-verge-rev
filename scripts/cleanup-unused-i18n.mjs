@@ -26,7 +26,7 @@ const IGNORE_DIR_NAMES = new Set([
   '.turbo',
   '.next',
   '.cache',
-  '.pnpm',
+  '.bun',
   'node_modules',
   'dist',
   'build',
@@ -103,7 +103,7 @@ function resetUsageCaches() {
 }
 
 function printUsage() {
-  console.log(`Usage: pnpm node scripts/cleanup-unused-i18n.mjs [options]
+  console.log(`Usage: bun scripts/cleanup-unused-i18n.mjs [options]
 
 Options:
   --apply            Write locale files with unused keys removed (default: report only)
@@ -1423,7 +1423,7 @@ function main() {
         )
       }
       console.error(
-        '\nRun `pnpm i18n:format` (align + apply) or fix the keys above, then re-run `pnpm i18n:verify`.',
+        '\nRun `bun run i18n:format` (align + apply) or fix the keys above, then re-run `bun run i18n:verify`.',
       )
       process.exitCode = 1
       return

@@ -1,4 +1,5 @@
 import type { VergeEventPayloads } from '@/services/contract'
+import delayManager from '@/services/delay'
 import { forgetShownStartupError } from '@/services/notice-handlers'
 import type { AppStoreAction } from '@/store/app-state'
 
@@ -49,6 +50,7 @@ export const createEventBus = (deps: BusHandlerDeps) => {
     }
     lastProfileId = newProfileId
     lastProfileChangeTime = now
+    delayManager.clear()
     deps.revalidateKeys(['getProfiles'])
   }
 
@@ -83,6 +85,7 @@ export const createEventBus = (deps: BusHandlerDeps) => {
       deps.dispatch({ type: 'profileUpdate/started', uid }),
     'profile-update-completed': ({ uid }) => {
       deps.dispatch({ type: 'profileUpdate/completed', uid })
+      delayManager.clear()
       deps.revalidateKeys(['getProfiles'])
     },
     'verge://run-state-changed': (payload) => {

@@ -7,7 +7,7 @@
  * (planned in Phase 4) will compare against the emitted JSON.
  *
  * Usage:
- *   node scripts/perf/frontend-baseline.mjs --dist dist \
+ *   bun scripts/perf/frontend-baseline.mjs --dist dist \
  *     --out docs/perf/frontend-baseline-YYYY-MM-DD.json
  */
 import { execFileSync } from 'node:child_process'
@@ -152,7 +152,7 @@ const baseline = {
     release: os.release(),
     cpu: os.cpus()[0]?.model ?? null,
     node: process.version,
-    packageManager: 'pnpm@12.14.0',
+    packageManager: `bun@${process.versions.bun ?? 'unknown'}`,
   },
   initial: {
     files: sortByRaw(initial),

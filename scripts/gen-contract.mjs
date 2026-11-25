@@ -31,19 +31,18 @@ try {
     { cwd: ROOT, stdio: 'inherit' },
   )
   const formatted = execFileSync(
-    process.execPath,
-    [
-      path.join(ROOT, 'node_modules/@biomejs/biome/bin/biome'),
-      'format',
-      '--stdin-file-path',
-      BINDINGS,
-    ],
+    path.join(
+      ROOT,
+      'node_modules/.bin',
+      process.platform === 'win32' ? 'oxfmt.cmd' : 'oxfmt',
+    ),
+    ['--stdin-filepath', BINDINGS],
     { cwd: ROOT, input: fs.readFileSync(output) },
   )
   if (check) {
     if (!formatted.equals(fs.readFileSync(BINDINGS))) {
       console.error(
-        'IPC bindings are out of date. Run pnpm gen:contract and commit the generated file.',
+        'IPC bindings are out of date. Run bun run gen:contract and commit the generated file.',
       )
       process.exitCode = 1
     }

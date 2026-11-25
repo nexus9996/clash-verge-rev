@@ -535,6 +535,7 @@ export interface TranslationResources {
           toggleChain: string
         }
         chain: {
+          confirmEnable: string
           connectFailed: string
           disconnectFailed: string
           duplicateNode: string
@@ -543,6 +544,7 @@ export interface TranslationResources {
           exitNode: string
           header: string
           instruction: string
+          keepDisabled: string
           minimumNodes: string
           minimumNodesHint: string
           warning: string
@@ -1360,6 +1362,11 @@ export interface TranslationResources {
               webUI: string
             }
             options: {
+              ipv6Mode: {
+                auto: string
+                off: string
+                on: string
+              }
               logLevel: {
                 debug: string
                 error: string
@@ -1368,7 +1375,14 @@ export interface TranslationResources {
                 warning: string
               }
             }
+            status: {
+              ipv6Auto: {
+                available: string
+                ipv4Only: string
+              }
+            }
             tooltips: {
+              ipv6Auto: string
               logLevel: string
               networkInterface: string
               openUwpTool: string

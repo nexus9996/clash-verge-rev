@@ -92,6 +92,8 @@ export const commands = {
   copyClashEnv: () => __TAURI_INVOKE<null>('copy_clash_env'),
   syncTrayProxySelection: () =>
     __TAURI_INVOKE<null>('sync_tray_proxy_selection'),
+  /**  Refreshes tray latency texts in place after a test; the menu structure is unchanged. */
+  refreshTrayProxyItems: () => __TAURI_INVOKE<null>('refresh_tray_proxy_items'),
   /**  Merges one selection pair into fresh backend state to avoid stale-list overwrites. */
   recordSelectedNode: (groupName: string, node: string) =>
     __TAURI_INVOKE<null>('record_selected_node', { groupName, node }),
@@ -416,6 +418,8 @@ export type IVerge_Deserialize = {
   enable_system_proxy?: boolean | null
   enable_proxy_guard?: boolean | null
   enable_bypass_check?: boolean | null
+  /**  off | on | auto; absent means the saved `ipv6` switch decides. */
+  ipv6_mode?: string | null
   /**  Initial DNS override preference for profiles without a saved setting. */
   enable_dns_settings?: boolean | null
   profile_dns_settings?: { [key in string]: ProfileDnsSettings_Deserialize }
@@ -513,6 +517,8 @@ export type IVerge_Serialize = {
   enable_system_proxy: boolean | null
   enable_proxy_guard: boolean | null
   enable_bypass_check: boolean | null
+  /**  off | on | auto; absent means the saved `ipv6` switch decides. */
+  ipv6_mode: string | null
   /**  Initial DNS override preference for profiles without a saved setting. */
   enable_dns_settings: boolean | null
   profile_dns_settings?: { [key in string]: ProfileDnsSettings_Serialize }

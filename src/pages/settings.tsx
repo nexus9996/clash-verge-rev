@@ -1,6 +1,7 @@
 import { GitHub, HelpOutlineRounded, Telegram } from '@mui/icons-material'
 import { Box, ButtonGroup, IconButton, Grid } from '@mui/material'
 import { useLockFn } from 'ahooks'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BasePage } from '@/components/base'
@@ -13,6 +14,19 @@ import { openExternalUrl } from '@/utils/open-external-url'
 
 const SettingPage = () => {
   const { t } = useTranslation()
+  const [showDeferredSections, setShowDeferredSections] = useState(false)
+
+  useEffect(() => {
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(
+        () => setShowDeferredSections(true),
+        { timeout: 1200 },
+      )
+      return () => window.cancelIdleCallback?.(id)
+    }
+    const id = window.setTimeout(() => setShowDeferredSections(true), 500)
+    return () => window.clearTimeout(id)
+  }, [])
 
   const onError = (err: any) => {
     showNotice.error(err)
@@ -77,6 +91,8 @@ const SettingPage = () => {
               borderRadius: 2,
               marginBottom: 1.5,
               backgroundColor: 'var(--surface-card)',
+              contentVisibility: 'auto',
+              containIntrinsicSize: 'auto 640px',
             }}
           >
             <SettingSystem onError={onError} />
@@ -85,9 +101,11 @@ const SettingPage = () => {
             sx={{
               borderRadius: 2,
               backgroundColor: 'var(--surface-card)',
+              contentVisibility: 'auto',
+              containIntrinsicSize: 'auto 640px',
             }}
           >
-            <SettingClash onError={onError} />
+            {showDeferredSections && <SettingClash onError={onError} />}
           </Box>
         </Grid>
         <Grid size={6}>
@@ -96,6 +114,8 @@ const SettingPage = () => {
               borderRadius: 2,
               marginBottom: 1.5,
               backgroundColor: 'var(--surface-card)',
+              contentVisibility: 'auto',
+              containIntrinsicSize: 'auto 640px',
             }}
           >
             <SettingVergeBasic onError={onError} />
@@ -104,9 +124,11 @@ const SettingPage = () => {
             sx={{
               borderRadius: 2,
               backgroundColor: 'var(--surface-card)',
+              contentVisibility: 'auto',
+              containIntrinsicSize: 'auto 640px',
             }}
           >
-            <SettingVergeAdvanced onError={onError} />
+            {showDeferredSections && <SettingVergeAdvanced onError={onError} />}
           </Box>
         </Grid>
       </Grid>

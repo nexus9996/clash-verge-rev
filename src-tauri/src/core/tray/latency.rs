@@ -2,6 +2,7 @@ use super::Tray;
 use crate::{
     Type, cmd,
     config::Config,
+    constants::latency::{DEFAULT_TEST_URL, DEFAULT_TIMEOUT_MS},
     core::{
         handle,
         notify::{Refresh, announce},
@@ -9,9 +10,12 @@ use crate::{
     },
     logging,
 };
+use tauri_plugin_mihomo::models::ProxyType;
 
 const TRAY_DELAY_TEST_CONCURRENCY: usize = 10;
-const TRAY_DEFAULT_LATENCY_URL: &str = "http://cp.cloudflare.com/generate_204";
+/// Selector batches hand the whole group to the core; larger groups keep the paced loop
+/// so the core does not spawn an unbounded probe burst.
+const TRAY_DELAY_BATCH_LIMIT: usize = 128;
 
 fn is_latency_test_url(raw: &str) -> bool {
     let raw = raw.trim();
@@ -42,7 +46,7 @@ pub(super) fn test_url(
         .or(group_url)
         .or(default_url)
         .filter(|&url| is_latency_test_url(url))
-        .unwrap_or(TRAY_DEFAULT_LATENCY_URL)
+        .unwrap_or(DEFAULT_TEST_URL)
         .trim()
         .to_owned()
 }
@@ -89,7 +93,7 @@ pub(super) async fn test_proxy_group_delay(group_name: &str) {
     let timeout = verge
         .default_latency_timeout
         .filter(|timeout| *timeout > 0)
-        .unwrap_or(10000) as u32;
+        .unwrap_or(DEFAULT_TIMEOUT_MS) as u32;
 
     let mut targets: Vec<(std::string::String, Option<std::string::String>)> = Vec::with_capacity(group.members.len());
     for member in &group.members {
@@ -107,29 +111,53 @@ pub(super) async fn test_proxy_group_delay(group_name: &str) {
     }
     let mihomo = handle::Handle::mihomo();
 
-    stream::iter(targets.into_iter().map(move |(member, provider)| {
-        let url = url.clone();
-        async move {
-            let result = match provider {
-                Some(provider_name) => {
-                    mihomo
-                        .healthcheck_node_in_provider(&provider_name, &member, &url, timeout)
-                        .await
-                }
-                None => mihomo.delay_proxy_by_name(&member, &url, timeout).await,
-            };
-            if let Err(err) = result {
-                logging!(debug, Type::Tray, "Tray latency test failed: {member} - {err}");
+    // A Selector group has no scheduled health checks, so one group request replaces the
+    // per-member fan-out; every other group type keeps the per-member path.
+    let mut batch_handled = false;
+    if group.proxy_type == ProxyType::Selector && targets.len() <= TRAY_DELAY_BATCH_LIMIT {
+        match mihomo.delay_group(group_name, &url, timeout).await {
+            Ok(delays) => {
+                logging!(
+                    debug,
+                    Type::Tray,
+                    "Tray latency batch finished: {}/{} members measured",
+                    delays.len(),
+                    targets.len()
+                );
+                batch_handled = true;
             }
+            Err(err) => logging!(
+                warn,
+                Type::Tray,
+                "Tray latency batch failed, falling back to per-member probes: {err}"
+            ),
         }
-    }))
-    .buffer_unordered(TRAY_DELAY_TEST_CONCURRENCY)
-    .for_each(|()| std::future::ready(()))
-    .await;
-
-    if let Err(err) = cmd::proxy::sync_tray_proxy_selection().await {
-        logging!(warn, Type::Tray, "Failed to refresh tray after latency test: {err}");
     }
+
+    if !batch_handled {
+        stream::iter(targets.into_iter().map(move |(member, provider)| {
+            let url = url.clone();
+            async move {
+                let result = match provider {
+                    Some(provider_name) => {
+                        mihomo
+                            .healthcheck_node_in_provider(&provider_name, &member, &url, timeout)
+                            .await
+                    }
+                    None => mihomo.delay_proxy_by_name(&member, &url, timeout).await,
+                };
+                if let Err(err) = result {
+                    logging!(debug, Type::Tray, "Tray latency test failed: {member} - {err}");
+                }
+            }
+        }))
+        .buffer_unordered(TRAY_DELAY_TEST_CONCURRENCY)
+        .for_each(|()| std::future::ready(()))
+        .await;
+    }
+
+    // Only latency labels changed: diff item texts instead of rebuilding the whole menu.
+    Tray::global().refresh_proxy_items().await;
 
     announce(Refresh::Proxies);
 }

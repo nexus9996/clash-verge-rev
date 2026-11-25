@@ -3,7 +3,7 @@
 > 状态：**已实现并合入 `local`**（Phase 0–4 的 M0/R1–R4/S1–S3/T1–T5 已完成；收口与降级项见[迁移计划 §12.16](frontend-architecture-migration-plan.md)）
 > 日期：2026-10-19
 > 上位文档：[迁移计划](frontend-architecture-migration-plan.md) · [ADR-0001](adr/0001-router-choice.md) · [Phase 0 基线](perf/frontend-baseline-2026-10-19.md)
-> 约束来源：`src/AGENTS.md`（contract/event/state/intent/command ownership）、`eslint.config.ts:15-99`（IPC 边界）、`scripts/check-architecture.mjs`、`src-tauri/config/verge.rs`（配置契约）
+> 约束来源：`src/AGENTS.md`（contract/event/state/intent/command ownership）、`.oxlintrc.json`（静态 import 边界）与 `scripts/check-architecture.mjs`（动态 import/分层）、`scripts/check-architecture.mjs`、`src-tauri/config/verge.rs`（配置契约）
 
 本文描述当前已实现的前端结构；实现过程中若与本文件冲突，先改本文件并说明原因，再改代码。
 
@@ -35,7 +35,7 @@
 | `hooks/` | `services/`、`utils/`、`store/`、`config/` | `components/`、`pages/`、`routes/` |
 | `app/` | 全部 | —（唯一允许跨层的组合根） |
 
-> 已由 `eslint.config.ts` 的 `import-x/no-restricted-paths` + `scripts/check-architecture.mjs` 的 `arch:check` 强制（T2）；违反方向会在 lint/CI 阶段失败。
+> 已由 `scripts/check-architecture.mjs` 的层向规则与 `arch:check` 强制（T2）；违反方向会在 lint/CI 阶段失败。
 
 ## 2. 路由层
 
@@ -59,7 +59,7 @@ src/
 │   ├── logs.tsx
 │   ├── unlock.tsx
 │   └── settings.tsx
-└── routeTree.gen.ts   # 生成物：提交入库，eslint/biome/knip 豁免
+└── routeTree.gen.ts   # 生成物：提交入库，oxlint/oxfmt/knip 豁免
 ```
 
 **route 薄壳规则**：
@@ -95,7 +95,7 @@ export const ROUTER_DEFAULTS = {
 
 - 保留 rev 的"无导航 loading"体验目标（`e63b8e6e` 的教训）作为 G1 验收项；G1 定性 smoke 已通过，冷/热 p95 尚未采集（见迁移计划 §12.16 的后续项）。
 - 导航项在 hover/focus 时通过 `router.preloadRoute({ to })` 预取目标页面 chunk（`layout-item.tsx`）。
-- 不配置 idle 全量预载；如后续需要，只按数据预热 1 条最常用路由。
+- 首屏后 idle 预热：`app/warmup.ts` 在首屏渲染后顺序 `router.preloadRoute` 全部路由 chunk，随后预热常用查询（best-effort、3 s 超时、失败仅 warn）。2026-10-19 决策，用于追平 eager 路由的首次切页体验（见迁移计划 §12.18）。
 - 不加 route `loader`：数据仍由 SWR/WS 获取，避免第二数据源（`src/AGENTS.md` query ownership）。
 
 ### 2.3 导航单一事实源
@@ -118,8 +118,8 @@ export const NAV_ITEMS: NavigationItem[] = NAV_IDS.map((id) => ({ id, ...NAV_MET
 ### 2.4 新增页面步骤（3 步）
 
 1. `src/pages/<name>.tsx` 写页面组件（子组件放 `src/components/<domain>/`）。
-2. `src/routes/<name>.tsx` 加路由薄壳：`createFileRoute('/<path>')({ component, staticData: { navId } })`；按需 `pnpm generate-routes`（dev/build 也会生成）。
-3. 导航与文案：`src/config/navigation.ts` 的 `NAV_META` 加 id/path/labelKey；`src/components/layout/navigation-icons.tsx` 的 `NAV_ICONS` 补图标；14 个 `src/locales/*/layout.json` 补 `tabs.<name>` → `pnpm i18n:types`。
+2. `src/routes/<name>.tsx` 加路由薄壳：`createFileRoute('/<path>')({ component, staticData: { navId } })`；按需 `bun run generate-routes`（dev/build 也会生成）。
+3. 导航与文案：`src/config/navigation.ts` 的 `NAV_META` 加 id/path/labelKey；`src/components/layout/navigation-icons.tsx` 的 `NAV_ICONS` 补图标；14 个 `src/locales/*/layout.json` 补 `tabs.<name>` → `bun run i18n:types`。
 
 > `src/routes/__route-catalog.test.ts` 会校验 route 路径、`staticData.navId` 与 catalog 一致；完整操作见 `CONTRIBUTING.md` 的 “Adding a Frontend Page”。
 
@@ -166,23 +166,23 @@ src/config/theme/
 - CSS 变量：保留既有 legacy 名称（`--background-color`、`--divider-color` 等），新增语义色（`--color-*`）与尺度（`--space-*` / `--radius-*` / `--shadow-*` / `--z-*` / `--overlay-*`）。
 - 主题预设已接入 token 体系（6 套 × 明暗）。
 - S3（按域 hex 清理）：全仓组件/页面的裸 hex 已清零（token 定义与 stylesheet 默认值除外），统一走 `theme.palette` / 生成 CSS 变量（`--surface-card` / `--surface-page` / `--surface-raised` / `--log-highlight` / `--switch-*` 等）。
-- 回归守卫：`pnpm check:hex-budget`（CI 已接入）统计 token/styles 目录之外的裸 hex，**预算 0**；新增颜色必须进入 `config/theme/tokens.ts` 或 `assets/styles` 的 CSS 变量默认值。
+- 回归守卫：`bun run check:hex-budget`（CI 已接入）统计 token/styles 目录之外的裸 hex，**预算 0**；新增颜色必须进入 `config/theme/tokens.ts` 或 `assets/styles` 的 CSS 变量默认值。
 - **不引入 Tailwind**（ADR-0001 D2）。亮/暗两套主题设置已落地（C5）：`verge.light_theme_setting` / `verge.dark_theme_setting`，未设置时回退 `theme_setting`；预设、取色器、字体、背景图、透明度和 CSS 注入行为不变。
 
 ## 5. 质量门禁
 
 | 门禁 | 命令/实现 | 现状 |
 | --- | --- | --- |
-| 类型/格式/lint | `pnpm typecheck`、`pnpm format:check`、`pnpm lint` | 已有（Phase 0 全绿） |
-| 单测 | `pnpm test`（vitest；jsdom 按文件 docblock 启用） | 已有；T3 起含路由/主题/导航测试 |
-| 死代码/循环 | `pnpm knip:check` | 已有 |
-| IPC 边界 | `node scripts/check-architecture.mjs listen emit invoke` | 已有 |
-| i18n | `pnpm i18n:types && pnpm i18n:verify` | 已接入 CI（生成物 diff + `--check`；missing-source 仅报告） |
-| 分层边界 | `eslint.config.ts` 的 `import-x/no-restricted-paths` + `arch:check` | 已接入（T2） |
+| 类型/格式/lint | `bun run typecheck`、`bun run format:check`、`bun run lint` | 已有（Phase 0 全绿） |
+| 单测 | `bun run test`（vitest；jsdom 按文件 docblock 启用） | 已有；T3 起含路由/主题/导航测试 |
+| 死代码/循环 | `bun run knip:check` | 已有 |
+| IPC 边界 | `bun scripts/check-architecture.mjs listen emit invoke` | 已有 |
+| i18n | `bun run i18n:types && bun run i18n:verify` | 已接入 CI（生成物 diff + `--check`；missing-source 仅报告） |
+| 分层边界 | `scripts/check-architecture.mjs` + `arch:check` | 已接入（T2） |
 | 路由一致性 | `src/routes/__route-catalog.test.ts` | 已接入（T3） |
 | bundle 预算 | `scripts/check-bundle-budget.mjs` 对比 `docs/perf/frontend-baseline.json`（T4） | 已接入 CI |
 | hex 预算 | `scripts/check-hex-budget.mjs`（预算 0，S3） | 已接入 CI |
-| 导航性能 | `src/app/router-timing.ts`（dev opt-in）+ `scripts/perf/nav-timing.mjs` | 采样/校验已落地；本机手动门禁，数据待桌面采集（见 `perf/navigation-timing.md`） |
+| 导航性能 | 打包 release 实例 + DevTools/临时探针（验收后已移除） | 本机验收完成：cold p95 159 ms / hot p95 113 ms；记录见迁移计划 §12.19 |
 
 ## 附录 A：base 组件差异清单（Phase 0 实测）
 
@@ -226,4 +226,4 @@ src/config/theme/
 - [ADR-0002](adr/0002-design-tokens.md)（设计 token 与主题体系）
 - [ADR-0003](adr/0003-state-boundary.md)（状态与数据边界）
 - [Phase 0 基线](perf/frontend-baseline-2026-10-19.md)（门禁、bundle、测量口径）
-- `src/AGENTS.md`、`scripts/check-architecture.mjs`、`eslint.config.ts`
+- `src/AGENTS.md`、`scripts/check-architecture.mjs`、`.oxlintrc.json`

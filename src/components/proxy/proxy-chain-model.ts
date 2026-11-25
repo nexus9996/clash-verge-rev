@@ -18,6 +18,7 @@ export const rebindProxyChainItems = (
   items: readonly ProxyChainItem[],
   candidates: readonly ProxyNodeView[],
   proxyView: ProxyViewV1,
+  delayOf?: (node: ProxyNodeView) => number | undefined,
 ): ProxyChainItem[] =>
   items.map((item) => {
     const rebound = rebindNode(candidates, {
@@ -31,6 +32,8 @@ export const rebindProxyChainItems = (
       recordId: rebound?.recordId,
       source: rebound?.source ?? item.source,
       type: rebound?.type ?? item.type,
-      delay: record?.history.at(-1)?.delay,
+      delay:
+        (record === undefined ? undefined : delayOf?.(record)) ??
+        record?.history.at(-1)?.delay,
     }
   })

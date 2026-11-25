@@ -8,26 +8,35 @@ import {
   memberDetails,
   providerNameOf,
   type InteractableProxyMember,
+  type ProxyNodeView,
   type ResolvedProxyMember,
 } from '@/types/proxy-view'
 import { debugLog } from '@/utils/debug'
-import { classifyDelay, DEFAULT_DELAY_TIMEOUT } from '@/utils/delay'
+import {
+  classifyDelay,
+  DEFAULT_DELAY_TIMEOUT,
+  DEFAULT_LATENCY_TEST_URL,
+} from '@/utils/delay'
 import { isValidLatencyTestUrl } from '@/utils/network'
 
 export type DelaySnapshot = {
   of: (member: ResolvedProxyMember) => number
 }
 
-const hashKey = (member: ResolvedProxyMember, group: string) => {
-  if (member.kind !== 'node')
-    return JSON.stringify([group, member.kind, member.ref.name])
-  const source = member.node.source
+const nodeHashKey = (node: ProxyNodeView, group: string) => {
+  const source = node.source
   return JSON.stringify([
     group,
     source.kind,
     source.kind === 'provider' ? source.providerName : null,
     source.proxyName,
   ])
+}
+
+const hashKey = (member: ResolvedProxyMember, group: string) => {
+  if (member.kind !== 'node')
+    return JSON.stringify([group, member.kind, member.ref.name])
+  return nodeHashKey(member.node, group)
 }
 
 export interface DelayUpdate {
@@ -37,6 +46,12 @@ export interface DelayUpdate {
 }
 
 const CACHE_TTL = 30 * 60 * 1000
+
+// Proxy group names may contain spaces, so group sets are keyed by NUL.
+export const GROUP_KEY_SEPARATOR = '\u0000'
+
+export const groupDelayKey = (groups: readonly string[]) =>
+  groups.join(GROUP_KEY_SEPARATOR)
 
 class DelayManager {
   private cache = new Map<string, DelayUpdate & { url: string }>()
@@ -53,6 +68,7 @@ class DelayManager {
   >()
   // Suppress sort notifications until every measurement in a group batch settles.
   private activeBatches = new Map<string, number>()
+  private inFlight = new Set<string>()
 
   private pendingItemUpdates = new Map<string, DelayUpdate[]>()
   private pendingGroupUpdates = new Set<string>()
@@ -142,7 +158,7 @@ class DelayManager {
     const cached = this.groupSetSnapshots.get(groupKey)
     if (cached) return cached
 
-    const names = groupKey ? groupKey.split(' ') : []
+    const names = groupKey ? groupKey.split(GROUP_KEY_SEPARATOR) : []
     const snapshots = new Map(
       names.map((name) => [name, this.groupDelays(name)]),
     )
@@ -172,12 +188,20 @@ class DelayManager {
     if (previous !== this.getUrl(group)) this.queueGroupNotification(group)
   }
 
+  /** Drops measurements that belong to the previously active profile. */
+  clear() {
+    this.cache.clear()
+    this.urlMap.clear()
+    this.pendingItemUpdates.clear()
+    const groups = new Set([
+      ...this.groupListenerMap.keys(),
+      ...this.groupSnapshots.keys(),
+    ])
+    for (const group of groups) this.queueGroupNotification(group)
+  }
+
   getUrl(group: string) {
-    const url = this.urlMap.get(group)
-    debugLog(
-      `[DelayManager] 获取测试URL，组: ${group}, URL: ${url || '未设置'}`,
-    )
-    return url || 'http://cp.cloudflare.com/generate_204'
+    return this.urlMap.get(group) || DEFAULT_LATENCY_TEST_URL
   }
 
   setListener(
@@ -215,6 +239,12 @@ class DelayManager {
     meta?: { elapsed?: number; url?: string },
   ): DelayUpdate {
     const key = hashKey(member, group)
+    const url = meta?.url ?? this.getUrl(group)
+    const cached = this.cache.get(key)
+    if (cached && cached.delay === delay && cached.url === url) {
+      return cached
+    }
+
     debugLog(
       `[DelayManager] 设置延迟，代理: ${member.ref.name}, 组: ${group}, 延迟: ${delay}`,
     )
@@ -224,7 +254,6 @@ class DelayManager {
       updatedAt: Date.now(),
     }
 
-    const url = meta?.url ?? this.getUrl(group)
     if (url !== this.getUrl(group)) return update
     this.cache.set(key, { ...update, url })
 
@@ -262,6 +291,16 @@ class DelayManager {
   getDelay(member: ResolvedProxyMember, group: string) {
     const update = this.getDelayUpdate(member, group)
     return update ? update.delay : -1
+  }
+
+  /** Whether the member has a cached result for the active URL within `maxAgeMs`. */
+  isFresh(member: ResolvedProxyMember, group: string, maxAgeMs: number) {
+    const entry = this.cache.get(hashKey(member, group))
+    return (
+      entry !== undefined &&
+      entry.url === this.getUrl(group) &&
+      Date.now() - entry.updatedAt <= maxAgeMs
+    )
   }
 
   getHistory(member: ResolvedProxyMember, group: string) {
@@ -323,12 +362,13 @@ class DelayManager {
     this.setDelay(member, group, -2, { url })
 
     const startTime = Date.now()
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
 
     try {
       debugLog(`[DelayManager] 调用API测试延迟，代理: ${name}, URL: ${url}`)
 
       const timeoutPromise = new Promise<ProxyDelay>((resolve) => {
-        setTimeout(() => resolve({ delay: 0 }), timeout)
+        timeoutId = setTimeout(() => resolve({ delay: 0 }), timeout)
       })
 
       const result = await Promise.race([
@@ -336,23 +376,19 @@ class DelayManager {
         timeoutPromise,
       ])
 
-      const elapsedTime = Date.now() - startTime
-      if (elapsedTime < 500) {
-        await new Promise((resolve) => setTimeout(resolve, 500 - elapsedTime))
-      }
-
       const delay = result.delay
-      const elapsed = elapsedTime
+      const elapsed = Date.now() - startTime
       debugLog(`[DelayManager] 延迟测试完成，代理: ${name}, 结果: ${delay}ms`)
 
       return this.setDelay(member, group, delay, { elapsed, url })
     } catch (error) {
-      await new Promise((resolve) => setTimeout(resolve, 500))
       console.error(`[DelayManager] 延迟测试出错，代理: ${name}`, error)
       const delay = 1e6 // error
       const elapsed = Date.now() - startTime
 
       return this.setDelay(member, group, delay, { elapsed, url })
+    } finally {
+      clearTimeout(timeoutId)
     }
   }
 
@@ -360,7 +396,8 @@ class DelayManager {
     proxies: InteractableProxyMember[],
     group: string,
     timeout: number,
-    concurrency = 36,
+    concurrency = 20,
+    signal?: AbortSignal,
   ) {
     debugLog(
       `[DelayManager] 批量测试延迟开始，组: ${group}, 数量: ${proxies.length}, 并发数: ${concurrency}`,
@@ -374,34 +411,34 @@ class DelayManager {
     const startTime = Date.now()
 
     const help = async (): Promise<void> => {
-      const currMember = proxies[index++]
-      if (!currMember) return
-      const currName = currMember.ref.name
-
-      try {
-        this.setDelay(currMember, group, -2)
-
-        // Stagger requests so a batch does not hit the core at once.
-        if (index > 1) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, Math.random() * 200),
+      while (!signal?.aborted) {
+        const currMember = proxies[index++]
+        if (!currMember) return
+        const currName = currMember.ref.name
+        const key = hashKey(currMember, group)
+        if (this.inFlight.has(key)) {
+          debugLog(
+            `[DelayManager] 跳过进行中的测速，代理: ${currName}, 组: ${group}`,
           )
+          continue
         }
 
-        // Do not reorder a list around the pointer while batch results are arriving.
-        await this.measureDelay(currMember, group, timeout)
-      } catch (error) {
-        console.error(
-          `[DelayManager] 批量测试单个代理出错，代理: ${currName}`,
-          error,
-        )
-        this.setDelay(currMember, group, 1e6)
+        this.inFlight.add(key)
+        try {
+          await this.measureDelay(currMember, group, timeout)
+        } catch (error) {
+          console.error(
+            `[DelayManager] 批量测试单个代理出错，代理: ${currName}`,
+            error,
+          )
+          this.setDelay(currMember, group, 1e6)
+        } finally {
+          this.inFlight.delete(key)
+        }
       }
-
-      return help()
     }
 
-    const actualConcurrency = Math.min(concurrency, proxies.length, 10)
+    const actualConcurrency = Math.min(concurrency, proxies.length)
     debugLog(`[DelayManager] 实际并发数: ${actualConcurrency}`)
 
     const promiseList: Promise<void>[] = []
@@ -412,6 +449,13 @@ class DelayManager {
     try {
       await Promise.all(promiseList)
     } finally {
+      if (signal?.aborted) {
+        // Aborted batches leave pending markers behind; fall back to cached history.
+        for (const member of proxies) {
+          const key = hashKey(member, group)
+          if (this.cache.get(key)?.delay === -2) this.cache.delete(key)
+        }
+      }
       // Always release the batch and notify; otherwise failures leave stale sort state.
       const remaining = (this.activeBatches.get(group) ?? 1) - 1
       if (remaining > 0) {

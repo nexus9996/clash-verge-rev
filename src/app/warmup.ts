@@ -35,16 +35,19 @@ export const prefetchRouteChunks = async (router: AnyRouter) => {
       console.warn(`[warmup] route preload failed: ${item.path}`, error)
     }
   }
+}
 
-  // These routes wrap their page in lazyRouteComponent; preloading the route
-  // does not always resolve the React lazy component, which would suspend on
-  // the first visit after navigation.
-  await Promise.allSettled([
+/**
+ * These routes wrap their page in lazyRouteComponent; preloading the route
+ * does not always resolve the React lazy component, which would suspend on the
+ * first visit after navigation.
+ */
+const prefetchLazyPageModules = () =>
+  Promise.allSettled([
     import('@/pages/profiles'),
     import('@/pages/settings'),
     import('@/pages/connections'),
   ])
-}
 
 const prewarmCommonQueries = async () => {
   const queries: ReadonlyArray<[readonly string[], () => Promise<unknown>]> = [
@@ -71,10 +74,12 @@ export const scheduleWarmup = (router: AnyRouter) => {
   scheduled = true
 
   runWhenIdle(() => {
-    void prefetchRouteChunks(router).then(() => {
-      runWhenIdle(() => {
-        void prewarmCommonQueries()
+    void prefetchRouteChunks(router)
+      .then(() => prefetchLazyPageModules())
+      .then(() => {
+        runWhenIdle(() => {
+          void prewarmCommonQueries()
+        })
       })
-    })
   })
 }

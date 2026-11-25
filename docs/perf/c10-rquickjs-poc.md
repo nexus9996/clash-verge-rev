@@ -3,6 +3,7 @@
 - 日期：2026-10-19
 - 分支：migrate/c10-rquickjs-poc（基于 local 0643776e）
 - 来源：clash-verge-self@db627b3b（boa → rquickjs）、@9d62d113（独立线程防内存泄漏）、@fe66c4df（thread-local runtime）
+- 状态：**已决策并合入** `local`（`8aac924a`，2026-10-19）；2026-10-20 完成正式替换前置收口，见文末“正式替换落地记录”。
 
 ## 背景
 
@@ -65,20 +66,60 @@ rules 做 map 改写（配置 JSON 约 300KB）。每次测量包含 serde JSON 
 ## 构建 / CI 影响
 
 - rquickjs 0.14 使用 bindgen 特性，需要 libclang；本机（Xcode clang）构建通过。
-- 发布 CI（ubuntu）当前未安装 clang/libclang；正式替换前需在 release.yml 增加 clang 安装与
-  LIBCLANG_PATH（这是本 POC 未改动的部分）。
+- Linux CI 已显式安装 `libclang-dev` + `clang`（2026-10-20）：release（x64 + Linux ARM）、
+  lint-clippy、autobuild（x86 + ARM）、dev、frontend-check 的 contract-parity、cross_check 共 8 处；
+  Windows runner 自带 LLVM（libclang）、macOS runner 自带 Xcode libclang，无需额外安装。
 - 依赖变化：移除 boa_engine 及其依赖树，新增 rquickjs / rquickjs-core / rquickjs-sys /
   rquickjs-macro；Cargo.lock 净减少约 680 行。
 
 ## 风险与待办（正式替换前）
 
-1. 真实订阅脚本回归：用 3 个实际订阅增强脚本 + 大型规则集跑端到端，确认 console/异常/输出上限行为；
-2. 内存观察：thread-local Runtime 在 worker 线程上复用，需观察长时间运行后的驻留内存（self 曾因内存问题回退）；
-3. 引擎差异：QuickJS 的 ECMAScript 版本/内置对象与 boa 不完全一致，需覆盖用户常见写法（Promise、可选链、正则等）；
-4. 中断/循环上限语义：QuickJS 无循环计数 API，当前以中断次数 + 截止时间近似，需在文档中向用户说明；
-5. 补 CI 的 libclang 安装与缓存，验证 release 构建产物可正常启动与执行脚本。
+1. ~~真实订阅脚本回归~~：2 个内置真实脚本（`meta_guard.js` / `meta_hy_alpn.js`）已通过 `include_str!`
+   加入引擎 e2e；另加 1 个代表性大配置脚本（220 proxies / 2010 rules）。真实用户脚本抽检仍列为
+   发布前人工项。
+2. ~~内存观察~~：已加入线程本地 Runtime 的重复执行内存稳定性测试（100 次预热 + 100 次重复，
+   `memory_used_size` 不增长）；30 分钟桌面长会话驻留观察仍列为发布前人工项。
+3. ~~引擎差异~~：已补可选链/空值合并、模板字符串/解构/spread、正则命名组/lookbehind、
+   Promise/Map/Set/JSON 测试。
+4. ~~中断/循环上限语义~~：已记录于下文“用户可见语义”，发布时同步到用户文档站点。
+5. ~~CI libclang~~：Linux CI 已显式安装（见“构建 / CI 影响”）。
 
 ## 结论
 
-POC 达到预期：沙箱限制全部保留且有测试，功能行为与 boa 版本一致，性能提升约 6-8 倍，二进制更小。
-建议进入正式替换（独立任务），前置条件：release CI 补 libclang、真实订阅脚本回归通过、内存观察无回退。
+POC 达到预期，**已决策并完成正式替换**：沙箱限制全部保留且有测试，功能行为与 boa 版本一致，
+性能提升约 6-8 倍，二进制更小。`local` 合入 commit `8aac924a`（预演 `6c79d7d2` 与真实合并树完全
+一致）。剩余两项（真实用户脚本抽检、30 分钟桌面内存观察）为发布前人工验证项。
+
+## 正式替换落地记录（2026-10-19 / 2026-10-20）
+
+- 预演：`merge-rehearsal-c10` worktree 基于当时最新 `local`（`c1474b8f`）合并 `migrate/c10-rquickjs-poc`
+  （`115af2e4`），得 merge `6c79d7d2`（无冲突；隔离态全量门禁通过）。
+- 真实合并：`local` 上 `--no-ff` → `8aac924a`；`git diff 6c79d7d2 8aac924a` 为空。分支/worktree
+  于 2026-10-20 回收，远端 `nexus/migrate/c10-rquickjs-poc` 归档；预演 commit 归档 ref
+  `refs/backup/merge-rehearsal-c10-20261019`。合并预演详情见 workspace 根目录 `MERGE-REHEARSAL.md` §7。
+- 引擎测试（2026-10-20，`enhance::script` 共 13 项）：原 5 项 +
+  `quickjs_supports_optional_chaining_and_nullish_coalescing`、
+  `quickjs_supports_template_literals_destructuring_and_spread`、
+  `quickjs_supports_regexp_named_groups_and_lookbehind`、
+  `quickjs_exposes_promise_map_set_and_json`、
+  `quickjs_runs_meta_guard_builtin_script`、
+  `quickjs_runs_meta_hy_alpn_builtin_script`、
+  `quickjs_runs_representative_large_subscription_script`、
+  `quickjs_thread_local_runtime_memory_stays_stable`。
+- 验证：`cargo fmt --all -- --check`、`cargo clippy -p clash-verge --lib -- -D warnings`、
+  `cargo test -p clash-verge --lib` **420 passed / 0 failed**（412 基线 + 8 新增）。
+- 发布前人工项：用 3 个真实用户订阅脚本跑端到端（console/异常/输出上限行为）；30 分钟长会话
+  观察驻留内存与页面交互。
+
+## 用户可见语义（发布时同步用户文档站点）
+
+订阅增强脚本仍在独立 worker 线程的 QuickJS 运行时中执行，限制与旧引擎等价或更严格：
+
+| 限制 | 语义 |
+| --- | --- |
+| 执行时间 | 单次脚本执行超过 5s 被中断；失败时返回原始配置，并记录 `exception` 日志 |
+| 循环/失控保护 | QuickJS 无循环计数 API：以 5s 截止时间 + 最多 10 万次中断检查近似“循环上限”，不再保证精确的 1e7 次迭代上限 |
+| 内存 | QuickJS runtime 上限 256MB、栈 1MB；超限报错并回退原始配置 |
+| 输出 | `console.*` 最多 1000 条 / 1MB，超限立即报错；宿主侧同样兜底 |
+| 输入/结果 | 配置 JSON 与结果 JSON 各 10MB |
+| 引擎差异 | QuickJS 的 ECMAScript 支持范围与 boa 不完全一致；可选链、空值合并、模板字符串、解构、正则命名组/lookbehind、Promise/Map/Set 等常见写法已覆盖测试 |

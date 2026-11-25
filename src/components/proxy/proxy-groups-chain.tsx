@@ -23,11 +23,13 @@ import {
 import { useTranslation } from 'react-i18next'
 
 import { useProxiesData } from '@/hooks/data'
+import { useGroupDelays } from '@/hooks/use-group-delays'
 import { updateProxyChainConfigInRuntime } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import {
   isInteractableMember,
   type ProxyGroupView,
+  type ProxyNodeView,
   type ResolvedProxyMember,
 } from '@/types/proxy-view'
 
@@ -41,7 +43,7 @@ import {
   PROXY_GROUP_HEADER_SENSORS,
   useProxyGroupHeaderLayout,
 } from './use-proxy-group-header-layout'
-import type { IRenderItem } from './use-render-list'
+import { CHAIN_DELAY_GROUP, type IRenderItem } from './use-render-list'
 
 // ---- Types ----
 
@@ -77,6 +79,7 @@ interface GroupSelectMenuProps {
 interface ProxyGroupsChainProps {
   mode: string
   chainConfigData?: string | null
+  onExitChainMode: () => void
   availableGroups: any[]
   activeSelectedGroup: string | null
   showScrollTop: boolean
@@ -307,6 +310,7 @@ export function ProxyGroupsChain(props: ProxyGroupsChainProps) {
   const {
     mode,
     chainConfigData,
+    onExitChainMode,
     availableGroups,
     activeSelectedGroup,
     showScrollTop,
@@ -338,6 +342,23 @@ export function ProxyGroupsChain(props: ProxyGroupsChainProps) {
     return []
   })
 
+  const chainDelayGroup =
+    mode === 'rule' && activeSelectedGroup
+      ? activeSelectedGroup
+      : CHAIN_DELAY_GROUP
+  const chainDelaySnapshot = useGroupDelays(chainDelayGroup)
+  const chainDelayOf = useCallback(
+    (node: ProxyNodeView) => {
+      const delay = chainDelaySnapshot.of({
+        kind: 'node',
+        ref: { kind: 'node', name: node.name, recordId: node.recordId },
+        node,
+      })
+      return delay < 0 || delay >= 1e5 ? undefined : delay
+    },
+    [chainDelaySnapshot],
+  )
+
   const candidateNodes = useMemo(
     () =>
       renderList.flatMap((item) => {
@@ -352,13 +373,18 @@ export function ProxyGroupsChain(props: ProxyGroupsChainProps) {
   const currentProxyChain = useMemo(
     () =>
       proxyView
-        ? rebindProxyChainItems(proxyChain, candidateNodes, proxyView)
+        ? rebindProxyChainItems(
+            proxyChain,
+            candidateNodes,
+            proxyView,
+            chainDelayOf,
+          )
         : proxyChain.map((item) => ({
             ...item,
             recordId: undefined,
             delay: undefined,
           })),
-    [candidateNodes, proxyChain, proxyView],
+    [candidateNodes, chainDelayOf, proxyChain, proxyView],
   )
 
   useEffect(() => {
@@ -434,7 +460,7 @@ export function ProxyGroupsChain(props: ProxyGroupsChainProps) {
       const { node } = member
       setProxyChain((prev) => {
         const current = proxyView
-          ? rebindProxyChainItems(prev, candidateNodes, proxyView)
+          ? rebindProxyChainItems(prev, candidateNodes, proxyView, chainDelayOf)
           : prev
         if (
           current.some(
@@ -450,11 +476,11 @@ export function ProxyGroupsChain(props: ProxyGroupsChainProps) {
           return prev // 返回原来的状态，不做任何更改
         }
 
-        // 安全获取延迟数据，如果没有延迟数据则设为 undefined
         const delay =
-          node.history.length > 0
+          chainDelayOf(node) ??
+          (node.history.length > 0
             ? node.history[node.history.length - 1].delay
-            : undefined
+            : undefined)
 
         const chainItem: ProxyChainItem = {
           id: `${node.name}_${Date.now()}`,
@@ -468,7 +494,7 @@ export function ProxyGroupsChain(props: ProxyGroupsChainProps) {
         return [...current, chainItem]
       })
     },
-    [candidateNodes, proxyView, t],
+    [candidateNodes, chainDelayOf, proxyView, t],
   )
 
   // Render virtual list for chain mode
@@ -523,6 +549,7 @@ export function ProxyGroupsChain(props: ProxyGroupsChainProps) {
             chainConfigData={chainConfigData}
             mode={mode}
             selectedGroup={activeSelectedGroup}
+            onExitChainMode={onExitChainMode}
           />
         </Box>
       </Box>

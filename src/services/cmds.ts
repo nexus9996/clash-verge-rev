@@ -172,6 +172,10 @@ export async function syncTrayProxySelection() {
   return commands.syncTrayProxySelection()
 }
 
+export async function refreshTrayProxyItems() {
+  return commands.refreshTrayProxyItems()
+}
+
 /** Sends one selection pair so the backend can merge against current profile state. */
 export async function recordSelectedNode(groupName: string, node: string) {
   return commands.recordSelectedNode(groupName, node)
