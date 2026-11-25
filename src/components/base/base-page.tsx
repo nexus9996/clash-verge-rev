@@ -27,7 +27,14 @@ export const BasePage: React.FC<Props> = (props) => {
           onMouseDown={startWindowDragging}
           style={{ userSelect: 'none' }}
         >
-          <Typography sx={{ fontSize: '20px', fontWeight: '700 ' }}>
+          <Typography
+            sx={{
+              fontSize: '20px',
+              fontWeight: 700,
+              letterSpacing: '-0.01em',
+              lineHeight: 1.3,
+            }}
+          >
             {title}
           </Typography>
 
@@ -36,11 +43,13 @@ export const BasePage: React.FC<Props> = (props) => {
 
         <div
           className={full ? 'base-container no-padding' : 'base-container'}
-          style={{ backgroundColor: isDark ? '#1e1f27' : '#ffffff' }}
+          style={{ backgroundColor: 'var(--surface-page)' }}
         >
           <section
             style={{
-              backgroundColor: isDark ? '#1e1f27' : 'var(--background-color)',
+              backgroundColor: isDark
+                ? 'var(--surface-page)'
+                : 'var(--background-color)',
             }}
           >
             <div className="base-content" style={contentStyle}>

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use smartstring::alias::String;
+use tristr::alias::String;
 
 pub type CmdResult<T = ()> = Result<T, CommandFailure>;
 
@@ -95,8 +95,10 @@ pub fn proxy_aware_error(error: &anyhow::Error) -> CommandFailure {
 pub mod app;
 pub mod backup;
 pub mod clash;
+pub mod connections;
 pub mod lightweight;
 pub mod listener;
+pub mod logs;
 pub mod media_unlock_checker;
 pub mod network;
 pub mod profile;
@@ -114,8 +116,10 @@ pub mod webdav;
 pub use app::*;
 pub use backup::*;
 pub use clash::*;
+pub use connections::*;
 pub use lightweight::*;
 pub use listener::*;
+pub use logs::*;
 pub use media_unlock_checker::*;
 pub use network::*;
 pub use profile::*;

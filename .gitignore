@@ -1,5 +1,4 @@
 node_modules
-.pnpm-store
 .DS_Store
 dist
 dist-ssr
@@ -10,10 +9,12 @@ scripts/_env.sh
 .tool-versions
 .idea
 .old
-.eslintcache
 .changelog_backups
 target
 .vfox.toml
 .vfox
 .claude
 .zed
+
+# pnpm lockfile from upstream dev; local manages dependencies with bun (bun.lock)
+pnpm-lock.yaml

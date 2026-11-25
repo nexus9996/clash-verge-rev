@@ -26,7 +26,8 @@
     "labels": {
       "proxyCount": "Proxy Count",
       "delayCheckReset": "Periksa keterlambatan untuk membatalkan tetap",
-      "nodeCount": "{{count}} node"
+      "nodeCount": "{{count}} node",
+      "groupBadge": "Grup"
     },
     "tooltips": {
       "locate": "Lokasi",
@@ -37,7 +38,8 @@
       "delayCheckUrl": "URL Periksa Keterlambatan",
       "showBasic": "Dasar Proksi",
       "showDetail": "Detail Proksi",
-      "filter": "Filter"
+      "filter": "Filter",
+      "jumpToGroup": "Lompat ke grup"
     },
     "placeholders": {
       "delayCheckUrl": "URL Periksa Keterlambatan"
@@ -70,6 +72,8 @@
     "chain": {
       "header": "Chain Proxy Config",
       "warning": "Chain proxy will significantly reduce network speed. If you do not have a clear business need, or do not understand this configuration, keep it disabled.",
+      "confirmEnable": "I understand, enable",
+      "keepDisabled": "Keep disabled",
       "empty": "Chain proxy will significantly reduce network speed. If you do not have a clear business need, or do not understand this configuration, keep it disabled.",
       "instruction": "Click nodes in order to add to proxy chain",
       "minimumNodes": "Chain proxy requires at least 2 nodes",

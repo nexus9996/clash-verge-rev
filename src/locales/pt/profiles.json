@@ -147,6 +147,9 @@
       }
     },
     "proxiesEditor": {
+      "fields": {
+        "targetGroups": "Destination Groups"
+      },
       "title": "Editar proxies",
       "placeholders": {
         "multiUri": "Use quebras de linha para várias URIs (Base64 suportado)"

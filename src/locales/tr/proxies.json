@@ -26,7 +26,8 @@
     "labels": {
       "proxyCount": "Vekil Sayısı",
       "delayCheckReset": "Sabit iptali için gecikme kontrolü",
-      "nodeCount": "{{count}} düğüm"
+      "nodeCount": "{{count}} düğüm",
+      "groupBadge": "Grup"
     },
     "tooltips": {
       "locate": "konum",
@@ -37,7 +38,8 @@
       "delayCheckUrl": "Gecikme kontrol URL'si",
       "showBasic": "Temel Vekil",
       "showDetail": "Vekil detayı",
-      "filter": "Filtre"
+      "filter": "Filtre",
+      "jumpToGroup": "Gruba git"
     },
     "placeholders": {
       "delayCheckUrl": "Gecikme kontrol URL'si"
@@ -70,6 +72,8 @@
     "chain": {
       "header": "Zincir Vekil Yapılandırması",
       "warning": "Zincir vekil ağ hızını belirgin biçimde düşürür. Açık bir ihtiyacınız yoksa ya da bu yapılandırmayı bilmiyorsanız devre dışı bırakın.",
+      "confirmEnable": "Anladım, etkinleştir",
+      "keepDisabled": "Devre dışı kalsın",
       "empty": "Zincir vekil ağ hızını belirgin biçimde düşürür. Açık bir ihtiyacınız yoksa ya da bu yapılandırmayı bilmiyorsanız devre dışı bırakın.",
       "instruction": "Vekil zincirine eklemek için düğümlere sırayla tıklayın",
       "minimumNodes": "Zincir vekil en az 2 düğüm gerektirir",

@@ -18,9 +18,11 @@ use crate::{
 };
 use clash_verge_draft::{Draft, SharedDraft};
 use clash_verge_logging::{Type, logging, logging_error};
-use scopeguard::defer;
-use smartstring::alias::String;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::{
+    mem::DropGuard,
+    sync::atomic::{AtomicBool, Ordering},
+};
+use tristr::alias::String;
 
 static CURRENT_SWITCHING_PROFILE: AtomicBool = AtomicBool::new(false);
 
@@ -191,10 +193,6 @@ pub async fn delete_profile(index: std::string::String) -> CmdResult {
     drop(config_update_guard);
     drop(profile_write_guard);
 
-    if should_update {
-        logging_error!(Type::Config, Config::sync_dns_override().await);
-    }
-
     if let Err(e) = Tray::global().update_tooltip().await {
         logging!(warn, Type::Cmd, "异步更新托盘提示失败: {e:#}");
     }
@@ -212,10 +210,10 @@ pub async fn delete_profile(index: std::string::String) -> CmdResult {
     Ok(())
 }
 
-async fn restore_previous_profile(prev_profile: &String) -> CmdResult<()> {
+async fn restore_previous_profile(prev_profile: &str) -> CmdResult<()> {
     logging!(info, Type::Cmd, "尝试恢复到之前的配置: {}", prev_profile);
     let restore_profiles = IProfiles {
-        current: Some(prev_profile.to_owned()),
+        current: Some(prev_profile.into()),
         items: None,
     };
     Config::profiles()
@@ -264,7 +262,6 @@ async fn handle_success(current_value: Option<&String>) -> CmdResult<ValidationO
         handle::Handle::notify_profile_changed(current);
     }
 
-    logging_error!(Type::Config, Config::sync_dns_override().await);
     Ok(ValidationOutcome::Valid)
 }
 
@@ -325,7 +322,6 @@ async fn perform_config_update(
 #[derive(Default, serde::Deserialize, specta::Type)]
 #[serde(default)]
 pub struct ProfileSelection {
-    #[specta(type = Option<std::string::String>)]
     pub current: Option<String>,
 }
 
@@ -333,13 +329,9 @@ pub struct ProfileSelection {
 #[serde(default)]
 pub struct ProfileCreate {
     #[serde(rename = "type")]
-    #[specta(type = Option<std::string::String>)]
     pub itype: Option<String>,
-    #[specta(type = Option<std::string::String>)]
     pub name: Option<String>,
-    #[specta(type = Option<std::string::String>)]
     pub desc: Option<String>,
-    #[specta(type = Option<std::string::String>)]
     pub url: Option<String>,
     pub option: Option<PrfOption>,
 }
@@ -361,19 +353,12 @@ impl From<ProfileCreate> for PrfItem {
 #[serde(default)]
 pub struct ProfilePatch {
     #[serde(rename = "type")]
-    #[specta(type = Option<std::string::String>)]
     pub itype: Option<String>,
-    #[specta(type = Option<std::string::String>)]
     pub name: Option<String>,
-    #[specta(type = Option<std::string::String>)]
     pub desc: Option<String>,
-    #[specta(type = Option<std::string::String>)]
     pub file: Option<String>,
-    #[specta(type = Option<std::string::String>)]
     pub url: Option<String>,
     pub selected: Option<Vec<crate::config::PrfSelected>>,
-    #[specta(type = Option<std::collections::BTreeMap<std::string::String, std::string::String>>)]
-    pub latency_test_urls: Option<std::collections::BTreeMap<String, String>>,
     pub extra: Option<crate::config::PrfExtra>,
     pub updated: Option<usize>,
     pub option: Option<PrfOption>,
@@ -388,7 +373,6 @@ impl From<ProfilePatch> for PrfItem {
             file: patch.file,
             url: patch.url,
             selected: patch.selected,
-            latency_test_urls: patch.latency_test_urls,
             extra: patch.extra,
             updated: patch.updated,
             option: patch.option,
@@ -408,9 +392,9 @@ pub async fn patch_profiles_config(profiles: ProfileSelection) -> CmdResult<Vali
         logging!(info, Type::Cmd, "当前正在切换配置，放弃请求");
         return Ok(ValidationOutcome::Busy);
     }
-    defer! {
+    let _switching_profile = DropGuard::new((), |()| {
         CURRENT_SWITCHING_PROFILE.store(false, Ordering::Release);
-    }
+    });
     let _profile_write_guard = PROFILE_WRITE_LOCK.lock().await;
 
     let profiles = IProfiles {

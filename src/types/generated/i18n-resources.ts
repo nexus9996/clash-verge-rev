@@ -35,6 +35,7 @@ export interface TranslationResources {
           clear: string
           noOptions: string
           placeholder: string
+          refineHint: string
           searchValue: string
         }
         order: {
@@ -45,6 +46,42 @@ export interface TranslationResources {
       }
       page: {
         title: string
+      }
+      ruleDialog: {
+        addAndApply: string
+        allSubdomains: string
+        applyFailed: string
+        connectionHost: string
+        destination: string
+        destinationHint: string
+        destinationIp: string
+        domain: string
+        domainScope: string
+        editDestination: string
+        entry: string
+        exactDomain: string
+        fullPath: string
+        invalidDomain: string
+        invalidIp: string
+        matchBy: string
+        matchingDomain: string
+        modifyTitle: string
+        newConnections: string
+        noMetadata: string
+        noProfile: string
+        policyUnavailable: string
+        processNameHint: string
+        processPathHint: string
+        profileChanged: string
+        rootDomain: string
+        ruleModeHint: string
+        saveAndApply: string
+        saved: string
+        sourceHint: string
+        sourceIp: string
+        title: string
+        unavailable: string
+        unsupportedValue: string
       }
     }
     home: {
@@ -79,11 +116,14 @@ export interface TranslationResources {
             refreshDelay: string
           }
           labels: {
+            defaultRoute: string
             directMode: string
             globalMode: string
             group: string
             noActiveNode: string
             proxy: string
+            ruleCount: string
+            ruleTarget: string
           }
           status: {
             error: string
@@ -423,6 +463,9 @@ export interface TranslationResources {
             append: string
             prepend: string
           }
+          fields: {
+            targetGroups: string
+          }
           placeholders: {
             multiUri: string
           }
@@ -535,6 +578,7 @@ export interface TranslationResources {
           toggleChain: string
         }
         chain: {
+          confirmEnable: string
           connectFailed: string
           disconnectFailed: string
           duplicateNode: string
@@ -543,6 +587,7 @@ export interface TranslationResources {
           exitNode: string
           header: string
           instruction: string
+          keepDisabled: string
           minimumNodes: string
           minimumNodesHint: string
           warning: string
@@ -574,6 +619,7 @@ export interface TranslationResources {
         }
         labels: {
           delayCheckReset: string
+          groupBadge: string
           nodeCount: string
           proxyCount: string
         }
@@ -607,6 +653,7 @@ export interface TranslationResources {
           delayCheck: string
           delayCheckUrl: string
           filter: string
+          jumpToGroup: string
           locate: string
           showBasic: string
           showDetail: string
@@ -694,6 +741,10 @@ export interface TranslationResources {
           }
           dialogTitle: string
           trigger: string
+        }
+        rule: {
+          hits: string
+          toggle: string
         }
         title: string
       }
@@ -805,17 +856,35 @@ export interface TranslationResources {
             dialogs: {
               editCssTitle: string
             }
+            editModes: {
+              dark: string
+              light: string
+              title: string
+            }
             fields: {
+              background: string
               cssInjection: string
               errorColor: string
               fontFamily: string
               infoColor: string
+              paperBackground: string
               primaryColor: string
               primaryText: string
               secondaryColor: string
               secondaryText: string
               successColor: string
               warningColor: string
+            }
+            presets: {
+              names: {
+                default: string
+                indigo: string
+                lavender: string
+                monochrome: string
+                ocean: string
+                sunset: string
+              }
+              title: string
             }
             title: string
           }
@@ -859,6 +928,7 @@ export interface TranslationResources {
           }
           clashService: {
             appDataNotOwned: string
+            coreVersionDrift: string
             installSuccess: string
             permissionFallback: string
             permissionRejectedReason: string
@@ -954,9 +1024,29 @@ export interface TranslationResources {
           }
         }
         clashCore: {
+          actions: {
+            manageVersions: string
+          }
           variants: {
             alpha: string
             release: string
+          }
+          versions: {
+            channel: string
+            description: string
+            empty: string
+            install: string
+            installed: string
+            installedAction: string
+            latest: string
+            loading: string
+            messages: {
+              alreadyInstalled: string
+              alreadyLatest: string
+              installed: string
+            }
+            title: string
+            upgradeLatest: string
           }
         }
         clashPort: {
@@ -1132,10 +1222,12 @@ export interface TranslationResources {
             autoDelayDetection: string
             autoDelayDetectionInterval: string
             autoLogClean: string
+            autoSwitchSelectorGroup: string
             defaultLatencyTest: string
             defaultLatencyTimeout: string
             enableBuiltinEnhanced: string
             proxyLayoutColumns: string
+            updateChannel: string
           }
           options: {
             autoLogClean: {
@@ -1145,13 +1237,19 @@ export interface TranslationResources {
             proxyLayoutColumns: {
               auto: string
             }
+            updateChannel: {
+              alpha: string
+              stable: string
+            }
           }
           title: string
           tooltips: {
             autoCloseConnections: string
             autoDelayDetection: string
+            autoSwitchSelectorGroup: string
             defaultLatencyTest: string
             enableBuiltinEnhanced: string
+            updateChannel: string
           }
         }
         networkInterface: {
@@ -1199,6 +1297,7 @@ export interface TranslationResources {
             autoRoute: string
             device: string
             dnsHijack: string
+            dnsMode: string
             mtu: string
             routeExcludeAddress: string
             stack: string
@@ -1213,6 +1312,7 @@ export interface TranslationResources {
           tooltips: {
             autoRedirect: string
             dnsHijack: string
+            dnsMode: string
           }
         }
         update: {
@@ -1230,6 +1330,12 @@ export interface TranslationResources {
           messages: {
             available: string
             breakChangeError: string
+          }
+          restart: {
+            body: string
+            restartLater: string
+            restartNow: string
+            title: string
           }
           title: string
         }
@@ -1257,6 +1363,13 @@ export interface TranslationResources {
         }
         actionsGroupLabel: string
         title: string
+      }
+      search: {
+        back: string
+        clear: string
+        empty: string
+        placeholder: string
+        results: string
       }
       sections: {
         appearance: {
@@ -1304,6 +1417,11 @@ export interface TranslationResources {
               webUI: string
             }
             options: {
+              ipv6Mode: {
+                auto: string
+                off: string
+                on: string
+              }
               logLevel: {
                 debug: string
                 error: string
@@ -1312,7 +1430,14 @@ export interface TranslationResources {
                 warning: string
               }
             }
+            status: {
+              ipv6Auto: {
+                available: string
+                ipv4Only: string
+              }
+            }
             tooltips: {
+              ipv6Auto: string
               logLevel: string
               networkInterface: string
               openUwpTool: string
@@ -1531,11 +1656,21 @@ export interface TranslationResources {
         resetInput: string
         useRegex: string
       }
+      search: {
+        action: string
+        cidr: string
+        cidrPlaceholder: string
+        content: string
+        contentPlaceholder: string
+        domain: string
+        domainPlaceholder: string
+      }
       statuses: {
         disabled: string
         empty: string
         enabled: string
         loading: string
+        pageNotFound: string
         saving: string
       }
       units: {
@@ -1596,6 +1731,7 @@ export interface TranslationResources {
           noDisney: string
           originalsOnly: string
           pending: string
+          risky: string
           unsupportedRegion: string
           yes: string
         }

@@ -2,6 +2,18 @@ name: Frontend Check
 
 on:
   pull_request:
+    paths:
+      - "src/**"
+      - "scripts/**"
+      - "**/*.js"
+      - "**/*.ts"
+      - "**/*.tsx"
+      - "**/*.css"
+      - "**/*.scss"
+      - "**/*.json"
+      - "bun.lock"
+      - "vite.config.*"
+      - ".github/workflows/frontend-check.yml"
   workflow_dispatch:
 
 permissions:
@@ -10,6 +22,10 @@ permissions:
 
 env:
   HUSKY: 0
+
+concurrency:
+  group: '${{ github.workflow }} - ${{ github.head_ref || github.ref }}'
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   frontend:
@@ -32,10 +48,10 @@ jobs:
               - '**/*.json'
               - '**/*.md'
               - 'package.json'
-              - 'pnpm-lock.yaml'
-              - 'pnpm-workspace.yaml'
+              - 'bun.lock'
               - 'knip.json'
-              - 'eslint.config.ts'
+              - '.oxlintrc.json'
+              - '.oxfmtrc.json'
               - 'tsconfig.json'
               - 'vite.config.*'
 
@@ -43,53 +59,75 @@ jobs:
         if: steps.check_frontend.outputs.frontend != 'true'
         run: echo "No frontend changes, skipping frontend checks."
 
-      - name: Install pnpm
+      - name: Install Bun
         if: steps.check_frontend.outputs.frontend == 'true'
-        uses: pnpm/action-setup@v6
+        uses: oven-sh/setup-bun@v2
         with:
-          run_install: false
+          bun-version: '1.4.4'
 
       - uses: actions/setup-node@v7
         if: steps.check_frontend.outputs.frontend == 'true'
         with:
-          node-version: '24.22.0'
-          cache: 'pnpm'
+          node-version: '26.13.1'
 
-      - name: Restore pnpm cache
+      - name: Restore Bun cache
         if: steps.check_frontend.outputs.frontend == 'true'
         uses: actions/cache@v6
         with:
-          path: ~/.pnpm-store
-          key: "pnpm-shared-stable-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}"
+          path: ~/.bun/install/cache
+          key: "bun-shared-stable-${{ runner.os }}-${{ hashFiles('bun.lock') }}"
           restore-keys: |
-            pnpm-shared-stable-${{ runner.os }}-
+            bun-shared-stable-${{ runner.os }}-
 
-      - run: pnpm install --frozen-lockfile
+      - run: bun install --frozen-lockfile
         if: steps.check_frontend.outputs.frontend == 'true'
 
-      - name: Run Prettier check
+      - name: Run bun fmt check
         if: steps.check_frontend.outputs.frontend == 'true'
-        run: pnpm format:check
+        run: bun run format:check
 
-      - name: Run ESLint
+      - name: Run oxlint
         if: steps.check_frontend.outputs.frontend == 'true'
-        run: pnpm lint
+        run: bun run lint
 
       - name: Run TypeScript typecheck
         if: steps.check_frontend.outputs.frontend == 'true'
-        run: pnpm typecheck
+        run: bun run typecheck
 
       - name: Run tests
         if: steps.check_frontend.outputs.frontend == 'true'
-        run: pnpm test
+        run: bun run test
+
+      - name: Run performance budget tests
+        if: steps.check_frontend.outputs.frontend == 'true'
+        run: bun run perf:test
+
+      - name: Check i18n keys
+        if: steps.check_frontend.outputs.frontend == 'true'
+        run: |
+          bun run i18n:types
+          git diff --exit-code -- src/types/generated
+          bun run i18n:verify
+
+      - name: Build frontend
+        if: steps.check_frontend.outputs.frontend == 'true'
+        run: bun run web:build
+
+      - name: Check bundle budget
+        if: steps.check_frontend.outputs.frontend == 'true'
+        run: bun run check:bundle-budget
+
+      - name: Check hardcoded color budget
+        if: steps.check_frontend.outputs.frontend == 'true'
+        run: bun run check:hex-budget
 
       - name: Run Knip
         if: steps.check_frontend.outputs.frontend == 'true'
-        run: pnpm knip:check
+        run: bun run knip:check
 
       - name: Architecture gates (listen/emit only in the event bus, invoke only in services)
         if: steps.check_frontend.outputs.frontend == 'true'
-        run: node scripts/check-architecture.mjs listen emit invoke
+        run: bun scripts/check-architecture.mjs listen emit invoke
 
   contract-parity:
     runs-on: ubuntu-26.04
@@ -127,21 +165,15 @@ jobs:
         if: steps.check_inputs.outputs.contract == 'true'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libxslt1.1 libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libclang-dev clang libxslt1.1 libwebkit2gtk-4.1-dev librsvg2-dev patchelf
 
-      - name: Install pnpm
+      - name: Install Bun
         if: steps.check_inputs.outputs.contract == 'true'
-        uses: pnpm/action-setup@v6
+        uses: oven-sh/setup-bun@v2
         with:
-          run_install: false
+          bun-version: '1.4.4'
 
-      - uses: actions/setup-node@v7
-        if: steps.check_inputs.outputs.contract == 'true'
-        with:
-          node-version: '24.22.0'
-          cache: 'pnpm'
-
-      - run: pnpm install --frozen-lockfile
+      - run: bun install --frozen-lockfile
         if: steps.check_inputs.outputs.contract == 'true'
 
       - name: Provision sidecar placeholders for tauri-build
@@ -155,4 +187,4 @@ jobs:
 
       - name: Check generated contract without changing the checkout
         if: steps.check_inputs.outputs.contract == 'true'
-        run: pnpm gen:contract --check
+        run: bun run gen:contract --check

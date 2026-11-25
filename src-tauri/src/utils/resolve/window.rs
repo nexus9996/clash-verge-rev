@@ -1,4 +1,5 @@
 use dark_light::{Mode as SystemTheme, detect as detect_system_theme};
+use tauri::Manager as _;
 use tauri::utils::config::Color;
 use tauri::webview::PageLoadEvent;
 use tauri::{Theme, WebviewWindow};
@@ -18,6 +19,18 @@ const DEFAULT_HEIGHT: f64 = 700.0;
 
 const MINIMAL_WIDTH: f64 = 520.0;
 const MINIMAL_HEIGHT: f64 = 520.0;
+
+pub fn set_native_window_theme(window: WebviewWindow, theme: &str) -> Result<(), String> {
+    let background_color = match theme {
+        "dark" => DARK_BACKGROUND_COLOR,
+        "light" => LIGHT_BACKGROUND_COLOR,
+        _ => return Err(format!("unsupported theme: {theme}")),
+    };
+
+    window
+        .set_background_color(Some(background_color))
+        .map_err(|error| error.to_string())
+}
 
 const fn restored_window_size_is_too_small(width: u32, height: u32) -> bool {
     width < MINIMAL_WIDTH as u32 || height < MINIMAL_HEIGHT as u32
@@ -72,6 +85,10 @@ pub async fn build_new_window() -> Result<WebviewWindow, String> {
 
     let initial_script = build_window_initial_script(initial_theme_mode, DARK_BACKGROUND_HEX, LIGHT_BACKGROUND_HEX);
 
+    // 首次页面加载是否已经执行过提前 show。只让首次加载在 Started 显示，后续导航（含渲染
+    // 进程被终止后的恢复 reload）仍走 Finished 逻辑。
+    let first_load_shown = std::sync::atomic::AtomicBool::new(false);
+
     let mut builder = tauri::WebviewWindowBuilder::new(
         app_handle,
         "main", /* the unique window label */
@@ -83,16 +100,31 @@ pub async fn build_new_window() -> Result<WebviewWindow, String> {
     .fullscreen(false)
     .inner_size(DEFAULT_WIDTH, DEFAULT_HEIGHT)
     .min_inner_size(MINIMAL_WIDTH, MINIMAL_HEIGHT)
-    .visible(false) // 等待主题色准备好后再展示，避免启动色差
+    .visible(false) // 隐藏创建，待首个 PageLoadEvent::Started 显示；原生背景色已就绪，不会白闪
     .initialization_script(&initial_script)
     .general_autofill_enabled(false) // 禁用自动填充
     .on_page_load(move |window, payload| {
-        if payload.event() != PageLoadEvent::Finished {
-            return;
+        match payload.event() {
+            // 首个 Started 就显示：builder.background_color / set_background_color 已按初始主题
+            // 设置原生背景色，提前显示不会白闪，只会让用户短暂看到主题色空窗，窗口可见时间
+            // 由此提前“Started -> Finished”的页面加载耗时，这也是本次改动的唯一真实风险。
+            // 重复 show() 幂等；只让首次加载提前，是因为渲染进程被系统终止后的恢复 reload
+            //（见 WindowManager::activate_window 的 defer_show_to_page_load）要等 Finished 后
+            // 再显示才不白闪，dev/HMR 的后续导航也保持原有 Finished 行为。
+            // A/B 验证：同一构建分别还原/应用本改动各启动一次，录屏逐帧或 probe 记录 window_ms，
+            // 对比窗口可见时间戳与主题色空窗时长。
+            PageLoadEvent::Started => {
+                if !first_load_shown.swap(true, std::sync::atomic::Ordering::AcqRel) {
+                    logging_error!(Type::Window, window.show());
+                }
+            }
+            // 首次加载时 show 已是 no-op；恢复 reload 依赖这里再次 show。焦点仍等页面
+            // Finished 后再设置，避免为空窗抢焦点，也与原有焦点时机保持一致。
+            PageLoadEvent::Finished => {
+                logging_error!(Type::Window, window.show());
+                logging_error!(Type::Window, window.set_focus());
+            }
         }
-
-        logging_error!(Type::Window, window.show());
-        logging_error!(Type::Window, window.set_focus());
     });
 
     #[cfg(target_os = "macos")]
@@ -114,12 +146,57 @@ pub async fn build_new_window() -> Result<WebviewWindow, String> {
         Ok(window) => {
             logging_error!(Type::Window, window.set_background_color(Some(background_color)));
             restore_default_size_if_needed(&window);
+            #[cfg(target_os = "macos")]
+            keep_window_on_active_space(&window);
             // A new page supersedes any reload marker left by the old window.
             #[cfg(target_os = "macos")]
             take_webview_needs_reload();
             Ok(window)
         }
         Err(e) => Err(e.to_string()),
+    }
+}
+
+/// AppKit allows at most one of `CanJoinAllSpaces` and `MoveToActiveSpace`, so the former is
+/// dropped rather than left in place as a second, conflicting flag. Every other behavior the
+/// window already carries is preserved.
+#[cfg(target_os = "macos")]
+const fn active_space_collection_behavior(
+    current: objc2_app_kit::NSWindowCollectionBehavior,
+) -> objc2_app_kit::NSWindowCollectionBehavior {
+    use objc2_app_kit::NSWindowCollectionBehavior;
+
+    current
+        .difference(NSWindowCollectionBehavior::CanJoinAllSpaces)
+        .union(NSWindowCollectionBehavior::MoveToActiveSpace)
+}
+
+/// Shows the main window on whichever Space the user is looking at.
+///
+/// Closing the window only hides it, so the same NSWindow is reused for the rest of the session
+/// and stays tied to the Space it was built on. Activating it from the tray then switches the
+/// user to that Space instead of bringing the window to them.
+#[cfg(target_os = "macos")]
+fn keep_window_on_active_space(window: &WebviewWindow) {
+    use objc2_app_kit::NSWindow;
+
+    let window = window.clone();
+    let dispatched = handle::Handle::app_handle().run_on_main_thread(move || {
+        let pointer = match window.ns_window() {
+            Ok(pointer) => pointer.cast::<NSWindow>(),
+            Err(e) => {
+                logging!(warn, Type::Window, "读取原生窗口句柄失败: {e}");
+                return;
+            }
+        };
+        let Some(ns_window) = (unsafe { pointer.as_ref() }) else {
+            logging!(warn, Type::Window, "原生窗口句柄为空，跳过桌面跟随设置");
+            return;
+        };
+        ns_window.setCollectionBehavior(active_space_collection_behavior(ns_window.collectionBehavior()));
+    });
+    if let Err(e) = dispatched {
+        logging!(warn, Type::Window, "无法在主线程设置窗口桌面跟随行为: {e}");
     }
 }
 
@@ -137,7 +214,10 @@ pub fn take_webview_needs_reload() -> bool {
 /// reload visible webviews immediately, and defer a hidden main-window reload until activation.
 /// Registering this callback replaces Tauri's default automatic reload.
 #[cfg(target_os = "macos")]
-pub fn on_web_content_process_terminated(webview: &tauri::Webview) {
+pub fn on_web_content_process_terminated(
+    webview: &tauri::Webview,
+    _termination: &tauri::webview::WebContentProcessTermination,
+) {
     if handle::Handle::global().is_exiting() {
         return;
     }

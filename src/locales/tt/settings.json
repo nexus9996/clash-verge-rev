@@ -140,7 +140,8 @@
           "networkInterface": "Челтәр интерфейсы",
           "unifiedDelay": "Бердәм задержка актив булганда, төрле типтагы узеллар өчен икеләтә тест башкарыла, TCP установканы раслау аермаларын тигезләү максатында",
           "logLevel": "Бу фәкать сервис режимында эшләгән вакытта системалы журнал файлларына кагыла",
-          "openUwpTool": "Windows 8'дән башлап UWP кушымталары (Microsoft Store кебек) локаль хосттагы челтәр хезмәтләренә турыдан-туры тоташа алмый. Бу инструмент әлеге чикләүне әйләнеп узарга ярдәм итә"
+          "openUwpTool": "Windows 8'дән башлап UWP кушымталары (Microsoft Store кебек) локаль хосттагы челтәр хезмәтләренә турыдан-туры тоташа алмый. Бу инструмент әлеге чикләүне әйләнеп узарга ярдәм итә",
+          "ipv6Auto": "Enable IPv6 only while the physical network provides it; re-checked automatically when the network changes"
         },
         "options": {
           "logLevel": {
@@ -149,6 +150,17 @@
             "warning": "Warn",
             "error": "Error",
             "silent": "Silent"
+          },
+          "ipv6Mode": {
+            "off": "Off",
+            "on": "On",
+            "auto": "Auto"
+          }
+        },
+        "status": {
+          "ipv6Auto": {
+            "available": "IPv6 available",
+            "ipv4Only": "IPv4-only network"
           }
         }
       }
@@ -209,6 +221,22 @@
       },
       "theme": {
         "title": "Тема көйләүләре",
+        "presets": {
+          "title": "Көйләүләр",
+          "names": {
+            "default": "Килешү",
+            "ocean": "Океан",
+            "indigo": "Индиго",
+            "sunset": "Кояш батуы",
+            "lavender": "Лаванда",
+            "monochrome": "Бер төсле"
+          }
+        },
+        "editModes": {
+          "title": "Теманы үзгәртү",
+          "light": "Якты",
+          "dark": "Караңгы"
+        },
         "fields": {
           "primaryColor": "Төп төс",
           "secondaryColor": "Икенче төс",
@@ -218,6 +246,8 @@
           "warningColor": "Кисәтү төсе",
           "errorColor": "Хата төсе",
           "successColor": "Уңыш төсе",
+          "background": "Фон төсе",
+          "paperBackground": "Карточка төсе",
           "fontFamily": "Шрифтлар гаиләсе",
           "cssInjection": "CSS кертү"
         },
@@ -306,6 +336,26 @@
       "variants": {
         "release": "Рәсми версия",
         "alpha": "Альфа-версия"
+      },
+      "actions": {
+        "manageVersions": "Версияләрне идарә итү"
+      },
+      "versions": {
+        "title": "Mihomo версияләре",
+        "description": "Билгеләнгән Mihomo версиясен урнаштырырга мөмкин. Яңа төш урнаштырылмаса, кушымта автоматик рәвештә алдагы версияны кайтара.",
+        "channel": "Канал: {{channel}}",
+        "loading": "Версияләр йөкләнә...",
+        "empty": "Урнаштыру өчен версия юк",
+        "latest": "Иң соңгы",
+        "installed": "Урнаштырылган",
+        "installedAction": "Урнаштырылган",
+        "install": "Урнаштыру",
+        "upgradeLatest": "Иң соңгыга яңарту",
+        "messages": {
+          "installed": "{{version}} версиясенә яңартылды",
+          "alreadyInstalled": "Хәзер {{version}}",
+          "alreadyLatest": "Хәзер иң соңгы версия"
+        }
       }
     },
     "liteMode": {
@@ -412,6 +462,7 @@
         "appLogMaxSize": "App Log Max Size",
         "appLogMaxCount": "App Log Max Count",
         "autoCloseConnections": "Тоташуларны автоматик ябу",
+        "autoSwitchSelectorGroup": "Select төркемен автоматик күчерү",
         "autoCheckUpdate": "Яңартуларны автоматик тикшерү",
         "enableBuiltinEnhanced": "Эчке камилләштерүне кабызу",
         "proxyLayoutColumns": "Прокси күрсәтү баганалары саны",
@@ -419,13 +470,16 @@
         "autoDelayDetection": "Автоматик тоткарлык ачыклау",
         "autoDelayDetectionInterval": "Автоматик тоткарлык ачыклау интервалы",
         "defaultLatencyTest": "Тоткарлануны тикшерү сылтамасы (defaults)",
-        "defaultLatencyTimeout": "Тоткарлануның стандарт таймауты"
+        "defaultLatencyTimeout": "Тоткарлануның стандарт таймауты",
+        "updateChannel": "Яңарту каналы"
       },
       "tooltips": {
         "autoCloseConnections": "Прокси төркеме яисә режимын үзгәрткәндә актив тоташуларны өзү",
+        "autoSwitchSelectorGroup": "Кагыйдәләр режимында кагыйдәләр трафигы үтми торган төркемдә төен сайлаганда, аны эченә алган беренче select төркеме дә шул төркемгә күчә",
         "enableBuiltinEnhanced": "Конфигурация файлы белән туры килә торган өстәмә оптимизация",
         "autoDelayDetection": "Фон режимында хәзерге төен тоткарлыгын периодик тикшерә",
-        "defaultLatencyTest": "Бу фәкать клиентның HTTP сораулары тесты өчен кулланыла, конфигурация файлына йогынты ясамый"
+        "defaultLatencyTest": "Бу фәкать клиентның HTTP сораулары тесты өчен кулланыла, конфигурация файлына йогынты ясамый",
+        "updateChannel": "Альфа алдан карау җыюларыннан бара, тотрыксыз булырга мөмкин"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -434,6 +488,10 @@
         "autoLogClean": {
           "never": "Беркайчан чистартмаска",
           "retainDays": "{{n}} көн саклау"
+        },
+        "updateChannel": {
+          "stable": "Тотрыклы",
+          "alpha": "Альфа"
         }
       }
     },
@@ -453,6 +511,12 @@
         "important": "Мөһим",
         "warning": "Кисәтү",
         "caution": "Игътибар"
+      },
+      "restart": {
+        "title": "Яңарту урнаштырылды",
+        "body": "Яңа версияне куллану өчен кушымтаны яңадан эшләтегез.",
+        "restartNow": "Хәзер яңадан эшләтү",
+        "restartLater": "Соңрак"
       }
     },
     "sysproxy": {
@@ -468,7 +532,7 @@
         "usePacMode": "PAC режимын куллану",
         "proxyGuard": "Прокси саклаучы",
         "guardDuration": "Саклау вакыты",
-        "alwaysUseDefaultBypass": "Һәрвакыт төп Bypass-ны куллану",
+        "alwaysUseDefaultBypass": "Төп Bypass исемлеген өстәү",
         "enableBypassCheck": "Прокси урап узу форматын тикшерү",
         "proxyBypass": "Проксины әйләнеп узу:",
         "bypass": "Әйләнеп узу:",
@@ -496,11 +560,13 @@
         "strictRoute": "Катгый маршрутлау",
         "autoDetectInterface": "Интерфейсны автоматик ачыклау",
         "dnsHijack": "DNS'ны үзгәртеп тоту (hijack)",
+        "dnsMode": "DNS режиме",
         "mtu": "MTU (макс. тапшыру берәмлеге)",
         "autoRedirect": "Auto Redirect"
       },
       "tooltips": {
         "dnsHijack": "Please use , to separate multiple DNS servers",
+        "dnsMode": "Auto иске тәртипне саклый; hijack өчен Windows'ta Катгый маршрутлау яки Linux'ta Auto Redirect кирәк",
         "autoRedirect": "Automatically configures nftables/iptables TCP redirects"
       },
       "messages": {
@@ -696,7 +762,8 @@
         "permissionRejectedReason": "Хезмәт төш файлларын һәм папкаларын югары хокуклар белән имин эшләтеп булачагын раслый алмады.",
         "permissionRepairGuide": "Төзәтү күрсәтмәләрен карау",
         "sidecarFallback": "Хезмәт төшне эшләтеп җибәрә алмады. Эш Sidecar режимында дәвам итә; хезмәт һаман да эшләми.",
-        "uninstallSuccess": "Сервис уңышлы салдырылды"
+        "uninstallSuccess": "Сервис уңышлы салдырылды",
+        "coreVersionDrift": "Хезмәт режимы {{running}} үзәген эшләтә, ә кушылган үзәк — {{bundled}}. {{bundled}} урнаштыру өчен Көйләүләр → Mihomo версияләре бүлеген ачыгыз, яки хезмәтне яңадан урнаштырыгыз/төзәтегез һәм үзәкне яңадан эшләтегез."
       },
       "updater": {
         "withClashProxySuccess": "Update with Clash proxy successfully",
@@ -713,5 +780,12 @@
       "installing": "Хезмәт урнаштырыла...",
       "uninstalling": "Uninstalling Service..."
     }
+  },
+  "search": {
+    "placeholder": "Көйләүләрне эзләү",
+    "clear": "Эзләүне чистарту",
+    "back": "Нәтиҗәләргә кайту",
+    "results": "Эзләү нәтиҗәләре",
+    "empty": "Көйләүләр табылмады"
   }
 }

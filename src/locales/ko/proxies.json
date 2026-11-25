@@ -26,7 +26,8 @@
     "labels": {
       "proxyCount": "프록시 개수",
       "delayCheckReset": "고정 취소를 위한 지연 확인",
-      "nodeCount": "노드 {{count}}개"
+      "nodeCount": "노드 {{count}}개",
+      "groupBadge": "그룹"
     },
     "tooltips": {
       "locate": "위치 찾기",
@@ -37,7 +38,8 @@
       "delayCheckUrl": "지연 확인 URL",
       "showBasic": "프록시 기본",
       "showDetail": "프록시 상세",
-      "filter": "필터"
+      "filter": "필터",
+      "jumpToGroup": "그룹으로 이동"
     },
     "placeholders": {
       "delayCheckUrl": "지연 확인 URL"
@@ -70,6 +72,8 @@
     "chain": {
       "header": "체인 프록시 구성",
       "warning": "체인 프록시는 네트워크 속도를 크게 저하시킬 수 있습니다. 명확한 업무상 필요가 없거나 이 구성을 이해하지 못한다면 비활성화 상태로 두세요.",
+      "confirmEnable": "이해했습니다, 활성화",
+      "keepDisabled": "비활성화 유지",
       "empty": "체인 프록시는 네트워크 속도를 크게 저하시킬 수 있습니다. 명확한 업무상 필요가 없거나 이 구성을 이해하지 못한다면 비활성화 상태로 두세요.",
       "instruction": "프록시 체인에 추가하려면 순서대로 노드를 클릭하세요",
       "minimumNodes": "체인 프록시는 최소 2개의 노드가 필요합니다",

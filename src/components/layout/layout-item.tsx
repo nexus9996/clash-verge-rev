@@ -9,16 +9,18 @@ import type { ReactNode } from 'react'
 import { useMatch, useNavigate, useResolvedPath } from 'react-router'
 
 import type { SortableItemRenderProps } from '@/components/base/sortable-item'
+import type { NavigationPath } from '@/config/navigation'
 import { useVerge } from '@/hooks/use-verge'
 
 interface Props {
-  to: string
+  to: NavigationPath
   children: string
   icon: ReactNode[]
   sortable?: SortableItemRenderProps
+  preload?: () => void
 }
 export const LayoutItem = (props: Props) => {
-  const { to, children, icon, sortable } = props
+  const { to, children, icon, sortable, preload } = props
   const { verge } = useVerge()
   const { menu_icon } = verge ?? {}
   const navCollapsed = verge?.collapse_navbar ?? false
@@ -51,13 +53,18 @@ export const LayoutItem = (props: Props) => {
               fontWeight: '700',
             },
           },
-          ({ palette: { mode, primary } }) => {
+          ({ palette: { mode, primary, text, common } }) => {
             const bgcolor =
               mode === 'light'
                 ? alpha(primary.main, 0.15)
                 : alpha(primary.main, 0.35)
-            const color = mode === 'light' ? '#1f1f1f' : '#ffffff'
+            const hoverBgcolor =
+              mode === 'light'
+                ? alpha(primary.main, 0.06)
+                : alpha(primary.main, 0.16)
+            const color = mode === 'light' ? text.primary : common.white
             return {
+              '&:hover': { bgcolor: hoverBgcolor },
               '&.Mui-selected': { bgcolor },
               '&.Mui-selected:hover': { bgcolor },
               '&.Mui-selected .MuiListItemText-primary': { color },
@@ -67,6 +74,8 @@ export const LayoutItem = (props: Props) => {
         title={navCollapsed ? children : undefined}
         aria-label={navCollapsed ? children : undefined}
         onClick={() => navigate(to)}
+        onMouseEnter={preload}
+        onFocus={preload}
       >
         {(effectiveMenuIcon === 'monochrome' || !effectiveMenuIcon) && (
           <ListItemIcon

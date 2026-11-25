@@ -166,7 +166,10 @@ export function parsePortOrDefault(
   port: string | undefined,
   dft: number,
 ): number {
-  return parseInteger(port) ?? dft
+  if (port === undefined) return dft
+  const parsed = parsePortStrict(port)
+  if (parsed === undefined) throw new Error('Invalid port')
+  return parsed
 }
 
 const IP_VERSIONS = [
@@ -198,7 +201,7 @@ export function normalizeHost(host: string): string {
 }
 
 const URLLIKE_RE =
-  /^(?:(?<auth>.*?)@)?(?<host>.*?)(?::(?<port>\d+))?\/?(?:\?(?<query>.*?))?(?:#(?<fragment>.*?))?$/
+  /^(?:(?<auth>.*?)@)?(?<host>\[[^\]]+\]|[^:@/?#]+)(?::(?<port>[^/?#]*))?\/?(?:\?(?<query>.*?))?(?:#(?<fragment>.*?))?$/
 
 export function parseUrlLike(
   input: string,
@@ -241,17 +244,17 @@ export function parseUrlLike(
     : result
 }
 
+// Both predicates run per parsed proxy URI.
+const IPV4_REGEX = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/
+const IPV6_REGEX =
+  /^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::$|^::1$|^([0-9a-fA-F]{1,4}:)*::([0-9a-fA-F]{1,4}:)*[0-9a-fA-F]{1,4}$/
+
 export function isIPv4(address: string): boolean {
-  // Check if the address is IPv4
-  const ipv4Regex = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/
-  return ipv4Regex.test(address)
+  return IPV4_REGEX.test(address)
 }
 
 export function isIPv6(address: string): boolean {
-  // Check if the address is IPv6 - simplified regex to avoid backreference issues
-  const ipv6Regex =
-    /^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::$|^::1$|^([0-9a-fA-F]{1,4}:)*::([0-9a-fA-F]{1,4}:)*[0-9a-fA-F]{1,4}$/
-  return ipv6Regex.test(address)
+  return IPV6_REGEX.test(address)
 }
 
 export function decodeBase64OrOriginal(str: string): string {

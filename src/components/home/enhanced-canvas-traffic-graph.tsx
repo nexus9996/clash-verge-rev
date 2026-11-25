@@ -4,9 +4,9 @@ import {
   memo,
   useCallback,
   useEffect,
+  useEffectEvent,
   useImperativeHandle,
   useMemo,
-  useReducer,
   useRef,
   useState,
 } from 'react'
@@ -14,27 +14,35 @@ import { useTranslation } from 'react-i18next'
 
 import { useTrafficGraphDataEnhanced } from '@/hooks/use-traffic-monitor'
 import { useVerge } from '@/hooks/use-verge'
-import { debugLog } from '@/utils/debug'
 import parseTraffic from '@/utils/parse-traffic'
-import {
-  formatTrafficHourMinute,
-  formatTrafficMinuteSecond,
-  formatTrafficName,
-  isSameTrafficData,
-} from '@/utils/traffic-sampler'
+import { formatTrafficName } from '@/utils/traffic-sampler'
 
-interface ITrafficItem {
-  up: number
-  down: number
-  timestamp?: number
-}
+import {
+  canvasStyle,
+  chartStyleHintSx,
+  diagnosticsSx,
+  GRAPH_CONFIG,
+  getYAxisTicks,
+  hoverCanvasStyle,
+  legendsSx,
+  makeGradientStops,
+  overlaySx,
+  pushTimeAxisPoint,
+  resetTimeAxisPoints,
+  rootSx,
+  STALE_DATA_THRESHOLD,
+  timeAxisPoints,
+  TIME_DISPLAY_STRATEGIES,
+  type TimeRange,
+  timeRangeBadgeSx,
+  tooltipDownSx,
+  tooltipTimeSx,
+  tooltipUpSx,
+} from './enhanced-canvas-traffic-graph-model'
 
 export interface EnhancedCanvasTrafficGraphRef {
-  appendData: (data: ITrafficItem) => void
   toggleStyle: () => void
 }
-
-type TimeRange = 1 | 5 | 10
 
 interface TooltipData {
   x: number
@@ -47,49 +55,9 @@ interface TooltipData {
   highlightY: number
 }
 
-const MAX_POINTS = 300
-const TARGET_FPS = 15
-const LINE_WIDTH_UP = 2.5
-const LINE_WIDTH_DOWN = 2.5
-const LINE_WIDTH_GRID = 0.5
-const ALPHA_GRADIENT = 0.15
-const ALPHA_LINE = 0.9
-const PADDING_TOP = 16
-const PADDING_RIGHT = 16
-const PADDING_BOTTOM = 32
-const PADDING_LEFT = 35
-
-const GRAPH_CONFIG = {
-  maxPoints: MAX_POINTS,
-  targetFPS: TARGET_FPS,
-  lineWidth: {
-    up: LINE_WIDTH_UP,
-    down: LINE_WIDTH_DOWN,
-    grid: LINE_WIDTH_GRID,
-  },
-  alpha: {
-    gradient: ALPHA_GRADIENT,
-    line: ALPHA_LINE,
-  },
-  padding: {
-    top: PADDING_TOP,
-    right: PADDING_RIGHT,
-    bottom: PADDING_BOTTOM,
-    left: PADDING_LEFT,
-  },
-}
-
-const STALE_DATA_THRESHOLD = 2500 // ms without fresh data => drop FPS
-
 interface EnhancedCanvasTrafficGraphProps {
   ref?: Ref<EnhancedCanvasTrafficGraphRef>
 }
-
-const displayDataReducer = (
-  current: ITrafficDataPoint[],
-  payload: ITrafficDataPoint[],
-): ITrafficDataPoint[] =>
-  isSameTrafficData(current, payload) ? current : payload
 
 export const EnhancedCanvasTrafficGraph = memo(
   function EnhancedCanvasTrafficGraph({
@@ -101,11 +69,9 @@ export const EnhancedCanvasTrafficGraph = memo(
     const pause_render_traffic_stats_on_blur =
       verge.verge?.pause_render_traffic_stats_on_blur ?? true
 
-    const { dataPoints, requestRange, samplerStats } =
-      useTrafficGraphDataEnhanced()
-
     const [timeRange, setTimeRange] = useState<TimeRange>(10)
     const [chartStyle, setChartStyle] = useState<'bezier' | 'line'>('bezier')
+    const [badgeStats, setBadgeStats] = useState({ points: 0, compressed: 0 })
 
     const initialFocusState =
       typeof document !== 'undefined' ? !document.hidden : true
@@ -128,7 +94,6 @@ export const EnhancedCanvasTrafficGraph = memo(
     const drawFrameRef = useRef<number | undefined>(undefined)
     const hoverFrameRef = useRef<number | undefined>(undefined)
     const mouseMoveFrameRef = useRef<number | undefined>(undefined)
-    const scheduleDrawGraphRef = useRef<() => void>(() => {})
     const pendingMousePositionRef = useRef<{
       clientX: number
       clientY: number
@@ -137,81 +102,54 @@ export const EnhancedCanvasTrafficGraph = memo(
     const lastDataTimestampRef = useRef<number>(0)
     const dataStaleRef = useRef<boolean>(false)
 
-    const [displayData, dispatchDisplayData] = useReducer(
-      displayDataReducer,
-      [],
-    )
-    const debounceTimeoutRef = useRef<number | null>(null)
-    const [currentFPS, setCurrentFPS] = useState(GRAPH_CONFIG.targetFPS)
+    // Live snapshot data for the rAF draw path; React state only tracks the
+    // diagnostics badge inputs so steady-state snapshots stop re-rendering.
+    const displayDataRef = useRef<ITrafficDataPoint[]>([])
+    const yScaleRef = useRef<{ topValue: number; bottomValue: number }>({
+      topValue: 1024,
+      bottomValue: 0,
+    })
 
-    const colors = useMemo(
-      () => ({
+    const colors = useMemo(() => {
+      const base = {
         up: theme.palette.secondary.main,
         down: theme.palette.primary.main,
         grid: theme.palette.divider,
         text: theme.palette.text.secondary,
         background: theme.palette.background.paper,
+      }
+      return {
+        ...base,
+        gradient: {
+          up: makeGradientStops(base.up),
+          down: makeGradientStops(base.down),
+        },
+      }
+    }, [theme])
+
+    const legendSx = useMemo(
+      () => ({
+        up: {
+          fontSize: '11px',
+          fontWeight: 'bold',
+          color: colors.up,
+          textAlign: 'right',
+        },
+        down: {
+          fontSize: '11px',
+          fontWeight: 'bold',
+          color: colors.down,
+          textAlign: 'right',
+        },
       }),
-      [theme],
+      [colors],
     )
 
-    const updateDisplayData = useCallback((newData: ITrafficDataPoint[]) => {
-      if (debounceTimeoutRef.current !== null) {
-        window.clearTimeout(debounceTimeoutRef.current)
-      }
-      debounceTimeoutRef.current = window.setTimeout(() => {
-        dispatchDisplayData(newData)
-      }, 50)
-    }, [])
+    const handleFocusStateChange = useEffectEvent((focused: boolean) => {
+      isWindowFocusedRef.current = focused
 
-    useEffect(() => {
-      updateDisplayData(dataPoints)
-
-      return () => {
-        if (debounceTimeoutRef.current !== null) {
-          window.clearTimeout(debounceTimeoutRef.current)
-          debounceTimeoutRef.current = null
-        }
-      }
-    }, [dataPoints, updateDisplayData])
-
-    useEffect(() => {
-      requestRange(timeRange)
-    }, [requestRange, timeRange])
-
-    useEffect(() => {
-      if (displayData.length === 0) {
-        lastDataTimestampRef.current = 0
-        dataStaleRef.current = false
-        // eslint-disable-next-line @eslint-react/set-state-in-effect
-        setCurrentFPS(GRAPH_CONFIG.targetFPS)
-        return
-      }
-
-      const latestTimestamp =
-        displayData[displayData.length - 1]?.timestamp ?? null
-      if (latestTimestamp) {
-        lastDataTimestampRef.current = latestTimestamp
-        const age = Date.now() - latestTimestamp
-        const stale = age > STALE_DATA_THRESHOLD
-        dataStaleRef.current = stale
-      } else {
-        dataStaleRef.current = false
-      }
-    }, [displayData])
-
-    const handleFocusStateChange = useCallback(
-      (focused: boolean) => {
-        isWindowFocusedRef.current = focused
-
-        if (focused || !pause_render_traffic_stats_on_blur) {
-          setCurrentFPS(GRAPH_CONFIG.targetFPS)
-        }
-
-        scheduleDrawGraphRef.current()
-      },
-      [pause_render_traffic_stats_on_blur],
-    )
+      scheduleDrawGraph()
+    })
 
     useEffect(() => {
       if (typeof window === 'undefined' || typeof document === 'undefined') {
@@ -235,7 +173,7 @@ export const EnhancedCanvasTrafficGraph = memo(
         window.removeEventListener('blur', handleBlur)
         document.removeEventListener('visibilitychange', handleVisibilityChange)
       }
-    }, [handleFocusStateChange])
+    }, [])
 
     const calculateY = useCallback(
       (
@@ -288,14 +226,9 @@ export const EnhancedCanvasTrafficGraph = memo(
       [],
     )
 
-    const yScale = useMemo(
-      () => computeYScale(displayData),
-      [computeYScale, displayData],
-    )
-
     const handleMouseMove = useCallback(
       (event: React.MouseEvent<HTMLElement>) => {
-        if (displayData.length === 0) return
+        if (displayDataRef.current.length === 0) return
 
         pendingMousePositionRef.current = {
           clientX: event.clientX,
@@ -312,7 +245,8 @@ export const EnhancedCanvasTrafficGraph = memo(
           if (!pendingMousePosition) return
 
           const canvas = canvasRef.current
-          if (!canvas || displayData.length === 0) return
+          const data = displayDataRef.current
+          if (!canvas || data.length === 0) return
 
           const rect = canvas.getBoundingClientRect()
           const mouseX = pendingMousePosition.clientX - rect.left
@@ -327,11 +261,11 @@ export const EnhancedCanvasTrafficGraph = memo(
             0,
             Math.min(1, relativeMouseX / effectiveWidth),
           )
-          const dataIndex = Math.round(ratio * (displayData.length - 1))
+          const dataIndex = Math.round(ratio * (data.length - 1))
 
-          if (dataIndex < 0 || dataIndex >= displayData.length) return
+          if (dataIndex < 0 || dataIndex >= data.length) return
 
-          const dataPoint = displayData[dataIndex]
+          const dataPoint = data[dataIndex]
 
           const [upValue, upUnit] = parseTraffic(dataPoint.up)
           const [downValue, downUnit] = parseTraffic(dataPoint.down)
@@ -340,7 +274,7 @@ export const EnhancedCanvasTrafficGraph = memo(
             ? formatTrafficName(dataPoint.timestamp)
             : t('home.components.traffic.unknownTime')
 
-          const { topValue: tvH, bottomValue: bvH } = yScale
+          const { topValue: tvH, bottomValue: bvH } = yScaleRef.current
           const upY = calculateY(dataPoint.up, rect.height, tvH, bvH)
           const downY = calculateY(dataPoint.down, rect.height, tvH, bvH)
           const highlightY =
@@ -377,7 +311,7 @@ export const EnhancedCanvasTrafficGraph = memo(
           })
         })
       },
-      [displayData, calculateY, yScale, t],
+      [calculateY, t],
     )
 
     const handleMouseLeave = useCallback(() => {
@@ -393,45 +327,6 @@ export const EnhancedCanvasTrafficGraph = memo(
       )
     }, [])
 
-    const getYAxisTicks = useCallback(
-      (topValue: number, bottomValue: number, height: number) => {
-        const formatTrafficValue = (bytes: number): string => {
-          if (bytes === 0) return '0'
-          if (bytes < 1024) return `${Math.round(bytes)}B`
-          if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`
-          return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
-        }
-
-        const padding = GRAPH_CONFIG.padding
-
-        const topY = padding.top + 10
-        const bottomY = height - padding.bottom - 5
-        const middleY = (topY + bottomY) / 2
-        const middleValue = (bottomValue + topValue) / 2
-
-        const ticks = [
-          {
-            value: bottomValue,
-            label: formatTrafficValue(bottomValue),
-            y: bottomY,
-          },
-          {
-            value: middleValue,
-            label: formatTrafficValue(middleValue),
-            y: middleY,
-          },
-          {
-            value: topValue,
-            label: formatTrafficValue(topValue),
-            y: topY,
-          },
-        ]
-
-        return ticks
-      },
-      [],
-    )
-
     const drawYAxis = useCallback(
       (
         ctx: CanvasRenderingContext2D,
@@ -442,8 +337,6 @@ export const EnhancedCanvasTrafficGraph = memo(
       ) => {
         const padding = GRAPH_CONFIG.padding
         const ticks = getYAxisTicks(topValue, bottomValue, height)
-
-        if (ticks.length === 0) return
 
         ctx.save()
 
@@ -488,37 +381,7 @@ export const EnhancedCanvasTrafficGraph = memo(
 
         ctx.restore()
       },
-      [colors.grid, colors.text, colors.background, getYAxisTicks],
-    )
-
-    const getTimeDisplayStrategy = useCallback(
-      (timeRangeMinutes: TimeRange) => {
-        switch (timeRangeMinutes) {
-          case 1:
-            return {
-              maxLabels: 6,
-              formatTime: formatTrafficMinuteSecond,
-              intervalSeconds: 10,
-              minPixelDistance: 35,
-            }
-          case 5:
-            return {
-              maxLabels: 6,
-              formatTime: formatTrafficHourMinute,
-              intervalSeconds: 30,
-              minPixelDistance: 38,
-            }
-          case 10:
-          default:
-            return {
-              maxLabels: 8,
-              formatTime: formatTrafficHourMinute,
-              intervalSeconds: 60,
-              minPixelDistance: 40,
-            }
-        }
-      },
-      [],
+      [colors.grid, colors.text, colors.background],
     )
 
     const drawTimeAxis = useCallback(
@@ -534,7 +397,7 @@ export const EnhancedCanvasTrafficGraph = memo(
         const effectiveWidth = width - padding.left - padding.right
         const timeAxisY = height - padding.bottom + 14
 
-        const strategy = getTimeDisplayStrategy(timeRange)
+        const strategy = TIME_DISPLAY_STRATEGIES[timeRange]
 
         ctx.save()
         ctx.fillStyle = colors.text
@@ -551,15 +414,13 @@ export const EnhancedCanvasTrafficGraph = memo(
           Math.ceil((data.length * minPixelDistance) / effectiveWidth),
         )
 
-        const timePoints: Array<{ index: number; x: number; label: string }> =
-          []
+        resetTimeAxisPoints()
 
         if (data.length > 0 && data[0].timestamp) {
-          timePoints.push({
-            index: 0,
-            x: padding.left,
-            label: strategy.formatTime(data[0].timestamp),
-          })
+          pushTimeAxisPoint(
+            padding.left,
+            strategy.formatTime(data[0].timestamp),
+          )
         }
 
         for (
@@ -571,41 +432,37 @@ export const EnhancedCanvasTrafficGraph = memo(
           if (!point.timestamp) continue
 
           const x = padding.left + (i / (data.length - 1)) * effectiveWidth
-          timePoints.push({
-            index: i,
-            x,
-            label: strategy.formatTime(point.timestamp),
-          })
+          pushTimeAxisPoint(x, strategy.formatTime(point.timestamp))
         }
 
         if (data.length > 1 && data[data.length - 1].timestamp) {
           const lastX = width - padding.right
-          const lastPoint = timePoints[timePoints.length - 1]
+          const lastPoint = timeAxisPoints[timeAxisPoints.length - 1]
 
           if (!lastPoint || lastX - lastPoint.x >= minPixelDistance) {
-            timePoints.push({
-              index: data.length - 1,
-              x: lastX,
-              label: strategy.formatTime(data[data.length - 1].timestamp),
-            })
+            pushTimeAxisPoint(
+              lastX,
+              strategy.formatTime(data[data.length - 1].timestamp),
+            )
           }
         }
 
-        timePoints.forEach((point, index) => {
-          if (index === 0) {
+        for (let i = 0; i < timeAxisPoints.length; i++) {
+          const point = timeAxisPoints[i]
+          if (i === 0) {
             ctx.textAlign = 'left'
-          } else if (index === timePoints.length - 1) {
+          } else if (i === timeAxisPoints.length - 1) {
             ctx.textAlign = 'right'
           } else {
             ctx.textAlign = 'center'
           }
 
           ctx.fillText(point.label, point.x, timeAxisY)
-        })
+        }
 
         ctx.restore()
       },
-      [colors.text, timeRange, getTimeDisplayStrategy],
+      [colors.text, timeRange],
     )
 
     const drawGrid = useCallback(
@@ -650,6 +507,7 @@ export const EnhancedCanvasTrafficGraph = memo(
         width: number,
         height: number,
         color: string,
+        gradientStops: { start: string; end: string },
         withGradient = false,
         topValue: number,
         bottomValue: number,
@@ -673,30 +531,19 @@ export const EnhancedCanvasTrafficGraph = memo(
             0,
             height - padding.bottom,
           )
-          gradient.addColorStop(
-            0,
-            `${color}${Math.round(GRAPH_CONFIG.alpha.gradient * 255)
-              .toString(16)
-              .padStart(2, '0')}`,
-          )
-          gradient.addColorStop(1, `${color}00`)
+          gradient.addColorStop(0, gradientStops.start)
+          gradient.addColorStop(1, gradientStops.end)
 
           ctx.beginPath()
           ctx.moveTo(getX(0), getY(0))
 
-          if (chartStyle === 'bezier') {
-            for (let i = 1; i < data.length; i++) {
-              const currentX = getX(i)
-              const currentY = getY(i)
-              const nextIndex = Math.min(i + 1, lastIndex)
-              const controlX = (currentX + getX(nextIndex)) / 2
-              const controlY = (currentY + getY(nextIndex)) / 2
-              ctx.quadraticCurveTo(currentX, currentY, controlX, controlY)
-            }
-          } else {
-            for (let i = 1; i < data.length; i++) {
-              ctx.lineTo(getX(i), getY(i))
-            }
+          for (let i = 1; i < data.length; i++) {
+            const currentX = getX(i)
+            const currentY = getY(i)
+            const nextIndex = Math.min(i + 1, lastIndex)
+            const controlX = (currentX + getX(nextIndex)) / 2
+            const controlY = (currentY + getY(nextIndex)) / 2
+            ctx.quadraticCurveTo(currentX, currentY, controlX, controlY)
           }
 
           ctx.lineTo(getX(lastIndex), height - padding.bottom)
@@ -776,6 +623,7 @@ export const EnhancedCanvasTrafficGraph = memo(
 
     const drawGraph = useCallback(() => {
       const canvas = canvasRef.current
+      const displayData = displayDataRef.current
       if (!canvas || displayData.length === 0) {
         clearCanvas(canvasRef.current)
         clearCanvas(hoverCanvasRef.current)
@@ -789,7 +637,7 @@ export const EnhancedCanvasTrafficGraph = memo(
       // Clear using CSS dimensions; context is already scaled by DPR.
       ctx.clearRect(0, 0, cssWidth, cssHeight)
 
-      const { topValue, bottomValue } = yScale
+      const { topValue, bottomValue } = yScaleRef.current
 
       drawYAxis(ctx, cssWidth, cssHeight, topValue, bottomValue)
 
@@ -804,6 +652,7 @@ export const EnhancedCanvasTrafficGraph = memo(
         cssWidth,
         cssHeight,
         colors.down,
+        colors.gradient.down,
         true,
         topValue,
         bottomValue,
@@ -816,6 +665,7 @@ export const EnhancedCanvasTrafficGraph = memo(
         cssWidth,
         cssHeight,
         colors.up,
+        colors.gradient.up,
         true,
         topValue,
         bottomValue,
@@ -828,9 +678,7 @@ export const EnhancedCanvasTrafficGraph = memo(
       )
         canvas.dataset.perfDraw = String(displayData.at(-1)?.timestamp ?? 0)
     }, [
-      displayData,
       colors,
-      yScale,
       drawYAxis,
       drawGrid,
       drawTimeAxis,
@@ -841,6 +689,7 @@ export const EnhancedCanvasTrafficGraph = memo(
 
     const drawHoverOverlay = useCallback(() => {
       const canvas = hoverCanvasRef.current
+      const displayData = displayDataRef.current
       if (!canvas || displayData.length < 2) {
         clearCanvas(canvas)
         return
@@ -878,7 +727,7 @@ export const EnhancedCanvasTrafficGraph = memo(
 
         ctx.restore()
       }
-    }, [displayData, colors, syncCanvasSize, clearCanvas])
+    }, [colors, syncCanvasSize, clearCanvas])
 
     const shouldSkipGraphDraw = useCallback(() => {
       if (!isDocumentVisibleRef.current) return true
@@ -921,6 +770,55 @@ export const EnhancedCanvasTrafficGraph = memo(
       })
     }, [drawGraph, drawHoverOverlay, shouldSkipGraphDraw])
 
+    const handleSnapshot = useCallback(
+      (message: ITrafficWorkerSnapshotMessage) => {
+        const data = message.dataPoints
+        displayDataRef.current = data
+        yScaleRef.current = computeYScale(data)
+
+        if (data.length === 0) {
+          lastDataTimestampRef.current = 0
+          dataStaleRef.current = false
+        } else {
+          const latestTimestamp = data[data.length - 1]?.timestamp ?? null
+          if (latestTimestamp) {
+            lastDataTimestampRef.current = latestTimestamp
+            const age = Date.now() - latestTimestamp
+            const stale = age > STALE_DATA_THRESHOLD
+            dataStaleRef.current = stale
+          } else {
+            dataStaleRef.current = false
+          }
+        }
+
+        scheduleDrawGraph()
+        // The badge is the only snapshot content that still renders; keeping
+        // its state here confines re-renders to actual badge changes, and the
+        // visibility gate skips hidden-phase renders — the re-prime snapshot
+        // on regaining visibility refreshes it.
+        if (!isDocumentVisibleRef.current) return
+        setBadgeStats((prev) =>
+          prev.points === data.length &&
+          prev.compressed === message.samplerStats.compressedBufferSize
+            ? prev
+            : {
+                points: data.length,
+                compressed: message.samplerStats.compressedBufferSize,
+              },
+        )
+      },
+      [computeYScale, scheduleDrawGraph],
+    )
+
+    const { requestRange } = useTrafficGraphDataEnhanced({
+      subscribe: false,
+      onSnapshot: handleSnapshot,
+    })
+
+    useEffect(() => {
+      requestRange(timeRange)
+    }, [requestRange, timeRange])
+
     useEffect(() => {
       tooltipDataRef.current = tooltipData
       scheduleHoverDraw()
@@ -930,25 +828,21 @@ export const EnhancedCanvasTrafficGraph = memo(
       scheduleDrawGraph()
     }, [scheduleDrawGraph])
 
-    useEffect(() => {
-      scheduleDrawGraphRef.current = scheduleDrawGraph
-    }, [scheduleDrawGraph])
+    const redrawGraph = useEffectEvent(() => scheduleDrawGraph())
 
     useEffect(() => {
       const canvas = canvasRef.current
       if (!canvas || typeof window === 'undefined') return
 
       if (typeof ResizeObserver === 'undefined') {
-        const handleResize = () => scheduleDrawGraphRef.current()
+        const handleResize = () => redrawGraph()
         window.addEventListener('resize', handleResize)
         return () => {
           window.removeEventListener('resize', handleResize)
         }
       }
 
-      const resizeObserver = new ResizeObserver(() =>
-        scheduleDrawGraphRef.current(),
-      )
+      const resizeObserver = new ResizeObserver(() => redrawGraph())
       resizeObserver.observe(canvas)
 
       return () => {
@@ -984,21 +878,7 @@ export const EnhancedCanvasTrafficGraph = memo(
       setChartStyle((prev) => (prev === 'bezier' ? 'line' : 'bezier'))
     }, [])
 
-    const appendData = useCallback((data: ITrafficItem) => {
-      debugLog(
-        '[EnhancedCanvasTrafficGraphV2] appendData called (using global data):',
-        data,
-      )
-    }, [])
-
-    useImperativeHandle(
-      ref,
-      () => ({
-        appendData,
-        toggleStyle,
-      }),
-      [appendData, toggleStyle],
-    )
+    useImperativeHandle(ref, () => ({ toggleStyle }), [toggleStyle])
 
     const getTimeRangeText = useCallback(() => {
       return t('home.components.traffic.patterns.minutes', {
@@ -1008,119 +888,36 @@ export const EnhancedCanvasTrafficGraph = memo(
 
     return (
       <Box
-        sx={{
-          width: '100%',
-          height: '100%',
-          position: 'relative',
-          bgcolor: 'action.hover',
-          borderRadius: 1,
-          cursor: 'pointer',
-          overflow: 'hidden',
-        }}
+        sx={rootSx}
         onClick={toggleStyle}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
       >
-        <canvas
-          ref={canvasRef}
-          style={{
-            width: '100%',
-            height: '100%',
-            display: 'block',
-          }}
-          onClick={toggleStyle}
-        />
+        <canvas ref={canvasRef} style={canvasStyle} onClick={toggleStyle} />
 
         {tooltipData.visible && (
-          <canvas
-            ref={hoverCanvasRef}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
-              display: 'block',
-              pointerEvents: 'none',
-            }}
-          />
+          <canvas ref={hoverCanvasRef} style={hoverCanvasStyle} />
         )}
 
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            pointerEvents: 'none',
-          }}
-        >
+        <Box sx={overlaySx}>
           <Box
             component="div"
             onClick={handleTimeRangeClick}
-            sx={{
-              position: 'absolute',
-              top: 6,
-              left: 40,
-              fontSize: '11px',
-              fontWeight: 'bold',
-              color: 'text.secondary',
-              cursor: 'pointer',
-              pointerEvents: 'all',
-              px: 1,
-              py: 0.5,
-              borderRadius: 0.5,
-              bgcolor: 'rgba(0,0,0,0.05)',
-              '&:hover': {
-                bgcolor: 'rgba(0,0,0,0.1)',
-              },
-            }}
+            sx={timeRangeBadgeSx}
           >
             {getTimeRangeText()}
           </Box>
 
-          <Box
-            sx={{
-              position: 'absolute',
-              top: 6,
-              right: 8,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 0.5,
-            }}
-          >
-            <Box
-              sx={{
-                fontSize: '11px',
-                fontWeight: 'bold',
-                color: colors.up,
-                textAlign: 'right',
-              }}
-            >
+          <Box sx={legendsSx}>
+            <Box sx={legendSx.up}>
               {t('home.components.traffic.legends.upload')}
             </Box>
-            <Box
-              sx={{
-                fontSize: '11px',
-                fontWeight: 'bold',
-                color: colors.down,
-                textAlign: 'right',
-              }}
-            >
+            <Box sx={legendSx.down}>
               {t('home.components.traffic.legends.download')}
             </Box>
           </Box>
 
-          <Box
-            sx={{
-              position: 'absolute',
-              bottom: 6,
-              right: 8,
-              fontSize: '10px',
-              color: 'text.disabled',
-              opacity: 0.7,
-            }}
-          >
+          <Box sx={chartStyleHintSx}>
             {t(
               chartStyle === 'bezier'
                 ? 'home.components.traffic.chartStyles.smooth'
@@ -1128,30 +925,19 @@ export const EnhancedCanvasTrafficGraph = memo(
             )}
           </Box>
 
-          <Box
-            sx={{
-              position: 'absolute',
-              bottom: 6,
-              left: 8,
-              fontSize: '9px',
-              color: 'text.disabled',
-              opacity: 0.6,
-              lineHeight: 1.2,
-            }}
-          >
+          <Box sx={diagnosticsSx}>
             {t('home.components.traffic.diagnostics', {
-              points: displayData.length,
-              compressed: samplerStats.compressedBufferSize,
-              fps: currentFPS,
+              points: badgeStats.points,
+              compressed: badgeStats.compressed,
+              fps: GRAPH_CONFIG.targetFPS,
             })}
           </Box>
 
           {tooltipData.visible && (
             <Box
+              style={{ left: tooltipData.x + 8, top: tooltipData.y - 8 }}
               sx={{
                 position: 'absolute',
-                left: tooltipData.x + 8,
-                top: tooltipData.y - 8,
                 bgcolor: theme.palette.background.paper,
                 border: 1,
                 borderColor: 'divider',
@@ -1170,15 +956,9 @@ export const EnhancedCanvasTrafficGraph = memo(
                 whiteSpace: 'nowrap',
               }}
             >
-              <Box sx={{ color: 'text.secondary', mb: 0.2 }}>
-                {tooltipData.timestamp}
-              </Box>
-              <Box sx={{ color: 'secondary.main', fontWeight: 500 }}>
-                ↑ {tooltipData.upSpeed}
-              </Box>
-              <Box sx={{ color: 'primary.main', fontWeight: 500 }}>
-                ↓ {tooltipData.downSpeed}
-              </Box>
+              <Box sx={tooltipTimeSx}>{tooltipData.timestamp}</Box>
+              <Box sx={tooltipUpSx}>↑ {tooltipData.upSpeed}</Box>
+              <Box sx={tooltipDownSx}>↓ {tooltipData.downSpeed}</Box>
             </Box>
           )}
         </Box>

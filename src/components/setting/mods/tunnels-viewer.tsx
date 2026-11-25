@@ -1,4 +1,3 @@
-/* eslint-disable @eslint-react/set-state-in-effect */
 import { Delete, ExpandLess, ExpandMore } from '@mui/icons-material'
 import {
   Button,
@@ -12,19 +11,12 @@ import {
   Select,
   MenuItem,
 } from '@mui/material'
-import {
-  forwardRef,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { forwardRef, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BaseDialog } from '@/components/base'
+import { useProxiesData } from '@/hooks/data'
 import { useClash } from '@/hooks/use-clash'
-import { useProxiesData } from '@/providers/app-data-context'
 import { probeListener, type ListenerTransport } from '@/services/cmds'
 import { showNotice } from '@/services/notice-service'
 import {
@@ -35,12 +27,10 @@ import {
   type ProxyMemberOccurrenceBinding,
   type ResolvedProxyMember,
 } from '@/types/proxy-view'
-import {
-  formatHostPort,
-  isValidPort,
-  normalizeHost,
-  normalizeListenHost,
-} from '@/utils/network'
+import { formatHostPort, isValidPort, normalizeHost } from '@/utils/network'
+import { normalizeListenHost } from '@/utils/network-cidr'
+
+import { useSettingDialog } from '../settings-search-context'
 
 interface TunnelsViewerRef {
   open: () => void
@@ -76,34 +66,28 @@ const proxyOptionToken = ({ memberIndex, member }: TunnelProxyOption) =>
     member.kind === 'node' ? member.node.recordId : member.ref.name
   }`
 
+const buildInitialValues = (): TunnelFormValues => ({
+  localAddr: '',
+  localPort: '',
+  targetAddr: '',
+  targetPort: '',
+  network: 'tcp+udp',
+  group: '',
+  proxy: null,
+})
+
 export const TunnelsViewer = forwardRef<TunnelsViewerRef>((_, ref) => {
   const { t } = useTranslation()
   const { clash, mutateClash, patchClash } = useClash()
 
   const [open, setOpen] = useState(false)
   const [expanded, setExpanded] = useState(false)
-  const [values, setValues] = useState<TunnelFormValues>({
-    localAddr: '',
-    localPort: '',
-    targetAddr: '',
-    targetPort: '',
-    network: 'tcp+udp',
-    group: '',
-    proxy: null,
-  })
+  const [values, setValues] = useState<TunnelFormValues>(buildInitialValues)
   const [draftTunnels, setDraftTunnels] = useState<TunnelEntry[]>([])
 
-  useImperativeHandle(ref, () => ({
+  useSettingDialog(ref, 'tunnels-viewer', open, () => ({
     open: () => {
-      setValues(() => ({
-        localAddr: '',
-        localPort: '',
-        targetAddr: '',
-        targetPort: '',
-        network: 'tcp+udp',
-        group: '',
-        proxy: null,
-      }))
+      setValues(buildInitialValues())
       setDraftTunnels(() => clash?.tunnels ?? [])
       setOpen(true)
       // 如果没有隧道，则自动展开
@@ -163,28 +147,19 @@ export const TunnelsViewer = forwardRef<TunnelsViewerRef>((_, ref) => {
   const selectedProxyToken = selectedProxyOption
     ? proxyOptionToken(selectedProxyOption)
     : ''
-  const selectedGroupExists =
-    !values.group || proxyGroups.some(({ name }) => name === values.group)
+  // A group or member missing from the proxy view reads as the default.
+  const effectiveGroup = proxyGroups.some(({ name }) => name === values.group)
+    ? values.group
+    : ''
+  const effectiveProxy = selectedProxyOption ? values.proxy : null
   const latestProxyStateRef = useRef({
-    binding: values.proxy,
+    binding: effectiveProxy,
     options: proxyOptions,
   })
   latestProxyStateRef.current = {
-    binding: values.proxy,
+    binding: effectiveProxy,
     options: proxyOptions,
   }
-
-  useEffect(() => {
-    if (selectedGroupExists && (!values.proxy || selectedProxyOption)) return
-    setValues((current) => {
-      if (current.group !== values.group || current.proxy !== values.proxy) {
-        return current
-      }
-      return selectedGroupExists
-        ? { ...current, proxy: null }
-        : { ...current, group: '', proxy: null }
-    })
-  }, [selectedGroupExists, selectedProxyOption, values.group, values.proxy])
 
   const handleSave = async () => {
     try {
@@ -192,7 +167,7 @@ export const TunnelsViewer = forwardRef<TunnelsViewerRef>((_, ref) => {
       await mutateClash()
       showNotice.success('shared.feedback.notifications.common.saveSuccess')
       setOpen(false)
-    } catch (err: any) {
+    } catch (err) {
       showNotice.error(err)
     }
   }
@@ -318,10 +293,14 @@ export const TunnelsViewer = forwardRef<TunnelsViewerRef>((_, ref) => {
       }}
       onOk={handleSave}
     >
+      <span data-settings-dialog="tunnels-viewer" />
       <List>
         {draftTunnels.length > 0 && (
           <>
-            <ListItem sx={{ padding: '4px 0', opacity: 0.6 }}>
+            <ListItem
+              data-setting-target="settings.sections.clash.form.fields.tunnels.existing"
+              sx={{ padding: '4px 0', opacity: 0.6 }}
+            >
               <ListItemText
                 primary={t(
                   'settings.sections.clash.form.fields.tunnels.existing',
@@ -331,6 +310,7 @@ export const TunnelsViewer = forwardRef<TunnelsViewerRef>((_, ref) => {
             <List component="nav">
               {tunnelEntries.map((item) => (
                 <ListItem
+                  data-setting-target="settings.sections.clash.form.fields.tunnels.default"
                   key={`${item.key}`}
                   sx={{ padding: '4px 0' }}
                   secondaryAction={
@@ -359,6 +339,7 @@ export const TunnelsViewer = forwardRef<TunnelsViewerRef>((_, ref) => {
         )}
         <ListItemButton
           sx={{ padding: '4px 0', opacity: 0.8 }}
+          data-setting-target="tunnels-expand"
           onClick={() => setExpanded((v) => !v)}
         >
           <ListItemText
@@ -369,7 +350,10 @@ export const TunnelsViewer = forwardRef<TunnelsViewerRef>((_, ref) => {
           {expanded ? <ExpandLess /> : <ExpandMore />}
         </ListItemButton>
         {expanded && (
-          <ListItem sx={{ padding: '8px 0' }}>
+          <ListItem
+            data-setting-target="settings.sections.clash.form.fields.tunnels.protocols"
+            sx={{ padding: '8px 0' }}
+          >
             <div style={{ width: '100%' }}>
               {/* 输入框区域 */}
               {/* 协议 */}
@@ -397,7 +381,10 @@ export const TunnelsViewer = forwardRef<TunnelsViewerRef>((_, ref) => {
               </ListItem>
 
               {/* 本地监听地址 */}
-              <ListItem sx={{ padding: '6px 2px' }}>
+              <ListItem
+                data-setting-target="settings.sections.clash.form.fields.tunnels.localAddr"
+                sx={{ padding: '6px 2px' }}
+              >
                 <ListItemText
                   primary={t(
                     'settings.sections.clash.form.fields.tunnels.localAddr',
@@ -416,7 +403,10 @@ export const TunnelsViewer = forwardRef<TunnelsViewerRef>((_, ref) => {
               </ListItem>
 
               {/* 本地监听端口 */}
-              <ListItem sx={{ padding: '6px 2px' }}>
+              <ListItem
+                data-setting-target="settings.sections.clash.form.fields.tunnels.localPort"
+                sx={{ padding: '6px 2px' }}
+              >
                 <ListItemText
                   primary={t(
                     'settings.sections.clash.form.fields.tunnels.localPort',
@@ -436,7 +426,10 @@ export const TunnelsViewer = forwardRef<TunnelsViewerRef>((_, ref) => {
               </ListItem>
 
               {/* 目标服务器地址 */}
-              <ListItem sx={{ padding: '6px 2px' }}>
+              <ListItem
+                data-setting-target="settings.sections.clash.form.fields.tunnels.targetAddr"
+                sx={{ padding: '6px 2px' }}
+              >
                 <ListItemText
                   primary={t(
                     'settings.sections.clash.form.fields.tunnels.targetAddr',
@@ -455,7 +448,10 @@ export const TunnelsViewer = forwardRef<TunnelsViewerRef>((_, ref) => {
               </ListItem>
 
               {/* 目标服务器端口 */}
-              <ListItem sx={{ padding: '6px 2px' }}>
+              <ListItem
+                data-setting-target="settings.sections.clash.form.fields.tunnels.targetPort"
+                sx={{ padding: '6px 2px' }}
+              >
                 <ListItemText
                   primary={t(
                     'settings.sections.clash.form.fields.tunnels.targetPort',
@@ -475,7 +471,10 @@ export const TunnelsViewer = forwardRef<TunnelsViewerRef>((_, ref) => {
               </ListItem>
 
               {/* 代理组 */}
-              <ListItem sx={{ padding: '6px 2px' }}>
+              <ListItem
+                data-setting-target="settings.sections.clash.form.fields.tunnels.proxyGroup"
+                sx={{ padding: '6px 2px' }}
+              >
                 <ListItemText
                   primary={
                     <>
@@ -496,7 +495,7 @@ export const TunnelsViewer = forwardRef<TunnelsViewerRef>((_, ref) => {
                 <Select
                   size="small"
                   sx={{ width: 200, '> div': { py: '7.5px' } }}
-                  value={values.group}
+                  value={effectiveGroup}
                   displayEmpty
                   onChange={(e) => {
                     const nextGroup = e.target.value as string
@@ -537,7 +536,10 @@ export const TunnelsViewer = forwardRef<TunnelsViewerRef>((_, ref) => {
               </ListItem>
 
               {/* 代理节点 */}
-              <ListItem sx={{ padding: '6px 2px' }}>
+              <ListItem
+                data-setting-target="settings.sections.clash.form.fields.tunnels.proxyNode"
+                sx={{ padding: '6px 2px' }}
+              >
                 <ListItemText
                   primary={
                     <>
@@ -575,7 +577,7 @@ export const TunnelsViewer = forwardRef<TunnelsViewerRef>((_, ref) => {
                         : null,
                     }))
                   }}
-                  disabled={!values.group} // 没选组就禁用
+                  disabled={!effectiveGroup} // 没选组就禁用
                 >
                   <MenuItem value="">
                     {t('settings.sections.clash.form.fields.tunnels.default')}
@@ -598,6 +600,7 @@ export const TunnelsViewer = forwardRef<TunnelsViewerRef>((_, ref) => {
 
               {/* 添加按钮 */}
               <Button
+                data-setting-target="settings.sections.clash.form.fields.tunnels.actions.add"
                 variant="contained"
                 size="small"
                 sx={{

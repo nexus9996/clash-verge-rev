@@ -1,7 +1,6 @@
 import { useLockFn } from 'ahooks'
 import { useCallback, useEffect, useReducer } from 'react'
 
-import { useVerge } from '@/hooks/use-verge'
 import delayManager, { type DelayUpdate } from '@/services/delay'
 import {
   isInteractableMember,
@@ -17,7 +16,12 @@ const PRESET_PROXY_NAMES = [
   'COMPATIBLE',
 ]
 
-const identity = (_: DelayUpdate, next: DelayUpdate): DelayUpdate => next
+const identity = (previous: DelayUpdate, next: DelayUpdate): DelayUpdate =>
+  previous.delay === next.delay &&
+  previous.elapsed === next.elapsed &&
+  previous.updatedAt === next.updatedAt
+    ? previous
+    : next
 
 const INITIAL_DELAY: DelayUpdate = { delay: -1, updatedAt: 0 }
 
@@ -32,30 +36,31 @@ export interface UseProxyDelayState {
 export function useProxyDelayState(
   member: ResolvedProxyMember,
   groupName: string,
+  /** Owned by the parent renderer so every mounted row need not read all of verge. */
+  timeout: number,
 ): UseProxyDelayState {
   const name = member.ref.name
+  const details = memberDetails(member)
   const unresolved = member.kind === 'unresolved'
   const isPreset = unresolved || PRESET_PROXY_NAMES.includes(name)
   const [delayState, setDelayState] = useReducer(identity, INITIAL_DELAY)
-  const { verge } = useVerge()
-  const timeout = verge?.default_latency_timeout || 10000
 
   useEffect(() => {
     if (isPreset) return
-    delayManager.setListener(member, groupName, setDelayState)
+    delayManager.setListener(name, groupName, setDelayState)
     return () => {
-      delayManager.removeListener(member, groupName)
+      delayManager.removeListener(name, groupName)
     }
-  }, [member, groupName, isPreset])
+  }, [name, groupName, isPreset])
 
   const updateDelay = useCallback(() => {
     if (unresolved) {
       setDelayState(INITIAL_DELAY)
       return
     }
-    const cachedUpdate = delayManager.getDelayUpdate(member, groupName)
+    const cachedUpdate = delayManager.getDelayUpdate(name, groupName)
     if (cachedUpdate) {
-      setDelayState({ ...cachedUpdate })
+      setDelayState(cachedUpdate)
       return
     }
 
@@ -66,9 +71,7 @@ export function useProxyDelayState(
     }
 
     let updatedAt = 0
-    const history =
-      delayManager.getHistory(member, groupName) ??
-      memberDetails(member)?.history
+    const history = details?.history
     if (history && history.length > 0) {
       const lastRecord = history[history.length - 1]
       const parsed = Date.parse(lastRecord.time)
@@ -78,18 +81,16 @@ export function useProxyDelayState(
     }
 
     setDelayState({ delay: fallbackDelay, updatedAt })
-  }, [groupName, member, unresolved])
+  }, [details?.history, groupName, member, name, unresolved])
 
   useEffect(() => {
     updateDelay()
-    return delayManager.addGroupListener(groupName, updateDelay)
-  }, [groupName, updateDelay])
+  }, [updateDelay])
 
   const onDelay = useLockFn(async () => {
     if (!isInteractableMember(member)) return
     setDelayState({ delay: -2, updatedAt: Date.now() })
-    await delayManager.checkDelay(member, groupName, timeout)
-    updateDelay()
+    setDelayState(await delayManager.checkDelay(member, groupName, timeout))
   })
 
   return {

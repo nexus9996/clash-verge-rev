@@ -6,6 +6,7 @@ import { revalidateQueries } from '@/services/query-client'
 import { useAppDispatch, useAppReads } from '@/store/app-store-context'
 
 import { createEventBus } from './create-bus-handlers'
+import { createRevalidateBatcher } from './revalidate-batcher'
 
 /**
  * Mounts the event bus exactly once (layout root): one `listen` per contract
@@ -19,9 +20,11 @@ export const useEventBus = (
   const reads = useAppReads()
 
   useEffect(() => {
-    const revalidateKeys = (keys: readonly string[]) => {
+    // Backend events arrive in bursts (a config switch emits several), so the
+    // union of their revalidation keys is flushed once per trailing window.
+    const batcher = createRevalidateBatcher((keys) => {
       void revalidateQueries(keys.map((key) => [key]))
-    }
+    })
     const { readPendingFailures } = reads
     const readRunState = () => {
       void reads.readRunState().catch(() => {})
@@ -30,7 +33,7 @@ export const useEventBus = (
     const bus = createEventBus({
       dispatch,
       handleNotice,
-      revalidateKeys,
+      revalidateKeys: batcher.enqueue,
       readPendingFailures,
       readRunState,
     })
@@ -63,6 +66,7 @@ export const useEventBus = (
 
     return () => {
       disposed = true
+      batcher.dispose()
       for (const unlisten of unlisteners.splice(0)) unlisten()
       void unlistenFocus.then((unlisten) => unlisten())
     }

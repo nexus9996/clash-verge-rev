@@ -18,6 +18,14 @@ pub struct SilentUpdater {
     background_cancel: Mutex<Option<CancellationToken>>,
 }
 
+#[derive(Serialize, specta::Type)]
+#[serde(rename_all = "snake_case")]
+pub enum InstallUpdateOutcome {
+    Installed,
+    Cancelled,
+    UpdateChanged,
+}
+
 singleton!(SilentUpdater, SILENT_UPDATER);
 
 impl SilentUpdater {
@@ -34,7 +42,7 @@ impl SilentUpdater {
     }
 }
 
-#[derive(Serialize, Deserialize, specta::Type)]
+#[derive(Serialize, Deserialize)]
 struct UpdateCacheMeta {
     version: String,
     downloaded_at: String,
@@ -107,15 +115,9 @@ impl SilentUpdater {
     }
 
     /// Returns the cached installer for `update`, deleting a cache that does not match it.
-    async fn verified_cache(app_handle: &tauri::AppHandle, update: &Update) -> Option<Vec<u8>> {
-        let app_handle = app_handle.clone();
-        let version = update.version.clone();
-        let signature = update.signature.clone();
-        match crate::process::AsyncHandler::spawn_blocking(move || {
-            Self::verified_cache_sync(&app_handle, &version, &signature)
-        })
-        .await
-        {
+    async fn verified_cache(update: &Update) -> Option<Vec<u8>> {
+        let update = update.clone();
+        match crate::process::AsyncHandler::spawn_blocking(move || Self::verified_cache_sync(&update)).await {
             Ok(bytes) => bytes,
             Err(error) => {
                 logging!(warn, Type::System, "Update cache verification task failed: {error}");
@@ -124,15 +126,15 @@ impl SilentUpdater {
         }
     }
 
-    fn verified_cache_sync(app_handle: &tauri::AppHandle, version: &str, signature: &str) -> Option<Vec<u8>> {
+    fn verified_cache_sync(update: &Update) -> Option<Vec<u8>> {
         let meta = Self::read_cache_meta().ok()?;
-        let bytes = if meta.version == version {
+        let bytes = if meta.version == update.version {
             Self::read_cache_bytes().and_then(|bytes| {
-                verify_signature(app_handle, &bytes, signature, version)?;
+                update.verify(&bytes)?;
                 Ok(bytes)
             })
         } else {
-            Err(anyhow::anyhow!("server offers v{version}"))
+            Err(anyhow::anyhow!("server offers v{}", update.version))
         };
         match bytes {
             Ok(bytes) => Some(bytes),
@@ -148,46 +150,6 @@ impl SilentUpdater {
             }
         }
     }
-}
-
-/// The cache directory is user-writable and feeds an elevated installer, so it is re-verified
-/// with the same rules `Update::download` applies.
-fn verify_signature(app_handle: &tauri::AppHandle, bytes: &[u8], signature: &str, version: &str) -> Result<()> {
-    use base64::Engine as _;
-
-    let decode = |value: &str| -> Result<String> {
-        Ok(String::from_utf8(
-            base64::engine::general_purpose::STANDARD.decode(value)?,
-        )?)
-    };
-    let config: tauri_plugin_updater::Config = serde_json::from_value(
-        app_handle
-            .config()
-            .plugins
-            .0
-            .get("updater")
-            .cloned()
-            .context("updater is not configured")?,
-    )?;
-
-    let public_key = minisign_verify::PublicKey::decode(&decode(&config.pubkey)?)?;
-    let signature = minisign_verify::Signature::decode(&decode(signature)?)?;
-    public_key
-        .verify(bytes, &signature, true)
-        .context("signature mismatch")?;
-
-    match signature
-        .trusted_comment()
-        .split('\t')
-        .find_map(|field| field.strip_prefix("version:"))
-    {
-        Some(signed) => anyhow::ensure!(
-            signed.trim_start_matches('v') == version,
-            "signed for v{signed}, not v{version}"
-        ),
-        None => anyhow::ensure!(!config.require_signed_version, "signature carries no version"),
-    }
-    Ok(())
 }
 
 pub fn is_build_to_stable(current: &str, remote: &str) -> bool {
@@ -333,18 +295,85 @@ async fn download_from(
     }
 }
 
+const CHANNEL_STABLE: &str = "stable";
+const CHANNEL_ALPHA: &str = "alpha";
+
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateInfo {
+    pub current_version: std::string::String,
+    pub version: std::string::String,
+    pub date: Option<std::string::String>,
+    pub body: Option<std::string::String>,
+    #[specta(type = crate::ipc::JsonValue)]
+    pub raw_json: serde_json::Value,
+}
+
+async fn current_update_channel() -> std::string::String {
+    let channel = Config::verge().await.latest_arc().update_channel.clone();
+    match channel.as_deref() {
+        Some(CHANNEL_ALPHA) => CHANNEL_ALPHA.to_string(),
+        _ => CHANNEL_STABLE.to_string(),
+    }
+}
+
+fn rewrite_channel_endpoint(endpoint: &str, channel: &str) -> std::string::String {
+    if channel == CHANNEL_ALPHA {
+        endpoint.replace("/download/updater/", "/download/updater-alpha/")
+    } else {
+        endpoint.to_string()
+    }
+}
+
+fn channel_endpoints(app_handle: &tauri::AppHandle, channel: &str) -> Result<Vec<tauri::Url>> {
+    let endpoints = app_handle
+        .config()
+        .plugins
+        .0
+        .get("updater")
+        .and_then(|config| config.get("endpoints"))
+        .and_then(|endpoints| endpoints.as_array())
+        .context("updater endpoints are not configured")?;
+
+    endpoints
+        .iter()
+        .filter_map(|endpoint| endpoint.as_str())
+        .map(|endpoint| {
+            tauri::Url::parse(&rewrite_channel_endpoint(endpoint, channel))
+                .with_context(|| format!("invalid updater endpoint {endpoint}"))
+        })
+        .collect()
+}
+
 impl SilentUpdater {
     /// Checks the server; Windows receives `/LANG` to suppress the NSIS language dialog,
     /// see `packages/windows/installer.nsi`.
-    async fn check(app_handle: &tauri::AppHandle) -> Result<Option<Update>> {
-        let updater_builder = app_handle.updater_builder();
+    async fn updater(app_handle: &tauri::AppHandle) -> Result<tauri_plugin_updater::Updater> {
+        let mut updater_builder = app_handle.updater_builder();
+        if current_update_channel().await == CHANNEL_ALPHA {
+            updater_builder = updater_builder.endpoints(channel_endpoints(app_handle, CHANNEL_ALPHA)?)?;
+        }
         #[cfg(target_os = "windows")]
         let updater_builder = {
             let verge_lang = Config::verge().await.latest_arc().language.clone();
             let lang_id = nsis_language_id(&clash_verge_i18n::current_language(verge_lang.as_deref()));
             updater_builder.installer_arg(format!("/LANG={lang_id}"))
         };
-        Ok(updater_builder.build()?.check().await?)
+        Ok(updater_builder.build()?)
+    }
+
+    async fn check(app_handle: &tauri::AppHandle) -> Result<Option<Update>> {
+        Ok(Self::updater(app_handle).await?.check().await?)
+    }
+
+    pub async fn check_available(&self, app_handle: &tauri::AppHandle) -> Result<Option<UpdateInfo>> {
+        Ok(Self::check(app_handle).await?.map(|update| UpdateInfo {
+            current_version: update.current_version,
+            version: update.version,
+            date: update.date.map(|date| date.to_string()),
+            body: update.body,
+            raw_json: update.raw_json,
+        }))
     }
 
     async fn install(update: Update, bytes: Vec<u8>) -> Result<()> {
@@ -414,7 +443,7 @@ impl SilentUpdater {
             }
         };
 
-        let Some(bytes) = Self::verified_cache(app_handle, &update).await else {
+        let Some(bytes) = Self::verified_cache(&update).await else {
             return false;
         };
 
@@ -446,14 +475,14 @@ impl SilentUpdater {
         }
     }
 
-    /// Installs `version` for the update dialog, reusing the cache when it holds that version;
-    /// `false` when cancelled before the installer starts.
+    /// Installs `version` for the update dialog, reusing the cache when it holds that version.
+    /// A changed offer must be confirmed again before downloading or installing it.
     pub async fn install_update(
         &self,
         app_handle: &tauri::AppHandle,
         version: &str,
         on_event: impl Fn(DownloadEvent) + Sync,
-    ) -> Result<bool> {
+    ) -> Result<InstallUpdateOutcome> {
         let cancel = CancellationToken::new();
         *self.manual_cancel.lock() = Some(cancel.clone());
         let prepared = tokio::select! {
@@ -463,31 +492,36 @@ impl SilentUpdater {
         // `cancel_download` cancels under the lock, so once the token is taken back its state is
         // final; a cancel during the last synchronous poll of `prepare_install` still wins.
         self.manual_cancel.lock().take();
-        let Some((update, bytes)) = prepared.filter(|_| !cancel.is_cancelled()).transpose()? else {
+        let Some(prepared) = prepared.filter(|_| !cancel.is_cancelled()).transpose()? else {
             logging!(info, Type::System, "Update v{version} cancelled");
-            return Ok(false);
+            return Ok(InstallUpdateOutcome::Cancelled);
+        };
+        let Some((update, bytes)) = prepared else {
+            return Ok(InstallUpdateOutcome::UpdateChanged);
         };
 
         logging!(info, Type::System, "Installing update v{version}...");
         Self::install(update, bytes).await?;
         Self::delete_cache();
-        Ok(true)
+        Ok(InstallUpdateOutcome::Installed)
     }
 
     async fn prepare_install(
         app_handle: &tauri::AppHandle,
         version: &str,
         on_event: impl Fn(DownloadEvent) + Sync,
-    ) -> Result<(Update, Vec<u8>)> {
-        let update = Self::check(app_handle)
+    ) -> Result<Option<(Update, Vec<u8>)>> {
+        let Some(update) = Self::check(app_handle)
             .await?
             .filter(|update| update.version == version)
-            .with_context(|| format!("v{version} is no longer offered"))?;
-        let bytes = match Self::verified_cache(app_handle, &update).await {
+        else {
+            return Ok(None);
+        };
+        let bytes = match Self::verified_cache(&update).await {
             Some(bytes) => bytes,
             None => download(&update, on_event).await?,
         };
-        Ok((update, bytes))
+        Ok(Some((update, bytes)))
     }
 
     pub fn cancel_download(&self) {
@@ -633,7 +667,7 @@ impl SilentUpdater {
 
         logging!(info, Type::System, "Silent updater: checking for updates...");
 
-        let updater = app_handle.updater()?;
+        let updater = Self::updater(app_handle).await?;
         let update = match updater.check().await {
             Ok(Some(update)) => update,
             Ok(None) => {
@@ -646,8 +680,21 @@ impl SilentUpdater {
             }
         };
 
-        let version = update.version.clone();
+        let version = update.version.as_str();
         logging!(info, Type::System, "Silent updater: update available: v{version}");
+
+        // The updater plugin's version comparator already rejects downgrades;
+        // assert it here too so a misconfigured comparator can't silently
+        // install an older build.
+        let current_version = env!("CARGO_PKG_VERSION");
+        if version_lte(version, current_version) && !is_build_to_stable(current_version, version) {
+            logging!(
+                warn,
+                Type::System,
+                "Silent updater: remote v{version} is not newer than current v{current_version}, ignoring"
+            );
+            return Ok(());
+        }
 
         if let Some(body) = &update.body
             && body.to_lowercase().contains("break change")
@@ -664,7 +711,7 @@ impl SilentUpdater {
             return Ok(());
         }
 
-        if Self::verified_cache(app_handle, &update).await.is_some() {
+        if Self::verified_cache(&update).await.is_some() {
             logging!(info, Type::System, "Silent updater: v{version} already cached");
         } else {
             logging!(info, Type::System, "Silent updater: downloading v{version}...");
@@ -678,7 +725,7 @@ impl SilentUpdater {
             };
             let bytes = bytes?;
             logging!(info, Type::System, "Silent updater: download complete");
-            Self::write_cache(bytes, version.clone()).await?;
+            Self::write_cache(bytes, version.to_owned()).await?;
         }
 
         // Serialized with `discard_pending` in the verge patch, which holds the same lock.
@@ -714,7 +761,36 @@ impl SilentUpdater {
                 logging!(warn, Type::System, "Silent updater: cycle error: {e}");
             }
 
-            tokio::time::sleep(std::time::Duration::from_secs(24 * 60 * 60)).await;
+            // Stagger the daily cycle by up to 2 hours so clients that auto-start
+            // together don't hit the update endpoint at the same instant.
+            let mut jitter = [0u8; 8];
+            let jitter_secs = if getrandom::fill(&mut jitter).is_ok() {
+                u64::from_le_bytes(jitter) % (2 * 60 * 60)
+            } else {
+                0
+            };
+            tokio::time::sleep(std::time::Duration::from_secs(24 * 60 * 60 + jitter_secs)).await;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CHANNEL_ALPHA, CHANNEL_STABLE, rewrite_channel_endpoint};
+
+    #[test]
+    fn alpha_channel_rewrites_updater_release_endpoints() {
+        let plain = "https://github.com/clash-verge-rev/clash-verge-rev/releases/download/updater/update.json";
+        let proxied = "https://gh-proxy.org/https://github.com/clash-verge-rev/clash-verge-rev/releases/download/updater/update-proxy.json";
+
+        assert_eq!(
+            rewrite_channel_endpoint(plain, CHANNEL_ALPHA),
+            "https://github.com/clash-verge-rev/clash-verge-rev/releases/download/updater-alpha/update.json"
+        );
+        assert_eq!(rewrite_channel_endpoint(plain, CHANNEL_STABLE), plain);
+        assert_eq!(
+            rewrite_channel_endpoint(proxied, CHANNEL_ALPHA),
+            "https://gh-proxy.org/https://github.com/clash-verge-rev/clash-verge-rev/releases/download/updater-alpha/update-proxy.json"
+        );
     }
 }

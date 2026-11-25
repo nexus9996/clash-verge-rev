@@ -1,3 +1,11 @@
+/** Text and flags shared by the search box and the page-level filter hooks. */
+export type SearchState = {
+  text: string
+  matchCase: boolean
+  matchWholeWord: boolean
+  useRegularExpression: boolean
+}
+
 export type SearchMatcherOptions = {
   matchCase?: boolean
   matchWholeWord?: boolean
@@ -11,6 +19,14 @@ export type CompileStringMatcherResult = {
 
 const escapeRegex = (value: string) => {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** `\b` only exists between ASCII word and non-word characters. */
+const isAsciiOnly = (value: string) => {
+  for (const char of value) {
+    if (char.codePointAt(0)! > 0x7f) return false
+  }
+  return true
 }
 
 export const buildRegex = (pattern: string, flags = '') => {
@@ -38,7 +54,7 @@ export const compileStringMatcher = (
     return { matcher: (content: string) => regex.test(content), isValid: true }
   }
 
-  if (matchWholeWord) {
+  if (matchWholeWord && isAsciiOnly(query)) {
     const regex = buildRegex(`\\b${escapeRegex(query)}\\b`, flags)
     if (!regex) return { matcher: () => false, isValid: false }
     return { matcher: (content: string) => regex.test(content), isValid: true }

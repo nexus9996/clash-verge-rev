@@ -106,9 +106,9 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for detailed contribution guidelines.
 After installing all **Tauri** prerequisites, run the development shell with:
 
 ```shell
-pnpm i
-pnpm run prebuild
-pnpm dev
+bun install
+bun run prebuild:download
+bun run dev
 ```
 
 ## Contributions

@@ -5,7 +5,7 @@ use clash_verge_service_ipc::{RemoteProvider, RuntimeAsset, RuntimeBundle};
 use serde_yaml_ng::{Mapping, Value};
 use sha2::{Digest as _, Sha256};
 use std::collections::{BTreeMap, HashSet};
-use std::path::{Component, Path, PathBuf};
+use std::path::{Component, Path, PathBuf, Prefix};
 
 pub(crate) const GEO_ASSETS: &[&str] = &[
     "Country.mmdb",
@@ -87,7 +87,9 @@ fn runtime_bundle_from_parts(
 /// Reads the remote providers without cloning or rewriting the runtime config.
 pub(crate) fn remote_providers_of(config: &Mapping, config_root: &Path) -> Result<Vec<RemoteProviderRef>> {
     let config_root = std::fs::canonicalize(config_root)?;
-    let mut destinations: HashSet<String> = GEO_ASSETS.iter().map(|name| (*name).to_owned()).collect();
+    // Start empty like `collect_runtime_parts`: geo assets are only reserved after providers,
+    // so a provider may legitimately download into e.g. `geoip.dat`.
+    let mut destinations = HashSet::new();
     let mut remote_providers = Vec::new();
 
     for section in ["proxy-providers", "rule-providers"] {
@@ -214,12 +216,11 @@ fn allocate_provider_destination(destination: &str, url: &str, reserved: &mut Ha
     digest.update(destination.as_bytes());
     digest.update([0]);
     digest.update(url.as_bytes());
-    let digest: String = digest.finalize().iter().map(|byte| format!("{byte:02x}")).collect();
+    let digest: String = crate::utils::help::hex_encode(&digest.finalize());
     let path = Path::new(destination);
     let extension = path
         .extension()
-        .map(|ext| format!(".{}", ext.to_string_lossy()))
-        .unwrap_or_default();
+        .map_or_default(|ext| format!(".{}", ext.to_string_lossy()));
     let mut suffix = String::new();
     let mut sequence = 0;
     loop {
@@ -261,6 +262,7 @@ fn collect_runtime_parts(mut config: Value, config_root: &Path) -> Result<Runtim
         &mut remote_providers,
         &mut rewritten,
     )?;
+    collect_ssh_private_keys(&mut config, &config_root, &mut destinations, &mut assets);
     for filename in GEO_ASSETS {
         let source = config_root.join(filename);
         if source.is_file() && destinations.insert((*filename).to_string()) {
@@ -369,6 +371,75 @@ fn collect_provider_assets(
         }
     }
     Ok(())
+}
+
+/// Stages file-based ssh keys, which mihomo resolves against the core home directory.
+fn collect_ssh_private_keys(
+    config: &mut Value,
+    config_root: &Path,
+    destinations: &mut HashSet<String>,
+    assets: &mut Vec<RuntimeAsset>,
+) {
+    let Some(config) = config.as_mapping_mut() else {
+        return;
+    };
+    // mihomo parses `payload` for every provider type, eagerly as fallback proxies for file and http.
+    let mut proxy_lists = Vec::new();
+    for (key, value) in config.iter_mut() {
+        match key.as_str() {
+            Some("proxies") => proxy_lists.extend(value.as_sequence_mut()),
+            Some("proxy-providers") => proxy_lists.extend(
+                value
+                    .as_mapping_mut()
+                    .into_iter()
+                    .flat_map(Mapping::values_mut)
+                    .filter_map(|provider| provider.get_mut("payload").and_then(Value::as_sequence_mut)),
+            ),
+            _ => {}
+        }
+    }
+
+    for proxy in proxy_lists.into_iter().flatten().filter_map(Value::as_mapping_mut) {
+        if proxy.get("type").and_then(Value::as_str) != Some("ssh") {
+            continue;
+        }
+        // mihomo reads any value containing "PRIVATE KEY" as inline key material.
+        let Some(raw_path) = proxy
+            .get("private-key")
+            .and_then(Value::as_str)
+            .filter(|key| !key.is_empty() && !key.contains("PRIVATE KEY") && is_local_path(key))
+        else {
+            continue;
+        };
+        let Some(source) = local_provider_source(config_root, raw_path)
+            .ok()
+            .filter(|source| source.is_file())
+        else {
+            let name = proxy.get("name").and_then(Value::as_str).unwrap_or_default();
+            logging!(
+                warn,
+                Type::Config,
+                "ssh proxy {name:?} private key is unavailable below the config root; leaving it to the core"
+            );
+            continue;
+        };
+        // A root-level alias keeps the user's path away from service name rules and mihomo's inline-key test.
+        let source = source.to_string_lossy().into_owned();
+        let destination = allocate_provider_destination("ssh-private-key", &source, destinations);
+        assets.push(RuntimeAsset {
+            source,
+            destination: destination.clone(),
+        });
+        proxy.insert(Value::String("private-key".to_owned()), Value::String(destination));
+    }
+}
+
+/// Resolving a UNC or device path would authenticate to its server, so those stay with the core.
+fn is_local_path(raw_path: &str) -> bool {
+    match Path::new(raw_path).components().next() {
+        Some(Component::Prefix(prefix)) => matches!(prefix.kind(), Prefix::Disk(_) | Prefix::VerbatimDisk(_)),
+        _ => true,
+    }
 }
 
 fn local_provider_source(config_root: &Path, raw_path: &str) -> Result<PathBuf> {
@@ -497,6 +568,23 @@ mod tests {
         let expected = collect_runtime_parts(serde_yaml_ng::Value::Mapping(config.clone()), &root)?.remote_providers;
 
         assert_eq!(remote_providers_of(&config, &root)?, expected);
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn remote_provider_destination_may_use_a_geo_asset_name() -> anyhow::Result<()> {
+        let root = std::env::temp_dir().join(format!("clash-verge-geo-provider-{}", std::process::id()));
+        std::fs::create_dir_all(&root)?;
+        let root = std::fs::canonicalize(root)?;
+        let config: serde_yaml_ng::Mapping = serde_yaml_ng::from_str(
+            "proxy-providers:\n  Geo:\n    type: http\n    url: https://example.com/geoip.dat\n    path: geoip.dat\n",
+        )?;
+
+        let expected = collect_runtime_parts(serde_yaml_ng::Value::Mapping(config.clone()), &root)?.remote_providers;
+        assert_eq!(expected.len(), 1);
+        assert_eq!(remote_providers_of(&config, &root)?, expected);
+
         std::fs::remove_dir_all(root)?;
         Ok(())
     }

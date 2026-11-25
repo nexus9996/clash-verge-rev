@@ -140,7 +140,8 @@
           "networkInterface": "네트워크 인터페이스",
           "unifiedDelay": "지연 통합을 켜면, 서로 다른 유형의 노드에서 연결 핸드셰이크 등으로 발생하는 지연 차이를 제거하기 위해 두 번의 지연 테스트를 수행합니다",
           "logLevel": "이 매개변수는 로그 디렉터리 Service 폴더의 커널 로그 파일에만 적용됩니다",
-          "openUwpTool": "Windows 8 이후 UWP 앱(예: Microsoft Store)은 로컬 호스트 네트워크 서비스에 직접 접근이 제한됩니다. 이 도구로 해당 제한을 우회할 수 있습니다"
+          "openUwpTool": "Windows 8 이후 UWP 앱(예: Microsoft Store)은 로컬 호스트 네트워크 서비스에 직접 접근이 제한됩니다. 이 도구로 해당 제한을 우회할 수 있습니다",
+          "ipv6Auto": "Enable IPv6 only while the physical network provides it; re-checked automatically when the network changes"
         },
         "options": {
           "logLevel": {
@@ -149,6 +150,17 @@
             "warning": "경고",
             "error": "오류",
             "silent": "무음"
+          },
+          "ipv6Mode": {
+            "off": "Off",
+            "on": "On",
+            "auto": "Auto"
+          }
+        },
+        "status": {
+          "ipv6Auto": {
+            "available": "IPv6 available",
+            "ipv4Only": "IPv4-only network"
           }
         }
       }
@@ -209,6 +221,22 @@
       },
       "theme": {
         "title": "테마 설정",
+        "presets": {
+          "title": "프리셋",
+          "names": {
+            "default": "기본",
+            "ocean": "오션",
+            "indigo": "인디고",
+            "sunset": "선셋",
+            "lavender": "라벤더",
+            "monochrome": "모노크롬"
+          }
+        },
+        "editModes": {
+          "title": "테마 편집",
+          "light": "라이트",
+          "dark": "다크"
+        },
         "fields": {
           "primaryColor": "기본 색상",
           "secondaryColor": "보조 색상",
@@ -218,6 +246,8 @@
           "warningColor": "경고 색상",
           "errorColor": "오류 색상",
           "successColor": "성공 색상",
+          "background": "배경색",
+          "paperBackground": "카드 색상",
           "fontFamily": "글꼴",
           "cssInjection": "CSS 삽입"
         },
@@ -306,6 +336,26 @@
       "variants": {
         "release": "안정 버전",
         "alpha": "알파 버전"
+      },
+      "actions": {
+        "manageVersions": "버전 관리"
+      },
+      "versions": {
+        "title": "Mihomo 버전",
+        "description": "특정 Mihomo 버전을 설치할 수 있습니다. 새 코어가 시작되지 않으면 이전 버전으로 자동 복원됩니다.",
+        "channel": "채널: {{channel}}",
+        "loading": "버전 불러오는 중...",
+        "empty": "설치 가능한 버전이 없습니다",
+        "latest": "최신",
+        "installed": "설치됨",
+        "installedAction": "설치됨",
+        "install": "설치",
+        "upgradeLatest": "최신으로 업그레이드",
+        "messages": {
+          "installed": "{{version}}(으)로 업데이트됨",
+          "alreadyInstalled": "현재 버전은 {{version}}입니다",
+          "alreadyLatest": "이미 최신 버전입니다"
+        }
       }
     },
     "liteMode": {
@@ -412,6 +462,7 @@
         "appLogMaxSize": "앱 로그 최대 크기",
         "appLogMaxCount": "앱 로그 최대 개수",
         "autoCloseConnections": "연결 자동 종료",
+        "autoSwitchSelectorGroup": "노드 선택 시 그룹 연동",
         "autoCheckUpdate": "업데이트 자동 확인",
         "enableBuiltinEnhanced": "내장 향상 기능 사용",
         "proxyLayoutColumns": "프록시 레이아웃 열 수",
@@ -419,13 +470,16 @@
         "autoDelayDetection": "자동 지연 감지",
         "autoDelayDetectionInterval": "자동 지연 감지 간격",
         "defaultLatencyTest": "기본 지연 테스트",
-        "defaultLatencyTimeout": "기본 지연 제한시간"
+        "defaultLatencyTimeout": "기본 지연 제한시간",
+        "updateChannel": "업데이트 채널"
       },
       "tooltips": {
         "autoCloseConnections": "프록시 그룹 선택 또는 프록시 모드 변경 시 기존 연결을 종료합니다",
+        "autoSwitchSelectorGroup": "규칙 모드에서 규칙 트래픽이 지나지 않는 그룹의 노드를 선택하면 해당 그룹을 포함하는 첫 번째 select 그룹도 그 그룹으로 전환합니다",
         "enableBuiltinEnhanced": "구성 파일에 대한 호환성 처리를 수행합니다",
         "autoDelayDetection": "백그라운드에서 현재 노드의 지연을 주기적으로 검사합니다",
-        "defaultLatencyTest": "HTTP 클라이언트 요청 테스트에만 사용되며 구성 파일에는 영향을 주지 않습니다"
+        "defaultLatencyTest": "HTTP 클라이언트 요청 테스트에만 사용되며 구성 파일에는 영향을 주지 않습니다",
+        "updateChannel": "알파는 프리뷰 빌드를 따르며 불안정할 수 있습니다"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -434,6 +488,10 @@
         "autoLogClean": {
           "never": "정리 안 함",
           "retainDays": "{{n}}일 보관"
+        },
+        "updateChannel": {
+          "stable": "안정",
+          "alpha": "알파"
         }
       }
     },
@@ -453,6 +511,12 @@
         "important": "중요",
         "warning": "경고",
         "caution": "주의"
+      },
+      "restart": {
+        "title": "업데이트 설치됨",
+        "body": "새 버전을 적용하려면 앱을 다시 시작하세요.",
+        "restartNow": "지금 다시 시작",
+        "restartLater": "나중에"
       }
     },
     "sysproxy": {
@@ -468,7 +532,7 @@
         "usePacMode": "PAC 모드 사용",
         "proxyGuard": "프록시 가드",
         "guardDuration": "가드 지속시간",
-        "alwaysUseDefaultBypass": "기본 우회 주소 항상 사용",
+        "alwaysUseDefaultBypass": "기본 우회 목록 포함",
         "enableBypassCheck": "프록시 우회 형식 검증",
         "proxyBypass": "프록시 우회 설정: ",
         "bypass": "우회: ",
@@ -496,11 +560,13 @@
         "strictRoute": "엄격 라우팅",
         "autoDetectInterface": "인터페이스 자동 감지",
         "dnsHijack": "DNS 하이재킹",
+        "dnsMode": "DNS 모드",
         "mtu": "MTU",
         "autoRedirect": "Auto Redirect"
       },
       "tooltips": {
         "dnsHijack": "여러 DNS 서버는 쉼표(,)로 구분하세요",
+        "dnsMode": "Auto는 기존 동작을 유지합니다. hijack은 Windows에서 엄격 라우팅 또는 Linux에서 Auto Redirect가 필요합니다",
         "autoRedirect": "Automatically configures nftables/iptables TCP redirects"
       },
       "messages": {
@@ -696,7 +762,8 @@
         "permissionRejectedReason": "서비스가 코어 파일과 폴더를 높은 권한으로 안전하게 실행할 수 있는지 확인하지 못했습니다.",
         "permissionRepairGuide": "해결 방법 보기",
         "sidecarFallback": "서비스가 코어를 시작하지 못해 Sidecar 모드로 계속 실행합니다. 서비스는 여전히 사용할 수 없습니다.",
-        "uninstallSuccess": "서비스가 제거되었습니다"
+        "uninstallSuccess": "서비스가 제거되었습니다",
+        "coreVersionDrift": "서비스 모드에서 실행 중인 커널 {{running}}이(가) 내장 커널 {{bundled}}과(와) 일치하지 않습니다. 「설정 → Mihomo 버전」에서 {{bundled}}을(를) 설치하거나 서비스를 재설치/복구한 뒤 커널을 다시 시작하세요."
       },
       "updater": {
         "withClashProxySuccess": "Clash 프록시로 업데이트 성공",
@@ -713,5 +780,12 @@
       "installing": "서비스 설치 중...",
       "uninstalling": "서비스 제거 중..."
     }
+  },
+  "search": {
+    "placeholder": "설정 검색",
+    "clear": "검색 지우기",
+    "back": "결과로 돌아가기",
+    "results": "검색 결과",
+    "empty": "설정을 찾을 수 없습니다"
   }
 }

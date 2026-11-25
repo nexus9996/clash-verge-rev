@@ -22,7 +22,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { updateProxyProvider } from 'tauri-plugin-mihomo-api'
 
-import { useAppRefreshers, useProxiesData } from '@/providers/app-data-context'
+import { useAppRefreshers, useProxiesData } from '@/hooks/data'
 import { syncRuntimeProviders } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'
@@ -30,7 +30,7 @@ import parseTraffic from '@/utils/parse-traffic'
 
 const TypeBox = styled(Box)<{ component?: React.ElementType }>(({ theme }) => ({
   display: 'inline-block',
-  border: '1px solid #ccc',
+  border: '1px solid',
   borderColor: alpha(theme.palette.secondary.main, 0.5),
   color: alpha(theme.palette.secondary.main, 0.8),
   borderRadius: 4,
@@ -102,6 +102,7 @@ export const ProviderButton = () => {
       )
       setUpdating(newUpdating)
 
+      const failed: string[] = []
       for (const name of allProviders) {
         try {
           await mutate(() => updateProxyProvider(name), {
@@ -110,7 +111,12 @@ export const ProviderButton = () => {
           })
           setUpdating((prev) => ({ ...prev, [name]: false }))
         } catch (err) {
-          console.error(`更新 ${name} 失败`, err)
+          // Report per provider: a bulk run must not hide which one failed.
+          failed.push(name)
+          showNotice.error(
+            'proxies.feedback.notifications.provider.updateFailed',
+            { name, message: err instanceof Error ? err.message : String(err) },
+          )
         }
       }
 
@@ -120,7 +126,9 @@ export const ProviderButton = () => {
         errorNotice: false,
       })
 
-      showNotice.success('proxies.feedback.notifications.provider.allUpdated')
+      if (failed.length === 0) {
+        showNotice.success('proxies.feedback.notifications.provider.allUpdated')
+      }
     } catch (err) {
       showNotice.error('proxies.feedback.notifications.provider.genericError', {
         message: String(err),
@@ -219,7 +227,7 @@ export const ProviderButton = () => {
                       transition: 'all 0.2s',
                     },
                     ({ palette: { mode, primary } }) => {
-                      const bgcolor = mode === 'light' ? '#ffffff' : '#24252f'
+                      const bgcolor = 'var(--surface-raised)'
                       const hoverColor =
                         mode === 'light'
                           ? alpha(primary.main, 0.1)

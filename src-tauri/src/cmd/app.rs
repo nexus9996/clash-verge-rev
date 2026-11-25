@@ -1,12 +1,15 @@
 use super::CmdResult;
 use crate::{
     cmd::StringifyErr as _,
-    core::{SilentUpdater, updater::DownloadEvent},
+    core::{
+        SilentUpdater,
+        updater::{DownloadEvent, InstallUpdateOutcome, UpdateInfo},
+    },
     feat,
-    utils::dirs,
+    utils::{dirs, resolve::window::set_native_window_theme as apply_native_window_theme},
 };
-use smartstring::alias::String;
 use tauri::{AppHandle, Manager as _, ipc::Channel};
+use tristr::alias::String;
 
 #[tauri::command]
 #[specta::specta]
@@ -33,6 +36,10 @@ pub async fn open_logs_dir() -> CmdResult<()> {
 #[tauri::command]
 #[specta::specta]
 pub fn open_devtools(app_handle: AppHandle) {
+    // `tauri::WebviewWindow::open_devtools` only exists in debug builds or when
+    // the `devtools` feature is enabled (pulled in by `tauri-dev`), so release
+    // builds compile this command down to a no-op instead of failing.
+    #[cfg(any(debug_assertions, feature = "tauri-dev"))]
     if let Some(window) = app_handle.get_webview_window("main") {
         if !window.is_devtools_open() {
             window.open_devtools();
@@ -40,12 +47,24 @@ pub fn open_devtools(app_handle: AppHandle) {
             window.close_devtools();
         }
     }
+
+    #[cfg(not(any(debug_assertions, feature = "tauri-dev")))]
+    let _ = app_handle;
 }
 
 #[tauri::command]
 #[specta::specta]
 pub async fn exit_app() {
     feat::quit().await;
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn set_native_window_theme(app_handle: AppHandle, theme: std::string::String) -> CmdResult<()> {
+    let window = app_handle
+        .get_webview_window("main")
+        .ok_or_else(|| "main window is not available".to_string())?;
+    apply_native_window_theme(window, &theme).map_err(Into::into)
 }
 
 #[tauri::command]
@@ -57,12 +76,20 @@ pub async fn restart_app() -> CmdResult<()> {
 
 #[tauri::command]
 #[specta::specta]
+pub async fn check_update_available(app_handle: AppHandle) -> CmdResult<Option<UpdateInfo>> {
+    SilentUpdater::global()
+        .check_available(&app_handle)
+        .await
+        .stringify_err()
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn install_update(
     app_handle: AppHandle,
     version: std::string::String,
     on_event: Channel<DownloadEvent>,
-) -> CmdResult<bool> {
-    let version: String = version.into();
+) -> CmdResult<InstallUpdateOutcome> {
     SilentUpdater::global()
         .install_update(&app_handle, &version, |event| {
             let _ = on_event.send(event);
@@ -100,4 +127,40 @@ pub async fn download_icon_cache(
 pub async fn copy_icon_file(path: std::string::String, icon_info: feat::IconInfo) -> CmdResult<std::string::String> {
     let path: String = path.into();
     feat::copy_icon_file(path, icon_info).await.map(Into::into)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::get_app_dir;
+    use tauri::test::{INVOKE_KEY, get_ipc_response, mock_builder, mock_context, noop_assets};
+
+    /// Exercises the Tauri v3 mock runtime: a real command answered over the
+    /// real IPC pipeline without a window and without a display server.
+    #[test]
+    fn get_app_dir_answers_over_mock_ipc() -> anyhow::Result<()> {
+        let app = mock_builder()
+            .invoke_handler(tauri::generate_handler![get_app_dir])
+            .build(mock_context(noop_assets()))?;
+        let webview = tauri::WebviewWindowBuilder::new(&app, "main", tauri::WebviewUrl::default()).build()?;
+        let response = get_ipc_response(
+            &webview,
+            tauri::webview::InvokeRequest {
+                cmd: "get_app_dir".into(),
+                callback: tauri::ipc::CallbackFn(0),
+                error: tauri::ipc::CallbackFn(1),
+                url: "tauri://localhost".parse()?,
+                body: tauri::ipc::InvokeBody::default(),
+                headers: Default::default(),
+                invoke_key: INVOKE_KEY.to_string(),
+            },
+        )
+        .map_err(|error| anyhow::anyhow!("get_app_dir IPC failed: {error}"))?;
+        let app_dir = response.deserialize::<std::string::String>()?;
+
+        assert!(
+            app_dir.ends_with(crate::utils::dirs::APP_ID),
+            "unexpected app dir: {app_dir}"
+        );
+        Ok(())
+    }
 }

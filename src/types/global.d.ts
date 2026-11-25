@@ -40,6 +40,7 @@ interface IConfigData {
     'auto-redirect'?: boolean
     'auto-detect-interface': boolean
     'dns-hijack': string[]
+    'dns-mode'?: string
     'route-exclude-address'?: string[]
     'strict-route': boolean
     mtu: number
@@ -177,6 +178,7 @@ type IVergeTestItem = import('@/services/bindings').IVergeTestItem
 type IAddress = import('@/services/bindings').InterfaceAddress
 
 interface ISeqProfileConfig {
+  groups?: Record<string, string[]>
   prepend: []
   append: []
   delete: []
@@ -699,7 +701,8 @@ interface IProxySnellConfig extends IProxyBaseConfig {
   version?: number
 }
 interface IProxyConfig
-  extends IProxyBaseConfig,
+  extends
+    IProxyBaseConfig,
     IProxyDirectConfig,
     IProxyDnsConfig,
     IProxyHttpConfig,
@@ -742,17 +745,21 @@ interface IProxyConfig
     | 'sudoku'
 }
 
+type IVergeThemeSetting =
+  | (import('@/services/bindings').IVergeTheme & {
+      background_image?: string
+      background_blend_mode?: string
+      background_opacity?: number
+    })
+  | null
+
 type IVergeConfig = Omit<
   Partial<import('@/services/bindings').IVerge_Serialize>,
-  'theme_setting'
+  'theme_setting' | 'light_theme_setting' | 'dark_theme_setting'
 > & {
-  theme_setting?:
-    | (import('@/services/bindings').IVergeTheme & {
-        background_image?: string
-        background_blend_mode?: string
-        background_opacity?: number
-      })
-    | null
+  theme_setting?: IVergeThemeSetting
+  light_theme_setting?: IVergeThemeSetting
+  dark_theme_setting?: IVergeThemeSetting
 }
 
 type IWebDavFile = import('@/services/bindings').WebDavFile & {

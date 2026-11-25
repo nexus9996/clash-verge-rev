@@ -29,7 +29,8 @@ import {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { BaseSearchBox, MonacoEditor, Switch } from '@/components/base'
+import { BaseSearchBox, Switch } from '@/components/base'
+import { MonacoEditor } from '@/components/base/monaco-editor'
 import { RuleItem } from '@/components/profile/rule-item'
 import { readProfileFile, saveProfileFile } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
@@ -39,7 +40,7 @@ import type { TranslationKey } from '@/types/generated/i18n-keys'
 import type { MonacoEditorInstance } from '@/types/monaco'
 import { MONACO_FONT_FAMILY } from '@/utils/font-family'
 import getSystem from '@/utils/get-system'
-import { isValidIpCidr } from '@/utils/network'
+import { isValidIpCidr } from '@/utils/network-cidr'
 import { parseYamlSafe } from '@/utils/yaml'
 
 import {
@@ -318,7 +319,7 @@ export const RulesEditorViewer = (props: Props) => {
           ruleRaw={item}
           onDelete={() => {
             if (isDeleted) {
-              setDeleteSeq(deleteSeq.filter((v) => v !== item))
+              setDeleteSeq((prev) => prev.filter((v) => v !== item))
             } else {
               setDeleteSeq((prev) => [...prev, item])
             }
@@ -333,13 +334,13 @@ export const RulesEditorViewer = (props: Props) => {
           type="prepend"
           ruleRaw={item}
           onDelete={() => {
-            setPrependSeq(prependSeq.filter((v) => v !== item))
+            setPrependSeq((prev) => prev.filter((v) => v !== item))
           }}
           onAppend={() => {
             setAppendSeq((prev) =>
               prev.includes(item) ? prev : [...prev, item],
             )
-            setPrependSeq(prependSeq.filter((v) => v !== item))
+            setPrependSeq((prev) => prev.filter((v) => v !== item))
           }}
         />
       )
@@ -350,13 +351,13 @@ export const RulesEditorViewer = (props: Props) => {
         type="append"
         ruleRaw={item}
         onDelete={() => {
-          setAppendSeq(appendSeq.filter((v) => v !== item))
+          setAppendSeq((prev) => prev.filter((v) => v !== item))
         }}
         onPrepend={() => {
           setPrependSeq((prev) =>
             prev.includes(item) ? prev : [...prev, item],
           )
-          setAppendSeq(appendSeq.filter((v) => v !== item))
+          setAppendSeq((prev) => prev.filter((v) => v !== item))
         }}
       />
     )
@@ -367,21 +368,22 @@ export const RulesEditorViewer = (props: Props) => {
     activeIndex: number,
     overIndex: number,
   ) => {
-    const list = category === 'prepend' ? prependSeq : appendSeq
-    const filtered =
-      category === 'prepend' ? filteredPrependSeq : filteredAppendSeq
     const setList = category === 'prepend' ? setPrependSeq : setAppendSeq
-    const activeRealIndex = findRealIndex(list, filtered, activeIndex)
-    const overRealIndex = findRealIndex(list, filtered, overIndex)
-    if (
-      activeRealIndex < 0 ||
-      overRealIndex < 0 ||
-      activeRealIndex === overRealIndex
-    ) {
-      return
-    }
+    // Recompute inside the updater: two writes in one batch must not read the same pre-batch array.
+    setList((prev) => {
+      const filtered = prev.filter(match)
+      const activeRealIndex = findRealIndex(prev, filtered, activeIndex)
+      const overRealIndex = findRealIndex(prev, filtered, overIndex)
+      if (
+        activeRealIndex < 0 ||
+        overRealIndex < 0 ||
+        activeRealIndex === overRealIndex
+      ) {
+        return prev
+      }
 
-    setList(arrayMove(list, activeRealIndex, overRealIndex))
+      return arrayMove(prev, activeRealIndex, overRealIndex)
+    })
   }
 
   const fetchContent = useCallback(async () => {
@@ -397,9 +399,9 @@ export const RulesEditorViewer = (props: Props) => {
       return
     }
 
-    setPrependSeq(obj?.prepend || [])
-    setAppendSeq(obj?.append || [])
-    setDeleteSeq(obj?.delete || [])
+    setPrependSeq((obj?.prepend || []).filter((rule) => rule !== null))
+    setAppendSeq((obj?.append || []).filter((rule) => rule !== null))
+    setDeleteSeq((obj?.delete || []).filter((rule) => rule !== null))
     hasLoadedSeqConfigRef.current = true
   }, [property])
 
@@ -417,9 +419,9 @@ export const RulesEditorViewer = (props: Props) => {
 
     hasLoadedSeqConfigRef.current = true
     startTransition(() => {
-      setPrependSeq(obj?.prepend ?? [])
-      setAppendSeq(obj?.append ?? [])
-      setDeleteSeq(obj?.delete ?? [])
+      setPrependSeq((obj?.prepend ?? []).filter((rule) => rule !== null))
+      setAppendSeq((obj?.append ?? []).filter((rule) => rule !== null))
+      setDeleteSeq((obj?.delete ?? []).filter((rule) => rule !== null))
     })
     setVisualization(true)
   }
@@ -511,10 +513,12 @@ export const RulesEditorViewer = (props: Props) => {
     const originRuleSet = originRuleSetObj?.['rule-providers'] || {}
     const moreRuleSetObj = parseYamlSafe(mergeData) as {
       'rule-providers': Record<string, unknown>
+      'proxy-groups'?: IProxyGroupConfig[]
     } | null
     const moreRuleSet = moreRuleSetObj?.['rule-providers'] || {}
     const globalRuleSetObj = parseYamlSafe(globalMergeData) as {
       'rule-providers': Record<string, unknown>
+      'proxy-groups'?: IProxyGroupConfig[]
     } | null
     const globalRuleSet = globalRuleSetObj?.['rule-providers'] || {}
     const ruleSet = Object.assign({}, originRuleSet, moreRuleSet, globalRuleSet)
@@ -532,8 +536,12 @@ export const RulesEditorViewer = (props: Props) => {
     } | null
     const globalSubRule = globalSubRuleObj?.['sub-rules'] || {}
     const subRule = Object.assign({}, originSubRule, moreSubRule, globalSubRule)
+    const policyGroups =
+      moreRuleSetObj?.['proxy-groups'] ??
+      globalRuleSetObj?.['proxy-groups'] ??
+      groups
     setProxyPolicyList(
-      builtinProxyPolicies.concat(groups.map((group: any) => group.name)),
+      builtinProxyPolicies.concat(policyGroups.map((group) => group.name)),
     )
     setRuleSetList(Object.keys(ruleSet))
     setSubRuleList(Object.keys(subRule))
@@ -583,7 +591,7 @@ export const RulesEditorViewer = (props: Props) => {
       showNotice.success('shared.feedback.notifications.saved')
       onSave?.(prevData, currData)
       onClose()
-    } catch (err: any) {
+    } catch (err) {
       showNotice.error(err)
     }
   })
@@ -748,9 +756,10 @@ export const RulesEditorViewer = (props: Props) => {
                   onClick={() => {
                     try {
                       const raw = validateRule()
-                      if (prependSeq.includes(raw)) return
-                      setPrependSeq([raw, ...prependSeq])
-                    } catch (err: any) {
+                      setPrependSeq((prev) =>
+                        prev.includes(raw) ? prev : [raw, ...prev],
+                      )
+                    } catch (err) {
                       showNotice.error(err)
                     }
                   }}
@@ -766,9 +775,10 @@ export const RulesEditorViewer = (props: Props) => {
                   onClick={() => {
                     try {
                       const raw = validateRule()
-                      if (appendSeq.includes(raw)) return
-                      setAppendSeq([...appendSeq, raw])
-                    } catch (err: any) {
+                      setAppendSeq((prev) =>
+                        prev.includes(raw) ? prev : [...prev, raw],
+                      )
+                    } catch (err) {
                       showNotice.error(err)
                     }
                   }}

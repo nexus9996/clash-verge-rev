@@ -1,6 +1,5 @@
 import './assets/styles/index.scss'
 
-import { ResizeObserver } from '@juggle/resize-observer'
 import { ComposeContextProvider } from 'foxact/compose-context-provider'
 import React from 'react'
 import { createRoot } from 'react-dom/client'
@@ -8,10 +7,10 @@ import { RouterProvider } from 'react-router'
 import { SWRConfig } from 'swr'
 import { MihomoWebSocket } from 'tauri-plugin-mihomo-api'
 
-import { BaseErrorBoundary } from './components/base'
-import { router } from './pages/_routers'
+import { router } from './app/router'
+import { BaseErrorBoundary } from './components/base/base-error-boundary'
+import { disposeTrafficMonitor } from './hooks/use-traffic-monitor'
 import { preloadHomePageCards } from './pages/home'
-import { AppDataProvider } from './providers/app-data-provider'
 import { FALLBACK_LANGUAGE, initializeLanguage } from './services/i18n'
 import {
   preloadAppData,
@@ -23,8 +22,12 @@ import { ThemeModeProvider, UpdateStateProvider } from './services/states'
 import { AppStoreProvider } from './store/app-store'
 import { disableWebViewShortcuts } from './utils/disable-webview-shortcuts'
 
+// Dynamic on purpose: the polyfill must stay out of the initial chunk, since
+// every targeted browser (edge>=109, safari>=14) ships ResizeObserver natively.
 if (!window.ResizeObserver) {
-  window.ResizeObserver = ResizeObserver
+  void import('@juggle/resize-observer').then(({ ResizeObserver }) => {
+    window.ResizeObserver = ResizeObserver
+  })
 }
 
 const mainElementId = 'root'
@@ -49,9 +52,7 @@ const initializeApp = (initialThemeMode: 'light' | 'dark') => {
       <ComposeContextProvider contexts={contexts}>
         <BaseErrorBoundary>
           <SWRConfig value={swrConfig}>
-            <AppDataProvider>
-              <RouterProvider router={router} />
-            </AppDataProvider>
+            <RouterProvider router={router} />
           </SWRConfig>
         </BaseErrorBoundary>
       </ComposeContextProvider>
@@ -91,12 +92,17 @@ window.addEventListener('error', (event) => {
 
 window.addEventListener('unhandledrejection', (event) => {
   console.error('[main.tsx] Unhandled promise rejection:', event.reason)
+  // Without this some WebView2 builds replace the document with an error
+  // frameset, blanking the whole window instead of only failing the promise.
+  event.preventDefault()
 })
 
 // Page close/refresh events
 window.addEventListener('beforeunload', () => {
   // Clean up all WebSocket instances to prevent memory leaks
   MihomoWebSocket.cleanupAll()
+  // The sampler is retained across visibility changes; release it on teardown.
+  disposeTrafficMonitor()
 })
 
 // Page loaded event

@@ -48,7 +48,8 @@ All application data lives in a single directory:
 It contains:
 
 - `verge.yaml` — application settings. If you configure WebDAV backup, the
-  server URL, user name and password are stored here **in plain text**.
+  server URL, user name and password are stored here encrypted (AES-256-GCM);
+  the encryption key is kept in the same directory, so treat them as sensitive.
 - `config.yaml`, `profiles.yaml` and `profiles/` — your proxy configuration and
   downloaded subscriptions. These normally contain **subscription URLs (which
   often embed a personal token), proxy server addresses, ports, passwords and

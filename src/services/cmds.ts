@@ -7,11 +7,15 @@ import { debugLog } from '@/utils/debug'
 import { commands } from './bindings'
 import type {
   DownloadEvent,
+  ExternalControllerSettings,
   JsonValue,
   ListenerProbe,
+  LogBatch,
   ProxyPortSettings,
   UnlockItem,
   ProxyViewV1_Serialize as ProxyViewV1,
+  RuleDisableRequest,
+  UpdateInfo,
   ProfileSelection,
   ProfilePatch,
   ProfileCreate,
@@ -19,6 +23,7 @@ import type {
 
 export type {
   RunningMode,
+  ExternalControllerSettings,
   RunStateView as RunState,
   FailedOperation,
   PendingFailure,
@@ -27,8 +32,19 @@ export type {
   ProxyPortSettings,
   ListenerTransport,
   ListenerProbe,
+  RuleExtraInfo,
+  UpdateInfo,
+  CoreVersionCatalog,
   UnlockItem,
 } from './bindings'
+
+export async function httpGetText(
+  url: string,
+  timeoutSecs: number | null,
+  userAgent: string | null,
+) {
+  return commands.httpGetText(url, timeoutSecs, userAgent)
+}
 
 export async function copyClashEnv() {
   return commands.copyClashEnv()
@@ -91,18 +107,8 @@ export async function deleteProfile(index: string) {
 }
 
 export async function patchProfile(index: string, profile: ProfilePatch) {
-  const {
-    type,
-    name,
-    desc,
-    file,
-    url,
-    selected,
-    latency_test_urls,
-    extra,
-    updated,
-    option,
-  } = profile
+  const { type, name, desc, file, url, selected, extra, updated, option } =
+    profile
   return commands.patchProfile(index, {
     type,
     name,
@@ -110,7 +116,6 @@ export async function patchProfile(index: string, profile: ProfilePatch) {
     file,
     url,
     selected,
-    latency_test_urls,
     extra,
     updated,
     option,
@@ -119,6 +124,16 @@ export async function patchProfile(index: string, profile: ProfilePatch) {
 
 export async function getClashInfo() {
   return commands.getClashInfo()
+}
+
+export async function getExternalController() {
+  return commands.getExternalController()
+}
+
+export async function saveExternalController(
+  settings: ExternalControllerSettings,
+) {
+  return commands.saveExternalController(settings)
 }
 
 // Fallback mode read independent of strict mihomo `/configs` deserialization.
@@ -163,17 +178,17 @@ export async function patchClashMode(payload: string) {
   return commands.patchClashMode(payload)
 }
 
-export async function syncTrayProxySelection() {
-  return commands.syncTrayProxySelection()
-}
-
 /** Sends one selection pair so the backend can merge against current profile state. */
 export async function recordSelectedNode(groupName: string, node: string) {
   return commands.recordSelectedNode(groupName, node)
 }
 
-export async function forgetSelectedNode(groupName: string) {
-  return commands.forgetSelectedNode(groupName)
+export async function switchProxyNode(
+  groupName: string,
+  proxyName: string,
+  unfix: boolean,
+) {
+  return commands.switchProxyNode(groupName, proxyName, unfix)
 }
 
 export async function getProxyView(): Promise<ProxyViewV1> {
@@ -184,13 +199,15 @@ export async function getProxyView(): Promise<ProxyViewV1> {
   return view
 }
 
+// getClashLogs matches both patterns against every log line.
+const CLASH_LOG_REGEX = /time="(.+?)"\s+level=(.+?)\s+msg="(.+?)"/
+const CLASH_LOG_NEW_REGEX = /(.+?)\s+(.+?)\s+(.+)/
+
 export async function getClashLogs() {
-  const regex = /time="(.+?)"\s+level=(.+?)\s+msg="(.+?)"/
-  const newRegex = /(.+?)\s+(.+?)\s+(.+)/
   const logs = await commands.getClashLogs()
 
   return logs.reduce<ILogItem[]>((acc, log) => {
-    const result = log.match(regex)
+    const result = log.match(CLASH_LOG_REGEX)
     if (result) {
       const [_, _time, type, payload] = result
       const time = dayjs(_time).format('MM-DD HH:mm:ss')
@@ -198,7 +215,7 @@ export async function getClashLogs() {
       return acc
     }
 
-    const result2 = log.match(newRegex)
+    const result2 = log.match(CLASH_LOG_NEW_REGEX)
     if (result2) {
       const [_, time, type, payload] = result2
       acc.push({ time, type, payload })
@@ -263,23 +280,8 @@ export async function takeDiscardedKeysNotice() {
   return commands.takeDiscardedKeysNotice()
 }
 
-export async function getSystemProxy() {
-  return commands.getSysProxy()
-}
-
-export async function getAutoProxy() {
-  try {
-    debugLog('[API] 开始调用 get_auto_proxy')
-    const result = await commands.getAutoProxy()
-    debugLog('[API] get_auto_proxy 调用成功:', result)
-    return result
-  } catch (error) {
-    console.error('[API] get_auto_proxy 调用失败:', error)
-    return {
-      enable: false,
-      url: '',
-    }
-  }
+export async function getSystemProxyState() {
+  return commands.getSystemProxyState()
 }
 
 export async function getEmbeddedServerPort() {
@@ -296,6 +298,19 @@ export async function restartCore() {
 
 export async function upgradeClashCore(force = false) {
   return commands.upgradeClashCore(force)
+}
+
+export async function getCoreVersions() {
+  return commands.getCoreVersions()
+}
+
+export async function installCoreVersion(version: string) {
+  return commands.installCoreVersion(version)
+}
+
+/** Version of the core bundled next to the app; Service mode may still run an older approved copy. */
+export async function getBundledCoreVersion() {
+  return commands.getBundledCoreVersion()
 }
 
 export async function restartApp() {
@@ -341,6 +356,18 @@ export async function cmdTestDelay(url: string) {
   return commands.testDelay(url)
 }
 
+export async function getRulesExtra() {
+  return commands.getRulesExtra()
+}
+
+export async function updateRulesDisable(requests: RuleDisableRequest[]) {
+  return commands.updateRulesDisable(requests)
+}
+
+export async function checkUpdateAvailable(): Promise<UpdateInfo | null> {
+  return commands.checkUpdateAvailable()
+}
+
 export async function invoke_uwp_tool() {
   return commands.invokeUwpTool().catch((err) => showNotice.error(err, 1500))
 }
@@ -351,6 +378,10 @@ export async function openDevTools() {
 
 export async function exitApp() {
   return commands.exitApp()
+}
+
+export const setNativeWindowTheme = async (theme: string) => {
+  return commands.setNativeWindowTheme(theme)
 }
 
 export async function exportDiagnosticInfo() {
@@ -511,4 +542,82 @@ export async function checkMediaUnlock(onComplete: Channel<UnlockItem>) {
 
 export async function checkMediaUnlockItem(name: string) {
   return commands.checkMediaUnlockItem(name)
+}
+
+/** A stream pushed from Rust over a Tauri channel. */
+export interface BackendStream<T> {
+  addListener: (listener: (message: T) => void) => () => void
+  close: () => Promise<void>
+}
+
+/** Message shape of the plugin's websocket API, kept for shared consumers. */
+export interface TextSocket {
+  addListener: (
+    listener: (message: { type: 'Text'; data: string }) => void,
+  ) => () => void
+  close: () => Promise<void>
+}
+
+const openBackendStream = async <T>(
+  open: (channel: Channel<T>) => Promise<number>,
+  close: (id: number) => Promise<unknown>,
+): Promise<BackendStream<T>> => {
+  const channel = new Channel<T>()
+  const listeners = new Set<(message: T) => void>()
+  channel.onmessage = (message) => {
+    for (const listener of listeners) {
+      listener(message)
+    }
+  }
+  const id = await open(channel)
+
+  return {
+    addListener: (listener) => {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+    close: async () => {
+      listeners.clear()
+      await close(id).catch(() => {})
+    },
+  }
+}
+
+/** Coalesced mihomo connection snapshots, shared with the count stream. */
+export const subscribeConnections = (): Promise<BackendStream<string>> =>
+  openBackendStream(
+    commands.subscribeConnections,
+    commands.unsubscribeConnections,
+  )
+
+/** Active-connection count, derived from the same mihomo socket. */
+export const subscribeConnectionsCount = (): Promise<BackendStream<string>> =>
+  openBackendStream(
+    commands.subscribeConnectionsCount,
+    commands.unsubscribeConnections,
+  )
+
+/** Batched mihomo log lines; `dropped` counts lines shed under backpressure. */
+export const subscribeLogs = async (level: string): Promise<TextSocket> => {
+  const listeners = new Set<(message: { type: 'Text'; data: string }) => void>()
+  const batches = await openBackendStream<LogBatch>(
+    (onMessage) => commands.subscribeLogs(level, onMessage),
+    commands.unsubscribeLogs,
+  )
+  batches.addListener((batch) => {
+    if (batch.dropped > 0) {
+      debugLog(`[Logs] dropped ${batch.dropped} lines`)
+    }
+    for (const line of batch.lines) {
+      for (const listener of listeners) listener({ type: 'Text', data: line })
+    }
+  })
+
+  return {
+    addListener: (listener) => {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+    close: batches.close,
+  }
 }

@@ -140,7 +140,8 @@
           "networkInterface": "رابط شبکه",
           "unifiedDelay": "معادلDELAY را فعال کنید تا ترافیک شبکه به سرعت رسید",
           "logLevel": "این فقط روی فایل‌های لاگ هسته تحت فایل سرویس در فهرست ورود اثر می‌گذارد.",
-          "openUwpTool": "از ویندوز 8 به بعد، برنامه‌های UWP (مانند Microsoft Store) از دسترسی مستقیم به خدمات شبکه محلی محدود شده‌اند و این ابزار می‌تواند برای دور زدن این محدودیت استفاده شود"
+          "openUwpTool": "از ویندوز 8 به بعد، برنامه‌های UWP (مانند Microsoft Store) از دسترسی مستقیم به خدمات شبکه محلی محدود شده‌اند و این ابزار می‌تواند برای دور زدن این محدودیت استفاده شود",
+          "ipv6Auto": "Enable IPv6 only while the physical network provides it; re-checked automatically when the network changes"
         },
         "options": {
           "logLevel": {
@@ -149,6 +150,17 @@
             "warning": "Warn",
             "error": "Error",
             "silent": "Silent"
+          },
+          "ipv6Mode": {
+            "off": "Off",
+            "on": "On",
+            "auto": "Auto"
+          }
+        },
+        "status": {
+          "ipv6Auto": {
+            "available": "IPv6 available",
+            "ipv4Only": "IPv4-only network"
           }
         }
       }
@@ -209,6 +221,22 @@
       },
       "theme": {
         "title": "تنظیمات تم",
+        "presets": {
+          "title": "پیش‌تنظیم‌ها",
+          "names": {
+            "default": "پیش‌فرض",
+            "ocean": "اقیانوس",
+            "indigo": "نیلی",
+            "sunset": "غروب",
+            "lavender": "اسطوخودوس",
+            "monochrome": "تک‌رنگ"
+          }
+        },
+        "editModes": {
+          "title": "ویرایش پوسته",
+          "light": "روشن",
+          "dark": "تیره"
+        },
         "fields": {
           "primaryColor": "رنگ اصلی",
           "secondaryColor": "رنگ ثانویه",
@@ -218,6 +246,8 @@
           "warningColor": "رنگ هشدار",
           "errorColor": "رنگ خطا",
           "successColor": "رنگ موفقیت",
+          "background": "رنگ پس‌زمینه",
+          "paperBackground": "رنگ کارت",
           "fontFamily": "خانواده فونت",
           "cssInjection": "تزریق CSS"
         },
@@ -306,6 +336,26 @@
       "variants": {
         "release": "نسخه نهایی",
         "alpha": "نسخه آلفا"
+      },
+      "actions": {
+        "manageVersions": "مدیریت نسخه‌ها"
+      },
+      "versions": {
+        "title": "نسخه‌های Mihomo",
+        "description": "نسخه مشخصی از Mihomo را نصب کنید. اگر هسته جدید اجرا نشود، برنامه نسخه قبلی را خودکار بازمی‌گرداند.",
+        "channel": "کانال: {{channel}}",
+        "loading": "در حال بارگذاری نسخه‌ها...",
+        "empty": "نسخه‌ای برای نصب موجود نیست",
+        "latest": "آخرین",
+        "installed": "نصب‌شده",
+        "installedAction": "نصب‌شده",
+        "install": "نصب",
+        "upgradeLatest": "به‌روزرسانی به آخرین نسخه",
+        "messages": {
+          "installed": "به {{version}} به‌روزرسانی شد",
+          "alreadyInstalled": "در حال حاضر {{version}} است",
+          "alreadyLatest": "در حال حاضر آخرین نسخه است"
+        }
       }
     },
     "liteMode": {
@@ -412,6 +462,7 @@
         "appLogMaxSize": "App Log Max Size",
         "appLogMaxCount": "App Log Max Count",
         "autoCloseConnections": "بستن خودکار اتصالات",
+        "autoSwitchSelectorGroup": "تغییر خودکار گروه select",
         "autoCheckUpdate": "بررسی خودکار به‌روزرسانی",
         "enableBuiltinEnhanced": "فعال کردن تقویت داخلی",
         "proxyLayoutColumns": "ستون چیدمان پراکسی",
@@ -419,13 +470,16 @@
         "autoDelayDetection": "تشخیص تأخیر خودکار",
         "autoDelayDetectionInterval": "فاصله تشخیص تأخیر خودکار",
         "defaultLatencyTest": "آزمون تأخیر پیش‌فرض",
-        "defaultLatencyTimeout": "زمان انتظار تأخیر پیش‌فرض"
+        "defaultLatencyTimeout": "زمان انتظار تأخیر پیش‌فرض",
+        "updateChannel": "کانال به‌روزرسانی"
       },
       "tooltips": {
         "autoCloseConnections": "اتصالات برقرار شده را هنگام تغییر انتخاب گروه پروکسی یا حالت پروکسی خاتمه دهید",
+        "autoSwitchSelectorGroup": "در حالت قانون، با انتخاب یک گره در گروهی که ترافیک قوانین از آن عبور نمی‌کند، اولین گروه select شامل آن نیز به همان گروه تغییر می‌کند",
         "enableBuiltinEnhanced": "مدیریت سازگاری برای فایل پیکربندی",
         "autoDelayDetection": "به‌صورت دوره‌ای تأخیر گره فعلی را در پس‌زمینه آزمایش می‌کند",
-        "defaultLatencyTest": "فقط برای تست درخواست‌های کلاینت HTTP استفاده می‌شود و بر فایل پیکربندی تأثیری نخواهد داشت"
+        "defaultLatencyTest": "فقط برای تست درخواست‌های کلاینت HTTP استفاده می‌شود و بر فایل پیکربندی تأثیری نخواهد داشت",
+        "updateChannel": "کانال آلفا از ساخت‌های پیش‌نمایش پیروی می‌کند و ممکن است ناپایدار باشد"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -434,6 +488,10 @@
         "autoLogClean": {
           "never": "هرگز پاک نکن",
           "retainDays": "نگهداری به مدت {{n}} روز"
+        },
+        "updateChannel": {
+          "stable": "پایدار",
+          "alpha": "آلفا"
         }
       }
     },
@@ -453,6 +511,12 @@
         "important": "مهم",
         "warning": "هشدار",
         "caution": "احتیاط"
+      },
+      "restart": {
+        "title": "به‌روزرسانی نصب شد",
+        "body": "برای اعمال نسخه جدید، برنامه را دوباره راه‌اندازی کنید.",
+        "restartNow": "اکنون راه‌اندازی مجدد",
+        "restartLater": "بعداً"
       }
     },
     "sysproxy": {
@@ -468,7 +532,7 @@
         "usePacMode": "استفاده از حالت PAC",
         "proxyGuard": "محافظ پراکسی",
         "guardDuration": "مدت محافظت",
-        "alwaysUseDefaultBypass": "همیشه از دور زدن پیش‌فرض استفاده کنید",
+        "alwaysUseDefaultBypass": "افزودن فهرست دور زدن پیش‌فرض",
         "enableBypassCheck": "اعتبارسنجی قالب دور زدن پراکسی",
         "proxyBypass": "دور زدن پراکسی: ",
         "bypass": "دور زدن: ",
@@ -496,11 +560,13 @@
         "strictRoute": "مسیر دقیق",
         "autoDetectInterface": "تشخیص خودکار رابط",
         "dnsHijack": "ربایش DNS",
+        "dnsMode": "حالت DNS",
         "mtu": "واحد حداکثر انتقال",
         "autoRedirect": "Auto Redirect"
       },
       "tooltips": {
         "dnsHijack": "لطفا برای جدا کردن چندین سرور DNS از , استفاده کنید.",
+        "dnsMode": "Auto رفتار قدیمی را حفظ می‌کند؛ hijack در ویندوز نیاز به مسیر دقیق یا در لینوکس نیاز به Auto Redirect دارد",
         "autoRedirect": "پیکربندی خودکار ریدایرکت‌های TCP در nftables/iptables"
       },
       "messages": {
@@ -696,7 +762,8 @@
         "permissionRejectedReason": "سرویس نتوانست ایمن بودن فایل‌ها و پوشه‌های هسته را برای اجرا با دسترسی بالا تأیید کند.",
         "permissionRepairGuide": "مشاهدهٔ راهنمای رفع مشکل",
         "sidecarFallback": "سرویس نتوانست هسته را اجرا کند. اجرا در حالت Sidecar ادامه می‌یابد؛ سرویس همچنان در دسترس نیست.",
-        "uninstallSuccess": "سرویس با موفقیت حذف نصب شد"
+        "uninstallSuccess": "سرویس با موفقیت حذف نصب شد",
+        "coreVersionDrift": "حالت سرویس با هسته {{running}} اجرا می‌شود در حالی که هسته همراه {{bundled}} است. برای نصب {{bundled}} به تنظیمات → نسخه‌های Mihomo بروید، یا سرویس را دوباره نصب/تعمیر کنید و هسته را دوباره راه‌اندازی کنید."
       },
       "updater": {
         "withClashProxySuccess": "با موفقیت با پروکسی کلش به‌روزرسانی شد",
@@ -713,5 +780,12 @@
       "installing": "در حال نصب سرویس...",
       "uninstalling": "در حال حذف سرویس..."
     }
+  },
+  "search": {
+    "placeholder": "جستجوی تنظیمات",
+    "clear": "پاک کردن جستجو",
+    "back": "بازگشت به نتایج",
+    "results": "نتایج جستجو",
+    "empty": "تنظیماتی یافت نشد"
   }
 }

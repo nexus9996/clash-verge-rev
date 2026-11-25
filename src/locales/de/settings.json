@@ -140,7 +140,8 @@
           "networkInterface": "Netzwerkschnittstelle",
           "unifiedDelay": "Wenn die einheitliche Latenz aktiviert ist, werden zwei Latenztests durchgeführt, um die Latenzunterschiede zwischen verschiedenen Knotentypen aufgrund von Verbindungsaufbau und anderen Faktoren zu eliminieren.",
           "logLevel": "Dies wirkt sich nur auf die Kernprotokolldateien im Verzeichnis Service im Protokollverzeichnis aus.",
-          "openUwpTool": "Ab Windows 8 wird die direkte Netzwerkverbindung von UWP-Anwendungen (z. B. Microsoft Store) zu lokalen Hosts eingeschränkt. Mit diesem Tool können Sie diese Einschränkung umgehen."
+          "openUwpTool": "Ab Windows 8 wird die direkte Netzwerkverbindung von UWP-Anwendungen (z. B. Microsoft Store) zu lokalen Hosts eingeschränkt. Mit diesem Tool können Sie diese Einschränkung umgehen.",
+          "ipv6Auto": "Enable IPv6 only while the physical network provides it; re-checked automatically when the network changes"
         },
         "options": {
           "logLevel": {
@@ -149,6 +150,17 @@
             "warning": "Warn",
             "error": "Error",
             "silent": "Silent"
+          },
+          "ipv6Mode": {
+            "off": "Off",
+            "on": "On",
+            "auto": "Auto"
+          }
+        },
+        "status": {
+          "ipv6Auto": {
+            "available": "IPv6 available",
+            "ipv4Only": "IPv4-only network"
           }
         }
       }
@@ -209,6 +221,22 @@
       },
       "theme": {
         "title": "Thema-Einstellungen",
+        "presets": {
+          "title": "Voreinstellungen",
+          "names": {
+            "default": "Standard",
+            "ocean": "Ozean",
+            "indigo": "Indigo",
+            "sunset": "Sonnenuntergang",
+            "lavender": "Lavendel",
+            "monochrome": "Monochrom"
+          }
+        },
+        "editModes": {
+          "title": "Design bearbeiten",
+          "light": "Hell",
+          "dark": "Dunkel"
+        },
         "fields": {
           "primaryColor": "Hauptfarbe",
           "secondaryColor": "Sekundärfarbe",
@@ -218,6 +246,8 @@
           "warningColor": "Warnfarbe",
           "errorColor": "Fehlerfarbe",
           "successColor": "Erfolgsfarbe",
+          "background": "Hintergrundfarbe",
+          "paperBackground": "Kartenfarbe",
           "fontFamily": "Schriftfamilie",
           "cssInjection": "CSS-Einbindung"
         },
@@ -306,6 +336,26 @@
       "variants": {
         "release": "Stabile Version",
         "alpha": "Alpha-Version"
+      },
+      "actions": {
+        "manageVersions": "Versionen verwalten"
+      },
+      "versions": {
+        "title": "Mihomo-Versionen",
+        "description": "Installiere eine bestimmte Mihomo-Version. Wenn der neue Core nicht startet, stellt die App automatisch die vorherige Version wieder her.",
+        "channel": "Kanal: {{channel}}",
+        "loading": "Versionen werden geladen...",
+        "empty": "Keine Versionen verfügbar",
+        "latest": "Neueste",
+        "installed": "Installiert",
+        "installedAction": "Installiert",
+        "install": "Installieren",
+        "upgradeLatest": "Auf neueste aktualisieren",
+        "messages": {
+          "installed": "Auf {{version}} aktualisiert",
+          "alreadyInstalled": "Bereits {{version}}",
+          "alreadyLatest": "Bereits die neueste Version"
+        }
       }
     },
     "liteMode": {
@@ -412,6 +462,7 @@
         "appLogMaxSize": "Maximale Größe des Anwendungsprotokolls",
         "appLogMaxCount": "Maximale Anzahl der Anwendungsprotokolle",
         "autoCloseConnections": "Verbindungen automatisch schließen",
+        "autoSwitchSelectorGroup": "Select-Gruppe automatisch umschalten",
         "autoCheckUpdate": "Automatisch auf Updates prüfen",
         "enableBuiltinEnhanced": "Eingebaute Verbesserungen aktivieren",
         "proxyLayoutColumns": "Anzahl der Spalten im Proxy-Layout",
@@ -419,13 +470,16 @@
         "autoDelayDetection": "Automatische Latenzprüfung",
         "autoDelayDetectionInterval": "Intervall für automatische Latenzprüfung",
         "defaultLatencyTest": "Standard-Testlink",
-        "defaultLatencyTimeout": "Test-Timeout"
+        "defaultLatencyTimeout": "Test-Timeout",
+        "updateChannel": "Update-Kanal"
       },
       "tooltips": {
         "autoCloseConnections": "Wenn der ausgewählte Knoten in der Proxy-Gruppe oder der Proxy-Modus geändert wird, werden die bestehenden Verbindungen geschlossen.",
+        "autoSwitchSelectorGroup": "Wird im Regelmodus ein Knoten in einer Gruppe gewählt, die kein Regelverkehr erreicht, wechselt auch die erste select-Gruppe, die diese Gruppe enthält, auf diese Gruppe.",
         "enableBuiltinEnhanced": "Kompatibilitätsbehandlung der Konfigurationsdatei",
         "autoDelayDetection": "Überprüft regelmäßig im Hintergrund die Latenz des aktuellen Knotens",
-        "defaultLatencyTest": "Dies wird nur für HTTP-Client-Anfragentests verwendet und hat keine Auswirkungen auf die Konfigurationsdatei."
+        "defaultLatencyTest": "Dies wird nur für HTTP-Client-Anfragentests verwendet und hat keine Auswirkungen auf die Konfigurationsdatei.",
+        "updateChannel": "Alpha folgt Vorschau-Builds und kann instabil sein"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -434,6 +488,10 @@
         "autoLogClean": {
           "never": "Nie bereinigen",
           "retainDays": "{{n}} Tage behalten"
+        },
+        "updateChannel": {
+          "stable": "Stabil",
+          "alpha": "Alpha"
         }
       }
     },
@@ -453,6 +511,12 @@
         "important": "Wichtig",
         "warning": "Warnung",
         "caution": "Achtung"
+      },
+      "restart": {
+        "title": "Update installiert",
+        "body": "Starte die App neu, um die neue Version anzuwenden.",
+        "restartNow": "Jetzt neu starten",
+        "restartLater": "Später"
       }
     },
     "sysproxy": {
@@ -468,7 +532,7 @@
         "usePacMode": "PAC-Modus verwenden",
         "proxyGuard": "Systemproxy-Schutz",
         "guardDuration": "Proxy-Schutz-Intervall",
-        "alwaysUseDefaultBypass": "Immer die Standard-Umgehung verwenden",
+        "alwaysUseDefaultBypass": "Standard-Umgehungsliste einbeziehen",
         "enableBypassCheck": "Proxy-Bypass-Format prüfen",
         "proxyBypass": "Proxy-Umgehungseinstellungen: ",
         "bypass": "Aktuelle Umgehung: ",
@@ -496,11 +560,13 @@
         "strictRoute": "Strenges Routing",
         "autoDetectInterface": "Netzwerkschnittstelle automatisch auswählen",
         "dnsHijack": "DNS-Hijacking",
+        "dnsMode": "DNS-Modus",
         "mtu": "Maximale Übertragungseinheit",
         "autoRedirect": "Automatische Umleitung"
       },
       "tooltips": {
         "dnsHijack": "Mehrere DNS-Server durch Kommas trennen",
+        "dnsMode": "Auto behält das alte Verhalten bei; hijack erfordert Strenges Routing unter Windows oder Automatische Umleitung unter Linux",
         "autoRedirect": "Richtet TCP-Umleitungen per nftables/iptables automatisch ein"
       },
       "messages": {
@@ -696,7 +762,8 @@
         "permissionRejectedReason": "Der Dienst konnte nicht bestätigen, dass die Kerndateien und Ordner für die Ausführung mit erhöhten Rechten sicher sind.",
         "permissionRepairGuide": "Reparaturanleitung öffnen",
         "sidecarFallback": "Der Dienst konnte den Kern nicht starten. Die Anwendung läuft im Sidecar-Modus weiter; der Dienst bleibt nicht verfügbar.",
-        "uninstallSuccess": "Service erfolgreich deinstalliert"
+        "uninstallSuccess": "Service erfolgreich deinstalliert",
+        "coreVersionDrift": "Im Dienstmodus läuft Kernel {{running}}, während der mitgelieferte Kernel {{bundled}} ist. Öffnen Sie Einstellungen → Mihomo-Versionen, um {{bundled}} zu installieren, oder installieren/reparieren Sie den Dienst und starten Sie den Kernel neu."
       },
       "updater": {
         "withClashProxySuccess": "Aktualisierung mit Clash-Proxy erfolgreich",
@@ -713,5 +780,12 @@
       "installing": "Service wird installiert...",
       "uninstalling": "Service wird deinstalliert..."
     }
+  },
+  "search": {
+    "placeholder": "Einstellungen suchen",
+    "clear": "Suche löschen",
+    "back": "Zurück zu Ergebnissen",
+    "results": "Suchergebnisse",
+    "empty": "Keine Einstellungen gefunden"
   }
 }

@@ -140,7 +140,8 @@
           "networkInterface": "Сетевой интерфейс",
           "unifiedDelay": "Когда точная задержка включена, выполняются два теста задержки, чтобы устранить различия между разными типами узлов, вызванные подтверждением соединения и другими факторами",
           "logLevel": "Это влияет только на файлы журнала ядра в служебном файле в каталоге логов.",
-          "openUwpTool": "С Windows 8 приложения UWP (такие как Microsoft Store) ограничены в прямом доступе к сетевым службам локального хоста, и этот инструмент позволяет обойти это ограничение"
+          "openUwpTool": "С Windows 8 приложения UWP (такие как Microsoft Store) ограничены в прямом доступе к сетевым службам локального хоста, и этот инструмент позволяет обойти это ограничение",
+          "ipv6Auto": "Enable IPv6 only while the physical network provides it; re-checked automatically when the network changes"
         },
         "options": {
           "logLevel": {
@@ -149,6 +150,17 @@
             "warning": "Предупреждение",
             "error": "Ошибка",
             "silent": "Без вывода"
+          },
+          "ipv6Mode": {
+            "off": "Off",
+            "on": "On",
+            "auto": "Auto"
+          }
+        },
+        "status": {
+          "ipv6Auto": {
+            "available": "IPv6 available",
+            "ipv4Only": "IPv4-only network"
           }
         }
       }
@@ -209,6 +221,22 @@
       },
       "theme": {
         "title": "Настройки темы",
+        "presets": {
+          "title": "Пресеты",
+          "names": {
+            "default": "По умолчанию",
+            "ocean": "Океан",
+            "indigo": "Индиго",
+            "sunset": "Закат",
+            "lavender": "Лаванда",
+            "monochrome": "Монохром"
+          }
+        },
+        "editModes": {
+          "title": "Редактировать тему",
+          "light": "Светлая",
+          "dark": "Тёмная"
+        },
         "fields": {
           "primaryColor": "Основной цвет",
           "secondaryColor": "Вторичный цвет",
@@ -218,6 +246,8 @@
           "warningColor": "Цвет предупреждения",
           "errorColor": "Цвет ошибки",
           "successColor": "Цвет успеха",
+          "background": "Цвет фона",
+          "paperBackground": "Цвет карточек",
           "fontFamily": "Семейство шрифтов",
           "cssInjection": "Внедрение CSS"
         },
@@ -306,6 +336,26 @@
       "variants": {
         "release": "Официальная версия",
         "alpha": "Альфа-версия"
+      },
+      "actions": {
+        "manageVersions": "Управление версиями"
+      },
+      "versions": {
+        "title": "Версии Mihomo",
+        "description": "Установите конкретную версию Mihomo. Если новое ядро не запустится, приложение автоматически восстановит предыдущую версию.",
+        "channel": "Канал: {{channel}}",
+        "loading": "Загрузка версий...",
+        "empty": "Нет доступных версий",
+        "latest": "Последняя",
+        "installed": "Установлена",
+        "installedAction": "Установлена",
+        "install": "Установить",
+        "upgradeLatest": "Обновить до последней",
+        "messages": {
+          "installed": "Обновлено до {{version}}",
+          "alreadyInstalled": "Уже установлена версия {{version}}",
+          "alreadyLatest": "Уже последняя версия"
+        }
       }
     },
     "liteMode": {
@@ -412,6 +462,7 @@
         "appLogMaxSize": "Максимальный размер журнала приложения",
         "appLogMaxCount": "Максимальное количество файлов журнала",
         "autoCloseConnections": "Автоматическое закрытие соединений",
+        "autoSwitchSelectorGroup": "Автопереключение группы select",
         "autoCheckUpdate": "Автоматическая проверка обновлений",
         "enableBuiltinEnhanced": "Включить встроенные улучшения",
         "proxyLayoutColumns": "Количество столбцов в макете прокси",
@@ -419,13 +470,16 @@
         "autoDelayDetection": "Автоматическое измерение задержки",
         "autoDelayDetectionInterval": "Интервал автоматического измерения задержки",
         "defaultLatencyTest": "URL для теста задержки",
-        "defaultLatencyTimeout": "Таймаут задержки по умолчанию"
+        "defaultLatencyTimeout": "Таймаут задержки по умолчанию",
+        "updateChannel": "Канал обновлений"
       },
       "tooltips": {
         "autoCloseConnections": "Закрывать установленные соединения при изменении выбора группы прокси или режима прокси",
+        "autoSwitchSelectorGroup": "В режиме правил при выборе узла в группе, через которую не идёт трафик правил, первая группа select, содержащая эту группу, также переключается на неё",
         "enableBuiltinEnhanced": "Обработка совместимости для файла конфигурации",
         "autoDelayDetection": "Периодически проверяет задержку текущего узла в фоновом режиме",
-        "defaultLatencyTest": "Используется только для тестирования HTTP-запросов клиента и не влияет на файл конфигурации"
+        "defaultLatencyTest": "Используется только для тестирования HTTP-запросов клиента и не влияет на файл конфигурации",
+        "updateChannel": "Альфа-канал следует предварительным сборкам и может быть нестабильным"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -434,6 +488,10 @@
         "autoLogClean": {
           "never": "Никогда не очищать",
           "retainDays": "Хранить {{n}} дней"
+        },
+        "updateChannel": {
+          "stable": "Стабильная",
+          "alpha": "Альфа"
         }
       }
     },
@@ -453,6 +511,12 @@
         "important": "Важно",
         "warning": "Предупреждение",
         "caution": "Осторожно"
+      },
+      "restart": {
+        "title": "Обновление установлено",
+        "body": "Перезапустите приложение, чтобы применить новую версию.",
+        "restartNow": "Перезапустить",
+        "restartLater": "Позже"
       }
     },
     "sysproxy": {
@@ -468,7 +532,7 @@
         "usePacMode": "Использовать режим PAC",
         "proxyGuard": "Защита прокси",
         "guardDuration": "Период защиты",
-        "alwaysUseDefaultBypass": "Всегда использовать стандартный обход",
+        "alwaysUseDefaultBypass": "Добавлять стандартный список обхода",
         "enableBypassCheck": "Проверять формат обхода прокси",
         "proxyBypass": "Игнорируемые адреса: ",
         "bypass": "Игнорируемые адреса: ",
@@ -496,11 +560,13 @@
         "strictRoute": "Строгая маршрутизация",
         "autoDetectInterface": "Автоопределение интерфейса",
         "dnsHijack": "Перехват DNS",
+        "dnsMode": "Режим DNS",
         "mtu": "MTU",
         "autoRedirect": "Автоматическое перенаправление"
       },
       "tooltips": {
         "dnsHijack": "Используйте запятую для разделения нескольких DNS-серверов",
+        "dnsMode": "Auto сохраняет прежнее поведение; для hijack нужна Строгая маршрутизация в Windows или Автоматическое перенаправление в Linux",
         "autoRedirect": "Автоматически настраивает перенаправление TCP через nftables/iptables"
       },
       "messages": {
@@ -696,7 +762,8 @@
         "permissionRejectedReason": "Служба не смогла подтвердить безопасность файлов и папок ядра для запуска с повышенными правами.",
         "permissionRepairGuide": "Инструкция по исправлению",
         "sidecarFallback": "Служба не смогла запустить ядро. Работа продолжена в режиме Sidecar; служба по-прежнему недоступна.",
-        "uninstallSuccess": "Служба успешно удалена"
+        "uninstallSuccess": "Служба успешно удалена",
+        "coreVersionDrift": "В режиме службы запущено ядро {{running}}, а встроенное ядро — {{bundled}}. Откройте «Настройки → Версии Mihomo», установите {{bundled}} или переустановите/восстановите службу и перезапустите ядро."
       },
       "updater": {
         "withClashProxySuccess": "Обновление через Clash proxy выполнено успешно",
@@ -713,5 +780,12 @@
       "installing": "Установка службы...",
       "uninstalling": "Удаление службы..."
     }
+  },
+  "search": {
+    "placeholder": "Поиск настроек",
+    "clear": "Очистить поиск",
+    "back": "Вернуться к результатам",
+    "results": "Результаты поиска",
+    "empty": "Настройки не найдены"
   }
 }

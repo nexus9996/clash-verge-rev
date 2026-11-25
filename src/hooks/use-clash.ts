@@ -1,5 +1,5 @@
-import { useLockFn } from 'ahooks'
 import i18n from 'i18next'
+import { useCallback } from 'react'
 import { getVersion } from 'tauri-plugin-mihomo-api'
 
 import {
@@ -72,7 +72,19 @@ export const useRuntimeConfig = (shouldFetch: boolean = true) => {
     queryKey: ['getRuntimeConfig'],
     queryFn: getRuntimeConfig,
     enabled: shouldFetch,
+    // The runtime document carries the whole proxy map; a navigation burst must
+    // not re-pull it. Writers refresh it explicitly through `mutateClash`.
+    staleTime: 60_000,
   })
+}
+
+/** Core version string alone; consumers that only compare versions must not pull the runtime config. */
+export const useClashVersion = () => {
+  const { data } = useQuery({
+    queryKey: ['getVersion'],
+    queryFn: getVersion,
+  })
+  return data?.version
 }
 
 // Fault-tolerant fallback for the current proxy mode, read straight from the
@@ -86,31 +98,39 @@ export const useClashMode = (shouldFetch: boolean = true) => {
 }
 
 export const useClash = () => {
-  const { data: clash, refetch } = useRuntimeConfig()
+  const { data: clash } = useRuntimeConfig()
 
   const { data: versionData, refetch: mutateVersion } = useQuery({
     queryKey: ['getVersion'],
     queryFn: getVersion,
   })
 
-  const mutateClash = (updater?: MutateClashUpdater, revalidate?: boolean) => {
-    if (updater === undefined) {
-      return refetch()
-    }
-    void setCacheData<IConfigData>(['getRuntimeConfig'], updater)
-    if (revalidate !== false) {
-      return refetch()
-    }
-    return Promise.resolve()
-  }
+  // Stable identity: consumers pass mutateClash into their own callbacks.
+  // revalidateQuery hits the same cache key refetch would, without capturing
+  // the per-render refetch closure.
+  const mutateClash = useCallback(
+    (updater?: MutateClashUpdater, revalidate?: boolean) => {
+      if (updater === undefined) {
+        return revalidateQuery(['getRuntimeConfig'])
+      }
+      void setCacheData<IConfigData>(['getRuntimeConfig'], updater)
+      if (revalidate !== false) {
+        return revalidateQuery(['getRuntimeConfig'])
+      }
+      return Promise.resolve()
+    },
+    [],
+  )
 
-  const patchClash = useLockFn(async (patch: Partial<IConfigData>) => {
+  // `mutate` serializes writes with the same id, so concurrent patches queue
+  // instead of being dropped by a lock.
+  const patchClash = async (patch: Partial<IConfigData>) => {
     await mutate(() => patchClashConfig(patch), {
       id: 'patch-clash-config',
       revalidate: [['getRuntimeConfig']],
       errorNotice: false,
     })
-  })
+  }
 
   const version = versionData?.meta
     ? `${versionData.version} Mihomo`
@@ -119,6 +139,7 @@ export const useClash = () => {
   return {
     clash,
     version,
+    coreVersion: versionData?.version,
     mutateClash,
     mutateVersion,
     patchClash,
@@ -131,7 +152,7 @@ export const useClashInfo = () => {
     queryFn: getClashInfo,
   })
 
-  const patchInfo = useLockFn(async (patch: ClashInfoPatch) => {
+  const patchInfo = async (patch: ClashInfoPatch) => {
     if (!hasClashInfoPayload(patch)) return
 
     validatePorts(patch)
@@ -141,9 +162,12 @@ export const useClashInfo = () => {
       revalidate: [['getClashInfo'], ['getClashConfig']],
       errorNotice: false,
     })
-  })
+  }
 
-  const invalidateClashConfig = () => revalidateQuery(['getClashConfig'])
+  const invalidateClashConfig = useCallback(
+    () => revalidateQuery(['getClashConfig']),
+    [],
+  )
 
   return {
     clashInfo,

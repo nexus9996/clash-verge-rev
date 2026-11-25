@@ -26,7 +26,8 @@
     "labels": {
       "proxyCount": "Proxy Count",
       "delayCheckReset": "فحص التأخير لإلغاء الثابت",
-      "nodeCount": "{{count}} عقدة"
+      "nodeCount": "{{count}} عقدة",
+      "groupBadge": "مجموعة"
     },
     "tooltips": {
       "locate": "الموقع",
@@ -37,7 +38,8 @@
       "delayCheckUrl": "رابط فحص التأخير",
       "showBasic": "إعدادات الوكيل الأساسية",
       "showDetail": "تفاصيل الوكيل",
-      "filter": "تصفية"
+      "filter": "تصفية",
+      "jumpToGroup": "الانتقال إلى المجموعة"
     },
     "placeholders": {
       "delayCheckUrl": "رابط فحص التأخير"
@@ -70,6 +72,8 @@
     "chain": {
       "header": "Chain Proxy Config",
       "warning": "Chain proxy will significantly reduce network speed. If you do not have a clear business need, or do not understand this configuration, keep it disabled.",
+      "confirmEnable": "I understand, enable",
+      "keepDisabled": "Keep disabled",
       "empty": "Chain proxy will significantly reduce network speed. If you do not have a clear business need, or do not understand this configuration, keep it disabled.",
       "instruction": "Click nodes in order to add to proxy chain",
       "minimumNodes": "Chain proxy requires at least 2 nodes",

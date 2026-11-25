@@ -5,7 +5,13 @@ import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { updateGeo, type LogLevel } from 'tauri-plugin-mihomo-api'
 
-import { BaseDialog, DialogRef, Switch, TooltipIcon } from '@/components/base'
+import {
+  BaseDialog,
+  DialogRef,
+  Switch,
+  TooltipIcon,
+  switchChangeValue,
+} from '@/components/base'
 import { useClash } from '@/hooks/use-clash'
 import { useClashLog } from '@/hooks/use-clash-log'
 import { useDisplayedMixedPort } from '@/hooks/use-displayed-mixed-port'
@@ -37,7 +43,7 @@ const SettingClash = ({ onError }: Props) => {
   const { t } = useTranslation()
 
   const { clash, version, mutateClash, patchClash } = useClash()
-  const { verge, mutateVerge } = useVerge()
+  const { verge, mutateVerge, patchVerge } = useVerge()
   const { current: currentProfile } = useProfiles()
   const dnsEnabled = currentProfile
     ? (verge?.profile_dns_settings?.[currentProfile.uid!]?.enabled ??
@@ -54,6 +60,11 @@ const SettingClash = ({ onError }: Props) => {
     'unified-delay': unifiedDelay,
   } = clash ?? {}
 
+  const ipv6Mode = verge?.ipv6_mode ?? (ipv6 ? 'on' : 'off')
+  const autoSupported = !isWIN
+  const selectedIpv6Mode =
+    ipv6Mode === 'auto' && !autoSupported ? (ipv6 ? 'on' : 'off') : ipv6Mode
+
   const [dnsConfirmation, setDnsConfirmation] = useState<{
     profileUid: string
     source: string
@@ -69,7 +80,6 @@ const SettingClash = ({ onError }: Props) => {
   const corsRef = useRef<DialogRef>(null)
   const tunnelRef = useRef<DialogRef>(null)
 
-  const onSwitchFormat = (_e: any, value: boolean) => value
   const onChangeData = (patch: Partial<IConfigData>) => {
     mutateClash((old) => ({ ...old!, ...patch }), false)
   }
@@ -80,7 +90,7 @@ const SettingClash = ({ onError }: Props) => {
         errorNotice: false,
       })
       showNotice.success('settings.feedback.notifications.clash.geoDataUpdated')
-    } catch (err: any) {
+    } catch (err) {
       showNotice.error(err)
     }
   }
@@ -110,7 +120,7 @@ const SettingClash = ({ onError }: Props) => {
         }
         mutateVerge()
         mutateClash()
-      } catch (err: any) {
+      } catch (err) {
         showNotice.error(err)
       } finally {
         setDnsUpdating(false)
@@ -156,6 +166,7 @@ const SettingClash = ({ onError }: Props) => {
       <HeaderConfiguration ref={corsRef} />
       <TunnelsViewer ref={tunnelRef} />
       <SettingItem
+        data-setting-target="settings.sections.clash.form.fields.allowLan"
         label={t('settings.sections.clash.form.fields.allowLan')}
         extra={
           <TooltipIcon
@@ -172,7 +183,7 @@ const SettingClash = ({ onError }: Props) => {
           value={allowLan ?? false}
           valueProps="checked"
           onCatch={onError}
-          onFormat={onSwitchFormat}
+          onFormat={switchChangeValue}
           onChange={(e) => onChangeData({ 'allow-lan': e })}
           onGuard={(e) => patchClash({ 'allow-lan': e })}
         >
@@ -181,6 +192,7 @@ const SettingClash = ({ onError }: Props) => {
       </SettingItem>
 
       <SettingItem
+        data-setting-target="settings.sections.clash.form.fields.dnsOverwrite"
         label={t('settings.sections.clash.form.fields.dnsOverwrite')}
         extra={
           <>
@@ -203,20 +215,56 @@ const SettingClash = ({ onError }: Props) => {
         />
       </SettingItem>
 
-      <SettingItem label={t('settings.sections.clash.form.fields.ipv6')}>
+      <SettingItem
+        data-setting-target="settings.sections.clash.form.fields.ipv6"
+        label={t('settings.sections.clash.form.fields.ipv6')}
+        secondary={
+          selectedIpv6Mode === 'auto'
+            ? ipv6
+              ? t('settings.sections.clash.form.status.ipv6Auto.available')
+              : t('settings.sections.clash.form.status.ipv6Auto.ipv4Only')
+            : undefined
+        }
+        extra={
+          selectedIpv6Mode === 'auto' ? (
+            <TooltipIcon
+              title={t('settings.sections.clash.form.tooltips.ipv6Auto')}
+              sx={{ opacity: '0.7' }}
+            />
+          ) : undefined
+        }
+      >
         <GuardState
-          value={ipv6 ?? false}
-          valueProps="checked"
+          value={selectedIpv6Mode}
           onCatch={onError}
-          onFormat={onSwitchFormat}
-          onChange={(e) => onChangeData({ ipv6: e })}
-          onGuard={(e) => patchClash({ ipv6: e })}
+          onFormat={(e) => e.target.value}
+          onChange={() => {}}
+          onGuard={async (value) => {
+            try {
+              await patchVerge({ ipv6_mode: value })
+            } catch (error) {
+              onError(error as Error)
+            }
+          }}
         >
-          <Switch edge="end" />
+          <Select size="small" sx={{ width: 100, '> div': { py: '7.5px' } }}>
+            <MenuItem value="off">
+              {t('settings.sections.clash.form.options.ipv6Mode.off')}
+            </MenuItem>
+            <MenuItem value="on">
+              {t('settings.sections.clash.form.options.ipv6Mode.on')}
+            </MenuItem>
+            {autoSupported && (
+              <MenuItem value="auto">
+                {t('settings.sections.clash.form.options.ipv6Mode.auto')}
+              </MenuItem>
+            )}
+          </Select>
         </GuardState>
       </SettingItem>
 
       <SettingItem
+        data-setting-target="settings.sections.clash.form.fields.unifiedDelay"
         label={t('settings.sections.clash.form.fields.unifiedDelay')}
         extra={
           <TooltipIcon
@@ -229,7 +277,7 @@ const SettingClash = ({ onError }: Props) => {
           value={unifiedDelay ?? false}
           valueProps="checked"
           onCatch={onError}
-          onFormat={onSwitchFormat}
+          onFormat={switchChangeValue}
           onChange={(e) => onChangeData({ 'unified-delay': e })}
           onGuard={(e) => patchClash({ 'unified-delay': e })}
         >
@@ -238,6 +286,7 @@ const SettingClash = ({ onError }: Props) => {
       </SettingItem>
 
       <SettingItem
+        data-setting-target="settings.sections.clash.form.fields.logLevel"
         label={t('settings.sections.clash.form.fields.logLevel')}
         extra={
           <TooltipIcon
@@ -249,7 +298,7 @@ const SettingClash = ({ onError }: Props) => {
         <GuardState
           value={logLevel === 'warn' ? 'warning' : (logLevel ?? 'info')}
           onCatch={onError}
-          onFormat={(e: any) => e.target.value}
+          onFormat={(e) => e.target.value}
           onChange={(e) => onChangeData({ 'log-level': e })}
           onGuard={(e) => {
             setClashLog((pre) => ({
@@ -279,7 +328,10 @@ const SettingClash = ({ onError }: Props) => {
         </GuardState>
       </SettingItem>
 
-      <SettingItem label={t('settings.sections.clash.form.fields.portConfig')}>
+      <SettingItem
+        data-setting-target="settings.sections.clash.form.fields.portConfig"
+        label={t('settings.sections.clash.form.fields.portConfig')}
+      >
         <TextField
           autoComplete="new-password"
           disabled={false}
@@ -294,6 +346,7 @@ const SettingClash = ({ onError }: Props) => {
       </SettingItem>
 
       <SettingItem
+        data-setting-target="settings.sections.clash.form.fields.external"
         label={t('settings.sections.clash.form.fields.external')}
         extra={
           <TooltipIcon
@@ -311,11 +364,13 @@ const SettingClash = ({ onError }: Props) => {
       />
 
       <SettingItem
+        data-setting-target="settings.sections.clash.form.fields.webUI"
         onClick={() => webRef.current?.open()}
         label={t('settings.sections.clash.form.fields.webUI')}
       />
 
       <SettingItem
+        data-setting-target="settings.sections.clash.form.fields.clashCore"
         label={t('settings.sections.clash.form.fields.clashCore')}
         extra={
           <TooltipIcon
@@ -329,6 +384,7 @@ const SettingClash = ({ onError }: Props) => {
 
       {isWIN && (
         <SettingItem
+          data-setting-target="settings.sections.clash.form.fields.openUwpTool"
           onClick={invoke_uwp_tool}
           label={t('settings.sections.clash.form.fields.openUwpTool')}
           extra={
@@ -341,11 +397,13 @@ const SettingClash = ({ onError }: Props) => {
       )}
 
       <SettingItem
+        data-setting-target="settings.sections.clash.form.fields.updateGeoData"
         onClick={onUpdateGeo}
         label={t('settings.sections.clash.form.fields.updateGeoData')}
       />
 
       <SettingItem
+        data-setting-target="settings.sections.clash.form.fields.tunnels.title"
         label={t('settings.sections.clash.form.fields.tunnels.title')}
         onClick={() => tunnelRef.current?.open()}
       />

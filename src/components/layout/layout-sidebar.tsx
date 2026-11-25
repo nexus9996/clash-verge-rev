@@ -1,20 +1,19 @@
-import { DragDropProvider, KeyboardSensor, PointerSensor } from '@dnd-kit/react'
 import { Box, List, Menu, MenuItem, SvgIcon } from '@mui/material'
-import { useCallback, useState } from 'react'
+import { lazy, Suspense, useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import iconDark from '@/assets/image/icon_dark.svg?react'
 import iconLight from '@/assets/image/icon_light.svg?react'
 import LogoSvg from '@/assets/image/logo.svg?react'
+import type { NavigationId } from '@/config/navigation'
+import { NAV_ITEMS } from '@/config/navigation'
+import { useNavMenuOrder } from '@/hooks/layout'
 import { useVerge } from '@/hooks/use-verge'
-import { useNavMenuOrder } from '@/pages/_layout/hooks'
-import { navItems } from '@/pages/_navigation'
 import { startWindowDragging } from '@/utils/window-drag'
-
-import { SortableItem } from '../base'
 
 import { LayoutItem } from './layout-item'
 import { LayoutTraffic } from './layout-traffic'
+import { NAV_ICONS } from './navigation-icons'
 import { UpdateButton } from './update-button'
 
 type MenuContextPosition = { top: number; left: number }
@@ -22,12 +21,20 @@ type MenuContextPosition = { top: number; left: number }
 interface LayoutSidebarProps {
   isDark: boolean
   isCollapsed: boolean
+  preloadPage?: (id: NavigationId) => void
 }
 
-const SENSORS = [PointerSensor, KeyboardSensor]
+// The drag-and-drop implementation is only needed while the menu order is
+// unlocked, so keep it (and dnd-kit) out of the initial bundle.
+const LazySidebarSortableNav = lazy(() => import('./sidebar-sortable-nav'))
+
+const navigationItems = NAV_ITEMS.map((item) => ({
+  ...item,
+  icon: NAV_ICONS[item.id],
+}))
 
 export const LayoutSidebar = (props: LayoutSidebarProps) => {
-  const { isDark, isCollapsed } = props
+  const { isDark, isCollapsed, preloadPage } = props
   const { t } = useTranslation()
   const { verge, mutateVerge, patchVerge } = useVerge()
   const [menuUnlocked, setMenuUnlocked] = useState(false)
@@ -36,10 +43,7 @@ export const LayoutSidebar = (props: LayoutSidebarProps) => {
 
   const handleMenuOrderOptimisticUpdate = useCallback(
     (order: string[]) => {
-      mutateVerge(
-        (prev) => (prev ? { ...prev, menu_order: order } : prev),
-        false,
-      )
+      mutateVerge((prev) => (prev ? { ...prev, menu_order: order } : prev))
     },
     [mutateVerge],
   )
@@ -52,12 +56,12 @@ export const LayoutSidebar = (props: LayoutSidebarProps) => {
   const {
     menuOrder,
     navItemMap,
-    handleMenuDragEnd,
+    moveMenuOrder,
     isDefaultOrder,
     resetMenuOrder,
   } = useNavMenuOrder({
     enabled: menuUnlocked,
-    items: navItems,
+    items: navigationItems,
     storedOrder: verge?.menu_order,
     onOptimisticUpdate: handleMenuOrderOptimisticUpdate,
     onPersist: handleMenuOrderPersist,
@@ -97,28 +101,22 @@ export const LayoutSidebar = (props: LayoutSidebarProps) => {
   }, [isCollapsed, patchVerge])
 
   // Navigation menu items
-  const navMenuItems = menuOrder.map((path, index) => {
+  const navMenuItems = menuOrder.map((path) => {
     const item = navItemMap.get(path)
     if (!item) return null
 
-    // A registered sortable, even a disabled one, gets the drag-and-drop ARIA
-    // attributes, so screen readers announce every item as a disabled draggable.
-    if (!menuUnlocked) {
-      return (
-        <LayoutItem key={item.path} to={item.path} icon={item.icon}>
-          {t(item.label)}
-        </LayoutItem>
-      )
-    }
+    // Preloading on intent keeps the split pages from flashing a loading state.
+    const preload = preloadPage ? () => preloadPage(item.id) : undefined
 
     return (
-      <SortableItem key={item.path} id={item.path} index={index}>
-        {(sortable) => (
-          <LayoutItem to={item.path} icon={item.icon} sortable={sortable}>
-            {t(item.label)}
-          </LayoutItem>
-        )}
-      </SortableItem>
+      <LayoutItem
+        key={item.path}
+        to={item.path}
+        icon={item.icon}
+        preload={preload}
+      >
+        {t(item.labelKey)}
+      </LayoutItem>
     )
   })
 
@@ -175,9 +173,17 @@ export const LayoutSidebar = (props: LayoutSidebarProps) => {
 
       {/* Navigation menu */}
       <List className="the-menu" onContextMenu={handleMenuContextMenu}>
-        <DragDropProvider sensors={SENSORS} onDragEnd={handleMenuDragEnd}>
-          {navMenuItems}
-        </DragDropProvider>
+        {menuUnlocked ? (
+          <Suspense fallback={navMenuItems}>
+            <LazySidebarSortableNav
+              order={menuOrder}
+              onMove={moveMenuOrder}
+              preloadPage={preloadPage}
+            />
+          </Suspense>
+        ) : (
+          navMenuItems
+        )}
       </List>
 
       {/* Context menu */}

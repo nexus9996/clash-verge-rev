@@ -26,7 +26,8 @@
     "labels": {
       "proxyCount": "Proxy Count",
       "delayCheckReset": "Delay check to cancel fixed",
-      "nodeCount": "{{count}} nodes"
+      "nodeCount": "{{count}} nodes",
+      "groupBadge": "Group"
     },
     "tooltips": {
       "locate": "locate",
@@ -37,7 +38,8 @@
       "delayCheckUrl": "Delay check URL",
       "showBasic": "Proxy basic",
       "showDetail": "Proxy detail",
-      "filter": "Filter"
+      "filter": "Filter",
+      "jumpToGroup": "Jump to group"
     },
     "placeholders": {
       "delayCheckUrl": "Delay check URL"
@@ -70,6 +72,8 @@
     "chain": {
       "header": "Chain Proxy Config",
       "warning": "Chain proxy will significantly reduce network speed. If you do not have a clear business need, or do not understand this configuration, keep it disabled.",
+      "confirmEnable": "I understand, enable",
+      "keepDisabled": "Keep disabled",
       "empty": "Chain proxy will significantly reduce network speed. If you do not have a clear business need, or do not understand this configuration, keep it disabled.",
       "instruction": "Click nodes in order to add to proxy chain",
       "minimumNodes": "Chain proxy requires at least 2 nodes",

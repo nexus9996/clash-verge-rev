@@ -21,6 +21,7 @@ ManifestDPIAwareness PerMonitorV2
 !include "FileAssociation.nsh"
 !include "Win\COM.nsh"
 !include "Win\Propkey.nsh"
+!include "Win\RestartManager.nsh"
 !include "WinVer.nsh"
 !include "LogicLib.nsh"
 !include "StrFunc.nsh"
@@ -69,6 +70,7 @@ ${StrLoc}
 
 Var PassiveMode
 Var UpdateMode
+Var KeepAutoLaunch
 Var NoShortcutMode
 Var WixMode
 Var OldMainBinaryName
@@ -332,6 +334,11 @@ Function PageLeaveReinstall
   ${EndIf}
 
   reinst_uninstall:
+    ${If} $R0 = 1
+      StrCpy $KeepAutoLaunch 1
+    ${EndIf}
+    !insertmacro CheckIfAppIsRunning "$INSTDIR\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+
     HideWindow
     ClearErrors
 
@@ -342,6 +349,7 @@ Function PageLeaveReinstall
       ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
       ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
       ${IfThen} $UpdateMode = 1 ${|} StrCpy $R1 "$R1 /UPDATE" ${|} ; append /UPDATE
+      ${IfThen} $KeepAutoLaunch = 1 ${|} StrCpy $R1 "$R1 /KEEPAUTOLAUNCH" ${|}
       ${IfThen} $PassiveMode = 1 ${|} StrCpy $R1 "$R1 /P" ${|} ; append /P
       StrCpy $R1 "$R1 _?=$4" ; append uninstall directory
       ExecWait '$R1' $0
@@ -368,7 +376,10 @@ Function PageLeaveReinstall
       MessageBox MB_ICONEXCLAMATION "$(unableToUninstall)"
       Abort
     ${EndIf}
+    Return
+
   reinst_done:
+    !insertmacro CheckIfAppIsRunning "$INSTDIR\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
 FunctionEnd
 
 ; 5. Choose install directory page
@@ -901,8 +912,7 @@ Section Install
 
   nsExec::Exec 'netsh int tcp res'
 
-  !include "Win\RestartManager.nsh"
-  !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+  !insertmacro CheckIfAppIsRunning "$INSTDIR\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
   !insertmacro CheckAllVergeProcesses
 
   ; Ensure startup folders exist
@@ -1093,6 +1103,11 @@ Function un.onInit
   ${IfNot} ${Errors}
     StrCpy $UpdateMode 1
   ${EndIf}
+
+  ${GetOptions} $CMDLINE "/KEEPAUTOLAUNCH" $KeepAutoLaunch
+  ${IfNot} ${Errors}
+    StrCpy $KeepAutoLaunch 1
+  ${EndIf}
 FunctionEnd
 
 Section Uninstall
@@ -1101,7 +1116,7 @@ Section Uninstall
     !insertmacro NSIS_HOOK_PREUNINSTALL
   !endif
 
-  !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+  !insertmacro CheckIfAppIsRunning "$INSTDIR\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
   !insertmacro CheckAllVergeProcesses
   !insertmacro RemoveVergeService
 
@@ -1284,6 +1299,24 @@ Section Uninstall
   ; We do this when not updating (to preserve the registry value on updates)
   ${If} $UpdateMode <> 1
     DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCTNAME}"
+  ${EndIf}
+
+  ${If} $UpdateMode <> 1
+  ${AndIf} $KeepAutoLaunch <> 1
+    ; UAC can run the uninstaller under a different account from the desktop user.
+    StrCpy $R0 0
+    ${Do}
+      EnumRegKey $R1 HKU "" $R0
+      ${If} $R1 == ""
+        ${ExitDo}
+      ${EndIf}
+      StrCpy $R3 "$R1\Software\Microsoft\Windows\CurrentVersion\Run"
+      ReadRegStr $R2 HKU "$R3" "Clash Verge Auto Launch"
+      ${If} $R2 == "$\"$INSTDIR\${MAINBINARYNAME}.exe$\""
+        DeleteRegValue HKU "$R3" "Clash Verge Auto Launch"
+      ${EndIf}
+      IntOp $R0 $R0 + 1
+    ${Loop}
   ${EndIf}
 
   ; Delete app data if the checkbox is selected

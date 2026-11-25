@@ -19,7 +19,13 @@ fn make_draft() -> Draft<IVerge> {
 }
 
 pub fn bench_draft(c: &mut Criterion) {
-    let rt = Runtime::new().unwrap_or_else(|e| panic!("Tokio runtime init failed: {e}"));
+    let rt = match Runtime::new() {
+        Ok(rt) => rt,
+        Err(error) => {
+            eprintln!("Tokio runtime init failed: {error}");
+            return;
+        }
+    };
 
     let mut group = c.benchmark_group("draft");
     group.sample_size(100);

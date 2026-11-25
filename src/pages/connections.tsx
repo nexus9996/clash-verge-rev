@@ -25,9 +25,8 @@ import {
   BasePage,
   BaseSearchBox,
   BaseStyledSelect,
-  type SearchState,
-  VirtualList,
 } from '@/components/base'
+import { VirtualList } from '@/components/base/virtual-list'
 import {
   ConnectionDetail,
   ConnectionDetailRef,
@@ -38,17 +37,18 @@ import {
   getConnectionStartTime,
   useConnectionRowViews,
 } from '@/components/connection/connection-row-view'
+import type { ConnectionRuleKind } from '@/components/connection/connection-rule'
 import { ConnectionTable } from '@/components/connection/connection-table'
+import { ConnectionsTrafficSummary } from '@/components/connection/connections-traffic-summary'
 import { useConnectionData } from '@/hooks/use-connection-data'
 import { useConnectionSetting } from '@/hooks/use-connection-setting'
-import { useTrafficData } from '@/hooks/use-traffic-data'
+import { usePageSearch } from '@/hooks/use-page-search'
 import { useVisibility } from '@/hooks/use-visibility'
 import { mutate } from '@/services/mutate'
 import {
   type ConnectionFilter,
   createConnectionFilterMatcher,
 } from '@/utils/connection-filter'
-import parseTraffic from '@/utils/parse-traffic'
 
 type OrderFunc = (list: IConnectionsItem[]) => IConnectionsItem[]
 
@@ -77,6 +77,10 @@ const ORDER_OPTIONS = [
 
 type OrderKey = (typeof ORDER_OPTIONS)[number]['id']
 
+type NetworkFilter = 'all' | 'tcp' | 'udp'
+
+let savedNetworkFilter: NetworkFilter = 'all'
+
 const orderFunctionMap = ORDER_OPTIONS.reduce<Record<OrderKey, OrderFunc>>(
   (acc, option) => {
     acc[option.id] = option.fn
@@ -89,11 +93,12 @@ const EMPTY_CONNECTIONS: IConnectionsItem[] = []
 const ConnectionsPage = () => {
   const { t } = useTranslation()
   const pageVisible = useVisibility()
-  const [match, setMatch] = useState<(input: string) => boolean>(
-    () => () => true,
-  )
-  const [hasSearch, setHasSearch] = useState(false)
+  const { searchState, match, onSearch } = usePageSearch('connections')
+  const hasSearch = searchState.text.trim().length > 0
   const [curOrderOpt, setCurOrderOpt] = useState<OrderKey>('default')
+  const [networkFilter, setNetworkFilter] =
+    useState<NetworkFilter>(savedNetworkFilter)
+  const hasFilter = networkFilter !== 'all'
   const [connectionsType, setConnectionsType] = useState<'active' | 'closed'>(
     'active',
   )
@@ -102,9 +107,6 @@ const ConnectionsPage = () => {
     response: { data: connections },
     clearClosedConnections,
   } = useConnectionData({ enabled: pageVisible })
-  const {
-    response: { data: traffic },
-  } = useTrafficData({ enabled: pageVisible })
 
   const [setting, setSetting] = useConnectionSetting()
 
@@ -147,15 +149,16 @@ const ConnectionsPage = () => {
     const orderFunc = orderFunctionMap[curOrderOpt]
     const hasFilters = connectionFilters.length > 0
 
-    if (!hasSearch && !hasFilters) {
+    if (!hasSearch && !hasFilters && !hasFilter) {
       if (isTableLayout) return selectedConnections
       return orderFunc([...selectedConnections])
     }
 
     const matchConns = selectedConnections.filter((conn) => {
       if (!connectionFilterMatcher(conn)) return false
+      const { host, destinationIP, process, network } = conn.metadata
+      if (networkFilter !== 'all' && network !== networkFilter) return false
       if (!hasSearch) return true
-      const { host, destinationIP, process } = conn.metadata
       return (
         match(host || '') || match(destinationIP || '') || match(process || '')
       )
@@ -168,6 +171,8 @@ const ConnectionsPage = () => {
     hasSearch,
     connectionFilters.length,
     connectionFilterMatcher,
+    hasFilter,
+    networkFilter,
     match,
     curOrderOpt,
   ])
@@ -189,10 +194,14 @@ const ConnectionsPage = () => {
   )
 
   const showDetailById = useCallback(
-    (id: string) => {
+    (id: string, preferredKind: ConnectionRuleKind = 'domain') => {
       const connection = filterConn.find((item) => item.id === id)
       if (connection) {
-        detailRef.current?.open(connection, connectionsType === 'closed')
+        detailRef.current?.open(
+          connection,
+          connectionsType === 'closed',
+          preferredKind,
+        )
       }
     },
     [connectionsType, filterConn],
@@ -205,13 +214,6 @@ const ConnectionsPage = () => {
     }),
   )
 
-  const handleSearch = useCallback(
-    (match: (content: string) => boolean, state: SearchState) => {
-      setMatch(() => match)
-      setHasSearch(state.text.length > 0)
-    },
-    [],
-  )
   const hasTableData = filterConn.length > 0
 
   return (
@@ -232,13 +234,7 @@ const ConnectionsPage = () => {
       }}
       header={
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Box sx={{ mx: 1 }}>
-            {t('shared.labels.downloaded')}:{' '}
-            {parseTraffic(traffic?.downTotal || 0)}
-          </Box>
-          <Box sx={{ mx: 1 }}>
-            {t('shared.labels.uploaded')}: {parseTraffic(traffic?.upTotal || 0)}
-          </Box>
+          <ConnectionsTrafficSummary enabled={pageVisible} />
           <IconButton
             color="inherit"
             size="small"
@@ -309,6 +305,24 @@ const ConnectionsPage = () => {
             ))}
           </BaseStyledSelect>
         )}
+        <BaseStyledSelect
+          style={{ width: 80 }}
+          value={networkFilter}
+          onChange={(e) => {
+            savedNetworkFilter = e.target.value as NetworkFilter
+            setNetworkFilter(savedNetworkFilter)
+          }}
+        >
+          <MenuItem value="all">
+            <span style={{ fontSize: 14 }}>All</span>
+          </MenuItem>
+          <MenuItem value="tcp">
+            <span style={{ fontSize: 14 }}>TCP</span>
+          </MenuItem>
+          <MenuItem value="udp">
+            <span style={{ fontSize: 14 }}>UDP</span>
+          </MenuItem>
+        </BaseStyledSelect>
         <Box
           sx={{
             flex: 1,
@@ -324,7 +338,11 @@ const ConnectionsPage = () => {
             onChange={setConnectionFilters}
           />
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <BaseSearchBox onSearch={handleSearch} />
+            <BaseSearchBox
+              defaultValue={searchState.text}
+              searchState={searchState}
+              onSearch={onSearch}
+            />
           </Box>
         </Box>
         {isTableLayout && hasTableData && (
