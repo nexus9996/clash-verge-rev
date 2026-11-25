@@ -68,10 +68,15 @@ ${css}
 export const useCustomTheme = () => {
   const appWindow: WebviewWindow = useMemo(() => getCurrentWebviewWindow(), [])
   const { verge } = useVerge()
-  const { theme_mode, theme_setting } = verge ?? {}
+  const { theme_mode, theme_setting, light_theme_setting, dark_theme_setting } =
+    verge ?? {}
   const mode = useThemeMode()
   const setMode = useSetThemeMode()
-  const userBackgroundImage = theme_setting?.background_image || ''
+  const modeThemeSetting =
+    (mode === 'light' ? light_theme_setting : dark_theme_setting) ??
+    theme_setting
+  const userBackgroundImage =
+    modeThemeSetting?.background_image || theme_setting?.background_image || ''
   const hasUserBackground = !!userBackgroundImage
 
   useEffect(() => {
@@ -142,8 +147,14 @@ export const useCustomTheme = () => {
   }, [mode, appWindow, theme_mode])
 
   const theme = useMemo(() => {
-    const setting = theme_setting || {}
+    const setting =
+      (mode === 'light' ? light_theme_setting : dark_theme_setting) ??
+      theme_setting ??
+      {}
     const dt = mode === 'light' ? defaultTheme : defaultDarkTheme
+    const paperBackground =
+      setting.paper_background_color || dt.background_color
+    const defaultBackground = setting.background_color || dt.background_color
     let muiTheme: MuiTheme
 
     try {
@@ -164,8 +175,8 @@ export const useCustomTheme = () => {
             secondary: setting.secondary_text || dt.secondary_text,
           },
           background: {
-            paper: dt.background_color,
-            default: dt.background_color,
+            paper: paperBackground,
+            default: defaultBackground,
           },
         },
         shadows: Array(25).fill('none') as Shadows,
@@ -201,7 +212,9 @@ export const useCustomTheme = () => {
 
     const rootEle = document.documentElement
     if (rootEle) {
-      const backgroundColor = mode === 'light' ? '#ECECEC' : dt.background_color
+      const backgroundColor =
+        setting.background_color ||
+        (mode === 'light' ? '#ECECEC' : dt.background_color)
       const selectColor = mode === 'light' ? '#f5f5f5' : '#3E3E3E'
       const scrollColor = mode === 'light' ? '#90939980' : '#555555'
       const dividerColor =
@@ -297,7 +310,7 @@ export const useCustomTheme = () => {
 
         /* 确保模态框和对话框也使用暗色主题 */
         .MuiDialog-paper {
-          background-color: ${mode === 'light' ? '#ffffff' : '#2E303D'} !important;
+          background-color: ${setting.paper_background_color || (mode === 'light' ? '#ffffff' : '#2E303D')} !important;
         }
 
         /* 移除可能的白色点或线条 */
@@ -311,7 +324,14 @@ export const useCustomTheme = () => {
     }
 
     return muiTheme
-  }, [mode, theme_setting, userBackgroundImage, hasUserBackground])
+  }, [
+    mode,
+    theme_setting,
+    light_theme_setting,
+    dark_theme_setting,
+    userBackgroundImage,
+    hasUserBackground,
+  ])
 
   useEffect(() => {
     const id = setTimeout(() => {

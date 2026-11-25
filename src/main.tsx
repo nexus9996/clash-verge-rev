@@ -1,18 +1,17 @@
 import './assets/styles/index.scss'
 
 import { ResizeObserver } from '@juggle/resize-observer'
-import { RouterProvider } from '@tanstack/react-router'
 import { ComposeContextProvider } from 'foxact/compose-context-provider'
 import React from 'react'
 import { createRoot } from 'react-dom/client'
+import { RouterProvider } from 'react-router'
 import { SWRConfig } from 'swr'
 import { MihomoWebSocket } from 'tauri-plugin-mihomo-api'
 
-import { router } from './app/router'
-import { installRouteTiming } from './app/router-timing'
-import { scheduleWarmup } from './app/warmup'
 import { BaseErrorBoundary } from './components/base'
+import { router } from './pages/_routers'
 import { preloadHomePageCards } from './pages/home'
+import { AppDataProvider } from './providers/app-data-provider'
 import { FALLBACK_LANGUAGE, initializeLanguage } from './services/i18n'
 import {
   preloadAppData,
@@ -37,13 +36,6 @@ if (!container) {
 
 disableWebViewShortcuts()
 
-// Opt-in for packaged navigation-timing builds: pnpm build:nav-timing
-if (import.meta.env.DEV || import.meta.env.VITE_NAV_TIMING === '1') {
-  installRouteTiming(router, {
-    autoStart: import.meta.env.VITE_NAV_TIMING === '1',
-  })
-}
-
 const initializeApp = (initialThemeMode: 'light' | 'dark') => {
   const contexts = [
     <ThemeModeProvider key="theme" initialState={initialThemeMode} />,
@@ -57,7 +49,9 @@ const initializeApp = (initialThemeMode: 'light' | 'dark') => {
       <ComposeContextProvider contexts={contexts}>
         <BaseErrorBoundary>
           <SWRConfig value={swrConfig}>
-            <RouterProvider router={router} />
+            <AppDataProvider>
+              <RouterProvider router={router} />
+            </AppDataProvider>
           </SWRConfig>
         </BaseErrorBoundary>
       </ComposeContextProvider>
@@ -71,7 +65,6 @@ const bootstrap = async () => {
 
   const { initialThemeMode } = await appDataPromise
   initializeApp(initialThemeMode)
-  scheduleWarmup(router)
 }
 
 bootstrap().catch((error) => {

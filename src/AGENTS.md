@@ -21,21 +21,3 @@ These rules supplement the repository's root `AGENTS.md`.
 - **Command ownership.** `services` owns backend command invocation and transport
   wrappers. Components and hooks use those boundaries; plugin mutations follow
   the same intent ownership as backend commands.
-- **Navigation ownership.** `config/navigation.ts` is the single source for
-  navigation ids, paths and labels. Route files point at an entry through
-  `staticData.navId`; components consume the catalog instead of hardcoding
-  paths, and backend-provided paths are resolved through `resolveNavigationPath`.
-- **Layer ownership.** Routes are thin shells over pages; pages compose
-  components; components, hooks, services and config never import pages or
-  routes upward. `eslint.config.ts` (`import-x/no-restricted-paths`) enforces
-  the direction and the `arch:check layers` gate surfaces violations.
-
-- **Domain data ownership.** Ordinary reads live in `hooks/data/*` domain hooks
-  over the shared query client. There is no app-wide data provider/context:
-  components call the domain hook they need and refreshers are cache
-  revalidations against the same keys.
-
-- **Theme ownership.** `config/theme/tokens.ts` is the single source for
-  semantic color/scale tokens and the generated CSS variables. Components
-  consume `theme.palette` or the `--color-*`/`--space-*` variables; raw
-  mode-dependent colors belong in the token file, not in components or hooks.

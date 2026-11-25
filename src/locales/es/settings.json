@@ -324,26 +324,6 @@
       "variants": {
         "release": "Versión estable",
         "alpha": "Versión alfa"
-      },
-      "actions": {
-        "manageVersions": "Gestionar versiones"
-      },
-      "versions": {
-        "title": "Versiones de Mihomo",
-        "description": "Instala una versión específica de Mihomo. Si el nuevo núcleo no arranca, la app restaura automáticamente la versión anterior.",
-        "channel": "Canal: {{channel}}",
-        "loading": "Cargando versiones...",
-        "empty": "No hay versiones disponibles",
-        "latest": "Más reciente",
-        "installed": "Instalada",
-        "installedAction": "Instalada",
-        "install": "Instalar",
-        "upgradeLatest": "Actualizar a la última",
-        "messages": {
-          "installed": "Actualizado a {{version}}",
-          "alreadyInstalled": "Ya estás en {{version}}",
-          "alreadyLatest": "Ya es la última versión"
-        }
       }
     },
     "liteMode": {
@@ -457,15 +437,13 @@
         "autoDelayDetection": "Detección automática de latencia",
         "autoDelayDetectionInterval": "Intervalo de detección automática de latencia",
         "defaultLatencyTest": "Enlace de prueba de latencia predeterminado",
-        "defaultLatencyTimeout": "Tiempo de espera de la prueba de latencia",
-        "updateChannel": "Canal de actualización"
+        "defaultLatencyTimeout": "Tiempo de espera de la prueba de latencia"
       },
       "tooltips": {
         "autoCloseConnections": "Cierra las conexiones establecidas cuando se cambia el nodo seleccionado en el grupo de proxy o el modo de proxy.",
         "enableBuiltinEnhanced": "Procesamiento de compatibilidad de archivos de configuración",
         "autoDelayDetection": "Prueba periódicamente la latencia del nodo actual en segundo plano",
-        "defaultLatencyTest": "Solo se utiliza para pruebas de solicitudes de clientes HTTP y no afectará al archivo de configuración.",
-        "updateChannel": "Alfa sigue compilaciones preliminares y puede ser inestable"
+        "defaultLatencyTest": "Solo se utiliza para pruebas de solicitudes de clientes HTTP y no afectará al archivo de configuración."
       },
       "options": {
         "proxyLayoutColumns": {
@@ -474,10 +452,6 @@
         "autoLogClean": {
           "never": "No limpiar",
           "retainDays": "Retener {{n}} días"
-        },
-        "updateChannel": {
-          "stable": "Estable",
-          "alpha": "Alfa"
         }
       }
     },
@@ -497,12 +471,6 @@
         "important": "Importante",
         "warning": "Advertencia",
         "caution": "Precaución"
-      },
-      "restart": {
-        "title": "Actualización instalada",
-        "body": "Reinicia la aplicación para aplicar la nueva versión.",
-        "restartNow": "Reiniciar ahora",
-        "restartLater": "Más tarde"
       }
     },
     "sysproxy": {

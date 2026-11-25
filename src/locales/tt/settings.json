@@ -324,26 +324,6 @@
       "variants": {
         "release": "Рәсми версия",
         "alpha": "Альфа-версия"
-      },
-      "actions": {
-        "manageVersions": "Версияләрне идарә итү"
-      },
-      "versions": {
-        "title": "Mihomo версияләре",
-        "description": "Билгеләнгән Mihomo версиясен урнаштырырга мөмкин. Яңа төш урнаштырылмаса, кушымта автоматик рәвештә алдагы версияны кайтара.",
-        "channel": "Канал: {{channel}}",
-        "loading": "Версияләр йөкләнә...",
-        "empty": "Урнаштыру өчен версия юк",
-        "latest": "Иң соңгы",
-        "installed": "Урнаштырылган",
-        "installedAction": "Урнаштырылган",
-        "install": "Урнаштыру",
-        "upgradeLatest": "Иң соңгыга яңарту",
-        "messages": {
-          "installed": "{{version}} версиясенә яңартылды",
-          "alreadyInstalled": "Хәзер {{version}}",
-          "alreadyLatest": "Хәзер иң соңгы версия"
-        }
       }
     },
     "liteMode": {
@@ -457,15 +437,13 @@
         "autoDelayDetection": "Автоматик тоткарлык ачыклау",
         "autoDelayDetectionInterval": "Автоматик тоткарлык ачыклау интервалы",
         "defaultLatencyTest": "Тоткарлануны тикшерү сылтамасы (defaults)",
-        "defaultLatencyTimeout": "Тоткарлануның стандарт таймауты",
-        "updateChannel": "Яңарту каналы"
+        "defaultLatencyTimeout": "Тоткарлануның стандарт таймауты"
       },
       "tooltips": {
         "autoCloseConnections": "Прокси төркеме яисә режимын үзгәрткәндә актив тоташуларны өзү",
         "enableBuiltinEnhanced": "Конфигурация файлы белән туры килә торган өстәмә оптимизация",
         "autoDelayDetection": "Фон режимында хәзерге төен тоткарлыгын периодик тикшерә",
-        "defaultLatencyTest": "Бу фәкать клиентның HTTP сораулары тесты өчен кулланыла, конфигурация файлына йогынты ясамый",
-        "updateChannel": "Альфа алдан карау җыюларыннан бара, тотрыксыз булырга мөмкин"
+        "defaultLatencyTest": "Бу фәкать клиентның HTTP сораулары тесты өчен кулланыла, конфигурация файлына йогынты ясамый"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -474,10 +452,6 @@
         "autoLogClean": {
           "never": "Беркайчан чистартмаска",
           "retainDays": "{{n}} көн саклау"
-        },
-        "updateChannel": {
-          "stable": "Тотрыклы",
-          "alpha": "Альфа"
         }
       }
     },
@@ -497,12 +471,6 @@
         "important": "Мөһим",
         "warning": "Кисәтү",
         "caution": "Игътибар"
-      },
-      "restart": {
-        "title": "Яңарту урнаштырылды",
-        "body": "Яңа версияне куллану өчен кушымтаны яңадан эшләтегез.",
-        "restartNow": "Хәзер яңадан эшләтү",
-        "restartLater": "Соңрак"
       }
     },
     "sysproxy": {

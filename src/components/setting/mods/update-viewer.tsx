@@ -1,4 +1,4 @@
-import { alpha, Box, Button, LinearProgress, Typography } from '@mui/material'
+import { alpha, Box, Button, LinearProgress } from '@mui/material'
 import { useLockFn } from 'ahooks'
 import type { Ref } from 'react'
 import {
@@ -37,23 +37,23 @@ type MarkdownNode = {
 const GITHUB_ALERTS = {
   note: {
     labelKey: 'settings.modals.update.alerts.note',
-    palette: 'info',
+    color: '#0969da',
   },
   tip: {
     labelKey: 'settings.modals.update.alerts.tip',
-    palette: 'success',
+    color: '#1a7f37',
   },
   important: {
     labelKey: 'settings.modals.update.alerts.important',
-    palette: 'secondary',
+    color: '#8250df',
   },
   warning: {
     labelKey: 'settings.modals.update.alerts.warning',
-    palette: 'warning',
+    color: '#9a6700',
   },
   caution: {
     labelKey: 'settings.modals.update.alerts.caution',
-    palette: 'error',
+    color: '#cf222e',
   },
 } as const
 
@@ -187,7 +187,6 @@ export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
 
   const [downloaded, setDownloaded] = useState(0)
   const [total, setTotal] = useState(0)
-  const [restartPrompt, setRestartPrompt] = useState(false)
   const downloadedRef = useRef(0)
   const totalRef = useRef(0)
 
@@ -284,7 +283,10 @@ export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
         },
       )
       if (result.ok && result.value) {
-        setRestartPrompt(true)
+        await mutate(() => restartApp(), {
+          id: 'restart-app',
+          errorNotice: false,
+        })
       }
     } catch (err: any) {
       showNotice.error(err)
@@ -296,18 +298,6 @@ export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
       totalRef.current = 0
     }
   })
-
-  const onRestart = useLockFn(async () => {
-    await mutate(() => restartApp(), {
-      id: 'restart-app',
-      errorNotice: false,
-    })
-  })
-
-  const onRestartLater = () => {
-    setRestartPrompt(false)
-    setOpen(false)
-  }
 
   return (
     <BaseDialog
@@ -538,8 +528,7 @@ export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
                       component="blockquote"
                       className={className}
                       sx={(theme) => {
-                        const color =
-                          theme.palette[GITHUB_ALERTS[alertType].palette].main
+                        const color = GITHUB_ALERTS[alertType].color
                         return {
                           m: '12px 0 18px',
                           px: 2,
@@ -581,21 +570,6 @@ export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
           sx={{ mt: 1 }}
         />
       )}
-
-      <BaseDialog
-        open={restartPrompt}
-        title={t('settings.modals.update.restart.title')}
-        okBtn={t('settings.modals.update.restart.restartNow')}
-        cancelBtn={t('settings.modals.update.restart.restartLater')}
-        contentSx={{ width: 380 }}
-        onOk={onRestart}
-        onCancel={onRestartLater}
-        onClose={onRestartLater}
-      >
-        <Typography variant="body2">
-          {t('settings.modals.update.restart.body')}
-        </Typography>
-      </BaseDialog>
     </BaseDialog>
   )
 }

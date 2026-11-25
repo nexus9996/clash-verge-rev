@@ -8,11 +8,7 @@
         "update": "Actualizar"
       }
     },
-    "title": "Reglas",
-    "rule": {
-      "toggle": "Activar o desactivar esta regla",
-      "hits": "Aciertos: {{count}}"
-    }
+    "title": "Reglas"
   },
   "feedback": {
     "notifications": {

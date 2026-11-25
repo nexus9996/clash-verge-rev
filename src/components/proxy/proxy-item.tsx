@@ -21,16 +21,12 @@ import {
   type ResolvedProxyMember,
 } from '@/types/proxy-view'
 
-import { ProxyGroupJump } from './proxy-group-jump'
-
 interface Props {
   group: ProxyGroupView
   member: ResolvedProxyMember
   selected: boolean
   showType?: boolean
   sx?: SxProps<Theme>
-  groupNames?: readonly string[]
-  onGroupLocation?: (groupName: string) => void
   onClick?: (member: ResolvedProxyMember) => void
 }
 
@@ -42,7 +38,7 @@ const Widget = styled(Box)(() => ({
 
 const TypeBox = styled('span')(({ theme }) => ({
   display: 'inline-block',
-  border: '1px solid',
+  border: '1px solid #ccc',
   borderColor: alpha(theme.palette.text.secondary, 0.36),
   color: alpha(theme.palette.text.secondary, 0.42),
   borderRadius: 4,
@@ -54,16 +50,7 @@ const TypeBox = styled('span')(({ theme }) => ({
 
 export const ProxyItem = (props: Props) => {
   const { t } = useTranslation()
-  const {
-    group,
-    member,
-    selected,
-    showType = true,
-    sx,
-    groupNames,
-    onGroupLocation,
-    onClick,
-  } = props
+  const { group, member, selected, showType = true, sx, onClick } = props
   const details = memberDetails(member)
   const unresolved = member.kind === 'unresolved'
   const name = member.ref.name
@@ -86,7 +73,7 @@ export const ProxyItem = (props: Props) => {
         sx={[
           { borderRadius: 1 },
           ({ palette: { mode, primary } }) => {
-            const bgcolor = 'var(--surface-raised)'
+            const bgcolor = mode === 'light' ? '#ffffff' : '#24252f'
             const selectColor = mode === 'light' ? primary.main : primary.light
             const showDelay = delayValue > 0
 
@@ -114,10 +101,6 @@ export const ProxyItem = (props: Props) => {
           title={name}
           secondary={
             <>
-              <ProxyGroupJump
-                groups={groupNames ?? []}
-                onGroupLocation={onGroupLocation}
-              />
               <Box
                 sx={{
                   display: 'inline-block',
