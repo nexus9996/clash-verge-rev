@@ -13,13 +13,16 @@
 <details>
 <summary><strong> ✨ 新增功能 </strong></summary>
 
-- 规则页支持启用/禁用规则并显示命中次数（重启内核后规则恢复启用）
 
 </details>
 
 <details>
 <summary><strong> 🚀 优化改进 </strong></summary>
 
+
+**🖥️ Windows**
+
+- 更新下载完成改为提示用户重启应用以应用新版本，不再自动重启（Windows 安装器仍会自动退出并重启）
 
 </details>
 

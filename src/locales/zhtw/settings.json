@@ -453,6 +453,12 @@
         "important": "重要",
         "warning": "警告",
         "caution": "注意"
+      },
+      "restart": {
+        "title": "更新已安裝",
+        "body": "重新啟動應用程式以套用新版本。",
+        "restartNow": "立即重新啟動",
+        "restartLater": "稍後"
       }
     },
     "sysproxy": {

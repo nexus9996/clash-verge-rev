@@ -685,10 +685,6 @@ export interface TranslationResources {
           dialogTitle: string
           trigger: string
         }
-        rule: {
-          hits: string
-          toggle: string
-        }
         title: string
       }
     }
@@ -1224,6 +1220,12 @@ export interface TranslationResources {
           messages: {
             available: string
             breakChangeError: string
+          }
+          restart: {
+            body: string
+            restartLater: string
+            restartNow: string
+            title: string
           }
           title: string
         }

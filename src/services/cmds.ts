@@ -12,7 +12,6 @@ import type {
   ProxyPortSettings,
   UnlockItem,
   ProxyViewV1_Serialize as ProxyViewV1,
-  RuleDisableRequest,
   ProfileSelection,
   ProfilePatch,
   ProfileCreate,
@@ -28,7 +27,6 @@ export type {
   ProxyPortSettings,
   ListenerTransport,
   ListenerProbe,
-  RuleExtraInfo,
   UnlockItem,
 } from './bindings'
 
@@ -341,14 +339,6 @@ export async function syncRuntimeProviders() {
 
 export async function cmdTestDelay(url: string) {
   return commands.testDelay(url)
-}
-
-export async function getRulesExtra() {
-  return commands.getRulesExtra()
-}
-
-export async function updateRulesDisable(requests: RuleDisableRequest[]) {
-  return commands.updateRulesDisable(requests)
 }
 
 export async function invoke_uwp_tool() {

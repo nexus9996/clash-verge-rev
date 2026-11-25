@@ -8,11 +8,7 @@
         "update": "更新"
       }
     },
-    "title": "ルール",
-    "rule": {
-      "toggle": "このルールを有効/無効にする",
-      "hits": "ヒット: {{count}}"
-    }
+    "title": "ルール"
   },
   "feedback": {
     "notifications": {

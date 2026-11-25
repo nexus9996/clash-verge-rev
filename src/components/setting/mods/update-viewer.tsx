@@ -1,4 +1,4 @@
-import { alpha, Box, Button, LinearProgress } from '@mui/material'
+import { alpha, Box, Button, LinearProgress, Typography } from '@mui/material'
 import { useLockFn } from 'ahooks'
 import type { Ref } from 'react'
 import {
@@ -187,6 +187,7 @@ export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
 
   const [downloaded, setDownloaded] = useState(0)
   const [total, setTotal] = useState(0)
+  const [restartPrompt, setRestartPrompt] = useState(false)
   const downloadedRef = useRef(0)
   const totalRef = useRef(0)
 
@@ -283,10 +284,7 @@ export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
         },
       )
       if (result.ok && result.value) {
-        await mutate(() => restartApp(), {
-          id: 'restart-app',
-          errorNotice: false,
-        })
+        setRestartPrompt(true)
       }
     } catch (err: any) {
       showNotice.error(err)
@@ -298,6 +296,18 @@ export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
       totalRef.current = 0
     }
   })
+
+  const onRestart = useLockFn(async () => {
+    await mutate(() => restartApp(), {
+      id: 'restart-app',
+      errorNotice: false,
+    })
+  })
+
+  const onRestartLater = () => {
+    setRestartPrompt(false)
+    setOpen(false)
+  }
 
   return (
     <BaseDialog
@@ -570,6 +580,21 @@ export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
           sx={{ mt: 1 }}
         />
       )}
+
+      <BaseDialog
+        open={restartPrompt}
+        title={t('settings.modals.update.restart.title')}
+        okBtn={t('settings.modals.update.restart.restartNow')}
+        cancelBtn={t('settings.modals.update.restart.restartLater')}
+        contentSx={{ width: 380 }}
+        onOk={onRestart}
+        onCancel={onRestartLater}
+        onClose={onRestartLater}
+      >
+        <Typography variant="body2">
+          {t('settings.modals.update.restart.body')}
+        </Typography>
+      </BaseDialog>
     </BaseDialog>
   )
 }

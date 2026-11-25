@@ -8,11 +8,7 @@
         "update": "更新"
       }
     },
-    "title": "規則",
-    "rule": {
-      "toggle": "啟用或停用此規則",
-      "hits": "命中：{{count}}"
-    }
+    "title": "規則"
   },
   "feedback": {
     "notifications": {

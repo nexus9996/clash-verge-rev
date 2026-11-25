@@ -453,6 +453,12 @@
         "important": "Önemli",
         "warning": "Uyarı",
         "caution": "Dikkat"
+      },
+      "restart": {
+        "title": "Güncelleme yüklendi",
+        "body": "Yeni sürümü uygulamak için uygulamayı yeniden başlatın.",
+        "restartNow": "Şimdi Yeniden Başlat",
+        "restartLater": "Daha sonra"
       }
     },
     "sysproxy": {
