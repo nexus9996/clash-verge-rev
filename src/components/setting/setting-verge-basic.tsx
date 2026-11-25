@@ -72,7 +72,7 @@ const SettingVergeBasic = ({ onError }: Props) => {
   const backupRef = useRef<DialogRef>(null)
 
   const onChangeData = (patch: any) => {
-    mutateVerge({ ...verge, ...patch }, false)
+    mutateVerge((prev) => ({ ...prev, ...patch }))
   }
 
   const onCopyClashEnv = useCallback(async () => {
@@ -100,11 +100,14 @@ const SettingVergeBasic = ({ onError }: Props) => {
       <UpdateViewer ref={updateRef} />
       <BackupViewer ref={backupRef} />
 
-      <SettingItem label={t('settings.components.verge.basic.fields.language')}>
+      <SettingItem
+        data-setting-target="settings.components.verge.basic.fields.language"
+        label={t('settings.components.verge.basic.fields.language')}
+      >
         <GuardState
           value={language ?? 'en'}
           onCatch={onError}
-          onFormat={(e: any) => e.target.value}
+          onFormat={(e) => e.target.value}
           onChange={(e) => onChangeData({ language: e })}
           onGuard={(e) => patchVerge({ language: e })}
         >
@@ -119,6 +122,7 @@ const SettingVergeBasic = ({ onError }: Props) => {
       </SettingItem>
 
       <SettingItem
+        data-setting-target="settings.components.verge.basic.fields.themeMode"
         label={t('settings.components.verge.basic.fields.themeMode')}
       >
         <GuardState
@@ -133,12 +137,13 @@ const SettingVergeBasic = ({ onError }: Props) => {
 
       {OS !== 'linux' && (
         <SettingItem
+          data-setting-target="settings.components.verge.basic.fields.trayClickEvent"
           label={t('settings.components.verge.basic.fields.trayClickEvent')}
         >
           <GuardState
             value={tray_event ?? 'main_window'}
             onCatch={onError}
-            onFormat={(e: any) => e.target.value}
+            onFormat={(e) => e.target.value}
             onChange={(e) => onChangeData({ tray_event: e })}
             onGuard={(e) => patchVerge({ tray_event: e })}
           >
@@ -166,6 +171,7 @@ const SettingVergeBasic = ({ onError }: Props) => {
       )}
 
       <SettingItem
+        data-setting-target="settings.components.verge.basic.fields.copyEnvType"
         label={t('settings.components.verge.basic.fields.copyEnvType')}
         extra={
           <TooltipIcon icon={ContentCopyRounded} onClick={onCopyClashEnv} />
@@ -174,7 +180,7 @@ const SettingVergeBasic = ({ onError }: Props) => {
         <GuardState
           value={env_type ?? (OS === 'windows' ? 'powershell' : 'bash')}
           onCatch={onError}
-          onFormat={(e: any) => e.target.value}
+          onFormat={(e) => e.target.value}
           onChange={(e) => onChangeData({ env_type: e })}
           onGuard={(e) => patchVerge({ env_type: e })}
         >
@@ -189,12 +195,13 @@ const SettingVergeBasic = ({ onError }: Props) => {
       </SettingItem>
 
       <SettingItem
+        data-setting-target="settings.components.verge.basic.fields.startPage"
         label={t('settings.components.verge.basic.fields.startPage')}
       >
         <GuardState
           value={start_page ?? '/'}
           onCatch={onError}
-          onFormat={(e: any) => e.target.value}
+          onFormat={(e) => e.target.value}
           onChange={(e) => onChangeData({ start_page: e })}
           onGuard={(e) => patchVerge({ start_page: e })}
         >
@@ -211,12 +218,13 @@ const SettingVergeBasic = ({ onError }: Props) => {
       </SettingItem>
 
       <SettingItem
+        data-setting-target="settings.components.verge.basic.fields.startupScript"
         label={t('settings.components.verge.basic.fields.startupScript')}
       >
         <GuardState
           value={startup_script ?? ''}
           onCatch={onError}
-          onFormat={(e: any) => e.target.value}
+          onFormat={(e) => e.target.value}
           onChange={(e) => onChangeData({ startup_script: e })}
           onGuard={(e) => patchVerge({ startup_script: e })}
         >
@@ -228,6 +236,7 @@ const SettingVergeBasic = ({ onError }: Props) => {
             endAdornment={
               <>
                 <Button
+                  data-setting-target="settings.components.verge.basic.actions.browse"
                   onClick={async () => {
                     const selected = await open({
                       directory: false,
@@ -264,21 +273,25 @@ const SettingVergeBasic = ({ onError }: Props) => {
       </SettingItem>
 
       <SettingItem
+        data-setting-target="settings.components.verge.basic.fields.themeSetting"
         onClick={() => themeRef.current?.open()}
         label={t('settings.components.verge.basic.fields.themeSetting')}
       />
 
       <SettingItem
+        data-setting-target="settings.components.verge.basic.fields.layoutSetting"
         onClick={() => layoutRef.current?.open()}
         label={t('settings.components.verge.basic.fields.layoutSetting')}
       />
 
       <SettingItem
+        data-setting-target="settings.components.verge.basic.fields.misc"
         onClick={() => miscRef.current?.open()}
         label={t('settings.components.verge.basic.fields.misc')}
       />
 
       <SettingItem
+        data-setting-target="settings.components.verge.basic.fields.hotkeySetting"
         onClick={() => hotkeyRef.current?.open()}
         label={t('settings.components.verge.basic.fields.hotkeySetting')}
       />
