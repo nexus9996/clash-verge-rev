@@ -13,8 +13,8 @@ use crate::{
     },
 };
 use clash_verge_logging::{Type, logging, logging_error};
+use smartstring::alias::String;
 use tokio::fs;
-use tristr::alias::String;
 
 #[tauri::command]
 #[specta::specta]
@@ -26,20 +26,6 @@ pub async fn copy_clash_env() -> CmdResult {
 #[specta::specta]
 pub async fn get_clash_info() -> CmdResult<ClashInfo> {
     Ok(Config::clash().await.data_arc().get_client_info())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn get_external_controller() -> CmdResult<feat::ExternalControllerSettings> {
-    Ok(feat::get_external_controller().await)
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn save_external_controller(settings: feat::ExternalControllerSettings) -> CmdResult {
-    feat::save_external_controller(settings)
-        .await
-        .map_err(|error| proxy_aware_coded_error(&error, "EXTERNAL_CONTROLLER_SAVE_FAILED"))
 }
 
 #[tauri::command]
@@ -145,45 +131,18 @@ pub async fn install_core_version(version: std::string::String) -> CmdResult<fea
     Ok(report)
 }
 
-#[derive(Debug, Clone, serde::Serialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct HttpTextResponse {
-    pub status: u16,
-    pub body: std::string::String,
-}
-
-/// Reads a text response through the app's shared network stack. The frontend uses this for
-/// IP/geolocation probes so proxy, TLS, timeout and User-Agent policy stay identical to the
-/// backend instead of depending on a second HTTP client bundled by a plugin.
-#[tauri::command]
-#[specta::specta]
-pub async fn http_get_text(
-    url: std::string::String,
-    timeout_secs: Option<u64>,
-    user_agent: Option<std::string::String>,
-) -> CmdResult<HttpTextResponse> {
-    let url: String = url.into();
-    let response = crate::utils::network::NetworkManager::new()
-        .get(
-            url.as_str(),
-            crate::utils::network::ProxyType::Localhost,
-            timeout_secs,
-            user_agent.map(Into::into),
-            false,
-        )
-        .await
-        .stringify_err()?;
-    Ok(HttpTextResponse {
-        status: response.status().as_u16(),
-        body: response.text().to_owned(),
-    })
-}
-
 #[tauri::command]
 #[specta::specta]
 pub async fn test_delay(url: std::string::String) -> CmdResult<u32> {
     let url: String = url.into();
-    feat::test_delay(url).await.with_error_code("LATENCY_TEST_FAILED")
+    let result = match feat::test_delay(url).await {
+        Ok(delay) => delay,
+        Err(e) => {
+            logging!(error, Type::Cmd, "get clash delay failed: {e:#}");
+            10000u32
+        }
+    };
+    Ok(result)
 }
 
 #[derive(Debug, Clone, serde::Serialize, specta::Type)]
@@ -356,6 +315,7 @@ pub async fn apply_dns_config(apply: bool) -> CmdResult {
         logging!(info, Type::Config, "Config regenerated successfully");
     }
 
+    logging_error!(Type::Config, Config::sync_dns_override().await);
     handle::Handle::refresh_clash();
     Ok(())
 }
@@ -395,5 +355,6 @@ pub async fn validate_dns_config() -> CmdResult<ValidationOutcome> {
 #[tauri::command]
 #[specta::specta]
 pub async fn get_clash_logs() -> CmdResult<Vec<std::string::String>> {
-    CoreManager::global().get_clash_logs().await.stringify_err()
+    let logs = CoreManager::global().get_clash_logs().await.unwrap_or_default();
+    Ok(logs)
 }

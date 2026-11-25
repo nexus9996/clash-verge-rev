@@ -3,18 +3,13 @@ import { act, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const { navigate, revalidate } = vi.hoisted(() => ({
-  navigate: vi.fn(),
-  revalidate: vi.fn(),
-}))
+const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }))
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }))
-vi.mock('react-router', () => ({
-  useNavigate: () => navigate,
-  useRevalidator: () => ({ revalidate }),
-  useRouteError: () => new Error('boom'),
+vi.mock('@tanstack/react-router', () => ({
+  useRouter: () => ({ navigate }),
 }))
 
 import { RouteError, RouteNotFound } from './route-fallbacks'
@@ -49,7 +44,6 @@ const findButton = (container: HTMLElement, text: string) =>
 afterEach(() => {
   document.body.innerHTML = ''
   navigate.mockReset()
-  revalidate.mockReset()
 })
 
 describe('route fallbacks', () => {
@@ -63,17 +57,20 @@ describe('route fallbacks', () => {
     )
     expect(homeButton).toBeTruthy()
     homeButton?.click()
-    expect(navigate).toHaveBeenCalledWith('/')
+    expect(navigate).toHaveBeenCalledWith({ to: '/' })
 
     await unmount()
   })
 
   it('renders the error view, shows the message and retries', async () => {
-    const { container, unmount } = await render(<RouteError />)
+    const reset = vi.fn()
+    const { container, unmount } = await render(
+      <RouteError error={new Error('boom')} reset={reset} />,
+    )
 
     expect(container.textContent).toContain('boom')
     findButton(container, 'shared.actions.retry')?.click()
-    expect(revalidate).toHaveBeenCalledOnce()
+    expect(reset).toHaveBeenCalledOnce()
 
     await unmount()
   })

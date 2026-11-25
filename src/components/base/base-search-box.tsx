@@ -15,13 +15,14 @@ import { useTranslation } from 'react-i18next'
 import matchCaseIcon from '@/assets/image/component/match_case.svg?react'
 import matchWholeWordIcon from '@/assets/image/component/match_whole_word.svg?react'
 import UseRegularExpressionIcon from '@/assets/image/component/use_regular_expression.svg?react'
-import {
-  buildRegex,
-  compileStringMatcher,
-  type SearchState,
-} from '@/utils/search-matcher'
+import { buildRegex, compileStringMatcher } from '@/utils/search-matcher'
 
-export type { SearchState }
+export type SearchState = {
+  text: string
+  matchCase: boolean
+  matchWholeWord: boolean
+  useRegularExpression: boolean
+}
 
 type SearchOptionState = Omit<SearchState, 'text'>
 
@@ -41,28 +42,16 @@ type SearchProps = {
 
 const StyledTextField = styled(TextField)(({ theme }) => ({
   '& .MuiInputBase-root': {
-    background:
-      theme.palette.mode === 'light'
-        ? theme.palette.background.paper
-        : undefined,
+    background: theme.palette.mode === 'light' ? '#fff' : undefined,
     paddingRight: '4px',
   },
   "& .MuiInputBase-root svg[aria-label='active'] path": {
     fill: theme.palette.primary.light,
   },
   "& .MuiInputBase-root svg[aria-label='inactive'] path": {
-    fill: theme.palette.text.disabled,
+    fill: '#A7A7A7',
   },
 }))
-
-const iconStyle = {
-  style: {
-    height: '24px',
-    width: '24px',
-    cursor: 'pointer',
-  } as React.CSSProperties,
-  inheritViewBox: true,
-}
 
 const useControllableState = <T,>(options: {
   controlled: T | undefined
@@ -129,6 +118,15 @@ export const BaseSearchBox = ({
       controlled: searchState?.useRegularExpression,
       defaultValue: defaultUseRegularExpression,
     })
+
+  const iconStyle = {
+    style: {
+      height: '24px',
+      width: '24px',
+      cursor: 'pointer',
+    } as React.CSSProperties,
+    inheritViewBox: true,
+  }
 
   useEffect(() => {
     onSearchRef.current = onSearch

@@ -9,7 +9,7 @@ import VisibilityOffRounded from '@mui/icons-material/VisibilityOffRounded'
 import VisibilityRounded from '@mui/icons-material/VisibilityRounded'
 import WifiTetheringOffRounded from '@mui/icons-material/WifiTetheringOffRounded'
 import WifiTetheringRounded from '@mui/icons-material/WifiTetheringRounded'
-import { Box, IconButton, type SxProps, TextField } from '@mui/material'
+import { Box, IconButton, type SxProps } from '@mui/material'
 import { useDebounceFn } from 'ahooks'
 import { memo, useEffect, useRef } from 'react'
 import { flushSync } from 'react-dom'
@@ -18,11 +18,11 @@ import { useTranslation } from 'react-i18next'
 import { useVerge } from '@/hooks/use-verge'
 import delayManager from '@/services/delay'
 import { showNotice } from '@/services/notice-service'
-import { DEFAULT_LATENCY_TEST_URL } from '@/utils/delay'
-import { isValidUrl } from '@/utils/network'
+import { isValidLatencyTestUrl } from '@/utils/network'
 
 import { BaseSearchBox, type SearchState } from '../base'
 
+import { ProxyTestUrlInput } from './proxy-test-url-input'
 import type { ProxySortType } from './use-filter-sort'
 import type { HeadState } from './use-head-state'
 
@@ -32,9 +32,9 @@ interface Props {
   url?: string
   groupName: string
   headState: HeadState
-  onLocation: (groupName: string) => void
-  onCheckDelay: (groupName: string) => void
-  onHeadState: (groupName: string, val: Partial<HeadState>) => void
+  onLocation: () => void
+  onCheckDelay: () => void
+  onHeadState: (val: Partial<HeadState>) => void
 }
 
 export const ProxyGroupTools = memo(function ProxyGroupTools(props: Props) {
@@ -64,19 +64,23 @@ export const ProxyGroupTools = memo(function ProxyGroupTools(props: Props) {
 
   const { verge } = useVerge()
   const defaultLatencyUrl =
-    verge?.default_latency_test?.trim() || DEFAULT_LATENCY_TEST_URL
+    verge?.default_latency_test?.trim() ||
+    'http://cp.cloudflare.com/generate_204'
 
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    delayManager.setUrl(groupName, testUrl?.trim() || url || defaultLatencyUrl)
+    delayManager.setUrl(
+      groupName,
+      testUrl?.trim() || url?.trim() || defaultLatencyUrl,
+    )
   }, [groupName, testUrl, defaultLatencyUrl, url])
 
   // 过滤输入是高频操作，且每次都会触发整组代理的重新过滤/排序与虚拟列表重渲染，
   // 因此对写入 headState 的动作做防抖，避免每输入一个字符就过滤一次。
   const { run: applyFilter, flush: flushFilter } = useDebounceFn(
     (state: SearchState) => {
-      onHeadState(groupName, {
+      onHeadState({
         filterText: state.text,
         filterMatchCase: state.matchCase,
         filterMatchWholeWord: state.matchWholeWord,
@@ -112,7 +116,8 @@ export const ProxyGroupTools = memo(function ProxyGroupTools(props: Props) {
       )}
 
       {textState === 'url' && (
-        <TextField
+        <ProxyTestUrlInput
+          name={groupName}
           inputRef={inputRef}
           autoComplete="new-password"
           hiddenLabel
@@ -125,7 +130,7 @@ export const ProxyGroupTools = memo(function ProxyGroupTools(props: Props) {
             e.preventDefault()
             e.stopPropagation()
           }}
-          onChange={(e) => onHeadState(groupName, { testUrl: e.target.value })}
+          onCommit={(testUrl) => onHeadState({ testUrl })}
           sx={{ flex: '1 1 auto', input: { py: 0.65, px: 1 } }}
         />
       )}
@@ -154,8 +159,9 @@ export const ProxyGroupTools = memo(function ProxyGroupTools(props: Props) {
           e.preventDefault()
           e.stopPropagation()
           if (!headState.open)
-            flushSync(() => onHeadState(groupName, { open: true }))
-          onLocation(groupName)
+            // eslint-disable-next-line @eslint-react/dom-no-flush-sync
+            flushSync(() => onHeadState({ open: true }))
+          onLocation()
         }}
       >
         <MyLocationRounded fontSize="inherit" />
@@ -169,16 +175,17 @@ export const ProxyGroupTools = memo(function ProxyGroupTools(props: Props) {
           e.preventDefault()
           e.stopPropagation()
           if (!headState.open)
-            flushSync(() => onHeadState(groupName, { open: true }))
+            // eslint-disable-next-line @eslint-react/dom-no-flush-sync
+            flushSync(() => onHeadState({ open: true }))
           // Remind the user that it is custom test url
           if (testUrl?.trim() && textState !== 'filter') {
-            onHeadState(groupName, { textState: 'url' })
+            onHeadState({ textState: 'url' })
           }
-          if (testUrl?.trim() && !isValidUrl(testUrl)) {
+          if (testUrl?.trim() && !isValidLatencyTestUrl(testUrl)) {
             showNotice.warning('proxies.feedback.warnings.invalidTestUrl')
             return
           }
-          onCheckDelay(groupName)
+          onCheckDelay()
         }}
       >
         <NetworkCheckRounded fontSize="inherit" />
@@ -198,8 +205,9 @@ export const ProxyGroupTools = memo(function ProxyGroupTools(props: Props) {
           e.preventDefault()
           e.stopPropagation()
           if (!headState.open)
-            flushSync(() => onHeadState(groupName, { open: true }))
-          onHeadState(groupName, {
+            // eslint-disable-next-line @eslint-react/dom-no-flush-sync
+            flushSync(() => onHeadState({ open: true }))
+          onHeadState({
             sortType: ((sortType + 1) % 3) as ProxySortType,
           })
         }}
@@ -216,16 +224,16 @@ export const ProxyGroupTools = memo(function ProxyGroupTools(props: Props) {
         onClick={(e) => {
           e.preventDefault()
           e.stopPropagation()
-          onHeadState(groupName, {
+          onHeadState({
             textState: textState === 'url' ? null : 'url',
           })
           setTimeout(() => inputRef.current?.focus())
         }}
       >
         {textState === 'url' ? (
-          <WifiTetheringOffRounded fontSize="inherit" />
-        ) : (
           <WifiTetheringRounded fontSize="inherit" />
+        ) : (
+          <WifiTetheringOffRounded fontSize="inherit" />
         )}
       </IconButton>
 
@@ -241,8 +249,9 @@ export const ProxyGroupTools = memo(function ProxyGroupTools(props: Props) {
           e.preventDefault()
           e.stopPropagation()
           if (!headState.open)
-            flushSync(() => onHeadState(groupName, { open: true }))
-          onHeadState(groupName, { showType: !showType })
+            // eslint-disable-next-line @eslint-react/dom-no-flush-sync
+            flushSync(() => onHeadState({ open: true }))
+          onHeadState({ showType: !showType })
         }}
       >
         {showType ? (
@@ -260,10 +269,9 @@ export const ProxyGroupTools = memo(function ProxyGroupTools(props: Props) {
           e.preventDefault()
           e.stopPropagation()
           if (!headState.open && textState !== 'filter')
-            flushSync(() => onHeadState(groupName, { open: true }))
-          onHeadState(groupName, {
-            textState: textState === 'filter' ? null : 'filter',
-          })
+            // eslint-disable-next-line @eslint-react/dom-no-flush-sync
+            flushSync(() => onHeadState({ open: true }))
+          onHeadState({ textState: textState === 'filter' ? null : 'filter' })
           setTimeout(() => inputRef.current?.focus())
         }}
       >

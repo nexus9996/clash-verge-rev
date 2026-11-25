@@ -16,11 +16,22 @@ import {
 import { useLockFn } from 'ahooks'
 import * as yaml from 'js-yaml'
 import type { Ref } from 'react'
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useReducer,
+  useRef,
+  useState,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { BaseDialog, type DialogRef, Switch } from '@/components/base'
-import { MonacoEditor } from '@/components/base/monaco-editor'
+import {
+  BaseDialog,
+  type DialogRef,
+  MonacoEditor,
+  Switch,
+} from '@/components/base'
 import { useClash } from '@/hooks/use-clash'
 import { useProfiles } from '@/hooks/use-profiles'
 import { useVerge } from '@/hooks/use-verge'
@@ -36,19 +47,6 @@ import { useThemeMode } from '@/services/states'
 import type { MonacoEditorInstance } from '@/types/monaco'
 import { MONACO_FONT_FAMILY } from '@/utils/font-family'
 
-import { useSettingDialog } from '../settings-search-context'
-
-import {
-  buildDnsConfig,
-  buildDnsYaml,
-  DEFAULT_DNS_CONFIG,
-  DEFAULT_FORM_VALUES,
-  type DnsFormValues,
-  formatHosts,
-  formatNameserverPolicy,
-  parseHosts,
-} from './dns-config'
-
 const Item = styled(ListItem)(() => ({
   padding: '5px 2px',
   '& textarea': {
@@ -58,24 +56,139 @@ const Item = styled(ListItem)(() => ({
   },
 }))
 
-// Static editor settings; a per-render object would re-trigger Monaco's
-// updateOptions and listener resubscription on every keystroke. The minimap
-// depends on the live window width and is applied at editor mount instead.
-const MONACO_OPTIONS = {
-  tabSize: 2,
-  mouseWheelZoom: true,
-  quickSuggestions: {
-    strings: true,
-    comments: true,
-    other: true,
+type NameserverPolicy = Record<string, any>
+
+function parseNameserverPolicy(str: string): NameserverPolicy {
+  const result: NameserverPolicy = {}
+  if (!str) return result
+
+  const ruleRegex = /\s*([^=]+?)\s*=\s*([^,]+)(?:,|$)/g
+  const matches = [...str.matchAll(ruleRegex)]
+
+  matches.forEach((match) => {
+    const [, domainsPart, serversPart] = match
+
+    const domains = [domainsPart.trim()]
+    const servers = serversPart.split(';').map((s) => s.trim())
+
+    domains.forEach((domain) => {
+      result[domain] = servers
+    })
+  })
+
+  return result
+}
+
+function formatNameserverPolicy(policy: unknown): string {
+  if (!policy || typeof policy !== 'object') return ''
+
+  return Object.entries(policy as Record<string, unknown>)
+    .map(([domain, servers]) => {
+      const serversStr = Array.isArray(servers) ? servers.join(';') : servers
+      return `${domain}=${serversStr}`
+    })
+    .join(', ')
+}
+
+function formatHosts(hosts: unknown): string {
+  if (!hosts || typeof hosts !== 'object') return ''
+
+  const result: string[] = []
+
+  Object.entries(hosts as Record<string, unknown>).forEach(
+    ([domain, value]) => {
+      if (Array.isArray(value)) {
+        const ipsStr = value.join(';')
+        result.push(`${domain}=${ipsStr}`)
+      } else {
+        result.push(`${domain}=${value}`)
+      }
+    },
+  )
+
+  return result.join(', ')
+}
+
+function parseHosts(str: string): NameserverPolicy {
+  const result: NameserverPolicy = {}
+  if (!str) return result
+
+  str.split(',').forEach((item) => {
+    const parts = item.trim().split('=')
+    if (parts.length < 2) return
+
+    const domain = parts[0].trim()
+    const valueStr = parts.slice(1).join('=').trim()
+
+    if (valueStr.includes(';')) {
+      result[domain] = valueStr
+        .split(';')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    } else {
+      result[domain] = valueStr
+    }
+  })
+
+  return result
+}
+
+function parseList(str: string): string[] {
+  if (!str?.trim()) return []
+  return str
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+const DEFAULT_DNS_CONFIG = {
+  enable: true,
+  listen: ':53',
+  'enhanced-mode': 'fake-ip' as 'fake-ip' | 'redir-host',
+  'fake-ip-range': '198.18.0.1/16',
+  'fake-ip-range6': 'fdfe:dcba:9876::1/64',
+  'fake-ip-filter-mode': 'blacklist' as 'blacklist' | 'whitelist',
+  'prefer-h3': false,
+  'respect-rules': false,
+  'use-hosts': false,
+  'use-system-hosts': false,
+  ipv6: true,
+  'fake-ip-filter': [
+    '*.lan',
+    '*.local',
+    '*.arpa',
+    'time.*.com',
+    'ntp.*.com',
+    'time.*.com',
+    '+.market.xiaomi.com',
+    'localhost.ptlogin2.qq.com',
+    '*.msftncsi.com',
+    'www.msftconnecttest.com',
+  ],
+  'default-nameserver': [
+    'system',
+    '223.6.6.6',
+    '8.8.8.8',
+    '2400:3200::1',
+    '2001:4860:4860::8888',
+  ],
+  nameserver: [
+    '8.8.8.8',
+    'https://doh.pub/dns-query',
+    'https://dns.alidns.com/dns-query',
+  ],
+  fallback: [],
+  'nameserver-policy': {},
+  'proxy-server-nameserver': [],
+  'direct-nameserver': [],
+  'direct-nameserver-follow-policy': false,
+  'fallback-filter': {
+    geoip: true,
+    'geoip-code': 'CN',
+    ipcidr: ['240.0.0.0/4', '0.0.0.0/32'],
+    domain: ['+.google.com', '+.facebook.com', '+.youtube.com'],
   },
-  padding: {
-    top: 33,
-  },
-  fontFamily: MONACO_FONT_FAMILY,
-  fontLigatures: false,
-  smoothScrolling: true,
-} as const
+}
 
 export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
   const { t } = useTranslation()
@@ -90,10 +203,64 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
   const themeMode = useThemeMode()
 
   const [open, setOpen] = useState(false)
-  const [initializing, setInitializing] = useState(false)
   const [visualization, setVisualization] = useState(true)
+  const skipYamlSyncRef = useRef(false)
   const editorRef = useRef<MonacoEditorInstance | null>(null)
-  const [values, setValues] = useState<DnsFormValues>(DEFAULT_FORM_VALUES)
+  const [values, setValues] = useState<{
+    enable: boolean
+    listen: string
+    enhancedMode: 'fake-ip' | 'redir-host'
+    fakeIpRange: string
+    fakeIpRange6: string
+    fakeIpFilterMode: 'blacklist' | 'whitelist'
+    preferH3: boolean
+    respectRules: boolean
+    useHosts: boolean
+    useSystemHosts: boolean
+    ipv6: boolean
+    fakeIpFilter: string
+    nameserver: string
+    fallback: string
+    defaultNameserver: string
+    proxyServerNameserver: string
+    directNameserver: string
+    directNameserverFollowPolicy: boolean
+    fallbackGeoip: boolean
+    fallbackGeoipCode: string
+    fallbackIpcidr: string
+    fallbackDomain: string
+    nameserverPolicy: string
+    hosts: string // hosts设置，独立于dns
+  }>({
+    enable: DEFAULT_DNS_CONFIG.enable,
+    listen: DEFAULT_DNS_CONFIG.listen,
+    enhancedMode: DEFAULT_DNS_CONFIG['enhanced-mode'],
+    fakeIpRange: DEFAULT_DNS_CONFIG['fake-ip-range'],
+    fakeIpRange6: DEFAULT_DNS_CONFIG['fake-ip-range6'],
+    fakeIpFilterMode: DEFAULT_DNS_CONFIG['fake-ip-filter-mode'],
+    preferH3: DEFAULT_DNS_CONFIG['prefer-h3'],
+    respectRules: DEFAULT_DNS_CONFIG['respect-rules'],
+    useHosts: DEFAULT_DNS_CONFIG['use-hosts'],
+    useSystemHosts: DEFAULT_DNS_CONFIG['use-system-hosts'],
+    ipv6: DEFAULT_DNS_CONFIG.ipv6,
+    fakeIpFilter: DEFAULT_DNS_CONFIG['fake-ip-filter'].join(', '),
+    defaultNameserver: DEFAULT_DNS_CONFIG['default-nameserver'].join(', '),
+    nameserver: DEFAULT_DNS_CONFIG.nameserver.join(', '),
+    fallback: DEFAULT_DNS_CONFIG.fallback.join(', '),
+    proxyServerNameserver:
+      DEFAULT_DNS_CONFIG['proxy-server-nameserver']?.join(', ') || '',
+    directNameserver: DEFAULT_DNS_CONFIG['direct-nameserver']?.join(', ') || '',
+    directNameserverFollowPolicy:
+      DEFAULT_DNS_CONFIG['direct-nameserver-follow-policy'] || false,
+    fallbackGeoip: DEFAULT_DNS_CONFIG['fallback-filter'].geoip,
+    fallbackGeoipCode: DEFAULT_DNS_CONFIG['fallback-filter']['geoip-code'],
+    fallbackIpcidr:
+      DEFAULT_DNS_CONFIG['fallback-filter'].ipcidr?.join(', ') || '',
+    fallbackDomain:
+      DEFAULT_DNS_CONFIG['fallback-filter'].domain?.join(', ') || '',
+    nameserverPolicy: '',
+    hosts: '',
+  })
 
   // Prevent YAML-to-form sync before configuration loads.
   const [yamlContent, setYamlContent] = useReducer(
@@ -102,7 +269,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
   )
 
   const updateValuesFromConfig = useCallback((config: any) => {
-    if (!config) return undefined
+    if (!config) return
 
     const dnsConfig = config.dns || {}
     const hostsConfig = config.hosts || {}
@@ -122,7 +289,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
         ? fakeIpFilterMode
         : DEFAULT_DNS_CONFIG['fake-ip-filter-mode']
 
-    const next: DnsFormValues = {
+    setValues({
       enable: dnsConfig.enable ?? DEFAULT_DNS_CONFIG.enable,
       listen: dnsConfig.listen ?? DEFAULT_DNS_CONFIG.listen,
       enhancedMode: validEnhancedMode,
@@ -174,26 +341,126 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
       nameserverPolicy:
         formatNameserverPolicy(dnsConfig['nameserver-policy']) || '',
       hosts: formatHosts(hostsConfig) || '',
-    }
-    setValues(next)
-    return next
+    })
   }, [])
 
+  const generateDnsConfig = useCallback(() => {
+    const dnsConfig: any = {
+      enable: values.enable,
+      listen: values.listen,
+      'enhanced-mode': values.enhancedMode,
+      'fake-ip-range': values.fakeIpRange,
+      'fake-ip-range6': values.fakeIpRange6,
+      'fake-ip-filter-mode': values.fakeIpFilterMode,
+      'prefer-h3': values.preferH3,
+      'respect-rules': values.respectRules,
+      'use-hosts': values.useHosts,
+      'use-system-hosts': values.useSystemHosts,
+      ipv6: values.ipv6,
+      'fake-ip-filter': parseList(values.fakeIpFilter),
+      'default-nameserver': parseList(values.defaultNameserver),
+      nameserver: parseList(values.nameserver),
+      'nameserver-policy': parseNameserverPolicy(values.nameserverPolicy),
+      'direct-nameserver-follow-policy': values.directNameserverFollowPolicy,
+      'fallback-filter': {
+        geoip: values.fallbackGeoip,
+        'geoip-code': values.fallbackGeoipCode,
+        ipcidr: parseList(values.fallbackIpcidr),
+        domain: parseList(values.fallbackDomain),
+      },
+
+      fallback: parseList(values.fallback),
+      'proxy-server-nameserver': parseList(values.proxyServerNameserver),
+      'direct-nameserver': parseList(values.directNameserver),
+    }
+
+    return dnsConfig
+  }, [values])
+
+  const updateYamlFromValues = useCallback(() => {
+    const config: Record<string, any> = {}
+
+    const dnsConfig = generateDnsConfig()
+    if (Object.keys(dnsConfig).length > 0) {
+      config.dns = dnsConfig
+    }
+
+    config.hosts = parseHosts(values.hosts)
+
+    setYamlContent(yaml.dump(config, { forceQuotes: true }))
+  }, [generateDnsConfig, values.hosts])
+
   const resetToDefaults = useCallback(() => {
-    setValues(DEFAULT_FORM_VALUES)
-    setYamlContent(buildDnsYaml(DEFAULT_FORM_VALUES))
-  }, [])
+    setValues({
+      enable: DEFAULT_DNS_CONFIG.enable,
+      listen: DEFAULT_DNS_CONFIG.listen,
+      enhancedMode: DEFAULT_DNS_CONFIG['enhanced-mode'],
+      fakeIpRange: DEFAULT_DNS_CONFIG['fake-ip-range'],
+      fakeIpRange6: DEFAULT_DNS_CONFIG['fake-ip-range6'],
+      fakeIpFilterMode: DEFAULT_DNS_CONFIG['fake-ip-filter-mode'],
+      preferH3: DEFAULT_DNS_CONFIG['prefer-h3'],
+      respectRules: DEFAULT_DNS_CONFIG['respect-rules'],
+      useHosts: DEFAULT_DNS_CONFIG['use-hosts'],
+      useSystemHosts: DEFAULT_DNS_CONFIG['use-system-hosts'],
+      ipv6: DEFAULT_DNS_CONFIG.ipv6,
+      fakeIpFilter: DEFAULT_DNS_CONFIG['fake-ip-filter'].join(', '),
+      defaultNameserver: DEFAULT_DNS_CONFIG['default-nameserver'].join(', '),
+      nameserver: DEFAULT_DNS_CONFIG.nameserver.join(', '),
+      fallback: DEFAULT_DNS_CONFIG.fallback.join(', '),
+      proxyServerNameserver:
+        DEFAULT_DNS_CONFIG['proxy-server-nameserver']?.join(', ') || '',
+      directNameserver:
+        DEFAULT_DNS_CONFIG['direct-nameserver']?.join(', ') || '',
+      directNameserverFollowPolicy:
+        DEFAULT_DNS_CONFIG['direct-nameserver-follow-policy'] || false,
+      fallbackGeoip: DEFAULT_DNS_CONFIG['fallback-filter'].geoip,
+      fallbackGeoipCode: DEFAULT_DNS_CONFIG['fallback-filter']['geoip-code'],
+      fallbackIpcidr:
+        DEFAULT_DNS_CONFIG['fallback-filter'].ipcidr?.join(', ') || '',
+      fallbackDomain:
+        DEFAULT_DNS_CONFIG['fallback-filter'].domain?.join(', ') || '',
+      nameserverPolicy: '',
+      hosts: '',
+    })
+
+    updateYamlFromValues()
+  }, [updateYamlFromValues])
 
   const updateValuesFromYaml = useCallback(() => {
     try {
       const parsedYaml = yaml.load(yamlContent) as any
       if (!parsedYaml || parsedYaml.isInitValue) return
 
+      skipYamlSyncRef.current = true
       updateValuesFromConfig(parsedYaml)
     } catch {
       showNotice.error('settings.modals.dns.errors.invalidYaml')
     }
   }, [yamlContent, updateValuesFromConfig])
+
+  useEffect(() => {
+    if (skipYamlSyncRef.current) {
+      skipYamlSyncRef.current = false
+      return
+    }
+    updateYamlFromValues()
+  }, [updateYamlFromValues])
+
+  const latestUpdateValuesFromYamlRef = useRef(updateValuesFromYaml)
+  const latestUpdateYamlFromValuesRef = useRef(updateYamlFromValues)
+
+  useEffect(() => {
+    latestUpdateValuesFromYamlRef.current = updateValuesFromYaml
+    latestUpdateYamlFromValuesRef.current = updateYamlFromValues
+  }, [updateValuesFromYaml, updateYamlFromValues])
+
+  useEffect(() => {
+    if (visualization) {
+      latestUpdateValuesFromYamlRef.current()
+    } else {
+      latestUpdateYamlFromValuesRef.current()
+    }
+  }, [visualization])
 
   useEffect(() => {
     return () => {
@@ -203,35 +470,34 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
   }, [])
 
   const initDnsConfig = useCallback(async () => {
-    setInitializing(true)
     try {
       const dnsConfig = await getDnsConfigContent()
 
       if (dnsConfig !== null) {
         const config = yaml.load(dnsConfig) as any
 
-        const loaded = updateValuesFromConfig(config)
-        setYamlContent(loaded ? buildDnsYaml(loaded) : dnsConfig)
+        updateValuesFromConfig(config)
+        setYamlContent(dnsConfig)
       } else {
         resetToDefaults()
       }
     } catch (err) {
-      // The dialog falls back to defaults, so say why the saved config is missing.
       console.error('Failed to initialize DNS config', err)
-      showNotice.error(err)
       resetToDefaults()
-    } finally {
-      setInitializing(false)
     }
   }, [resetToDefaults, updateValuesFromConfig])
 
-  useSettingDialog(ref, 'dns-viewer', open, () => ({
-    open: () => {
-      setOpen(true)
-      void initDnsConfig()
-    },
-    close: () => setOpen(false),
-  }))
+  useImperativeHandle(
+    ref,
+    () => ({
+      open: () => {
+        setOpen(true)
+        void initDnsConfig()
+      },
+      close: () => setOpen(false),
+    }),
+    [initDnsConfig],
+  )
 
   const onSave = useLockFn(async () => {
     try {
@@ -240,7 +506,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
       if (visualization) {
         config = {}
 
-        const dnsConfig = buildDnsConfig(values)
+        const dnsConfig = generateDnsConfig()
         if (Object.keys(dnsConfig).length > 0) {
           config.dns = dnsConfig
         }
@@ -310,21 +576,9 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
     }
   })
 
-  const handleYamlChange = useCallback((value?: string) => {
+  const handleYamlChange = (value?: string) => {
     setYamlContent(value || '')
-  }, [])
-
-  const handleEditorMount = useCallback(
-    (editorInstance: MonacoEditorInstance) => {
-      editorRef.current = editorInstance
-      editorInstance.updateOptions({
-        minimap: {
-          enabled: document.documentElement.clientWidth >= 1500,
-        },
-      })
-    },
-    [],
-  )
+  }
 
   const handleChange = (field: string) => (event: any) => {
     const value =
@@ -332,10 +586,20 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
         ? event.target.checked
         : event.target.value
 
-    setValues((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
+    setValues((prev) => {
+      const newValues = {
+        ...prev,
+        [field]: value,
+      }
+
+      if (visualization) {
+        setTimeout(() => {
+          updateYamlFromValues()
+        }, 0)
+      }
+
+      return newValues
+    })
   }
 
   return (
@@ -353,7 +617,6 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
           {t('settings.modals.dns.dialog.title')}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Button
-              data-setting-target="dns-viewer-reset"
               variant="outlined"
               size="small"
               color="warning"
@@ -365,14 +628,8 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             <Button
               variant="contained"
               size="small"
-              data-setting-target="dns-mode"
               onClick={() => {
-                if (visualization) {
-                  setYamlContent(buildDnsYaml(values))
-                } else {
-                  updateValuesFromYaml()
-                }
-                setVisualization(!visualization)
+                setVisualization((prev) => !prev)
               }}
             >
               {visualization
@@ -395,15 +652,6 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
       onCancel={() => setOpen(false)}
       onOk={onSave}
     >
-      <span
-        data-settings-dialog="dns-viewer"
-        data-search-ready={!initializing}
-      />
-      {initializing && (
-        <Typography role="status" data-settings-loading tabIndex={-1}>
-          {t('shared.statuses.loading')}
-        </Typography>
-      )}
       <Alert severity="info" sx={{ mb: 2 }}>
         {t('settings.modals.dns.dialog.profileScope')}
       </Alert>
@@ -424,7 +672,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             {t('settings.modals.dns.sections.general')}
           </Typography>
 
-          <Item data-setting-target="settings.modals.dns.fields.enable">
+          <Item>
             <ListItemText primary={t('settings.modals.dns.fields.enable')} />
             <Switch
               edge="end"
@@ -433,7 +681,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             />
           </Item>
 
-          <Item data-setting-target="settings.modals.dns.fields.listen">
+          <Item>
             <ListItemText primary={t('settings.modals.dns.fields.listen')} />
             <TextField
               size="small"
@@ -446,7 +694,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             />
           </Item>
 
-          <Item data-setting-target="settings.modals.dns.fields.enhancedMode">
+          <Item>
             <ListItemText
               primary={t('settings.modals.dns.fields.enhancedMode')}
             />
@@ -461,7 +709,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             </FormControl>
           </Item>
 
-          <Item data-setting-target="settings.modals.dns.fields.fakeIpRange">
+          <Item>
             <ListItemText
               primary={t('settings.modals.dns.fields.fakeIpRange')}
             />
@@ -476,7 +724,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             />
           </Item>
 
-          <Item data-setting-target="settings.modals.dns.fields.fakeIpRange6">
+          <Item>
             <ListItemText
               primary={t('settings.modals.dns.fields.fakeIpRange6')}
             />
@@ -491,7 +739,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             />
           </Item>
 
-          <Item data-setting-target="settings.modals.dns.fields.fakeIpFilterMode">
+          <Item>
             <ListItemText
               primary={t('settings.modals.dns.fields.fakeIpFilterMode')}
             />
@@ -506,7 +754,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             </FormControl>
           </Item>
 
-          <Item data-setting-target="settings.modals.dns.fields.ipv6.label">
+          <Item>
             <ListItemText
               primary={t('settings.modals.dns.fields.ipv6.label')}
               secondary={t('settings.modals.dns.fields.ipv6.description')}
@@ -518,7 +766,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             />
           </Item>
 
-          <Item data-setting-target="settings.modals.dns.fields.preferH3.label">
+          <Item>
             <ListItemText
               primary={t('settings.modals.dns.fields.preferH3.label')}
               secondary={t('settings.modals.dns.fields.preferH3.description')}
@@ -530,7 +778,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             />
           </Item>
 
-          <Item data-setting-target="settings.modals.dns.fields.respectRules.label">
+          <Item>
             <ListItemText
               primary={t('settings.modals.dns.fields.respectRules.label')}
               secondary={t(
@@ -544,7 +792,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             />
           </Item>
 
-          <Item data-setting-target="settings.modals.dns.fields.useHosts.label">
+          <Item>
             <ListItemText
               primary={t('settings.modals.dns.fields.useHosts.label')}
               secondary={t('settings.modals.dns.fields.useHosts.description')}
@@ -556,7 +804,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             />
           </Item>
 
-          <Item data-setting-target="settings.modals.dns.fields.useSystemHosts.label">
+          <Item>
             <ListItemText
               primary={t('settings.modals.dns.fields.useSystemHosts.label')}
               secondary={t(
@@ -570,7 +818,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             />
           </Item>
 
-          <Item data-setting-target="settings.modals.dns.fields.directPolicy.label">
+          <Item>
             <ListItemText
               primary={t('settings.modals.dns.fields.directPolicy.label')}
               secondary={t(
@@ -584,10 +832,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             />
           </Item>
 
-          <Item
-            data-setting-target="settings.modals.dns.fields.defaultNameserver.label"
-            sx={{ flexDirection: 'column', alignItems: 'flex-start' }}
-          >
+          <Item sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
             <ListItemText
               primary={t('settings.modals.dns.fields.defaultNameserver.label')}
               secondary={t(
@@ -607,10 +852,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             />
           </Item>
 
-          <Item
-            data-setting-target="settings.modals.dns.fields.nameserver.label"
-            sx={{ flexDirection: 'column', alignItems: 'flex-start' }}
-          >
+          <Item sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
             <ListItemText
               primary={t('settings.modals.dns.fields.nameserver.label')}
               secondary={t('settings.modals.dns.fields.nameserver.description')}
@@ -628,10 +870,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             />
           </Item>
 
-          <Item
-            data-setting-target="settings.modals.dns.fields.fallback.label"
-            sx={{ flexDirection: 'column', alignItems: 'flex-start' }}
-          >
+          <Item sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
             <ListItemText
               primary={t('settings.modals.dns.fields.fallback.label')}
               secondary={t('settings.modals.dns.fields.fallback.description')}
@@ -649,10 +888,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             />
           </Item>
 
-          <Item
-            data-setting-target="settings.modals.dns.fields.proxy.label"
-            sx={{ flexDirection: 'column', alignItems: 'flex-start' }}
-          >
+          <Item sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
             <ListItemText
               primary={t('settings.modals.dns.fields.proxy.label')}
               secondary={t('settings.modals.dns.fields.proxy.description')}
@@ -670,10 +906,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             />
           </Item>
 
-          <Item
-            data-setting-target="settings.modals.dns.fields.directNameserver.label"
-            sx={{ flexDirection: 'column', alignItems: 'flex-start' }}
-          >
+          <Item sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
             <ListItemText
               primary={t('settings.modals.dns.fields.directNameserver.label')}
               secondary={t(
@@ -693,10 +926,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             />
           </Item>
 
-          <Item
-            data-setting-target="settings.modals.dns.fields.fakeIpFilter.label"
-            sx={{ flexDirection: 'column', alignItems: 'flex-start' }}
-          >
+          <Item sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
             <ListItemText
               primary={t('settings.modals.dns.fields.fakeIpFilter.label')}
               secondary={t(
@@ -716,10 +946,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             />
           </Item>
 
-          <Item
-            data-setting-target="settings.modals.dns.fields.nameserverPolicy.label"
-            sx={{ flexDirection: 'column', alignItems: 'flex-start' }}
-          >
+          <Item sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
             <ListItemText
               primary={t('settings.modals.dns.fields.nameserverPolicy.label')}
               secondary={t(
@@ -746,7 +973,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             {t('settings.modals.dns.sections.fallbackFilter')}
           </Typography>
 
-          <Item data-setting-target="settings.modals.dns.fields.geoipFiltering.label">
+          <Item>
             <ListItemText
               primary={t('settings.modals.dns.fields.geoipFiltering.label')}
               secondary={t(
@@ -760,7 +987,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             />
           </Item>
 
-          <Item data-setting-target="settings.modals.dns.fields.geoipCode">
+          <Item>
             <ListItemText primary={t('settings.modals.dns.fields.geoipCode')} />
             <TextField
               size="small"
@@ -773,10 +1000,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             />
           </Item>
 
-          <Item
-            data-setting-target="settings.modals.dns.fields.fallbackIpCidr.label"
-            sx={{ flexDirection: 'column', alignItems: 'flex-start' }}
-          >
+          <Item sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
             <ListItemText
               primary={t('settings.modals.dns.fields.fallbackIpCidr.label')}
               secondary={t(
@@ -796,10 +1020,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             />
           </Item>
 
-          <Item
-            data-setting-target="settings.modals.dns.fields.fallbackDomain.label"
-            sx={{ flexDirection: 'column', alignItems: 'flex-start' }}
-          >
+          <Item sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
             <ListItemText
               primary={t('settings.modals.dns.fields.fallbackDomain.label')}
               secondary={t(
@@ -826,10 +1047,7 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
             {t('settings.modals.dns.sections.hosts')}
           </Typography>
 
-          <Item
-            data-setting-target="settings.modals.dns.fields.hosts.label"
-            sx={{ flexDirection: 'column', alignItems: 'flex-start' }}
-          >
+          <Item sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
             <ListItemText
               primary={t('settings.modals.dns.fields.hosts.label')}
               secondary={t('settings.modals.dns.fields.hosts.description')}
@@ -854,8 +1072,27 @@ export function DnsViewer({ ref }: { ref?: Ref<DialogRef> }) {
           value={yamlContent}
           theme={themeMode === 'light' ? 'light' : 'vs-dark'}
           className="flex-grow"
-          onMount={handleEditorMount}
-          options={MONACO_OPTIONS}
+          onMount={(editorInstance) => {
+            editorRef.current = editorInstance
+          }}
+          options={{
+            tabSize: 2,
+            minimap: {
+              enabled: document.documentElement.clientWidth >= 1500,
+            },
+            mouseWheelZoom: true,
+            quickSuggestions: {
+              strings: true,
+              comments: true,
+              other: true,
+            },
+            padding: {
+              top: 33,
+            },
+            fontFamily: MONACO_FONT_FAMILY,
+            fontLigatures: false,
+            smoothScrolling: true,
+          }}
           onChange={handleYamlChange}
         />
       )}

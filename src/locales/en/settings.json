@@ -140,8 +140,7 @@
           "networkInterface": "Network Interface",
           "unifiedDelay": "When unified delay is turned on, two delay tests will be performed to eliminate the delay differences between different types of nodes caused by connection handshakes, etc",
           "logLevel": "This parameter is valid only for kernel log files in the log directory Service folder",
-          "openUwpTool": "Since Windows 8, UWP apps (such as Microsoft Store) are restricted from directly accessing local host network services, and this tool can be used to bypass this restriction",
-          "ipv6Auto": "Enable IPv6 only while the physical network provides it; re-checked automatically when the network changes"
+          "openUwpTool": "Since Windows 8, UWP apps (such as Microsoft Store) are restricted from directly accessing local host network services, and this tool can be used to bypass this restriction"
         },
         "options": {
           "logLevel": {
@@ -150,17 +149,6 @@
             "warning": "Warn",
             "error": "Error",
             "silent": "Silent"
-          },
-          "ipv6Mode": {
-            "off": "Off",
-            "on": "On",
-            "auto": "Auto"
-          }
-        },
-        "status": {
-          "ipv6Auto": {
-            "available": "IPv6 available",
-            "ipv4Only": "IPv4-only network"
           }
         }
       }
@@ -462,7 +450,6 @@
         "appLogMaxSize": "App Log Max Size",
         "appLogMaxCount": "App Log Max Count",
         "autoCloseConnections": "Auto Close Connections",
-        "autoSwitchSelectorGroup": "Auto Switch Select Group",
         "autoCheckUpdate": "Auto Check Update",
         "enableBuiltinEnhanced": "Enable Builtin Enhanced",
         "proxyLayoutColumns": "Proxy Layout Columns",
@@ -475,7 +462,6 @@
       },
       "tooltips": {
         "autoCloseConnections": "Terminate established connections when the proxy group selection or proxy mode changes",
-        "autoSwitchSelectorGroup": "In rule mode, selecting a node in a group that rule traffic does not reach also switches the first select group containing it to that group",
         "enableBuiltinEnhanced": "Compatibility handling for the configuration file",
         "autoDelayDetection": "Periodically test the current node latency in the background",
         "defaultLatencyTest": "Used for HTTP client request testing only and won't make a difference to the configuration file",
@@ -532,7 +518,7 @@
         "usePacMode": "Use PAC Mode",
         "proxyGuard": "Proxy Guard",
         "guardDuration": "Guard Duration",
-        "alwaysUseDefaultBypass": "Include default bypass list",
+        "alwaysUseDefaultBypass": "Always use Default Bypass",
         "enableBypassCheck": "Validate Proxy Bypass Format",
         "proxyBypass": "Proxy Bypass Settings: ",
         "bypass": "Bypass: ",
@@ -560,13 +546,11 @@
         "strictRoute": "Strict Route",
         "autoDetectInterface": "Auto Detect Interface",
         "dnsHijack": "DNS Hijack",
-        "dnsMode": "DNS Mode",
         "mtu": "Max Transmission Unit",
         "autoRedirect": "Auto Redirect"
       },
       "tooltips": {
         "dnsHijack": "Please use , to separate multiple DNS servers",
-        "dnsMode": "Auto keeps the legacy behavior; hijack requires Strict Route on Windows or Auto Redirect on Linux",
         "autoRedirect": "Automatically configures nftables/iptables TCP redirects"
       },
       "messages": {
@@ -762,8 +746,7 @@
         "permissionRejectedReason": "The service could not confirm that the core files and folders are safe to run with elevated privileges.",
         "permissionRepairGuide": "View repair instructions",
         "sidecarFallback": "The service could not start the core. Switched to Sidecar mode; the service remains unavailable.",
-        "uninstallSuccess": "Service Uninstalled Successfully",
-        "coreVersionDrift": "The service is running kernel {{running}} while the bundled kernel is {{bundled}}. Open Settings → Mihomo Versions to install {{bundled}}, or reinstall/repair the service and restart the core."
+        "uninstallSuccess": "Service Uninstalled Successfully"
       },
       "updater": {
         "withClashProxySuccess": "Update with Clash proxy successfully",
@@ -780,12 +763,5 @@
       "installing": "Installing Service...",
       "uninstalling": "Uninstalling Service..."
     }
-  },
-  "search": {
-    "placeholder": "Search settings",
-    "clear": "Clear search",
-    "back": "Back to results",
-    "results": "Search results",
-    "empty": "No settings found"
   }
 }

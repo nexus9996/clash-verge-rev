@@ -1,12 +1,8 @@
 import { useCallback, useMemo, useSyncExternalStore } from 'react'
-
-import {
-  subscribeConnections,
-  subscribeConnectionsCount,
-  type BackendStream,
-} from '@/services/cmds'
+import { MihomoWebSocket } from 'tauri-plugin-mihomo-api'
 
 const MAX_CLOSED_CONNS_NUM = 500
+const CONNECTION_UPDATE_THROTTLE_MS = 500
 const CONNECTION_RECONNECT_DELAY_MS = 1_000
 
 type ConnectionMetadata = IConnectionsItem['metadata']
@@ -42,6 +38,9 @@ const initConnSummaryData: ConnectionSummaryData = {
 
 let connectionData: ConnectionMonitorData = initConnData
 let connectionSummary: ConnectionSummaryData = initConnSummaryData
+let flushTimer: ReturnType<typeof setTimeout> | null = null
+let pendingMessageData: string | null = null
+let lastFlushAt = 0
 
 const connectionListeners = new Set<ConnectionListener>()
 const summaryListeners = new Set<ConnectionListener>()
@@ -151,49 +150,25 @@ const mergeConnectionSnapshot = (
   const nextConnections = payload.connections ?? []
   const previousActive = previous.activeConnections ?? []
   const previousClosed = previous.closedConnections ?? []
-  const sameOrder =
-    nextConnections.length === previousActive.length &&
-    nextConnections.every(
-      (connection, i) => connection.id === previousActive[i].id,
-    )
-  let previousActiveById: Map<string, IConnectionsItem> | undefined
+  const previousActiveById = new Map<string, IConnectionsItem>()
 
-  if (!sameOrder) {
-    previousActiveById = new Map()
-    for (let i = 0; i < previousActive.length; i++) {
-      const previousConnection = previousActive[i]
-      previousActiveById.set(previousConnection.id, previousConnection)
-    }
+  for (let i = 0; i < previousActive.length; i++) {
+    const previousConnection = previousActive[i]
+    previousActiveById.set(previousConnection.id, previousConnection)
   }
 
-  let activeConnections = sameOrder ? previousActive : []
+  const activeConnections: IConnectionsItem[] = []
   for (let i = 0; i < nextConnections.length; i++) {
     const connection = nextConnections[i]
-    const previousConnection = sameOrder
-      ? previousActive[i]
-      : previousActiveById?.get(connection.id)
-    previousActiveById?.delete(connection.id)
-    const normalized = normalizeConnection(connection, previousConnection)
-    if (activeConnections[i] === normalized) continue
-    if (activeConnections === previousActive) {
-      activeConnections = previousActive.slice()
-    }
-    activeConnections[i] = normalized
+    const previousConnection = previousActiveById.get(connection.id)
+    if (previousConnection) previousActiveById.delete(connection.id)
+    activeConnections.push(normalizeConnection(connection, previousConnection))
   }
 
-  const uploadTotal = payload.uploadTotal ?? 0
-  const downloadTotal = payload.downloadTotal ?? 0
-  if (!previousActiveById?.size) {
-    if (
-      activeConnections === previousActive &&
-      uploadTotal === previous.uploadTotal &&
-      downloadTotal === previous.downloadTotal
-    ) {
-      return previous
-    }
+  if (previousActiveById.size === 0) {
     return {
-      uploadTotal,
-      downloadTotal,
+      uploadTotal: payload.uploadTotal ?? 0,
+      downloadTotal: payload.downloadTotal ?? 0,
       activeConnections,
       closedConnections: previousClosed,
     }
@@ -223,8 +198,8 @@ const mergeConnectionSnapshot = (
   }
 
   return {
-    uploadTotal,
-    downloadTotal,
+    uploadTotal: payload.uploadTotal ?? 0,
+    downloadTotal: payload.downloadTotal ?? 0,
     activeConnections,
     closedConnections,
   }
@@ -236,10 +211,11 @@ const mergeConnectionSummary = (
   activeConnectionCount: payload.count ?? 0,
 })
 
-// Rust already coalesces the stream to at most one snapshot per window, so a
-// frame is applied as it arrives instead of being buffered again here.
-const handleConnectionText = (messageData: string) => {
-  if (connectionListeners.size === 0) return
+const flushPendingMessage = () => {
+  flushTimer = null
+  const messageData = pendingMessageData
+  pendingMessageData = null
+  if (!messageData || connectionListeners.size === 0) return
 
   let payload: IConnections
   try {
@@ -249,8 +225,34 @@ const handleConnectionText = (messageData: string) => {
     return
   }
 
+  lastFlushAt = Date.now()
+
   connectionData = mergeConnectionSnapshot(payload, connectionData)
   notifyConnectionListeners()
+}
+
+const enqueueConnectionMessage = (messageData: string) => {
+  pendingMessageData = messageData
+  if (flushTimer) return
+
+  const elapsed = Date.now() - lastFlushAt
+  if (elapsed >= CONNECTION_UPDATE_THROTTLE_MS) {
+    flushPendingMessage()
+    return
+  }
+
+  flushTimer = window.setTimeout(
+    flushPendingMessage,
+    CONNECTION_UPDATE_THROTTLE_MS - elapsed,
+  )
+}
+
+const clearPendingMessage = () => {
+  pendingMessageData = null
+  if (flushTimer) {
+    window.clearTimeout(flushTimer)
+    flushTimer = null
+  }
 }
 
 interface SocketSupervisor {
@@ -260,13 +262,14 @@ interface SocketSupervisor {
 
 const createSocketSupervisor = (options: {
   listeners: Set<ConnectionListener>
-  connectSocket: () => Promise<BackendStream<string>>
+  connectSocket: () => Promise<MihomoWebSocket>
   onText: (data: string) => void
   closeLogLabel: string
+  onIdle?: () => void
 }): SocketSupervisor => {
-  const { listeners, connectSocket, onText, closeLogLabel } = options
+  const { listeners, connectSocket, onText, closeLogLabel, onIdle } = options
   const hasSubscribers = () => listeners.size > 0
-  let socket: BackendStream<string> | null = null
+  let socket: MihomoWebSocket | null = null
   let connecting = false
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -284,7 +287,7 @@ const createSocketSupervisor = (options: {
     try {
       await current.close()
     } catch (err) {
-      console.warn(`Failed to close ${closeLogLabel} stream`, err)
+      console.warn(`Failed to close ${closeLogLabel} websocket`, err)
     }
   }
 
@@ -295,6 +298,12 @@ const createSocketSupervisor = (options: {
       reconnectTimer = null
       void connect()
     }, CONNECTION_RECONNECT_DELAY_MS)
+  }
+
+  const reconnect = async () => {
+    if (!hasSubscribers()) return
+    await closeSocket()
+    scheduleReconnect()
   }
 
   const connect = async () => {
@@ -313,16 +322,18 @@ const createSocketSupervisor = (options: {
       socket = connected
       connected.addListener((message) => {
         if (socket !== connected) return
+        if (message.type !== 'Text') return
+        if (message.data.startsWith('Websocket error')) {
+          void reconnect()
+          return
+        }
 
-        onText(message)
+        onText(message.data)
       })
     } catch {
       scheduleReconnect()
     } finally {
       connecting = false
-      // A subscriber may arrive while an unused connection is being closed above.
-      // Its start() sees `connecting` and returns, so make sure it gets another attempt.
-      if (hasSubscribers() && !socket) scheduleReconnect()
     }
   }
 
@@ -333,6 +344,7 @@ const createSocketSupervisor = (options: {
     stopIfIdle: () => {
       if (hasSubscribers()) return
 
+      onIdle?.()
       clearReconnectTimer()
       void closeSocket()
     },
@@ -351,22 +363,21 @@ const handleSummaryText = (messageData: string) => {
     return
   }
 
-  if (connectionSummary.activeConnectionCount === (payload.count ?? 0)) return
-
   connectionSummary = mergeConnectionSummary(payload)
   notifySummaryListeners()
 }
 
 const connectionSupervisor = createSocketSupervisor({
   listeners: connectionListeners,
-  connectSocket: subscribeConnections,
-  onText: handleConnectionText,
+  connectSocket: () => MihomoWebSocket.connect_connections(),
+  onText: enqueueConnectionMessage,
   closeLogLabel: 'connection',
+  onIdle: clearPendingMessage,
 })
 
 const summarySupervisor = createSocketSupervisor({
   listeners: summaryListeners,
-  connectSocket: subscribeConnectionsCount,
+  connectSocket: () => MihomoWebSocket.connect_connections_count(),
   onText: handleSummaryText,
   closeLogLabel: 'connections count',
 })

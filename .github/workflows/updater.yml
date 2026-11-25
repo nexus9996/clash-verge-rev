@@ -1,8 +1,7 @@
 name: Updater CI
 
 on: workflow_dispatch
-permissions:
-  contents: write
+permissions: write-all
 env:
   HUSKY: 0
 
@@ -13,16 +12,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
+      - name: Install Node
+        uses: actions/setup-node@v7
         with:
-          bun-version: '1.4.4'
+          node-version: '24.22.0'
 
-      - name: Bun install
-        run: bun install --frozen-lockfile
+      - uses: pnpm/action-setup@v6
+        name: Install pnpm
+        with:
+          run_install: false
+
+      - name: Pnpm install
+        run: pnpm i
 
       - name: Release updater file
-        run: bun run updater
+        run: pnpm updater
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -32,15 +36,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
+      - name: Install Node
+        uses: actions/setup-node@v7
         with:
-          bun-version: '1.4.4'
+          node-version: '24.22.0'
 
-      - name: Bun install
-        run: bun install --frozen-lockfile
+      - uses: pnpm/action-setup@v6
+        name: Install pnpm
+        with:
+          run_install: false
+
+      - name: Pnpm install
+        run: pnpm i
 
       - name: Release updater file
-        run: bun run updater-fixed-webview2
+        run: pnpm updater-fixed-webview2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -147,9 +147,6 @@
       }
     },
     "proxiesEditor": {
-      "fields": {
-        "targetGroups": "目标代理组"
-      },
       "title": "编辑节点",
       "placeholders": {
         "multiUri": "多条 URI 请使用换行分隔（支持 Base64 编码）"

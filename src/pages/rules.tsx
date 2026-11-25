@@ -1,25 +1,18 @@
 import { Box } from '@mui/material'
-import {
-  useCallback,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { BaseEmpty, BasePage } from '@/components/base'
 import {
+  BaseEmpty,
+  BasePage,
   VirtualList,
   type VirtualListHandle,
-} from '@/components/base/virtual-list'
+} from '@/components/base'
 import { ScrollTopButton } from '@/components/layout/scroll-top-button'
 import { ProviderButton } from '@/components/rule/provider-button'
 import RuleItem from '@/components/rule/rule-item'
 import { RuleSearchBox } from '@/components/rule/rule-search-box'
 import { useAppRefreshers, useRulesData } from '@/hooks/data'
-import { usePageFilter } from '@/hooks/use-page-filter'
 import { useVisibility } from '@/hooks/use-visibility'
 import {
   getRulesExtra,
@@ -27,24 +20,19 @@ import {
   type RuleExtraInfo,
 } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
-import { mergeRuleExtras } from '@/utils/rule-extras'
 import {
   EMPTY_RULE_SEARCH,
   type RuleSearchState,
   createRuleSearchMatcher,
 } from '@/utils/rule-search'
 
-// Hit counts are secondary information; refresh often enough to stay useful
-const HIT_REFRESH_INTERVAL_MS = 15000
+const HIT_REFRESH_INTERVAL_MS = 5000
 
 const RulesPage = () => {
   const { t } = useTranslation()
   const { rules = [] } = useRulesData()
   const { refreshRules, refreshRuleProviders } = useAppRefreshers()
-  const [search, setSearch] = usePageFilter<RuleSearchState>(
-    'page-search:rules',
-    EMPTY_RULE_SEARCH,
-  )
+  const [search, setSearch] = useState<RuleSearchState>(EMPTY_RULE_SEARCH)
   const [ruleExtras, setRuleExtras] = useState<
     ReadonlyMap<number, RuleExtraInfo>
   >(() => new Map())
@@ -55,26 +43,23 @@ const RulesPage = () => {
   const [showScrollTop, setShowScrollTop] = useState(false)
   const pageVisible = useVisibility()
 
-  // 页面可见时刷新规则数据：挂载时可见或从隐藏恢复可见各触发一次
+  // 在组件挂载时和页面获得焦点时刷新规则数据
   useEffect(() => {
+    refreshRules()
+    refreshRuleProviders()
+
     if (pageVisible) {
       refreshRules()
       refreshRuleProviders()
     }
   }, [refreshRules, refreshRuleProviders, pageVisible])
 
-  // Defer only the filter derivation: input state stays immediate, while a
-  // burst of keystrokes cannot block the render with a full rules scan.
-  const deferredSearch = useDeferredValue(search)
-  const searchMatcher = useMemo(
-    () => createRuleSearchMatcher(deferredSearch),
-    [deferredSearch],
-  )
+  const searchMatcher = useMemo(() => createRuleSearchMatcher(search), [search])
 
   const refreshExtras = useCallback(async () => {
     try {
       const extras = await getRulesExtra()
-      setRuleExtras((previous) => mergeRuleExtras(previous, extras))
+      setRuleExtras(new Map(extras.map((extra) => [extra.index, extra])))
     } catch (error) {
       console.warn('Failed to load rule hit information', error)
     }
@@ -111,21 +96,17 @@ const RulesPage = () => {
     [refreshExtras],
   )
 
-  // Only original indexes are collected, so a keystroke no longer clones ~12k
-  // rule objects; lineNo and all lookups fall out of the index when rendering.
-  const visibleIndexes = useMemo(() => {
-    const indexes: number[] = []
-    for (let index = 0; index < rules.length; index += 1) {
-      const rule = rules[index]
-      if (searchMatcher(rule, rule.payload ?? '')) indexes.push(index)
-    }
-    return indexes
-  }, [rules, searchMatcher])
+  const filteredRules = useMemo(() => {
+    const rulesWithLineNo = rules.map((item, index) => ({
+      ...item,
+      // UI-only derived data; keep app context/SWR data immutable
+      lineNo: index + 1,
+    }))
 
-  const getItemKey = useCallback(
-    (index: number) => rules[visibleIndexes[index]]?.index ?? index,
-    [rules, visibleIndexes],
-  )
+    return rulesWithLineNo.filter((item) =>
+      searchMatcher(item, item.payload ?? ''),
+    )
+  }, [rules, searchMatcher])
 
   const handleScroll = useCallback((e: Event) => {
     setShowScrollTop((e.target as HTMLElement).scrollTop > 100)
@@ -161,26 +142,25 @@ const RulesPage = () => {
           alignItems: 'center',
         }}
       >
-        <RuleSearchBox initialState={search} onSearch={setSearch} />
+        <RuleSearchBox onSearch={setSearch} />
       </Box>
 
-      {visibleIndexes.length > 0 ? (
+      {filteredRules && filteredRules.length > 0 ? (
         <>
           <VirtualList
             ref={virtuosoRef}
-            count={visibleIndexes.length}
+            count={filteredRules.length}
             estimateSize={40}
-            getItemKey={getItemKey}
             renderItem={(i) => {
-              const ruleIndex = visibleIndexes[i]
-              const rule = rules[ruleIndex]
+              const rule = filteredRules[i]
               return (
                 <RuleItem
                   value={rule}
-                  lineNo={ruleIndex + 1}
                   extra={ruleExtras.get(rule.index)}
                   pending={pendingRuleIndexes.has(rule.index)}
-                  onToggleDisabled={handleToggleRule}
+                  onToggleDisabled={(disabled) =>
+                    void handleToggleRule(rule.index, disabled)
+                  }
                 />
               )
             }}

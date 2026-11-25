@@ -1,13 +1,5 @@
 #!/bin/bash
-
-case "$1" in
-    upgrade|failed-upgrade|abort-upgrade|deconfigure|1)
-        # Package upgrades must keep the installed service registered.
-        ;;
-    *)
-        /usr/bin/clash-verge-service-uninstall
-        ;;
-esac
+/usr/bin/clash-verge-service-uninstall
 
 . /etc/os-release
 
@@ -17,3 +9,4 @@ if [ "$ID" = "deepin" ]; then
         rm -vf "/usr/share/applications/clash-verge.desktop"
     fi
 fi
+

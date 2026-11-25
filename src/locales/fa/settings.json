@@ -140,8 +140,7 @@
           "networkInterface": "رابط شبکه",
           "unifiedDelay": "معادلDELAY را فعال کنید تا ترافیک شبکه به سرعت رسید",
           "logLevel": "این فقط روی فایل‌های لاگ هسته تحت فایل سرویس در فهرست ورود اثر می‌گذارد.",
-          "openUwpTool": "از ویندوز 8 به بعد، برنامه‌های UWP (مانند Microsoft Store) از دسترسی مستقیم به خدمات شبکه محلی محدود شده‌اند و این ابزار می‌تواند برای دور زدن این محدودیت استفاده شود",
-          "ipv6Auto": "Enable IPv6 only while the physical network provides it; re-checked automatically when the network changes"
+          "openUwpTool": "از ویندوز 8 به بعد، برنامه‌های UWP (مانند Microsoft Store) از دسترسی مستقیم به خدمات شبکه محلی محدود شده‌اند و این ابزار می‌تواند برای دور زدن این محدودیت استفاده شود"
         },
         "options": {
           "logLevel": {
@@ -150,17 +149,6 @@
             "warning": "Warn",
             "error": "Error",
             "silent": "Silent"
-          },
-          "ipv6Mode": {
-            "off": "Off",
-            "on": "On",
-            "auto": "Auto"
-          }
-        },
-        "status": {
-          "ipv6Auto": {
-            "available": "IPv6 available",
-            "ipv4Only": "IPv4-only network"
           }
         }
       }
@@ -462,7 +450,6 @@
         "appLogMaxSize": "App Log Max Size",
         "appLogMaxCount": "App Log Max Count",
         "autoCloseConnections": "بستن خودکار اتصالات",
-        "autoSwitchSelectorGroup": "تغییر خودکار گروه select",
         "autoCheckUpdate": "بررسی خودکار به‌روزرسانی",
         "enableBuiltinEnhanced": "فعال کردن تقویت داخلی",
         "proxyLayoutColumns": "ستون چیدمان پراکسی",
@@ -475,7 +462,6 @@
       },
       "tooltips": {
         "autoCloseConnections": "اتصالات برقرار شده را هنگام تغییر انتخاب گروه پروکسی یا حالت پروکسی خاتمه دهید",
-        "autoSwitchSelectorGroup": "در حالت قانون، با انتخاب یک گره در گروهی که ترافیک قوانین از آن عبور نمی‌کند، اولین گروه select شامل آن نیز به همان گروه تغییر می‌کند",
         "enableBuiltinEnhanced": "مدیریت سازگاری برای فایل پیکربندی",
         "autoDelayDetection": "به‌صورت دوره‌ای تأخیر گره فعلی را در پس‌زمینه آزمایش می‌کند",
         "defaultLatencyTest": "فقط برای تست درخواست‌های کلاینت HTTP استفاده می‌شود و بر فایل پیکربندی تأثیری نخواهد داشت",
@@ -532,7 +518,7 @@
         "usePacMode": "استفاده از حالت PAC",
         "proxyGuard": "محافظ پراکسی",
         "guardDuration": "مدت محافظت",
-        "alwaysUseDefaultBypass": "افزودن فهرست دور زدن پیش‌فرض",
+        "alwaysUseDefaultBypass": "همیشه از دور زدن پیش‌فرض استفاده کنید",
         "enableBypassCheck": "اعتبارسنجی قالب دور زدن پراکسی",
         "proxyBypass": "دور زدن پراکسی: ",
         "bypass": "دور زدن: ",
@@ -560,13 +546,11 @@
         "strictRoute": "مسیر دقیق",
         "autoDetectInterface": "تشخیص خودکار رابط",
         "dnsHijack": "ربایش DNS",
-        "dnsMode": "حالت DNS",
         "mtu": "واحد حداکثر انتقال",
         "autoRedirect": "Auto Redirect"
       },
       "tooltips": {
         "dnsHijack": "لطفا برای جدا کردن چندین سرور DNS از , استفاده کنید.",
-        "dnsMode": "Auto رفتار قدیمی را حفظ می‌کند؛ hijack در ویندوز نیاز به مسیر دقیق یا در لینوکس نیاز به Auto Redirect دارد",
         "autoRedirect": "پیکربندی خودکار ریدایرکت‌های TCP در nftables/iptables"
       },
       "messages": {
@@ -762,8 +746,7 @@
         "permissionRejectedReason": "سرویس نتوانست ایمن بودن فایل‌ها و پوشه‌های هسته را برای اجرا با دسترسی بالا تأیید کند.",
         "permissionRepairGuide": "مشاهدهٔ راهنمای رفع مشکل",
         "sidecarFallback": "سرویس نتوانست هسته را اجرا کند. اجرا در حالت Sidecar ادامه می‌یابد؛ سرویس همچنان در دسترس نیست.",
-        "uninstallSuccess": "سرویس با موفقیت حذف نصب شد",
-        "coreVersionDrift": "حالت سرویس با هسته {{running}} اجرا می‌شود در حالی که هسته همراه {{bundled}} است. برای نصب {{bundled}} به تنظیمات → نسخه‌های Mihomo بروید، یا سرویس را دوباره نصب/تعمیر کنید و هسته را دوباره راه‌اندازی کنید."
+        "uninstallSuccess": "سرویس با موفقیت حذف نصب شد"
       },
       "updater": {
         "withClashProxySuccess": "با موفقیت با پروکسی کلش به‌روزرسانی شد",
@@ -780,12 +763,5 @@
       "installing": "در حال نصب سرویس...",
       "uninstalling": "در حال حذف سرویس..."
     }
-  },
-  "search": {
-    "placeholder": "جستجوی تنظیمات",
-    "clear": "پاک کردن جستجو",
-    "back": "بازگشت به نتایج",
-    "results": "نتایج جستجو",
-    "empty": "تنظیماتی یافت نشد"
   }
 }

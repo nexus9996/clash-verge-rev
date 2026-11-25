@@ -65,7 +65,7 @@ export const ProxyItem = (props: Props) => {
             sx: {
               display: 'flex',
               alignItems: 'center',
-              color: 'text.disabled',
+              color: '#ccc',
             },
           },
         }}
@@ -92,7 +92,7 @@ const ListItemTextChild = styled('span')`
 
 const StyledTypeBox = styled(ListItemTextChild)(({ theme }) => ({
   display: 'inline-block',
-  border: '1px solid',
+  border: '1px solid #ccc',
   borderColor: alpha(theme.palette.primary.main, 0.5),
   color: alpha(theme.palette.primary.main, 0.8),
   borderRadius: 4,

@@ -5,8 +5,8 @@ import {
   ListItemIcon,
   ListItemText,
 } from '@mui/material'
+import { useMatchRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
-import { useMatch, useNavigate, useResolvedPath } from 'react-router'
 
 import type { SortableItemRenderProps } from '@/components/base/sortable-item'
 import type { NavigationPath } from '@/config/navigation'
@@ -17,16 +17,21 @@ interface Props {
   children: string
   icon: ReactNode[]
   sortable?: SortableItemRenderProps
-  preload?: () => void
 }
 export const LayoutItem = (props: Props) => {
-  const { to, children, icon, sortable, preload } = props
+  const { to, children, icon, sortable } = props
   const { verge } = useVerge()
   const { menu_icon } = verge ?? {}
   const navCollapsed = verge?.collapse_navbar ?? false
-  const resolved = useResolvedPath(to)
-  const match = useMatch({ path: resolved.pathname, end: true })
+  const matchRoute = useMatchRoute()
+  const match = Boolean(matchRoute({ to }))
   const navigate = useNavigate()
+  const router = useRouter()
+
+  // Preload the route chunk on intent so split pages do not flash loaders.
+  const preload = () => {
+    void router.preloadRoute({ to }).catch(() => {})
+  }
 
   const effectiveMenuIcon =
     navCollapsed && menu_icon === 'disable' ? 'monochrome' : menu_icon
@@ -53,18 +58,13 @@ export const LayoutItem = (props: Props) => {
               fontWeight: '700',
             },
           },
-          ({ palette: { mode, primary, text, common } }) => {
+          ({ palette: { mode, primary } }) => {
             const bgcolor =
               mode === 'light'
                 ? alpha(primary.main, 0.15)
                 : alpha(primary.main, 0.35)
-            const hoverBgcolor =
-              mode === 'light'
-                ? alpha(primary.main, 0.06)
-                : alpha(primary.main, 0.16)
-            const color = mode === 'light' ? text.primary : common.white
+            const color = mode === 'light' ? '#1f1f1f' : '#ffffff'
             return {
-              '&:hover': { bgcolor: hoverBgcolor },
               '&.Mui-selected': { bgcolor },
               '&.Mui-selected:hover': { bgcolor },
               '&.Mui-selected .MuiListItemText-primary': { color },
@@ -73,7 +73,7 @@ export const LayoutItem = (props: Props) => {
         ]}
         title={navCollapsed ? children : undefined}
         aria-label={navCollapsed ? children : undefined}
-        onClick={() => navigate(to)}
+        onClick={() => void navigate({ to })}
         onMouseEnter={preload}
         onFocus={preload}
       >

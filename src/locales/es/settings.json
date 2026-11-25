@@ -140,8 +140,7 @@
           "networkInterface": "Interfaz de red",
           "unifiedDelay": "Al habilitar la latencia unificada, se realizarán dos pruebas de latencia para eliminar las diferencias de latencia entre diferentes tipos de nodos causadas por el handshake de conexión, etc.",
           "logLevel": "Solo se aplica al archivo de registro del núcleo en la carpeta Service del directorio de registros.",
-          "openUwpTool": "A partir de Windows 8, las aplicaciones UWP (como la Tienda de Microsoft) tienen restricciones para acceder directamente a los servicios de red del host local. Use esta herramienta para evitar esta restricción.",
-          "ipv6Auto": "Enable IPv6 only while the physical network provides it; re-checked automatically when the network changes"
+          "openUwpTool": "A partir de Windows 8, las aplicaciones UWP (como la Tienda de Microsoft) tienen restricciones para acceder directamente a los servicios de red del host local. Use esta herramienta para evitar esta restricción."
         },
         "options": {
           "logLevel": {
@@ -150,17 +149,6 @@
             "warning": "Warn",
             "error": "Error",
             "silent": "Silent"
-          },
-          "ipv6Mode": {
-            "off": "Off",
-            "on": "On",
-            "auto": "Auto"
-          }
-        },
-        "status": {
-          "ipv6Auto": {
-            "available": "IPv6 available",
-            "ipv4Only": "IPv4-only network"
           }
         }
       }
@@ -462,7 +450,6 @@
         "appLogMaxSize": "App Log Max Size",
         "appLogMaxCount": "App Log Max Count",
         "autoCloseConnections": "Cerrar conexiones automáticamente",
-        "autoSwitchSelectorGroup": "Cambiar grupo select automáticamente",
         "autoCheckUpdate": "Comprobar actualizaciones automáticamente",
         "enableBuiltinEnhanced": "Habilitar funciones mejoradas integradas",
         "proxyLayoutColumns": "Número de columnas en la disposición de la página de proxy",
@@ -475,7 +462,6 @@
       },
       "tooltips": {
         "autoCloseConnections": "Cierra las conexiones establecidas cuando se cambia el nodo seleccionado en el grupo de proxy o el modo de proxy.",
-        "autoSwitchSelectorGroup": "En modo de reglas, al elegir un nodo en un grupo al que no llega tráfico de reglas, el primer grupo select que lo contiene también cambia a ese grupo.",
         "enableBuiltinEnhanced": "Procesamiento de compatibilidad de archivos de configuración",
         "autoDelayDetection": "Prueba periódicamente la latencia del nodo actual en segundo plano",
         "defaultLatencyTest": "Solo se utiliza para pruebas de solicitudes de clientes HTTP y no afectará al archivo de configuración.",
@@ -532,7 +518,7 @@
         "usePacMode": "Usar modo PAC",
         "proxyGuard": "Guardia del proxy del sistema",
         "guardDuration": "Intervalo de guardia del proxy",
-        "alwaysUseDefaultBypass": "Incluir la lista de omisión predeterminada",
+        "alwaysUseDefaultBypass": "Siempre usar la lista de omisión predeterminada",
         "enableBypassCheck": "Validar formato de bypass de proxy",
         "proxyBypass": "Configuración de omisión del proxy: ",
         "bypass": "Omisión actual: ",
@@ -560,13 +546,11 @@
         "strictRoute": "Enrutamiento estricto",
         "autoDetectInterface": "Detectar automáticamente la interfaz de salida del tráfico",
         "dnsHijack": "Secuestro de DNS",
-        "dnsMode": "Modo DNS",
         "mtu": "Unidad máxima de transmisión",
         "autoRedirect": "Auto Redirect"
       },
       "tooltips": {
         "dnsHijack": "Please use , to separate multiple DNS servers",
-        "dnsMode": "Auto mantiene el comportamiento anterior; hijack requiere Enrutamiento estricto en Windows o Auto Redirect en Linux",
         "autoRedirect": "Automatically configures nftables/iptables TCP redirects"
       },
       "messages": {
@@ -762,8 +746,7 @@
         "permissionRejectedReason": "El servicio no pudo confirmar que los archivos y carpetas del núcleo sean seguros para ejecutarlos con privilegios elevados.",
         "permissionRepairGuide": "Ver instrucciones de reparación",
         "sidecarFallback": "El servicio no pudo iniciar el núcleo. Se ha cambiado al modo Sidecar; el servicio sigue sin estar disponible.",
-        "uninstallSuccess": "Servicio desinstalado con éxito",
-        "coreVersionDrift": "El modo servicio ejecuta el núcleo {{running}} mientras que el núcleo incluido es {{bundled}}. Abre Ajustes → Versiones de Mihomo para instalar {{bundled}}, o reinstala/repara el servicio y reinicia el núcleo."
+        "uninstallSuccess": "Servicio desinstalado con éxito"
       },
       "updater": {
         "withClashProxySuccess": "Actualización con el proxy de Clash exitosa",
@@ -780,12 +763,5 @@
       "installing": "Instalando servicio...",
       "uninstalling": "Desinstalando servicio..."
     }
-  },
-  "search": {
-    "placeholder": "Buscar ajustes",
-    "clear": "Borrar búsqueda",
-    "back": "Volver a resultados",
-    "results": "Resultados de búsqueda",
-    "empty": "No se encontraron ajustes"
   }
 }

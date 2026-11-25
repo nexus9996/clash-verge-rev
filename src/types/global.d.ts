@@ -40,7 +40,6 @@ interface IConfigData {
     'auto-redirect'?: boolean
     'auto-detect-interface': boolean
     'dns-hijack': string[]
-    'dns-mode'?: string
     'route-exclude-address'?: string[]
     'strict-route': boolean
     mtu: number
@@ -178,7 +177,6 @@ type IVergeTestItem = import('@/services/bindings').IVergeTestItem
 type IAddress = import('@/services/bindings').InterfaceAddress
 
 interface ISeqProfileConfig {
-  groups?: Record<string, string[]>
   prepend: []
   append: []
   delete: []
@@ -701,8 +699,7 @@ interface IProxySnellConfig extends IProxyBaseConfig {
   version?: number
 }
 interface IProxyConfig
-  extends
-    IProxyBaseConfig,
+  extends IProxyBaseConfig,
     IProxyDirectConfig,
     IProxyDnsConfig,
     IProxyHttpConfig,

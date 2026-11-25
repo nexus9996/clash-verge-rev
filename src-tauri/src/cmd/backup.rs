@@ -1,7 +1,7 @@
 use super::CmdResult;
 use crate::{cmd::StringifyErr as _, feat};
 use feat::LocalBackupFile;
-use tristr::alias::String;
+use smartstring::alias::String;
 
 #[tauri::command]
 #[specta::specta]

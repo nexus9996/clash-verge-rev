@@ -140,8 +140,7 @@
           "networkInterface": "网络接口",
           "unifiedDelay": "开启统一延迟时，会进行两次延迟测试，以消除连接握手等带来的不同类型节点的延迟差异",
           "logLevel": "仅对日志目录 Service 文件夹下的内核日志文件生效",
-          "openUwpTool": "Windows 8 开始限制 UWP 应用（如微软商店）直接访问本地主机的网络服务，使用此工具可绕过该限制",
-          "ipv6Auto": "仅在物理网络提供 IPv6 时启用，网络变化时自动重新检测"
+          "openUwpTool": "Windows 8 开始限制 UWP 应用（如微软商店）直接访问本地主机的网络服务，使用此工具可绕过该限制"
         },
         "options": {
           "logLevel": {
@@ -150,17 +149,6 @@
             "warning": "Warn",
             "error": "Error",
             "silent": "Silent"
-          },
-          "ipv6Mode": {
-            "off": "关闭",
-            "on": "开启",
-            "auto": "自动"
-          }
-        },
-        "status": {
-          "ipv6Auto": {
-            "available": "可用",
-            "ipv4Only": "仅 IPv4"
           }
         }
       }
@@ -462,7 +450,6 @@
         "appLogMaxSize": "应用日志最大大小",
         "appLogMaxCount": "应用日志最大数量",
         "autoCloseConnections": "自动关闭连接",
-        "autoSwitchSelectorGroup": "选择节点时联动代理组",
         "autoCheckUpdate": "自动检查更新",
         "enableBuiltinEnhanced": "内置增强功能",
         "proxyLayoutColumns": "代理页布局列数",
@@ -475,7 +462,6 @@
       },
       "tooltips": {
         "autoCloseConnections": "当代理组选中节点或代理模式变动时，关闭已建立的连接",
-        "autoSwitchSelectorGroup": "规则模式下，在规则流量未经过的代理组中选择节点时，将首个包含该组的 select 代理组切换到该组",
         "enableBuiltinEnhanced": "配置文件的兼容性处理",
         "autoDelayDetection": "后台定时检测当前节点延迟",
         "defaultLatencyTest": "仅用于 HTTP 客户端请求测试，不会对配置文件产生影响",
@@ -532,7 +518,7 @@
         "usePacMode": "使用 PAC 模式",
         "proxyGuard": "系统代理守卫",
         "guardDuration": "代理守卫间隔",
-        "alwaysUseDefaultBypass": "合并默认绕过列表",
+        "alwaysUseDefaultBypass": "始终使用默认绕过",
         "enableBypassCheck": "验证代理绕过格式",
         "proxyBypass": "代理绕过设置：",
         "bypass": "当前绕过：",
@@ -560,13 +546,11 @@
         "strictRoute": "严格路由",
         "autoDetectInterface": "自动选择流量出口接口",
         "dnsHijack": "DNS 劫持",
-        "dnsMode": "DNS 模式",
         "mtu": "最大传输单元",
         "autoRedirect": "自动重定向"
       },
       "tooltips": {
         "dnsHijack": "多个 DNS 服务器请使用 , 分隔",
-        "dnsMode": "Auto 保持旧行为；hijack 需 Windows 开启严格路由或 Linux 开启自动重定向",
         "autoRedirect": "自动配置 nftables/iptables 的 TCP 重定向"
       },
       "messages": {
@@ -762,8 +746,7 @@
         "permissionRejectedReason": "服务无法确认内核文件及所在目录是否安全，已拒绝高权限运行。",
         "permissionRepairGuide": "查看修复方法",
         "sidecarFallback": "服务无法启动内核，已降级为 Sidecar 模式运行，服务仍不可用。",
-        "uninstallSuccess": "已成功卸载服务",
-        "coreVersionDrift": "服务模式正在运行的内核 {{running}} 与内置内核 {{bundled}} 不一致。请打开「设置 → Mihomo 版本」安装 {{bundled}}，或重新安装/修复服务后重启内核。"
+        "uninstallSuccess": "已成功卸载服务"
       },
       "updater": {
         "withClashProxySuccess": "使用 Clash 代理更新成功",
@@ -780,12 +763,5 @@
       "installing": "安装服务中...",
       "uninstalling": "卸载服务中..."
     }
-  },
-  "search": {
-    "placeholder": "搜索设置",
-    "clear": "清空搜索",
-    "back": "返回结果",
-    "results": "搜索结果",
-    "empty": "未找到设置"
   }
 }

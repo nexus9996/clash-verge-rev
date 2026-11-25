@@ -17,8 +17,7 @@ const parseStringFlag = (value: unknown) => {
 
 const readGlobalFlag = (): boolean | null => {
   if (typeof window === 'undefined') return null
-  const flag = (window as Window & { __VERGE_ENABLE_DEBUG_LOGS__?: boolean })
-    .__VERGE_ENABLE_DEBUG_LOGS__
+  const flag = (window as any).__VERGE_ENABLE_DEBUG_LOGS__
   return typeof flag === 'boolean' ? flag : null
 }
 
@@ -48,7 +47,7 @@ const computeDebugEnabled = (): boolean => {
 const isDebugLoggingEnabled = () =>
   cachedDebugEnabled ?? (cachedDebugEnabled = computeDebugEnabled())
 
-export const debugLog = (...args: unknown[]) => {
+export const debugLog = (...args: any[]) => {
   if (!isDebugLoggingEnabled()) return
   console.log(...args)
 }

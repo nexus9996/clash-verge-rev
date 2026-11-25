@@ -140,8 +140,7 @@
           "networkInterface": "Челтәр интерфейсы",
           "unifiedDelay": "Бердәм задержка актив булганда, төрле типтагы узеллар өчен икеләтә тест башкарыла, TCP установканы раслау аермаларын тигезләү максатында",
           "logLevel": "Бу фәкать сервис режимында эшләгән вакытта системалы журнал файлларына кагыла",
-          "openUwpTool": "Windows 8'дән башлап UWP кушымталары (Microsoft Store кебек) локаль хосттагы челтәр хезмәтләренә турыдан-туры тоташа алмый. Бу инструмент әлеге чикләүне әйләнеп узарга ярдәм итә",
-          "ipv6Auto": "Enable IPv6 only while the physical network provides it; re-checked automatically when the network changes"
+          "openUwpTool": "Windows 8'дән башлап UWP кушымталары (Microsoft Store кебек) локаль хосттагы челтәр хезмәтләренә турыдан-туры тоташа алмый. Бу инструмент әлеге чикләүне әйләнеп узарга ярдәм итә"
         },
         "options": {
           "logLevel": {
@@ -150,17 +149,6 @@
             "warning": "Warn",
             "error": "Error",
             "silent": "Silent"
-          },
-          "ipv6Mode": {
-            "off": "Off",
-            "on": "On",
-            "auto": "Auto"
-          }
-        },
-        "status": {
-          "ipv6Auto": {
-            "available": "IPv6 available",
-            "ipv4Only": "IPv4-only network"
           }
         }
       }
@@ -462,7 +450,6 @@
         "appLogMaxSize": "App Log Max Size",
         "appLogMaxCount": "App Log Max Count",
         "autoCloseConnections": "Тоташуларны автоматик ябу",
-        "autoSwitchSelectorGroup": "Select төркемен автоматик күчерү",
         "autoCheckUpdate": "Яңартуларны автоматик тикшерү",
         "enableBuiltinEnhanced": "Эчке камилләштерүне кабызу",
         "proxyLayoutColumns": "Прокси күрсәтү баганалары саны",
@@ -475,7 +462,6 @@
       },
       "tooltips": {
         "autoCloseConnections": "Прокси төркеме яисә режимын үзгәрткәндә актив тоташуларны өзү",
-        "autoSwitchSelectorGroup": "Кагыйдәләр режимында кагыйдәләр трафигы үтми торган төркемдә төен сайлаганда, аны эченә алган беренче select төркеме дә шул төркемгә күчә",
         "enableBuiltinEnhanced": "Конфигурация файлы белән туры килә торган өстәмә оптимизация",
         "autoDelayDetection": "Фон режимында хәзерге төен тоткарлыгын периодик тикшерә",
         "defaultLatencyTest": "Бу фәкать клиентның HTTP сораулары тесты өчен кулланыла, конфигурация файлына йогынты ясамый",
@@ -532,7 +518,7 @@
         "usePacMode": "PAC режимын куллану",
         "proxyGuard": "Прокси саклаучы",
         "guardDuration": "Саклау вакыты",
-        "alwaysUseDefaultBypass": "Төп Bypass исемлеген өстәү",
+        "alwaysUseDefaultBypass": "Һәрвакыт төп Bypass-ны куллану",
         "enableBypassCheck": "Прокси урап узу форматын тикшерү",
         "proxyBypass": "Проксины әйләнеп узу:",
         "bypass": "Әйләнеп узу:",
@@ -560,13 +546,11 @@
         "strictRoute": "Катгый маршрутлау",
         "autoDetectInterface": "Интерфейсны автоматик ачыклау",
         "dnsHijack": "DNS'ны үзгәртеп тоту (hijack)",
-        "dnsMode": "DNS режиме",
         "mtu": "MTU (макс. тапшыру берәмлеге)",
         "autoRedirect": "Auto Redirect"
       },
       "tooltips": {
         "dnsHijack": "Please use , to separate multiple DNS servers",
-        "dnsMode": "Auto иске тәртипне саклый; hijack өчен Windows'ta Катгый маршрутлау яки Linux'ta Auto Redirect кирәк",
         "autoRedirect": "Automatically configures nftables/iptables TCP redirects"
       },
       "messages": {
@@ -762,8 +746,7 @@
         "permissionRejectedReason": "Хезмәт төш файлларын һәм папкаларын югары хокуклар белән имин эшләтеп булачагын раслый алмады.",
         "permissionRepairGuide": "Төзәтү күрсәтмәләрен карау",
         "sidecarFallback": "Хезмәт төшне эшләтеп җибәрә алмады. Эш Sidecar режимында дәвам итә; хезмәт һаман да эшләми.",
-        "uninstallSuccess": "Сервис уңышлы салдырылды",
-        "coreVersionDrift": "Хезмәт режимы {{running}} үзәген эшләтә, ә кушылган үзәк — {{bundled}}. {{bundled}} урнаштыру өчен Көйләүләр → Mihomo версияләре бүлеген ачыгыз, яки хезмәтне яңадан урнаштырыгыз/төзәтегез һәм үзәкне яңадан эшләтегез."
+        "uninstallSuccess": "Сервис уңышлы салдырылды"
       },
       "updater": {
         "withClashProxySuccess": "Update with Clash proxy successfully",
@@ -780,12 +763,5 @@
       "installing": "Хезмәт урнаштырыла...",
       "uninstalling": "Uninstalling Service..."
     }
-  },
-  "search": {
-    "placeholder": "Көйләүләрне эзләү",
-    "clear": "Эзләүне чистарту",
-    "back": "Нәтиҗәләргә кайту",
-    "results": "Эзләү нәтиҗәләре",
-    "empty": "Көйләүләр табылмады"
   }
 }

@@ -3,6 +3,26 @@ import { Traffic } from 'tauri-plugin-mihomo-api'
 
 import { useVisibility } from '@/hooks/use-visibility'
 import { debugLog } from '@/utils/debug'
+import { TrafficDataSampler, isSameTrafficData } from '@/utils/traffic-sampler'
+
+// 引用计数管理器
+class ReferenceCounter {
+  private count = 0
+
+  increment(): () => void {
+    this.count++
+    debugLog(`[ReferenceCounter] 引用计数增加: ${this.count}`)
+
+    return () => {
+      this.count--
+      debugLog(`[ReferenceCounter] 引用计数减少: ${this.count}`)
+    }
+  }
+
+  getCount(): number {
+    return this.count
+  }
+}
 
 const WORKER_CONFIG = {
   rawDataMinutes: 10,
@@ -12,11 +32,119 @@ const WORKER_CONFIG = {
   defaultRangeMinutes: 10,
 }
 
+class InlineTrafficMonitor {
+  private config = { ...WORKER_CONFIG }
+  private sampler = new TrafficDataSampler(this.config)
+  private throttleTimer: ReturnType<typeof setTimeout> | null = null
+  private agingTimer: ReturnType<typeof setInterval> | null = null
+  private currentRange = this.config.defaultRangeMinutes
+  private lastTimestamp: number | undefined
+  private lastBroadcast: ITrafficDataPoint[] = []
+
+  constructor(
+    private emit: (snapshot: ITrafficWorkerSnapshotMessage) => void,
+  ) {}
+
+  start(rangeMinutes?: number) {
+    this.currentRange = rangeMinutes ?? this.currentRange
+    this.handle({
+      type: 'init',
+      config: {
+        ...this.config,
+        defaultRangeMinutes: this.currentRange,
+      },
+    })
+  }
+
+  stop() {
+    if (this.throttleTimer !== null) {
+      clearTimeout(this.throttleTimer)
+      this.throttleTimer = null
+    }
+    if (this.agingTimer !== null) {
+      clearInterval(this.agingTimer)
+      this.agingTimer = null
+    }
+    this.sampler.clear()
+    this.lastTimestamp = undefined
+  }
+
+  handle(message: TrafficWorkerRequestMessage) {
+    switch (message.type) {
+      case 'init': {
+        this.config = { ...message.config }
+        this.sampler = new TrafficDataSampler(this.config)
+        this.currentRange = message.config.defaultRangeMinutes
+        // Re-broadcast when points age out of the range, not on every tick
+        this.agingTimer = setInterval(() => {
+          if (this.throttleTimer !== null) return
+          const slice = this.sampler.getDataForTimeRange(this.currentRange)
+          if (!isSameTrafficData(this.lastBroadcast, slice)) {
+            this.emitSnapshot()
+          }
+        }, 1000)
+        this.emitSnapshot()
+        break
+      }
+      case 'append': {
+        const timestamp = message.payload.timestamp ?? Date.now()
+        const dataPoint: ITrafficDataPoint = {
+          up: message.payload.up || 0,
+          down: message.payload.down || 0,
+          timestamp,
+        }
+
+        this.lastTimestamp = timestamp
+        this.sampler.addDataPoint(dataPoint)
+        this.scheduleSnapshot()
+        break
+      }
+      case 'setRange': {
+        if (this.currentRange !== message.minutes) {
+          this.currentRange = message.minutes
+          this.emitSnapshot()
+        }
+        break
+      }
+      case 'requestSnapshot': {
+        this.emitSnapshot()
+        break
+      }
+      default:
+        break
+    }
+  }
+
+  private emitSnapshot() {
+    const dataPoints = this.sampler.getDataForTimeRange(this.currentRange)
+
+    this.emit({
+      type: 'snapshot',
+      dataPoints,
+      samplerStats: this.sampler.getStats(),
+      lastTimestamp: this.lastTimestamp,
+    })
+    this.lastBroadcast = dataPoints
+  }
+
+  private scheduleSnapshot() {
+    if (this.throttleTimer !== null) return
+    this.throttleTimer = setTimeout(() => {
+      this.throttleTimer = null
+      this.emitSnapshot()
+    }, this.config.snapshotIntervalMs)
+  }
+}
+
 class TrafficWorkerClient {
   private worker: Worker | null = null
+  private inlineMonitor: InlineTrafficMonitor | null = null
+  private mode: 'worker' | 'inline' | null = null
   private listeners = new Set<
     (snapshot: ITrafficWorkerSnapshotMessage) => void
   >()
+  private pendingMessages: TrafficWorkerRequestMessage[] = []
+  private ready = false
   private currentRange = WORKER_CONFIG.defaultRangeMinutes
 
   start(rangeMinutes?: number) {
@@ -27,52 +155,101 @@ class TrafficWorkerClient {
 
     this.currentRange = rangeMinutes ?? this.currentRange
 
-    if (this.worker) return
+    if (this.ready) return
 
     const initMessage: TrafficWorkerRequestMessage = {
       type: 'init',
-      config: { ...WORKER_CONFIG, defaultRangeMinutes: this.currentRange },
+      config: {
+        rawDataMinutes: WORKER_CONFIG.rawDataMinutes,
+        compressedDataMinutes: WORKER_CONFIG.compressedDataMinutes,
+        compressionRatio: WORKER_CONFIG.compressionRatio,
+        snapshotIntervalMs: WORKER_CONFIG.snapshotIntervalMs,
+        defaultRangeMinutes: this.currentRange,
+      },
     }
 
-    this.worker = new Worker(
-      new URL('../services/traffic-monitor-worker.ts', import.meta.url),
-      { type: 'module' },
-    )
+    if (typeof Worker !== 'undefined') {
+      try {
+        this.worker = new Worker(
+          new URL('../services/traffic-monitor-worker.ts', import.meta.url),
+          { type: 'module' },
+        )
+        this.mode = 'worker'
 
-    this.worker.onmessage = (
-      event: MessageEvent<TrafficWorkerResponseMessage>,
-    ) => {
-      const message = event.data
-      if (message.type === 'snapshot') {
-        if (import.meta.env.MODE === 'perf') {
-          document.documentElement.dataset.perfWorker = String(
-            message.lastTimestamp ?? 0,
-          )
-          document.documentElement.dataset.perfPoints = String(
-            message.dataPoints.length,
-          )
-          const last = message.dataPoints.at(-1)
-          document.documentElement.dataset.perfLastUp = String(last?.up ?? 0)
-          document.documentElement.dataset.perfLastDown = String(
-            last?.down ?? 0,
-          )
+        this.worker.onmessage = (
+          event: MessageEvent<TrafficWorkerResponseMessage>,
+        ) => {
+          const message = event.data
+          if (message.type === 'snapshot') {
+            if (import.meta.env.MODE === 'perf') {
+              document.documentElement.dataset.perfWorker = String(
+                message.lastTimestamp ?? 0,
+              )
+              document.documentElement.dataset.perfPoints = String(
+                message.dataPoints.length,
+              )
+              const last = message.dataPoints.at(-1)
+              document.documentElement.dataset.perfLastUp = String(
+                last?.up ?? 0,
+              )
+              document.documentElement.dataset.perfLastDown = String(
+                last?.down ?? 0,
+              )
+            }
+            this.listeners.forEach((listener) => {
+              listener(message)
+            })
+          }
         }
-        this.listeners.forEach((listener) => {
-          listener(message)
-        })
+
+        this.worker.onerror = (error) => {
+          debugLog(`[TrafficWorkerClient] Worker error: ${String(error)}`)
+        }
+
+        this.ready = true
+        this.post(initMessage)
+        this.flushQueue()
+        return
+      } catch (error) {
+        debugLog(
+          `[TrafficWorkerClient] Worker initialization failed, falling back to inline sampler: ${String(error)}`,
+        )
+        this.worker = null
+        this.mode = null
       }
+    } else {
+      debugLog(
+        '[TrafficWorkerClient] Worker not supported, using inline sampler',
+      )
     }
 
-    this.worker.onerror = (error) => {
-      debugLog(`[TrafficWorkerClient] Worker error: ${String(error)}`)
-    }
+    this.startInline(initMessage)
+  }
 
+  private startInline(initMessage: TrafficWorkerRequestMessage) {
+    this.inlineMonitor = new InlineTrafficMonitor((snapshot) => {
+      this.listeners.forEach((listener) => {
+        listener(snapshot)
+      })
+    })
+    this.mode = 'inline'
+    this.ready = true
     this.post(initMessage)
+    this.flushQueue()
   }
 
   stop() {
-    this.worker?.terminate()
+    if (this.worker) {
+      this.worker.terminate()
+    }
+    if (this.inlineMonitor) {
+      this.inlineMonitor.stop()
+    }
     this.worker = null
+    this.inlineMonitor = null
+    this.mode = null
+    this.ready = false
+    this.pendingMessages = []
   }
 
   onSnapshot(listener: (snapshot: ITrafficWorkerSnapshotMessage) => void) {
@@ -83,11 +260,37 @@ class TrafficWorkerClient {
   }
 
   private post(message: TrafficWorkerRequestMessage) {
-    this.worker?.postMessage(message)
+    if (!this.ready) {
+      this.pendingMessages.push(message)
+      return
+    }
+
+    if (this.mode === 'worker' && this.worker) {
+      this.worker.postMessage(message)
+      return
+    }
+
+    if (this.mode === 'inline' && this.inlineMonitor) {
+      this.inlineMonitor.handle(message)
+      return
+    }
+
+    this.pendingMessages.push(message)
+  }
+
+  private flushQueue() {
+    if (!this.ready || this.pendingMessages.length === 0) {
+      return
+    }
+    const queued = [...this.pendingMessages]
+    this.pendingMessages = []
+    queued.forEach((message) => {
+      this.post(message)
+    })
   }
 
   private ensureStarted() {
-    if (!this.worker) {
+    if (!this.ready) {
       this.start(this.currentRange)
     }
   }
@@ -115,21 +318,13 @@ class TrafficWorkerClient {
   }
 }
 
+const refCounter = new ReferenceCounter()
 let workerClient: TrafficWorkerClient | null = null
 const getWorkerClient = () => {
   if (!workerClient) {
     workerClient = new TrafficWorkerClient()
   }
   return workerClient
-}
-
-/**
- * Tears down the sampler and its stream. Only call this on app teardown;
- * unmounting consumers must leave the sampled history intact.
- */
-export const disposeTrafficMonitor = () => {
-  workerClient?.stop()
-  workerClient = null
 }
 
 const EMPTY_STATS: ISamplerStats = {
@@ -147,11 +342,9 @@ const EMPTY_DATA: ITrafficDataPoint[] = []
 export const useTrafficMonitorEnhanced = (options?: {
   subscribe?: boolean
   enabled?: boolean
-  onSnapshot?: (message: ITrafficWorkerSnapshotMessage) => void
 }) => {
   const subscribeToSnapshots = options?.subscribe ?? true
   const enabled = options?.enabled ?? true
-  const onSnapshot = options?.onSnapshot
   const isVisible = useVisibility()
   const [latestSnapshot, setLatestSnapshot] = useState<{
     dataPoints: ITrafficDataPoint[]
@@ -165,11 +358,6 @@ export const useTrafficMonitorEnhanced = (options?: {
   const currentRangeRef = useRef<number>(WORKER_CONFIG.defaultRangeMinutes)
   const isVisibleRef = useRef(isVisible)
   isVisibleRef.current = isVisible
-  const onSnapshotRef = useRef(onSnapshot)
-  onSnapshotRef.current = onSnapshot
-  // Only the presence of the callback matters to the subscription lifetime;
-  // its identity drives nothing but the ref write above.
-  const wantsSnapshots = subscribeToSnapshots || onSnapshot !== undefined
 
   // 注册引用计数与Worker生命周期
   useEffect(() => {
@@ -178,15 +366,13 @@ export const useTrafficMonitorEnhanced = (options?: {
     const client = getWorkerClient()
     clientRef.current = client
 
+    const cleanup = refCounter.increment()
     client.start(currentRangeRef.current)
 
     let unsubscribe: (() => void) | undefined
-    if (wantsSnapshots) {
+    if (subscribeToSnapshots) {
       unsubscribe = client.onSnapshot((message) => {
-        // onSnapshot is the always-live channel (ignores visibility); the
-        // state mirror below keeps its original always-latest contract.
-        onSnapshotRef.current?.(message)
-        if (!wantsSnapshots || !isVisibleRef.current) return
+        if (!isVisibleRef.current) return
         setLatestSnapshot({
           dataPoints: message.dataPoints,
           samplerStats: message.samplerStats,
@@ -196,19 +382,19 @@ export const useTrafficMonitorEnhanced = (options?: {
 
     return () => {
       unsubscribe?.()
-      // Deliberately keep the sampler alive when the last consumer goes away
-      // (e.g. the window is hidden): disposing it here would discard the
-      // recorded traffic history. The transport is stopped separately and
-      // `disposeTrafficMonitor` runs on app teardown.
+      cleanup()
+      if (refCounter.getCount() === 0) {
+        client.stop()
+      }
     }
-  }, [enabled, wantsSnapshots])
+  }, [enabled, subscribeToSnapshots])
 
   // Re-prime snapshot ingestion after every visible transition
   useEffect(() => {
-    if (enabled && isVisible && wantsSnapshots) {
+    if (enabled && subscribeToSnapshots && isVisible) {
       clientRef.current?.requestSnapshot()
     }
-  }, [enabled, wantsSnapshots, isVisible])
+  }, [enabled, subscribeToSnapshots, isVisible])
 
   // 添加流量数据
   const appendData = useCallback(
@@ -242,12 +428,8 @@ export const useTrafficMonitorEnhanced = (options?: {
 /**
  * 图表数据Hook
  */
-export const useTrafficGraphDataEnhanced = (options?: {
-  subscribe?: boolean
-  enabled?: boolean
-  onSnapshot?: (message: ITrafficWorkerSnapshotMessage) => void
-}) => {
-  const { graphData, samplerStats } = useTrafficMonitorEnhanced(options)
+export const useTrafficGraphDataEnhanced = () => {
+  const { graphData, samplerStats } = useTrafficMonitorEnhanced()
 
   return {
     ...graphData,

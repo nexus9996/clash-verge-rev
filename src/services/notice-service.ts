@@ -148,6 +148,15 @@ function parseNoticeExtras(extras: NoticeExtra[]): ParsedNoticeExtras {
       raw = extra
       continue
     }
+
+    if (!params && isPlainRecord(extra)) {
+      params = extra
+      continue
+    }
+
+    if (duration === undefined && typeof extra === 'number') {
+      duration = extra
+    }
   }
 
   return {
@@ -514,21 +523,9 @@ export function hideNotice(id: number) {
 }
 
 function hideNoticesByCode(code: string) {
-  // One subscriber notification for the whole batch; per-notice removal
-  // would notify once per item.
-  const remaining: NoticeItem[] = []
-  let removed = false
-  for (const notice of notices) {
-    if (notice.code === code) {
-      removed = true
-      if (notice.timerId) clearTimeout(notice.timerId)
-    } else {
-      remaining.push(notice)
-    }
-  }
-  if (!removed) return
-  notices = remaining
-  notifySubscribers()
+  notices
+    .filter((notice) => notice.code === code)
+    .forEach(({ id }) => hideNotice(id))
 }
 
 export function syncSidecarFailure(snapshot: SidecarFailureSnapshot) {

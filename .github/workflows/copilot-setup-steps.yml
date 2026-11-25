@@ -31,33 +31,6 @@ jobs:
         with:
           persist-credentials: false
       - name: Install gh-aw extension
-        uses: github/gh-aw-actions/setup-cli@b907753c079ddd7d6829a0d8c24e02e818b4b45f # v1.4.0
+        uses: github/gh-aw-actions/setup-cli@924af5fdc64061cfbf66fb584c8b07e2ac230c60 # v0.89.21
         with:
-          version: v1.4.0
-      - name: Install Rust Stable
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy, rustfmt
-      - name: Install Linux build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libxslt1.1 libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: '1.4.4'
-      - name: Install Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: '26.13.1'
-      - name: Restore Bun cache
-        uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: "bun-shared-stable-${{ runner.os }}-${{ hashFiles('bun.lock') }}"
-          restore-keys: |
-            bun-shared-stable-${{ runner.os }}-
-      - name: Install frontend dependencies
-        env:
-          HUSKY: 0
-        run: bun install --frozen-lockfile
+          version: v0.89.15

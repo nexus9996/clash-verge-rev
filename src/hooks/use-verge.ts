@@ -3,16 +3,12 @@ import { useCallback } from 'react'
 import { getVergeConfig, patchVergeConfig } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import { getPreloadConfig, setPreloadConfig } from '@/services/preload'
-import {
-  revalidateQuery,
-  setCacheData,
-  useQuery,
-} from '@/services/query-client'
+import { setCacheData, useQuery } from '@/services/query-client'
 
 export const useVerge = () => {
   const initialVergeConfig = getPreloadConfig()
 
-  const { data: verge } = useQuery({
+  const { data: verge, refetch } = useQuery({
     queryKey: ['getVergeConfig'],
     queryFn: async () => {
       const config = await getVergeConfig()
@@ -24,25 +20,24 @@ export const useVerge = () => {
     staleTime: 5000,
   })
 
-  // Stable identity: many consumers list mutateVerge in their own callback
-  // deps, so a per-render closure here would churn their memoization too.
-  // The updater receives the live cache value (preload snapshot when the
-  // cache is still empty) instead of a render-time snapshot, so an older
-  // render cannot clobber a newer cache write.
-  const mutateVerge = useCallback(
-    (
-      updater?: (prev: IVergeConfig | undefined) => IVergeConfig | undefined,
-    ) => {
-      if (updater === undefined) {
-        void revalidateQuery(['getVergeConfig'])
-        return
-      }
-      void setCacheData<IVergeConfig>(['getVergeConfig'], (current) =>
-        updater(current ?? getPreloadConfig() ?? undefined),
-      )
-    },
-    [],
-  )
+  const mutateVerge = (
+    updaterOrData?:
+      | IVergeConfig
+      | ((prev: IVergeConfig | undefined) => IVergeConfig | undefined)
+      | undefined,
+    _revalidate?: boolean,
+  ) => {
+    if (updaterOrData === undefined) {
+      void refetch()
+      return
+    }
+    void setCacheData<IVergeConfig>(
+      ['getVergeConfig'],
+      typeof updaterOrData === 'function'
+        ? (current) => updaterOrData(current ?? verge)
+        : updaterOrData,
+    )
+  }
 
   // Callers own the error toast (GuardState onCatch / page onError), so the
   // funnel must not add a second one.

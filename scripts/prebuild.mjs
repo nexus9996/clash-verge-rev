@@ -6,6 +6,7 @@ import path from 'node:path'
 import zlib from 'node:zlib'
 
 import AdmZip from 'adm-zip'
+import { glob } from 'glob'
 import { HttpsProxyAgent } from 'https-proxy-agent'
 import { extract } from 'tar'
 
@@ -265,13 +266,13 @@ async function getLatestReleaseVersion() {
 }
 
 if (!META_MAP[`${platform}-${arch}`]) {
-  throw new Error(`mihomo unsupported platform "${platform}-${arch}"`)
+  throw new Error(`clash meta unsupported platform "${platform}-${arch}"`)
 }
 if (!META_ALPHA_MAP[`${platform}-${arch}`]) {
-  throw new Error(`mihomo alpha unsupported platform "${platform}-${arch}"`)
+  throw new Error(`clash meta alpha unsupported platform "${platform}-${arch}"`)
 }
 
-function mihomoAlpha() {
+function clashMetaAlpha() {
   const name = META_ALPHA_MAP[`${platform}-${arch}`]
   const isWin = platform === 'win32'
   const urlExt = isWin ? 'zip' : 'gz'
@@ -284,7 +285,7 @@ function mihomoAlpha() {
   }
 }
 
-function mihomo() {
+function clashMeta() {
   const name = META_MAP[`${platform}-${arch}`]
   const isWin = platform === 'win32'
   const urlExt = isWin ? 'zip' : 'gz'
@@ -518,7 +519,7 @@ const resolveServicePermission = async () => {
   let hasChanges = false
 
   for (const f of serviceExecutables) {
-    const files = fs.globSync(path.join(SERVICE_DIR, f))
+    const files = glob.sync(path.join(SERVICE_DIR, f))
     for (const filePath of files) {
       if (fs.existsSync(filePath)) {
         const currentHash = await calculateFileHash(filePath)
@@ -620,7 +621,7 @@ async function resolveServiceBundle() {
     }
     return
   }
-  const { version, archiveFile, downloadURL } = resolveServiceRelease(
+  const { archiveFile, downloadURL } = resolveServiceRelease(
     cargoManifest,
     SIDECAR_HOST,
     platform,
@@ -632,18 +633,7 @@ async function resolveServiceBundle() {
   await fsp.mkdir(SERVICE_DIR, { recursive: true })
 
   try {
-    try {
-      await downloadFile(downloadURL, tempArchive)
-    } catch (error) {
-      // The crate version on the tracked branch can run ahead of its release:
-      // the dependency then names a tag that has no assets yet.
-      throw new Error(
-        `Service bundle ${version} is not published for ${SIDECAR_HOST}: ${error.message}\n` +
-          `Publish ${version} in clash-verge-service-ipc, or declare a local "path" ` +
-          `dependency for clash_verge_service_ipc to build the bundle from source.`,
-        { cause: error },
-      )
-    }
+    await downloadFile(downloadURL, tempArchive)
 
     if (platform === 'win32') {
       const zip = new AdmZip(tempArchive)
@@ -743,12 +733,13 @@ const tasks = [
   {
     name: 'verge-mihomo-alpha',
     func: () =>
-      getLatestAlphaVersion().then(() => resolveSidecar(mihomoAlpha())),
+      getLatestAlphaVersion().then(() => resolveSidecar(clashMetaAlpha())),
     retry: 5,
   },
   {
     name: 'verge-mihomo',
-    func: () => getLatestReleaseVersion().then(() => resolveSidecar(mihomo())),
+    func: () =>
+      getLatestReleaseVersion().then(() => resolveSidecar(clashMeta())),
     retry: 5,
   },
   // After both sidecar tasks: it hashes what they downloaded.

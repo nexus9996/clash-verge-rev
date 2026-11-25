@@ -147,9 +147,6 @@
       }
     },
     "proxiesEditor": {
-      "fields": {
-        "targetGroups": "Destination Groups"
-      },
       "title": "Редактировать прокси",
       "placeholders": {
         "multiUri": "Используйте перенос строки для нескольких URI (поддерживается Base64)"

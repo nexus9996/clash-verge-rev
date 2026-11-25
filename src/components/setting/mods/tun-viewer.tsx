@@ -9,7 +9,7 @@ import {
 } from '@mui/material'
 import { useLockFn } from 'ahooks'
 import type { Ref } from 'react'
-import { useMemo, useState } from 'react'
+import { useImperativeHandle, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -23,38 +23,39 @@ import { useClash } from '@/hooks/use-clash'
 import { enhanceProfiles } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'
-import { supportsTunDnsMode } from '@/utils/core-version'
 import getSystem from '@/utils/get-system'
-import { areValidIpCidrs } from '@/utils/network-cidr'
+import { areValidIpCidrs } from '@/utils/network'
 
-import { useSettingDialog } from '../settings-search-context'
-
-import { DnsModeSwitch } from './dns-mode-switch'
 import { StackModeSwitch } from './stack-mode-switch'
-import {
-  buildTunConfig,
-  defaultTunFormValues,
-  splitRouteExcludeAddress,
-  type TunFormValues,
-} from './tun-config'
 
 const OS = getSystem()
+
+const splitRouteExcludeAddress = (value: string) =>
+  value
+    .split(/[,\n;\r]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
 
 export function TunViewer({ ref }: { ref?: Ref<DialogRef> }) {
   const { t } = useTranslation()
 
-  const { clash, mutateClash, patchClash, coreVersion } = useClash()
-
-  // Older cores ignore `tun.dns-mode`, so the row only appears when the
-  // running core is known to support it.
-  const dnsModeSupported = supportsTunDnsMode(coreVersion)
+  const { clash, mutateClash, patchClash } = useClash()
 
   const [open, setOpen] = useState(false)
-  const [values, setValues] = useState<TunFormValues>(defaultTunFormValues(OS))
+  const [values, setValues] = useState({
+    stack: 'mips',
+    device: OS === 'macos' ? 'utun1024' : 'Mihomo',
+    autoRoute: true,
+    routeExcludeAddress: '',
+    autoRedirect: false,
+    autoDetectInterface: true,
+    dnsHijack: ['any:53'],
+    strictRoute: false,
+    mtu: 1500,
+  })
 
-  const routeExcludeAddressItems = useMemo(
-    () => splitRouteExcludeAddress(values.routeExcludeAddress),
-    [values.routeExcludeAddress],
+  const routeExcludeAddressItems = splitRouteExcludeAddress(
+    values.routeExcludeAddress,
   )
   const routeExcludeAddressError =
     values.autoRoute &&
@@ -64,7 +65,7 @@ export function TunViewer({ ref }: { ref?: Ref<DialogRef> }) {
     ? t('settings.modals.tun.messages.invalidRouteExcludeAddress')
     : t('settings.modals.tun.messages.routeExcludeAddressHint')
 
-  useSettingDialog(ref, 'tun-viewer', open, () => ({
+  useImperativeHandle(ref, () => ({
     open: () => {
       setOpen(true)
       const nextAutoRoute = clash?.tun['auto-route'] ?? true
@@ -83,7 +84,6 @@ export function TunViewer({ ref }: { ref?: Ref<DialogRef> }) {
         dnsHijack: clash?.tun['dns-hijack'] ?? ['any:53'],
         strictRoute: clash?.tun['strict-route'] ?? false,
         mtu: clash?.tun.mtu ?? 1500,
-        dnsMode: clash?.tun['dns-mode'] ?? '',
       })
     },
     close: () => setOpen(false),
@@ -91,6 +91,8 @@ export function TunViewer({ ref }: { ref?: Ref<DialogRef> }) {
 
   const onSave = useLockFn(async () => {
     try {
+      const routeExcludeAddress = routeExcludeAddressItems
+
       if (routeExcludeAddressError) {
         showNotice.error(
           'settings.modals.tun.messages.invalidRouteExcludeAddress',
@@ -98,7 +100,26 @@ export function TunViewer({ ref }: { ref?: Ref<DialogRef> }) {
         return
       }
 
-      const tun = buildTunConfig(values, OS)
+      const tun: IConfigData['tun'] = {
+        stack: values.stack,
+        device:
+          values.device === ''
+            ? OS === 'macos'
+              ? 'utun1024'
+              : 'Mihomo'
+            : values.device,
+        'auto-route': values.autoRoute,
+        'route-exclude-address': routeExcludeAddress,
+        ...(OS === 'linux'
+          ? {
+              'auto-redirect': values.autoRedirect,
+            }
+          : {}),
+        'auto-detect-interface': values.autoDetectInterface,
+        'dns-hijack': values.dnsHijack[0] === '' ? [] : values.dnsHijack,
+        'strict-route': values.strictRoute,
+        mtu: values.mtu ?? 1500,
+      }
       await patchClash({ tun })
       await mutateClash(
         (old) => ({
@@ -115,7 +136,7 @@ export function TunViewer({ ref }: { ref?: Ref<DialogRef> }) {
       }).catch((err: any) => {
         showNotice.error(err)
       })
-    } catch (err) {
+    } catch (err: any) {
       showNotice.error(err)
     }
   })
@@ -127,13 +148,35 @@ export function TunViewer({ ref }: { ref?: Ref<DialogRef> }) {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
           <Typography variant="h6">{t('settings.modals.tun.title')}</Typography>
           <Button
-            data-setting-target="tun-viewer-reset"
             variant="outlined"
             size="small"
             onClick={async () => {
-              const defaults = defaultTunFormValues(OS)
-              const tun = buildTunConfig(defaults, OS)
-              setValues(defaults)
+              const tun: IConfigData['tun'] = {
+                stack: 'mips',
+                device: OS === 'macos' ? 'utun1024' : 'Mihomo',
+                'auto-route': true,
+                ...(OS === 'linux'
+                  ? {
+                      'auto-redirect': false,
+                    }
+                  : {}),
+                'auto-detect-interface': true,
+                'dns-hijack': ['any:53'],
+                'route-exclude-address': [],
+                'strict-route': false,
+                mtu: 1500,
+              }
+              setValues({
+                stack: 'mips',
+                device: OS === 'macos' ? 'utun1024' : 'Mihomo',
+                autoRoute: true,
+                routeExcludeAddress: '',
+                autoRedirect: false,
+                autoDetectInterface: true,
+                dnsHijack: ['any:53'],
+                strictRoute: false,
+                mtu: 1500,
+              })
               await patchClash({ tun })
               await mutateClash(
                 (old) => ({
@@ -155,12 +198,8 @@ export function TunViewer({ ref }: { ref?: Ref<DialogRef> }) {
       onCancel={() => setOpen(false)}
       onOk={onSave}
     >
-      <span data-settings-dialog="tun-viewer" />
       <List>
-        <ListItem
-          data-setting-target="settings.modals.tun.fields.stack"
-          sx={{ padding: '5px 2px' }}
-        >
+        <ListItem sx={{ padding: '5px 2px' }}>
           <ListItemText primary={t('settings.modals.tun.fields.stack')} />
           <StackModeSwitch
             value={values.stack}
@@ -173,34 +212,7 @@ export function TunViewer({ ref }: { ref?: Ref<DialogRef> }) {
           />
         </ListItem>
 
-        {dnsModeSupported && (
-          <ListItem
-            data-setting-target="settings.modals.tun.fields.dnsMode"
-            sx={{ padding: '5px 2px' }}
-          >
-            <ListItemText
-              primary={t('settings.modals.tun.fields.dnsMode')}
-              sx={{ maxWidth: 'fit-content' }}
-            />
-            <TooltipIcon
-              title={t('settings.modals.tun.tooltips.dnsMode')}
-              sx={{ opacity: 0.7 }}
-            />
-            <Box sx={{ marginLeft: 'auto' }}>
-              <DnsModeSwitch
-                value={values.dnsMode}
-                onChange={(value) => {
-                  setValues((v) => ({ ...v, dnsMode: value }))
-                }}
-              />
-            </Box>
-          </ListItem>
-        )}
-
-        <ListItem
-          data-setting-target="settings.modals.tun.fields.device"
-          sx={{ padding: '5px 2px' }}
-        >
+        <ListItem sx={{ padding: '5px 2px' }}>
           <ListItemText primary={t('settings.modals.tun.fields.device')} />
           <TextField
             autoComplete="new-password"
@@ -217,10 +229,7 @@ export function TunViewer({ ref }: { ref?: Ref<DialogRef> }) {
           />
         </ListItem>
 
-        <ListItem
-          data-setting-target="settings.modals.tun.fields.autoRoute"
-          sx={{ padding: '5px 2px' }}
-        >
+        <ListItem sx={{ padding: '5px 2px' }}>
           <ListItemText primary={t('settings.modals.tun.fields.autoRoute')} />
           <Switch
             edge="end"
@@ -236,10 +245,7 @@ export function TunViewer({ ref }: { ref?: Ref<DialogRef> }) {
         </ListItem>
 
         {OS === 'linux' && (
-          <ListItem
-            data-setting-target="settings.modals.tun.fields.autoRedirect"
-            sx={{ padding: '5px 2px' }}
-          >
+          <ListItem sx={{ padding: '5px 2px' }}>
             <ListItemText
               primary={t('settings.modals.tun.fields.autoRedirect')}
               sx={{ maxWidth: 'fit-content' }}
@@ -263,10 +269,7 @@ export function TunViewer({ ref }: { ref?: Ref<DialogRef> }) {
           </ListItem>
         )}
 
-        <ListItem
-          data-setting-target="settings.modals.tun.fields.strictRoute"
-          sx={{ padding: '5px 2px' }}
-        >
+        <ListItem sx={{ padding: '5px 2px' }}>
           <ListItemText primary={t('settings.modals.tun.fields.strictRoute')} />
           <Switch
             edge="end"
@@ -275,10 +278,7 @@ export function TunViewer({ ref }: { ref?: Ref<DialogRef> }) {
           />
         </ListItem>
 
-        <ListItem
-          data-setting-target="settings.modals.tun.fields.autoDetectInterface"
-          sx={{ padding: '5px 2px' }}
-        >
+        <ListItem sx={{ padding: '5px 2px' }}>
           <ListItemText
             primary={t('settings.modals.tun.fields.autoDetectInterface')}
           />
@@ -291,10 +291,7 @@ export function TunViewer({ ref }: { ref?: Ref<DialogRef> }) {
           />
         </ListItem>
 
-        <ListItem
-          data-setting-target="settings.modals.tun.fields.dnsHijack"
-          sx={{ padding: '5px 2px' }}
-        >
+        <ListItem sx={{ padding: '5px 2px' }}>
           <ListItemText primary={t('settings.modals.tun.fields.dnsHijack')} />
           <TextField
             autoComplete="new-password"
@@ -311,10 +308,7 @@ export function TunViewer({ ref }: { ref?: Ref<DialogRef> }) {
           />
         </ListItem>
 
-        <ListItem
-          data-setting-target="settings.modals.tun.fields.mtu"
-          sx={{ padding: '5px 2px' }}
-        >
+        <ListItem sx={{ padding: '5px 2px' }}>
           <ListItemText primary={t('settings.modals.tun.fields.mtu')} />
           <TextField
             autoComplete="new-password"
@@ -324,15 +318,14 @@ export function TunViewer({ ref }: { ref?: Ref<DialogRef> }) {
             autoCapitalize="off"
             spellCheck="false"
             sx={{ width: 250 }}
-            value={values.mtu ?? ''}
+            value={values.mtu}
             placeholder="1500"
-            onChange={(e) => {
-              const next = Number.parseInt(e.target.value, 10)
+            onChange={(e) =>
               setValues((v) => ({
                 ...v,
-                mtu: Number.isNaN(next) ? undefined : next,
+                mtu: parseInt(e.target.value),
               }))
-            }}
+            }
           />
         </ListItem>
 
@@ -347,10 +340,7 @@ export function TunViewer({ ref }: { ref?: Ref<DialogRef> }) {
             setValues((v) => ({ ...v, routeExcludeAddress: nextValue }))
           }
           renderHeader={(modeToggle) => (
-            <ListItem
-              data-setting-target="settings.modals.tun.fields.routeExcludeAddress"
-              sx={{ padding: '5px 2px' }}
-            >
+            <ListItem sx={{ padding: '5px 2px' }}>
               <ListItemText
                 primary={t('settings.modals.tun.fields.routeExcludeAddress')}
               />

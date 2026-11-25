@@ -7,8 +7,9 @@ use crate::{
 use anyhow::Result;
 use clash_verge_logging::{Type, logging};
 use parking_lot::RwLock;
+use scopeguard::defer;
+use smartstring::alias::String;
 use std::{
-    mem::DropGuard,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -17,7 +18,6 @@ use std::{
 };
 use sysproxy::{Autoproxy, GuardMonitor, GuardType, Sysproxy};
 use tokio::sync::Mutex as TokioMutex;
-use tristr::alias::String;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ProxyApplyStep {
@@ -241,19 +241,20 @@ async fn current_os_proxy_state(sys: Sysproxy, auto: Autoproxy) -> OsProxyState 
 }
 
 pub(crate) struct Sysopt {
-    // Owns the proxy target pair; every reader and writer goes through this lock.
-    proxy_state_lock: TokioMutex<(Sysproxy, Autoproxy)>,
+    update_lock: TokioMutex<()>,
     guard_operation_lock: TokioMutex<()>,
     reset_sysproxy: AtomicBool,
+    inner_proxy: Arc<RwLock<(Sysproxy, Autoproxy)>>,
     guard: Arc<RwLock<GuardMonitor>>,
 }
 
 impl Default for Sysopt {
     fn default() -> Self {
         Self {
-            proxy_state_lock: TokioMutex::new((Sysproxy::default(), Autoproxy::default())),
+            update_lock: TokioMutex::new(()),
             guard_operation_lock: TokioMutex::new(()),
             reset_sysproxy: AtomicBool::new(false),
+            inner_proxy: Arc::new(RwLock::new((Sysproxy::default(), Autoproxy::default()))),
             guard: Arc::new(RwLock::new(GuardMonitor::new(GuardType::None, Duration::from_secs(30)))),
         }
     }
@@ -268,9 +269,10 @@ static DEFAULT_BYPASS: &str = "localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,172
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 static BYPASS_SEPARATOR: &str = ",";
 #[cfg(target_os = "macos")]
-static DEFAULT_BYPASS: &str = crate::constants::sysproxy::MACOS_DEFAULT_BYPASS;
+static DEFAULT_BYPASS: &str =
+    "127.0.0.1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,localhost,*.local,*.crashlytics.com,<local>";
 
-pub(super) fn format_bypass(use_default: bool, custom_bypass: &str) -> String {
+fn format_bypass(use_default: bool, custom_bypass: &str) -> String {
     if custom_bypass.is_empty() {
         DEFAULT_BYPASS.into()
     } else if use_default {
@@ -359,7 +361,7 @@ impl Sysopt {
             }
         }
         while self.access_guard().read().get_state().is_pendding() {
-            tokio::time::sleep(Duration::from_millis(10)).await;
+            tokio::task::yield_now().await;
         }
         // `start()` false may also mean a guard was already running.
         !self.access_guard().read().get_state().is_stopped()
@@ -407,21 +409,18 @@ impl Sysopt {
     /// configuration instead of a partially-applied one (e.g. SOCKS already
     /// disabled but HTTP still enabled mid-transition).
     pub(crate) async fn wait_idle(&self) {
-        let _ = self.proxy_state_lock.lock().await;
+        let _ = self.update_lock.lock().await;
     }
 
     /// init the sysproxy
-    #[allow(
-        clippy::significant_drop_tightening,
-        reason = "the proxy state lock must stay held until the OS write finishes; wait_idle relies on it"
-    )]
     pub(super) async fn update_sysproxy(&self) -> Result<()> {
-        let mut proxy_state = self.proxy_state_lock.lock().await;
+        let _lock = self.update_lock.lock().await;
         let verge = Config::verge().await.latest_arc();
         // Configured, not live: this runs while the Core is being started or restarted, and
         // asking a Core that is not up yet would only fall back here anyway.
         let port = MixedPort::desired().await;
         let pac_port = server::embedded_server_port()?;
+        // 先 await, 避免持有锁导致的 Send 问题
         let bypass = get_bypass().await;
 
         let (sys_enable, pac_enable, proxy_host, proxy_guard) = (
@@ -432,7 +431,7 @@ impl Sysopt {
         );
 
         let (sys, auto, guard_type) = {
-            let (sys, auto) = &mut *proxy_state;
+            let (sys, auto) = &mut *self.inner_proxy.write();
             sys.host = proxy_host.into();
             sys.port = port;
             sys.bypass = bypass.into();
@@ -529,10 +528,6 @@ impl Sysopt {
     }
 
     /// reset the sysproxy
-    #[allow(
-        clippy::significant_drop_tightening,
-        reason = "the proxy state lock must stay held until the disable finishes; wait_idle relies on it"
-    )]
     pub(super) async fn reset_sysproxy(&self) -> Result<()> {
         if self
             .reset_sysproxy
@@ -541,16 +536,16 @@ impl Sysopt {
         {
             return Ok(());
         }
-        let _reset_sysproxy = DropGuard::new((), |()| {
+        defer! {
             self.reset_sysproxy.store(false, Ordering::SeqCst);
-        });
-        let mut proxy_state = self.proxy_state_lock.lock().await;
+        }
+        let _lock = self.update_lock.lock().await;
         let _guard_operation = self.guard_operation_lock.lock().await;
         let drained = self.stop_proxy_guard_locked().await;
 
         // 直接关闭所有代理
         let (sys, auto) = {
-            let (sys, auto) = &mut *proxy_state;
+            let (sys, auto) = &mut *self.inner_proxy.write();
             sys.enable = false;
             auto.enable = false;
             (sys.clone(), auto.clone())

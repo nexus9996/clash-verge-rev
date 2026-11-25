@@ -1,7 +1,4 @@
-export {
-  HOME_PROXY_VIEW_REFETCH_MS,
-  useProxiesData,
-} from './use-proxy-view-data'
+export { useProxiesData } from './use-proxy-view-data'
 export { useRulesData } from './use-rules-data'
 export { useClashConfigData } from './use-clash-config-data'
 export { useSystemData } from './use-system-data'

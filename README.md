@@ -103,15 +103,16 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for more details.
 To run the development server, execute the following commands after all prerequisites for **Tauri** are installed:
 
 ```shell
-bun install
-bun run prebuild:download
-bun run dev
+pnpm i
+pnpm run prebuild
+pnpm dev
 ```
 
-`bun run dev` runs the desktop app in debug mode against the single Service
-channel: an installed service is reused, and an uninstalled one keeps the app
-in Sidecar mode. Debug sessions keep their profiles and settings in the
-isolated `.dev` application data directory.
+`pnpm dev` preserves the Development Channel's installed service state: an
+existing service is used, while a previously uninstalled service remains
+uninstalled and the app starts in Sidecar mode. Use `pnpm dev:service` to
+explicitly install or update the isolated development service before launch,
+or `pnpm dev:sidecar` to force the unprivileged Sidecar workflow.
 
 ## Contributions
 

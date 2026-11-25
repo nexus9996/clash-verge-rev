@@ -2,23 +2,27 @@ use crate::core::notify::NoticeStatus;
 use crate::core::notify::{Refresh, announce};
 use crate::{
     config::{Config, MixedPort},
-    constants::latency::DEFAULT_TIMEOUT_MS,
     core::{CoreManager, handle, tray},
-    feat::run_exit_cleanup_flow,
+    feat::clean_async,
     process::AsyncHandler,
     utils,
 };
 use bytes::BytesMut;
-use clash_verge_draft::DraftTransaction;
 use clash_verge_logging::{Type, logging};
 use serde_yaml_ng::{Mapping, Value};
+use smartstring::alias::String;
 use std::sync::{Arc, LazyLock};
-use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
-use tristr::alias::String;
 
 #[allow(clippy::expect_used)]
-static TLS_CONFIG: LazyLock<Arc<rustls::ClientConfig>> =
-    LazyLock::new(|| Arc::new(utils::network::build_webpki_rooted_tls_config().expect("Failed to set TLS versions")));
+static TLS_CONFIG: LazyLock<Arc<rustls::ClientConfig>> = LazyLock::new(|| {
+    let root_store = rustls::RootCertStore::from_iter(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+    let config = rustls::ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+        .with_safe_default_protocol_versions()
+        .expect("Failed to set TLS versions")
+        .with_root_certificates(root_store)
+        .with_no_client_auth();
+    Arc::new(config)
+});
 
 pub async fn restart_clash_core() {
     match CoreManager::global().restart_core().await {
@@ -34,9 +38,38 @@ pub async fn restart_clash_core() {
 
 pub async fn restart_app() {
     logging!(debug, Type::System, "启动重启应用流程");
-    let cleanup_result = run_exit_cleanup_flow(NoticeStatus::AppRestartCoreStopFailed).await;
+    handle::Handle::global().set_is_exiting();
+
+    Config::apply_all_and_save_file().await;
+
+    let cleanup_result = clean_async().await;
+
+    logging!(
+        info,
+        Type::System,
+        "资源清理完成，退出代码: {}",
+        if cleanup_result.all_success { 0 } else { 1 }
+    );
 
     if !cleanup_result.core_stopped {
+        handle::Handle::global().clear_is_exiting();
+        // A failed stop may still have marked the core stopped, and exit cleanup skipped the DNS restore.
+        // A core that kept running keeps its DNS, whatever an unapplied config draft says.
+        #[cfg(target_os = "macos")]
+        {
+            let manager = CoreManager::global();
+            let _lifecycle = manager.lifecycle_lock.lock().await;
+            if matches!(
+                *manager.get_running_mode(),
+                crate::core::manager::RunningMode::NotRunning
+            ) {
+                crate::utils::resolve::dns::sync_public_dns().await;
+            }
+        }
+        handle::Handle::notice(
+            NoticeStatus::AppRestartCoreStopFailed,
+            cleanup_result.stop_error.unwrap_or_default(),
+        );
         return;
     }
 
@@ -59,50 +92,25 @@ fn after_change_clash_mode() {
 
 /// Propagates mihomo PATCH failures so the frontend can roll back its optimistic mode.
 pub async fn change_clash_mode(mode: String) -> Result<(), String> {
-    let config_write = Config::lock_config_write().await;
-    let clash = Config::clash().await;
-    let previous_mode = clash.data_arc().get_mode().unwrap_or_else(|| "rule".into());
-    let transaction = DraftTransaction::begin(vec![&clash]).map_err(|error| error.to_string())?;
-
     let mut mapping = Mapping::new();
     mapping.insert(Value::from("mode"), Value::from(mode.as_str()));
     let json_value = serde_json::json!({
         "mode": mode
     });
     if let Err(err) = handle::Handle::mihomo().patch_base_config(&json_value).await {
-        transaction.rollback();
         logging!(error, Type::Core, "change clash mode failed: {err}");
         return Err(err.to_string().into());
     }
 
-    if mode.as_str() == "global"
-        && let Err(err) = crate::config::profiles::leave_default_global_exit().await
-    {
-        logging!(warn, Type::Core, "failed to move GLOBAL off its default: {err:#}");
-    }
-
+    let clash = Config::clash().await;
     clash.edit_draft(|d| d.patch_config(&mapping));
-    if let Err(save_error) = clash.latest_arc().save_config().await {
-        transaction.rollback();
-        let rollback = serde_json::json!({ "mode": previous_mode });
-        if let Err(rollback_error) = handle::Handle::mihomo().patch_base_config(&rollback).await {
-            logging!(
-                error,
-                Type::Core,
-                "failed to restore clash mode after config save failure: {rollback_error}"
-            );
-            return Err(format!(
-                "failed to save clash config: {save_error}; failed to restore running mode: {rollback_error}"
-            )
-            .into());
-        }
-        return Err(format!("failed to save clash config: {save_error}").into());
+    clash.apply();
+
+    let clash_data = clash.data_arc();
+    if clash_data.save_config().await.is_ok() {
+        announce(Refresh::Clash);
+        tray::Tray::global().update_menu_and_icon().await;
     }
-    transaction.commit();
-    // Persisted and applied: release the write lock before announcing and refreshing the tray.
-    drop(config_write);
-    announce(Refresh::Clash);
-    tray::Tray::global().update_menu_and_icon().await;
 
     let is_auto_close_connection = Config::verge().await.data_arc().auto_close_connection.unwrap_or(false);
     if is_auto_close_connection {
@@ -112,92 +120,13 @@ pub async fn change_clash_mode(mode: String) -> Result<(), String> {
     Ok(())
 }
 
-/// Top-level Clash keys mihomo applies in `PATCH /configs` (its `patchConfigs` handler).
-///
-/// mihomo silently ignores unknown fields, so a patch may only be sent live when every key it
-/// carries is listed here; anything else has to take the full reload path.
-const LIVE_PATCH_KEYS: &[&str] = &[
-    "port",
-    "socks-port",
-    "mixed-port",
-    "redir-port",
-    "tproxy-port",
-    "allow-lan",
-    "log-level",
-    "mode",
-    "ipv6",
-    "tcp-concurrent",
-    "bind-address",
-    "find-process-mode",
-    "interface-name",
-    "sniffing",
-];
-
-/// The live-applicable subset of a Clash patch, or `None` when any key needs a full reload.
-///
-/// The returned pairs are the keys mihomo will actually apply, so callers can mirror exactly
-/// those values into the runtime draft instead of guessing.
-pub(crate) fn live_patch_fields(patch: &Mapping) -> Option<Vec<(Value, Value)>> {
-    if patch.is_empty() {
-        return None;
-    }
-    let mut fields = Vec::with_capacity(patch.len());
-    for (key, value) in patch {
-        let key = key.as_str()?;
-        if !LIVE_PATCH_KEYS.contains(&key) {
-            return None;
-        }
-        fields.push((Value::from(key), value.clone()));
-    }
-    Some(fields)
-}
-
-/// Converts a Clash patch into a live `PATCH /configs` body, or `None` when it needs a reload.
-pub(crate) fn live_patch_payload(patch: &Mapping) -> Option<serde_json::Value> {
-    let fields = live_patch_fields(patch)?;
-    let mut payload = serde_json::Map::with_capacity(fields.len());
-    for (key, value) in fields {
-        let key = key.as_str()?.to_owned();
-        let _ = payload.insert(key, serde_json::to_value(value).ok()?);
-    }
-    Some(serde_json::Value::Object(payload))
-}
-
-/// Reads the CONNECT reply up to the end of its headers before the stream becomes TLS.
-async fn read_connect_response(stream: &mut tokio::net::TcpStream) -> anyhow::Result<()> {
-    let mut response = Vec::with_capacity(256);
-    let mut buf = [0u8; 512];
-    loop {
-        let read = stream.read(&mut buf).await?;
-        if read == 0 {
-            return Err(anyhow::anyhow!("Proxy CONNECT failed: connection closed"));
-        }
-        response.extend_from_slice(&buf[..read]);
-        if response.windows(4).any(|window| window == b"\r\n\r\n") {
-            break;
-        }
-        if response.len() >= 8192 {
-            return Err(anyhow::anyhow!("Proxy CONNECT failed: oversized response"));
-        }
-    }
-
-    let status_line = response
-        .split(|byte| *byte == b'\n')
-        .next()
-        .and_then(|line| std::str::from_utf8(line).ok())
-        .unwrap_or_default()
-        .trim();
-    if status_line.split(' ').nth(1) != Some("200") {
-        return Err(anyhow::anyhow!("Proxy CONNECT failed: {status_line}"));
-    }
-    Ok(())
-}
-
 /// Test delay to a URL through proxy.
 /// HTTPS: measures TLS handshake time. HTTP: measures HEAD round-trip time.
 #[tracing::instrument(skip_all, level = "trace", fields(url = %url))]
 pub async fn test_delay(url: String) -> anyhow::Result<u32> {
+    use std::sync::Arc;
     use std::time::Duration;
+    use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
     use tokio::net::TcpStream;
     use tokio::time::Instant;
 
@@ -208,24 +137,16 @@ pub async fn test_delay(url: String) -> anyhow::Result<u32> {
         .ok_or_else(|| anyhow::anyhow!("Invalid URL: no host"))?
         .to_string();
     let port = parsed.port().unwrap_or(if is_https { 443 } else { 80 });
-    let path = match parsed.query() {
-        Some(query) => format!("{}?{query}", parsed.path()),
-        None => parsed.path().to_owned(),
-    };
 
     let verge = Config::verge().await.latest_arc();
-    let timeout_ms = verge
-        .default_latency_timeout
-        .filter(|timeout| *timeout > 0)
-        .map_or(DEFAULT_TIMEOUT_MS as u64, |timeout| timeout as u64);
     let proxy_enabled = verge.enable_system_proxy.unwrap_or(false) || verge.enable_tun_mode.unwrap_or(false);
     let proxy_port = if proxy_enabled {
-        Some(MixedPort::effective().await)
+        Some(MixedPort::desired().await)
     } else {
         None
     };
 
-    tokio::time::timeout(Duration::from_millis(timeout_ms), async {
+    tokio::time::timeout(Duration::from_secs(10), async {
         let start = Instant::now();
         let mut buf = BytesMut::with_capacity(1024);
 
@@ -235,17 +156,18 @@ pub async fn test_delay(url: String) -> anyhow::Result<u32> {
                     let mut s = TcpStream::connect(format!("127.0.0.1:{pp}")).await?;
                     s.write_all(format!("CONNECT {host}:{port} HTTP/1.1\r\nHost: {host}:{port}\r\n\r\n").as_bytes())
                         .await?;
-                    read_connect_response(&mut s).await?;
+                    s.read_buf(&mut buf).await?;
+                    if !buf.windows(3).any(|w| w == b"200") {
+                        return Err(anyhow::anyhow!("Proxy CONNECT failed"));
+                    }
                     s
                 }
                 None => TcpStream::connect(format!("{host}:{port}")).await?,
             };
             let connector = tokio_rustls::TlsConnector::from(Arc::clone(&TLS_CONFIG));
-            // `host_str` keeps IPv6 brackets; `ServerName` expects the bare address.
-            let server_name =
-                rustls::pki_types::ServerName::try_from(host.trim_start_matches('[').trim_end_matches(']'))
-                    .map_err(|_| anyhow::anyhow!("Invalid DNS name: {host}"))?
-                    .to_owned();
+            let server_name = rustls::pki_types::ServerName::try_from(host.as_str())
+                .map_err(|_| anyhow::anyhow!("Invalid DNS name: {host}"))?
+                .to_owned();
             connector.connect(server_name, stream).await?;
         } else {
             let (mut stream, req) = match proxy_port {
@@ -255,101 +177,15 @@ pub async fn test_delay(url: String) -> anyhow::Result<u32> {
                 ),
                 None => (
                     TcpStream::connect(format!("{host}:{port}")).await?,
-                    format!("HEAD {path} HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n"),
+                    format!("HEAD / HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n"),
                 ),
             };
             stream.write_all(req.as_bytes()).await?;
-            let mut head = Vec::with_capacity(128);
-            loop {
-                let read = stream.read(&mut buf).await?;
-                if read == 0 {
-                    break;
-                }
-                head.extend_from_slice(&buf[..read]);
-                if head.windows(2).any(|window| window == b"\r\n") || head.len() >= 512 {
-                    break;
-                }
-            }
-            if !head.starts_with(b"HTTP/") {
-                return Err(anyhow::anyhow!("Unexpected HTTP response"));
-            }
+            let _ = stream.read(&mut buf).await?;
         }
 
         Ok((start.elapsed().as_millis() as u32).max(1))
     })
     .await
     .unwrap_or(Ok(10000u32))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{Mapping, Value, live_patch_fields, live_patch_payload};
-
-    fn mapping(pairs: &[(&str, Value)]) -> Mapping {
-        let mut mapping = Mapping::new();
-        for (key, value) in pairs {
-            mapping.insert(Value::from(*key), value.clone());
-        }
-        mapping
-    }
-
-    #[test]
-    fn live_fields_extract_only_whitelisted_keys() {
-        let fields = live_patch_fields(&mapping(&[
-            ("mixed-port", Value::from(7897)),
-            ("allow-lan", Value::from(true)),
-            ("log-level", Value::from("info")),
-        ]));
-        assert!(fields.is_some(), "a fully live patch must be extracted");
-    }
-
-    #[test]
-    fn live_fields_keep_patch_order_and_values() {
-        let fields = live_patch_fields(&mapping(&[
-            ("allow-lan", Value::from(true)),
-            ("log-level", Value::from("info")),
-        ]));
-        assert_eq!(
-            fields,
-            Some(vec![
-                (Value::from("allow-lan"), Value::from(true)),
-                (Value::from("log-level"), Value::from("info")),
-            ])
-        );
-    }
-
-    #[test]
-    fn live_payload_carries_scalars_as_json() {
-        let payload = live_patch_payload(&mapping(&[
-            ("mixed-port", Value::from(7897)),
-            ("allow-lan", Value::from(true)),
-            ("log-level", Value::from("info")),
-        ]));
-        assert_eq!(
-            payload,
-            Some(serde_json::json!({
-                "mixed-port": 7897,
-                "allow-lan": true,
-                "log-level": "info",
-            }))
-        );
-    }
-
-    #[test]
-    fn keys_that_need_a_reload_are_not_sent_live() {
-        for patch in [
-            mapping(&[("tun", Value::from("x"))]),
-            mapping(&[("unified-delay", Value::from(true))]),
-            mapping(&[("not-a-known-key", Value::from(1))]),
-        ] {
-            assert_eq!(live_patch_fields(&patch), None);
-            assert_eq!(live_patch_payload(&patch), None);
-        }
-    }
-
-    #[test]
-    fn an_empty_patch_has_no_live_body() {
-        assert_eq!(live_patch_fields(&Mapping::new()), None);
-        assert_eq!(live_patch_payload(&Mapping::new()), None);
-    }
 }

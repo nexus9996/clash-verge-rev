@@ -147,9 +147,6 @@
       }
     },
     "proxiesEditor": {
-      "fields": {
-        "targetGroups": "Destination Groups"
-      },
       "title": "Editar nodos",
       "placeholders": {
         "multiUri": "Para múltiples URI, utilice saltos de línea (se admite la codificación Base64)"

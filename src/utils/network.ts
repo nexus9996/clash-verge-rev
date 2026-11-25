@@ -1,13 +1,16 @@
+import { ipv4, ipv6 } from 'cidr-block'
 import isFQDN from 'validator/es/lib/isFQDN'
 import isIP from 'validator/es/lib/isIP'
 import isPort from 'validator/es/lib/isPort'
 import isURL from 'validator/es/lib/isURL'
 
-/**
- * Shared host/URL helpers used by the initial bundle. IP/CIDR helpers that
- * depend on `cidr-block` live in `network-cidr.ts` so the CIDR library stays
- * out of the first screen.
- */
+const stripBrackets = (value: string) =>
+  value.startsWith('[') && value.endsWith(']') ? value.slice(1, -1) : value
+
+const isIpv4 = (value: string) => isIP(value, 4)
+const isIpv6 = (value: string) => isIP(value, 6)
+const isHostname = (value: string) => isFQDN(value, { require_tld: false })
+
 export const isValidUrl = (value: string) =>
   isURL(value.trim(), {
     protocols: ['http', 'https'],
@@ -16,6 +19,19 @@ export const isValidUrl = (value: string) =>
     require_host: true,
     require_tld: false,
   })
+
+export const isValidLatencyTestUrl = (value: string) => {
+  const raw = value.trim()
+  if (!/^https?:\/\//i.test(raw)) return false
+  try {
+    const url = new URL(raw)
+    return (
+      (url.protocol === 'http:' || url.protocol === 'https:') && !!url.hostname
+    )
+  } catch {
+    return false
+  }
+}
 
 export const isValidPort = (value: string) => isPort(value.trim())
 
@@ -29,14 +45,57 @@ export const normalizeHost = (value: string): string | null => {
     return 'localhost'
   }
 
-  const normalizedHost =
-    host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host
-  if (isIP(normalizedHost, 4) || isIP(normalizedHost, 6)) {
+  const normalizedHost = stripBrackets(host)
+  if (isIpv4(normalizedHost) || isIpv6(normalizedHost)) {
     return normalizedHost
   }
 
-  return isFQDN(host, { require_tld: false }) ? host : null
+  return isHostname(host) ? host : null
+}
+
+export const normalizeListenHost = (value: string): string | null => {
+  const host = normalizeHost(value)
+  if (!host || host === 'localhost') {
+    return host
+  }
+
+  if (isIpv4(host)) {
+    const address = ipv4.address(host)
+    return address.equals('0.0.0.0') ||
+      address.isLoopbackAddress() ||
+      address.isPrivateAddress()
+      ? host
+      : null
+  }
+
+  if (!isIpv6(host)) {
+    return null
+  }
+
+  const address = ipv6.address(host)
+  return address.isUnspecifiedAddress() ||
+    address.isLoopbackAddress() ||
+    address.isUniqueLocalAddress() ||
+    address.isLinkLocalAddress()
+    ? host
+    : null
 }
 
 export const formatHostPort = (host: string, port: string | number) =>
-  isIP(host, 6) ? `[${host}]:${port}` : `${host}:${port}`
+  isIpv6(host) ? `[${host}]:${port}` : `${host}:${port}`
+
+export const isValidIpCidr = (value: string): boolean => {
+  const cidr = value.trim()
+  const slashIndex = cidr.lastIndexOf('/')
+  if (slashIndex <= 0) {
+    return false
+  }
+
+  const address = cidr.slice(0, slashIndex)
+  return (
+    (isIpv4(address) && ipv4.isValidCIDR(cidr)) ||
+    (isIpv6(address) && ipv6.isValidCIDR(cidr))
+  )
+}
+
+export const areValidIpCidrs = (values: string[]) => values.every(isValidIpCidr)

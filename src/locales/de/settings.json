@@ -140,8 +140,7 @@
           "networkInterface": "Netzwerkschnittstelle",
           "unifiedDelay": "Wenn die einheitliche Latenz aktiviert ist, werden zwei Latenztests durchgeführt, um die Latenzunterschiede zwischen verschiedenen Knotentypen aufgrund von Verbindungsaufbau und anderen Faktoren zu eliminieren.",
           "logLevel": "Dies wirkt sich nur auf die Kernprotokolldateien im Verzeichnis Service im Protokollverzeichnis aus.",
-          "openUwpTool": "Ab Windows 8 wird die direkte Netzwerkverbindung von UWP-Anwendungen (z. B. Microsoft Store) zu lokalen Hosts eingeschränkt. Mit diesem Tool können Sie diese Einschränkung umgehen.",
-          "ipv6Auto": "Enable IPv6 only while the physical network provides it; re-checked automatically when the network changes"
+          "openUwpTool": "Ab Windows 8 wird die direkte Netzwerkverbindung von UWP-Anwendungen (z. B. Microsoft Store) zu lokalen Hosts eingeschränkt. Mit diesem Tool können Sie diese Einschränkung umgehen."
         },
         "options": {
           "logLevel": {
@@ -150,17 +149,6 @@
             "warning": "Warn",
             "error": "Error",
             "silent": "Silent"
-          },
-          "ipv6Mode": {
-            "off": "Off",
-            "on": "On",
-            "auto": "Auto"
-          }
-        },
-        "status": {
-          "ipv6Auto": {
-            "available": "IPv6 available",
-            "ipv4Only": "IPv4-only network"
           }
         }
       }
@@ -462,7 +450,6 @@
         "appLogMaxSize": "Maximale Größe des Anwendungsprotokolls",
         "appLogMaxCount": "Maximale Anzahl der Anwendungsprotokolle",
         "autoCloseConnections": "Verbindungen automatisch schließen",
-        "autoSwitchSelectorGroup": "Select-Gruppe automatisch umschalten",
         "autoCheckUpdate": "Automatisch auf Updates prüfen",
         "enableBuiltinEnhanced": "Eingebaute Verbesserungen aktivieren",
         "proxyLayoutColumns": "Anzahl der Spalten im Proxy-Layout",
@@ -475,7 +462,6 @@
       },
       "tooltips": {
         "autoCloseConnections": "Wenn der ausgewählte Knoten in der Proxy-Gruppe oder der Proxy-Modus geändert wird, werden die bestehenden Verbindungen geschlossen.",
-        "autoSwitchSelectorGroup": "Wird im Regelmodus ein Knoten in einer Gruppe gewählt, die kein Regelverkehr erreicht, wechselt auch die erste select-Gruppe, die diese Gruppe enthält, auf diese Gruppe.",
         "enableBuiltinEnhanced": "Kompatibilitätsbehandlung der Konfigurationsdatei",
         "autoDelayDetection": "Überprüft regelmäßig im Hintergrund die Latenz des aktuellen Knotens",
         "defaultLatencyTest": "Dies wird nur für HTTP-Client-Anfragentests verwendet und hat keine Auswirkungen auf die Konfigurationsdatei.",
@@ -532,7 +518,7 @@
         "usePacMode": "PAC-Modus verwenden",
         "proxyGuard": "Systemproxy-Schutz",
         "guardDuration": "Proxy-Schutz-Intervall",
-        "alwaysUseDefaultBypass": "Standard-Umgehungsliste einbeziehen",
+        "alwaysUseDefaultBypass": "Immer die Standard-Umgehung verwenden",
         "enableBypassCheck": "Proxy-Bypass-Format prüfen",
         "proxyBypass": "Proxy-Umgehungseinstellungen: ",
         "bypass": "Aktuelle Umgehung: ",
@@ -560,13 +546,11 @@
         "strictRoute": "Strenges Routing",
         "autoDetectInterface": "Netzwerkschnittstelle automatisch auswählen",
         "dnsHijack": "DNS-Hijacking",
-        "dnsMode": "DNS-Modus",
         "mtu": "Maximale Übertragungseinheit",
         "autoRedirect": "Automatische Umleitung"
       },
       "tooltips": {
         "dnsHijack": "Mehrere DNS-Server durch Kommas trennen",
-        "dnsMode": "Auto behält das alte Verhalten bei; hijack erfordert Strenges Routing unter Windows oder Automatische Umleitung unter Linux",
         "autoRedirect": "Richtet TCP-Umleitungen per nftables/iptables automatisch ein"
       },
       "messages": {
@@ -762,8 +746,7 @@
         "permissionRejectedReason": "Der Dienst konnte nicht bestätigen, dass die Kerndateien und Ordner für die Ausführung mit erhöhten Rechten sicher sind.",
         "permissionRepairGuide": "Reparaturanleitung öffnen",
         "sidecarFallback": "Der Dienst konnte den Kern nicht starten. Die Anwendung läuft im Sidecar-Modus weiter; der Dienst bleibt nicht verfügbar.",
-        "uninstallSuccess": "Service erfolgreich deinstalliert",
-        "coreVersionDrift": "Im Dienstmodus läuft Kernel {{running}}, während der mitgelieferte Kernel {{bundled}} ist. Öffnen Sie Einstellungen → Mihomo-Versionen, um {{bundled}} zu installieren, oder installieren/reparieren Sie den Dienst und starten Sie den Kernel neu."
+        "uninstallSuccess": "Service erfolgreich deinstalliert"
       },
       "updater": {
         "withClashProxySuccess": "Aktualisierung mit Clash-Proxy erfolgreich",
@@ -780,12 +763,5 @@
       "installing": "Service wird installiert...",
       "uninstalling": "Service wird deinstalliert..."
     }
-  },
-  "search": {
-    "placeholder": "Einstellungen suchen",
-    "clear": "Suche löschen",
-    "back": "Zurück zu Ergebnissen",
-    "results": "Suchergebnisse",
-    "empty": "Keine Einstellungen gefunden"
   }
 }

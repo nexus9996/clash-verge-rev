@@ -1,6 +1,5 @@
 import { CheckCircleOutlineRounded } from '@mui/icons-material'
 import { alpha, Box, ListItemButton, styled, Typography } from '@mui/material'
-import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BaseLoading } from '@/components/base'
@@ -8,7 +7,6 @@ import { useProxyDelayState } from '@/hooks/use-proxy-delay-state'
 import delayManager from '@/services/delay'
 import {
   memberDetails,
-  providerNameOf,
   type ProxyGroupView,
   type ResolvedProxyMember,
 } from '@/types/proxy-view'
@@ -19,8 +17,6 @@ interface Props {
   group: ProxyGroupView
   member: ResolvedProxyMember
   selected: boolean
-  /** Latency-test timeout from the owning renderer; rows must not read verge. */
-  latencyTimeout: number
   showType?: boolean
   groupNames?: readonly string[]
   onGroupLocation?: (groupName: string) => void
@@ -28,12 +24,11 @@ interface Props {
 }
 
 // 多列布局
-export const ProxyItemMini = memo(function ProxyItemMini(props: Props) {
+export const ProxyItemMini = (props: Props) => {
   const {
     group,
     member,
     selected,
-    latencyTimeout,
     showType = true,
     groupNames,
     onGroupLocation,
@@ -44,8 +39,6 @@ export const ProxyItemMini = memo(function ProxyItemMini(props: Props) {
   const name = member.ref.name
   const type = unresolved ? member.ref.reason : (details?.type ?? '')
   const now = member.kind === 'group' ? member.group.now : undefined
-  const provider =
-    member.kind === 'node' ? providerNameOf(member.node) : undefined
 
   const { t } = useTranslation()
 
@@ -53,7 +46,6 @@ export const ProxyItemMini = memo(function ProxyItemMini(props: Props) {
   const { delayValue, isPreset, timeout, onDelay } = useProxyDelayState(
     member,
     group.name,
-    latencyTimeout,
   )
 
   return (
@@ -72,7 +64,7 @@ export const ProxyItemMini = memo(function ProxyItemMini(props: Props) {
           alignItems: 'center',
         },
         ({ palette: { mode, primary } }) => {
-          const bgcolor = 'var(--surface-raised)'
+          const bgcolor = mode === 'light' ? '#ffffff' : '#24252f'
           const showDelay = delayValue > 0
           const selectColor = mode === 'light' ? primary.main : primary.light
 
@@ -148,11 +140,6 @@ export const ProxyItemMini = memo(function ProxyItemMini(props: Props) {
               >
                 {now}
               </Typography>
-            )}
-            {provider && (
-              <TypeBox color="text.secondary" component="span">
-                {provider}
-              </TypeBox>
             )}
             <TypeBox color="text.secondary" component="span">
               {type}
@@ -254,7 +241,7 @@ export const ProxyItemMini = memo(function ProxyItemMini(props: Props) {
       )}
     </ListItemButton>
   )
-})
+}
 
 const Widget = styled(Box)(({ theme: { typography } }) => ({
   padding: '2px 4px',
@@ -267,7 +254,7 @@ const TypeBox = styled(Box, {
   shouldForwardProp: (prop) => prop !== 'component',
 })<{ component?: React.ElementType }>(({ theme: { typography } }) => ({
   display: 'inline-block',
-  border: '1px solid',
+  border: '1px solid #ccc',
   borderColor: 'text.secondary',
   color: 'text.secondary',
   borderRadius: 4,

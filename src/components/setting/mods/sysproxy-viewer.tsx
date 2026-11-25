@@ -13,7 +13,13 @@ import {
   Typography,
 } from '@mui/material'
 import { useLockFn } from 'ahooks'
-import { forwardRef, useMemo, useState } from 'react'
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useState,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -35,11 +41,8 @@ import {
   getSystemHostname,
 } from '@/services/cmds'
 import { showNotice } from '@/services/notice-service'
-import { useQuery } from '@/services/query-client'
 import { debugLog } from '@/utils/debug'
 import getSystem from '@/utils/get-system'
-
-import { useSettingDialog } from '../settings-search-context'
 
 const DEFAULT_PAC = `function FindProxyForURL(url, host) {
   return "PROXY %proxy_host%:%mixed-port%; SOCKS5 %proxy_host%:%mixed-port%; DIRECT;";
@@ -84,33 +87,10 @@ const splitBypass = (value?: string) =>
     .map((item) => item.trim())
     .filter(Boolean)
 
-const OS = getSystem()
-
-const DEFAULT_BYPASS =
-  OS === 'windows'
-    ? 'localhost;127.*;192.168.*;10.*;172.16.*;172.17.*;172.18.*;172.19.*;172.20.*;172.21.*;172.22.*;172.23.*;172.24.*;172.25.*;172.26.*;172.27.*;172.28.*;172.29.*;172.30.*;172.31.*;*.local;<local>'
-    : OS === 'linux'
-      ? 'localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,::1'
-      : '127.0.0.1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,localhost,*.local,*.crashlytics.com,<local>'
-
-const DEFAULT_BYPASS_CHIPS = splitBypass(DEFAULT_BYPASS)
-
-const BYPASS_SEPARATOR = OS === 'windows' ? ';' : ','
-
-const buildInitialValues = (verge?: IVergeConfig | null) => ({
-  guard: verge?.enable_proxy_guard,
-  enable_bypass_check: verge?.enable_bypass_check ?? true,
-  bypass: verge?.system_proxy_bypass,
-  duration: verge?.proxy_guard_duration ?? 10,
-  use_default: verge?.use_default_bypass ?? true,
-  pac: verge?.proxy_auto_config,
-  pac_content: verge?.pac_file_content ?? DEFAULT_PAC,
-  proxy_host: verge?.proxy_host ?? '127.0.0.1',
-})
-
 export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
   const { t } = useTranslation()
-  const isWindows = OS === 'windows'
+  const systemName = getSystem()
+  const isWindows = systemName === 'windows'
   const validReg = useMemo(() => getValidReg(isWindows), [isWindows])
 
   const [open, setOpen] = useState(false)
@@ -136,13 +116,35 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
     proxy_host,
   } = verge ?? {}
 
-  const [value, setValue] = useState(() => buildInitialValues(null))
-  const { data: embeddedServerPort } = useQuery({
-    queryKey: ['getEmbeddedServerPort'],
-    queryFn: getEmbeddedServerPort,
+  const [value, setValue] = useState({
+    guard: enable_proxy_guard,
+    enable_bypass_check: enable_bypass_check ?? true,
+    bypass: system_proxy_bypass,
+    duration: proxy_guard_duration ?? 10,
+    use_default: use_default_bypass ?? true,
+    pac: proxy_auto_config,
+    pac_content: pac_file_content ?? DEFAULT_PAC,
+    proxy_host: proxy_host ?? '127.0.0.1',
   })
+  const [embeddedServerPort, setEmbeddedServerPort] = useState<number | null>(
+    null,
+  )
 
-  const separator = BYPASS_SEPARATOR
+  useEffect(() => {
+    getEmbeddedServerPort().then(setEmbeddedServerPort).catch(console.error)
+  }, [])
+
+  const separator = useMemo(() => (isWindows ? ';' : ','), [isWindows])
+
+  const defaultBypass = () => {
+    if (isWindows) {
+      return 'localhost;127.*;192.168.*;10.*;172.16.*;172.17.*;172.18.*;172.19.*;172.20.*;172.21.*;172.22.*;172.23.*;172.24.*;172.25.*;172.26.*;172.27.*;172.28.*;172.29.*;172.30.*;172.31.*;*.local;<local>'
+    }
+    if (systemName === 'linux') {
+      return 'localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,::1'
+    }
+    return '127.0.0.1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,localhost,*.local,*.crashlytics.com,<local>'
+  }
 
   const { systemProxyAddress } = useSystemData()
   const displayedMixedPort = useDisplayedMixedPort()
@@ -187,10 +189,19 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
     setPacEditorSavedValue(nextPac)
   })
 
-  useSettingDialog(ref, 'sysproxy-viewer', open, () => ({
+  useImperativeHandle(ref, () => ({
     open: () => {
       setOpen(true)
-      setValue(buildInitialValues(verge))
+      setValue({
+        guard: enable_proxy_guard,
+        enable_bypass_check: enable_bypass_check ?? true,
+        bypass: system_proxy_bypass,
+        duration: proxy_guard_duration ?? 10,
+        use_default: use_default_bypass ?? true,
+        pac: proxy_auto_config,
+        pac_content: pac_file_content ?? DEFAULT_PAC,
+        proxy_host: proxy_host ?? '127.0.0.1',
+      })
       fetchNetworkInterfaces()
     },
     close: () => setOpen(false),
@@ -328,7 +339,7 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
     Promise.resolve().then(async () => {
       try {
         if (Object.keys(patch).length > 0) {
-          mutateVerge((prev) => ({ ...prev, ...patch }))
+          mutateVerge({ ...verge, ...patch }, false)
         }
         if (Object.keys(patch).length > 0) {
           await patchVerge(patch)
@@ -359,49 +370,41 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
       loading={saving}
       disableOk={saving}
     >
-      <span data-settings-dialog="sysproxy-viewer" />
       <List>
-        <Box data-setting-target="sysproxy-status" tabIndex={-1}>
-          <BaseFieldset
-            label={t('settings.modals.sysproxy.fieldsets.currentStatus')}
-            padding="15px 10px"
-          >
+        <BaseFieldset
+          label={t('settings.modals.sysproxy.fieldsets.currentStatus')}
+          padding="15px 10px"
+        >
+          <FlexBox>
+            <Typography className="label">
+              {t('settings.modals.sysproxy.fields.enableStatus')}
+            </Typography>
+            <Typography className="value">
+              {isProxyReallyEnabled
+                ? t('shared.statuses.enabled')
+                : t('shared.statuses.disabled')}
+            </Typography>
+          </FlexBox>
+          {!value.pac && (
             <FlexBox>
               <Typography className="label">
-                {t('settings.modals.sysproxy.fields.enableStatus')}
+                {t('settings.modals.sysproxy.fields.serverAddr')}
+              </Typography>
+              <Typography className="value">{getSystemProxyAddress}</Typography>
+            </FlexBox>
+          )}
+          {value.pac && (
+            <FlexBox>
+              <Typography className="label">
+                {t('settings.modals.sysproxy.fields.pacUrl')}
               </Typography>
               <Typography className="value">
-                {isProxyReallyEnabled
-                  ? t('shared.statuses.enabled')
-                  : t('shared.statuses.disabled')}
+                {getCurrentPacUrl || '-'}
               </Typography>
             </FlexBox>
-            {!value.pac && (
-              <FlexBox>
-                <Typography className="label">
-                  {t('settings.modals.sysproxy.fields.serverAddr')}
-                </Typography>
-                <Typography className="value">
-                  {getSystemProxyAddress}
-                </Typography>
-              </FlexBox>
-            )}
-            {value.pac && (
-              <FlexBox>
-                <Typography className="label">
-                  {t('settings.modals.sysproxy.fields.pacUrl')}
-                </Typography>
-                <Typography className="value">
-                  {getCurrentPacUrl || '-'}
-                </Typography>
-              </FlexBox>
-            )}
-          </BaseFieldset>
-        </Box>
-        <ListItem
-          data-setting-target="settings.modals.sysproxy.fields.proxyHost"
-          sx={{ padding: '5px 2px' }}
-        >
+          )}
+        </BaseFieldset>
+        <ListItem sx={{ padding: '5px 2px' }}>
           <ListItemText
             primary={t('settings.modals.sysproxy.fields.proxyHost')}
           />
@@ -428,10 +431,7 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
             }}
           />
         </ListItem>
-        <ListItem
-          data-setting-target="settings.modals.sysproxy.fields.usePacMode"
-          sx={{ padding: '5px 2px' }}
-        >
+        <ListItem sx={{ padding: '5px 2px' }}>
           <ListItemText
             primary={t('settings.modals.sysproxy.fields.usePacMode')}
           />
@@ -443,10 +443,7 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
           />
         </ListItem>
 
-        <ListItem
-          data-setting-target="settings.modals.sysproxy.fields.proxyGuard"
-          sx={{ padding: '5px 2px' }}
-        >
+        <ListItem sx={{ padding: '5px 2px' }}>
           <ListItemText
             primary={t('settings.modals.sysproxy.fields.proxyGuard')}
             sx={{ maxWidth: 'fit-content' }}
@@ -464,10 +461,7 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
           />
         </ListItem>
 
-        <ListItem
-          data-setting-target="settings.modals.sysproxy.fields.guardDuration"
-          sx={{ padding: '5px 2px' }}
-        >
+        <ListItem sx={{ padding: '5px 2px' }}>
           <ListItemText
             primary={t('settings.modals.sysproxy.fields.guardDuration')}
           />
@@ -490,10 +484,7 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
           />
         </ListItem>
         {!value.pac && (
-          <ListItem
-            data-setting-target="settings.modals.sysproxy.fields.alwaysUseDefaultBypass"
-            sx={{ padding: '5px 2px' }}
-          >
+          <ListItem sx={{ padding: '5px 2px' }}>
             <ListItemText
               primary={t(
                 'settings.modals.sysproxy.fields.alwaysUseDefaultBypass',
@@ -505,7 +496,7 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
               checked={value.use_default}
               onChange={(_, e) => {
                 if (!e && !value.bypass) {
-                  const nextBypass = DEFAULT_BYPASS
+                  const nextBypass = defaultBypass()
                   setValue((v) => ({
                     ...v,
                     use_default: e,
@@ -520,10 +511,7 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
         )}
 
         {!value.pac && (
-          <ListItem
-            data-setting-target="settings.modals.sysproxy.fields.enableBypassCheck"
-            sx={{ padding: '5px 2px' }}
-          >
+          <ListItem sx={{ padding: '5px 2px' }}>
             <ListItemText
               primary={t('settings.modals.sysproxy.fields.enableBypassCheck')}
             />
@@ -555,10 +543,7 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
               setValue((v) => ({ ...v, bypass: nextValue }))
             }}
             renderHeader={(modeToggle) => (
-              <ListItem
-                data-setting-target="settings.modals.sysproxy.fields.proxyBypass"
-                sx={{ padding: '5px 2px' }}
-              >
+              <ListItem sx={{ padding: '5px 2px' }}>
                 <ListItemText
                   primary={t('settings.modals.sysproxy.fields.proxyBypass')}
                 />
@@ -577,12 +562,7 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
             />
             <Box sx={{ padding: '0 2px 5px' }}>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {Array.from(
-                  new Set([
-                    ...DEFAULT_BYPASS_CHIPS,
-                    ...splitBypass(value.bypass ?? ''),
-                  ]),
-                ).map((item) => (
+                {splitBypass(defaultBypass()).map((item) => (
                   <Chip key={item} label={item} size="small" />
                 ))}
               </Box>
@@ -591,16 +571,12 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
         )}
 
         {value.pac && (
-          <ListItem
-            data-setting-target="settings.modals.sysproxy.fields.pacScriptContent"
-            sx={{ padding: '5px 2px', alignItems: 'start' }}
-          >
+          <ListItem sx={{ padding: '5px 2px', alignItems: 'start' }}>
             <ListItemText
               primary={t('settings.modals.sysproxy.fields.pacScriptContent')}
               sx={{ padding: '3px 0' }}
             />
             <Button
-              data-setting-target="settings.modals.sysproxy.actions.editPac"
               startIcon={<EditRounded />}
               variant="outlined"
               onClick={openPacEditor}

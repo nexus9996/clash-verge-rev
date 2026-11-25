@@ -1,1 +1,1 @@
-export type { NoticeStatus, Refresh, VergeEventPayloads } from './bindings'
+export type { NoticeStatus, VergeEventPayloads } from './bindings'

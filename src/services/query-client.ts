@@ -32,29 +32,9 @@ type QueryResult<T> = SWRResponse<T> & {
   refetch: () => Promise<{ data: T | undefined }>
 }
 
-const DEFAULT_ERROR_RETRY_COUNT = 3
-
-/**
- * SWR merges per-hook config over the global config, so an explicit
- * `undefined` would override the shared retry budget and retry forever.
- * Resolve the caller's intent against the fallback before passing it on.
- */
-export const resolveErrorRetryCount = (
-  retry: number | false | undefined,
-  fallback: number,
-) => {
-  if (retry === undefined) return fallback
-  return retry === false ? 0 : retry
-}
-
-const resolveDedupingInterval = (
-  staleTime: number | undefined,
-  fallback: number,
-) => staleTime ?? fallback
-
 export const swrConfig: SWRConfiguration = {
   dedupingInterval: 2000,
-  errorRetryCount: DEFAULT_ERROR_RETRY_COUNT,
+  errorRetryCount: 3,
   errorRetryInterval: 5000,
   revalidateOnFocus: false,
 }
@@ -107,17 +87,9 @@ export function useQuery<T>(options: QueryOptions<T>): QueryResult<T> {
     typeof fallbackDataSource === 'function'
       ? (fallbackDataSource as () => T | undefined)()
       : fallbackDataSource
-  const errorRetryCount = resolveErrorRetryCount(
-    retry,
-    DEFAULT_ERROR_RETRY_COUNT,
-  )
-  const dedupingInterval = resolveDedupingInterval(
-    staleTime,
-    swrConfig.dedupingInterval ?? 2000,
-  )
   const swr = useSWR<T>(enabled ? queryKey : null, queryFn, {
-    dedupingInterval,
-    errorRetryCount,
+    dedupingInterval: staleTime,
+    errorRetryCount: retry === false ? 0 : retry,
     errorRetryInterval:
       typeof retryDelay === 'number'
         ? retryDelay
@@ -125,7 +97,8 @@ export function useQuery<T>(options: QueryOptions<T>): QueryResult<T> {
     fallbackData,
     keepPreviousData: placeholderData !== undefined,
     onErrorRetry: (_error, _key, config, revalidate, { retryCount }) => {
-      if (retryCount > errorRetryCount) return
+      const maxRetries = config.errorRetryCount
+      if (maxRetries !== undefined && retryCount > maxRetries) return
 
       const interval =
         typeof retryDelay === 'function'
@@ -138,7 +111,7 @@ export function useQuery<T>(options: QueryOptions<T>): QueryResult<T> {
     },
     revalidateOnFocus: refetchOnWindowFocus,
     revalidateOnMount,
-    revalidateOnReconnect: refetchOnReconnect ?? true,
+    revalidateOnReconnect: refetchOnReconnect,
     refreshInterval: refetchInterval || 0,
     refreshWhenHidden: refetchIntervalInBackground ?? false,
   })

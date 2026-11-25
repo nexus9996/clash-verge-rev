@@ -2,7 +2,7 @@ use super::{handle::Handle, notification::FrontendEvent};
 use parking_lot::Mutex;
 use std::time::Duration;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, specta::Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Refresh {
     Clash,
     Verge,
@@ -26,14 +26,12 @@ impl RefreshBatch {
         start_window
     }
 
-    async fn flush(&self, emit: impl Fn(Vec<Refresh>)) {
+    async fn flush(&self, emit: impl Fn(Refresh)) {
         // A fixed window bounds latency even under a continuous stream of refreshes.
         tokio::time::sleep(REFRESH_WINDOW).await;
         let refreshes = std::mem::take(&mut *self.0.lock());
-        // One save announces several kinds; delivering the window as one batch
-        // keeps it to a single message and a single main-thread dispatch.
-        if !refreshes.is_empty() {
-            emit(refreshes);
+        for refresh in refreshes {
+            emit(refresh);
         }
     }
 }
@@ -44,8 +42,13 @@ pub fn announce(refresh: Refresh) {
     }
 }
 
-fn emit(refreshes: Vec<Refresh>) {
-    Handle::send_event(FrontendEvent::Refresh(refreshes));
+fn emit(refresh: Refresh) {
+    Handle::send_event(match refresh {
+        Refresh::Clash => FrontendEvent::RefreshClash,
+        Refresh::Verge => FrontendEvent::RefreshVerge,
+        Refresh::Profiles => FrontendEvent::RefreshProfiles,
+        Refresh::Proxies => FrontendEvent::RefreshProxyConfig,
+    });
 }
 
 #[cfg(test)]
@@ -62,15 +65,15 @@ mod tests {
         }
         tokio::time::timeout(Duration::from_secs(1), async {
             batch
-                .flush(|refreshes| {
-                    delivered.lock().extend(refreshes.iter().copied());
-                    if refreshes.contains(&Refresh::Clash) {
+                .flush(|refresh| {
+                    delivered.lock().push(refresh);
+                    if refresh == Refresh::Clash {
                         assert!(batch.enqueue(Refresh::Clash));
                         assert!(!batch.enqueue(Refresh::Clash));
                     }
                 })
                 .await;
-            batch.flush(|refreshes| delivered.lock().extend(refreshes)).await;
+            batch.flush(|refresh| delivered.lock().push(refresh)).await;
         })
         .await?;
         assert_eq!(
@@ -84,26 +87,6 @@ mod tests {
             ]
         );
         assert!(batch.enqueue(Refresh::Verge));
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn one_save_emits_one_message_for_both_refreshes() -> anyhow::Result<()> {
-        let batch = RefreshBatch::default();
-        let delivered = Mutex::new(Vec::new());
-        // A setting save announces its config change and its runtime change
-        // back to back, from the same task.
-        assert!(batch.enqueue(Refresh::Verge));
-        assert!(!batch.enqueue(Refresh::Clash));
-        tokio::time::timeout(
-            Duration::from_secs(1),
-            batch.flush(|refreshes| delivered.lock().push(refreshes)),
-        )
-        .await?;
-
-        let delivered = delivered.lock();
-        assert_eq!(delivered.len(), 1);
-        assert_eq!(delivered[0], [Refresh::Verge, Refresh::Clash]);
         Ok(())
     }
 }

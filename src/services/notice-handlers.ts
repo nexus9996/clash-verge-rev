@@ -12,10 +12,8 @@ import type { NoticeStatus } from '@/services/contract'
 import { hideNotice, showNotice } from '@/services/notice-service'
 import { requestService } from '@/services/service-request'
 
-type NavigateFunction = (
-  path: string,
-  options?: { replace?: boolean; state?: unknown },
-) => void
+type NavigateFunction = (path: string, options?: any) => void
+type TranslateFunction = (key: string) => string
 
 let shownStartupError: string | null = null
 // Reads can settle out of order; only the newest may act, and a reset counts as one.
@@ -243,6 +241,7 @@ const handlers: Record<
 export const handleNoticeMessage = (
   status: string,
   msg: string,
+  t: TranslateFunction,
   navigate: NavigateFunction,
 ) => {
   const handler = handlers[status as NoticeStatus]

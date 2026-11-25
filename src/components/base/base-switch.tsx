@@ -1,13 +1,6 @@
 import { styled } from '@mui/material/styles'
 import { default as MuiSwitch, SwitchProps } from '@mui/material/Switch'
 
-/**
- * MUI Switch delivers the boolean as the second onChange argument, so
- * switch handlers use this adapter to stay boolean-only.
- */
-export const switchChangeValue = (_event: unknown, value: boolean): boolean =>
-  value
-
 export const Switch = styled((props: SwitchProps) => (
   <MuiSwitch
     focusVisibleClassName=".Mui-focusVisible"
@@ -25,7 +18,7 @@ export const Switch = styled((props: SwitchProps) => (
     transitionDuration: '300ms',
     '&.Mui-checked': {
       transform: 'translateX(16px)',
-      color: 'var(--switch-thumb)',
+      color: '#fff',
       '& + .MuiSwitch-track': {
         backgroundColor: theme.palette.primary.main,
         opacity: 1,
@@ -36,8 +29,8 @@ export const Switch = styled((props: SwitchProps) => (
       },
     },
     '&.Mui-focusVisible .MuiSwitch-thumb': {
-      color: 'var(--switch-active)',
-      border: '6px solid var(--switch-thumb)',
+      color: '#33cf4d',
+      border: '6px solid #fff',
     },
     '&.Mui-disabled .MuiSwitch-thumb': {
       color:
@@ -56,7 +49,7 @@ export const Switch = styled((props: SwitchProps) => (
   },
   '& .MuiSwitch-track': {
     borderRadius: 26 / 2,
-    backgroundColor: 'var(--switch-track-off)',
+    backgroundColor: theme.palette.mode === 'light' ? '#BBBBBB' : '#39393D',
     opacity: 1,
     transition: theme.transitions.create(['background-color'], {
       duration: 500,

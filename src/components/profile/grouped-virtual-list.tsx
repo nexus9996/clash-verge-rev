@@ -10,7 +10,7 @@ import { isSortable, isSortableOperation } from '@dnd-kit/react/sortable'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { type CSSProperties, type ReactNode, useRef, useState } from 'react'
 
-import { SortableItem } from '@/components/base/sortable-item'
+import { SortableItem } from '../base'
 
 type GroupedVirtualCategory = 'prepend' | 'original' | 'append'
 
@@ -20,7 +20,7 @@ export interface GroupedVirtualItem<T> {
   item: T
 }
 
-// eslint-disable-next-line react/only-export-components
+// eslint-disable-next-line react-refresh/only-export-components
 export function buildGroupedItems<T>(
   prepend: T[],
   original: T[],
@@ -55,8 +55,6 @@ interface GroupedVirtualListProps<T> {
   ) => void
   style?: CSSProperties
 }
-
-const GROUPED_LIST_SENSORS = [PointerSensor, KeyboardSensor]
 
 /**
  * 用于编辑规则/节点/代理组功能的 prepend/original/append 分组虚拟化列表
@@ -143,7 +141,7 @@ export function GroupedVirtualList<T>(props: GroupedVirtualListProps<T>) {
 
   return (
     <DragDropProvider
-      sensors={GROUPED_LIST_SENSORS}
+      sensors={[PointerSensor, KeyboardSensor]}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}

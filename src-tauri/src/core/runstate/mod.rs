@@ -18,7 +18,6 @@ use std::{
 
 use anyhow::{Context as _, Result, bail};
 use arc_swap::ArcSwap;
-use backon::{ConstantBuilder, Retryable as _};
 use clash_verge_logging::{Type, logging};
 use parking_lot::Mutex;
 use tokio::sync::Notify;
@@ -182,29 +181,11 @@ impl<E: RunStateEnv> RunStateStore<E> {
             return classify_service_health(CurrentServiceProbe::Missing, false, "");
         }
 
-        let result = (|| async {
-            let reply = self.env.probe_service_version().await?;
-            anyhow::Ok(match classify_service_version_reply(&reply) {
+        match self.env.probe_service_version().await {
+            Ok(reply) => match classify_service_version_reply(&reply) {
                 ServiceVersionCheck::CoreUnavailable(reason) => ServiceHealth::Unavailable(reason),
                 _ => classify_service_health(probe_outcome(&reply), has_marker, ""),
-            })
-        })
-        .retry(
-            ConstantBuilder::default()
-                .with_delay(Duration::from_millis(500))
-                .with_max_times(6),
-        )
-        .notify(|error, delay| {
-            logging!(
-                warn,
-                Type::Service,
-                "get service version failed: {error}, retrying in {delay:?}"
-            );
-        })
-        .await;
-
-        match result {
-            Ok(health) => health,
+            },
             Err(error) => {
                 logging!(warn, Type::Service, "current service IPC is unavailable: {error:#}");
                 classify_service_health(

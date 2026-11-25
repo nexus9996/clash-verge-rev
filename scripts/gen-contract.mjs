@@ -32,13 +32,18 @@ try {
   )
   const formatted = execFileSync(
     process.execPath,
-    ['fmt', '--no-script', '--stdin-filepath', BINDINGS],
+    [
+      path.join(ROOT, 'node_modules/@biomejs/biome/bin/biome'),
+      'format',
+      '--stdin-file-path',
+      BINDINGS,
+    ],
     { cwd: ROOT, input: fs.readFileSync(output) },
   )
   if (check) {
     if (!formatted.equals(fs.readFileSync(BINDINGS))) {
       console.error(
-        'IPC bindings are out of date. Run bun run gen:contract and commit the generated file.',
+        'IPC bindings are out of date. Run pnpm gen:contract and commit the generated file.',
       )
       process.exitCode = 1
     }

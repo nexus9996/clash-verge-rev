@@ -74,16 +74,12 @@ impl<T: Clone> Draft<T> {
         result
     }
 
-    /// Commits and clears the draft, reporting whether one was staged.
+    /// Commits and clears the draft.
     #[inline]
-    pub fn apply(&self) -> bool {
+    pub fn apply(&self) {
         let mut guard = self.inner.data.lock();
-        match guard.1.take() {
-            Some(d) => {
-                guard.0 = d;
-                true
-            }
-            None => false,
+        if let Some(d) = guard.1.take() {
+            guard.0 = d;
         }
     }
 
@@ -106,7 +102,6 @@ impl<T: Clone> Draft<T> {
         let (local, original_arc) = {
             let guard = self.inner.data.lock();
             let arc = Arc::clone(&guard.0);
-            drop(guard);
             ((**arc).clone(), arc)
         };
         let (new_local, res) = f(local).await?;
@@ -117,7 +112,6 @@ impl<T: Clone> Draft<T> {
             ));
         }
         guard.0 = Arc::new(Box::new(new_local));
-        drop(guard);
         Ok(res)
     }
 
@@ -131,10 +125,7 @@ impl<T: Clone> Draft<T> {
     }
 
     #[inline]
-    async fn acquire_data_modify_permit(&self) -> DataModifyPermit<'_>
-    where
-        T: Send + Sync,
-    {
+    async fn acquire_data_modify_permit(&self) -> DataModifyPermit<'_> {
         for _ in 0..DATA_MODIFY_FAST_RETRY_YIELDS {
             if let Some(permit) = self.try_acquire_data_modify_permit() {
                 return permit;
@@ -265,24 +256,5 @@ impl Drop for DraftTransaction<'_> {
             }
             layer.release();
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::Draft;
-
-    #[test]
-    fn apply_reports_whether_a_draft_was_staged() {
-        let draft = Draft::new(vec![1]);
-
-        assert!(!draft.apply(), "nothing staged yet");
-        assert_eq!(**draft.data_arc(), vec![1]);
-
-        draft.edit_draft(|data| data.push(2));
-
-        assert!(draft.apply(), "a staged draft gets committed");
-        assert_eq!(**draft.data_arc(), vec![1, 2]);
-        assert!(!draft.apply(), "the draft is gone once committed");
     }
 }

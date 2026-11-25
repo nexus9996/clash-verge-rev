@@ -67,7 +67,6 @@ pub const WINDOW_INITIAL_SCRIPT: &str = r##"
             root.dataset.theme = theme;
             root.style.setProperty("--bg-color", bgColor);
             root.style.setProperty("--text-color", textColor);
-            root.style.backgroundColor = bgColor;
             root.style.colorScheme = isDark ? "dark" : "light";
             root.style.color = textColor;
         }

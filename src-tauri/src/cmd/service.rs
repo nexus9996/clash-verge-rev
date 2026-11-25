@@ -34,8 +34,8 @@ async fn execute_service_operation_sync(status: ServiceStatus, error_code: &str)
         SERVICE_MANAGER.handle_service_status(status).await
     };
     #[cfg(windows)]
-    return finish_service_installation(result, error_code, async |reason| {
-        manager.continue_with_sidecar(Some(reason)).await
+    return finish_service_installation(result, error_code, |reason| async move {
+        manager.continue_with_sidecar(Some(&reason)).await
     })
     .await;
 
@@ -46,13 +46,14 @@ async fn execute_service_operation_sync(status: ServiceStatus, error_code: &str)
 }
 
 #[cfg(any(windows, test))]
-async fn finish_service_installation<Fallback>(
+async fn finish_service_installation<Fallback, FallbackFuture>(
     installation: anyhow::Result<()>,
     error_code: &str,
     fallback: Fallback,
 ) -> CmdResult<ServiceInstallOutcome>
 where
-    Fallback: AsyncFnOnce(&str) -> anyhow::Result<()>,
+    Fallback: FnOnce(String) -> FallbackFuture,
+    FallbackFuture: std::future::Future<Output = anyhow::Result<()>>,
 {
     let Err(error) = installation else {
         return Ok(ServiceInstallOutcome::Installed);
@@ -74,7 +75,7 @@ where
         return Err(proxy_aware_coded_error(&error, error_code));
     }
     let reason = reasons.join("\n");
-    fallback(reason.as_str())
+    fallback(reason.clone())
         .await
         .map_err(|error| proxy_aware_coded_error(&error, "SERVICE_SIDECAR_FAILED"))?;
     Ok(ServiceInstallOutcome::Sidecar { reason })
@@ -99,18 +100,6 @@ pub async fn uninstall_service() -> CmdResult {
 #[specta::specta]
 pub async fn reinstall_service() -> CmdResult<ServiceInstallOutcome> {
     execute_service_operation_sync(ServiceStatus::ReinstallRequired, "SERVICE_REINSTALL_FAILED").await
-}
-
-/// Version reported by the core bundled beside the app (`verge-mihomo`/`verge-mihomo-alpha`).
-///
-/// Service mode runs the Service's approved copy, so the frontend compares this bundled version
-/// with the live core version to detect an app update that the Service has not accepted yet.
-#[tauri::command]
-#[specta::specta]
-pub async fn get_bundled_core_version() -> CmdResult<std::string::String> {
-    crate::core::service::bundled_core_version()
-        .await
-        .map_err(|error| proxy_aware_coded_error(&error, "BUNDLED_CORE_VERSION_FAILED"))
 }
 
 #[tauri::command]
@@ -202,7 +191,7 @@ mod tests {
                 None => anyhow::anyhow!("{reason}"),
             }
             .context("install service failed");
-            let result = finish_service_installation(Err(error), "SERVICE_INSTALL_FAILED", async |_| {
+            let result = finish_service_installation(Err(error), "SERVICE_INSTALL_FAILED", |_| async {
                 fallback_called.set(true);
                 anyhow::ensure!(fallback_ready, "another core is running");
                 Ok(())
