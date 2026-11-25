@@ -135,5 +135,14 @@
       "warn": "WARN",
       "error": "ERROR"
     }
+  },
+  "search": {
+    "content": "내용",
+    "domain": "도메인",
+    "cidr": "CIDR",
+    "contentPlaceholder": "규칙 검색",
+    "domainPlaceholder": "도메인, URL 또는 키워드 검색",
+    "cidrPlaceholder": "IP 또는 CIDR 검색",
+    "action": "검색"
   }
 }

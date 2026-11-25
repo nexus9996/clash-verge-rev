@@ -135,5 +135,14 @@
       "warn": "WARN",
       "error": "ERROR"
     }
+  },
+  "search": {
+    "content": "Contenido",
+    "domain": "Dominio",
+    "cidr": "CIDR",
+    "contentPlaceholder": "Buscar reglas",
+    "domainPlaceholder": "Buscar dominio, URL o palabra clave",
+    "cidrPlaceholder": "Buscar IP o CIDR",
+    "action": "Buscar"
   }
 }

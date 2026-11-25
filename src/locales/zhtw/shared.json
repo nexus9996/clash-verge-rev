@@ -135,5 +135,14 @@
       "warn": "WARN",
       "error": "ERROR"
     }
+  },
+  "search": {
+    "content": "內容",
+    "domain": "網域",
+    "cidr": "CIDR",
+    "contentPlaceholder": "搜尋規則",
+    "domainPlaceholder": "搜尋網域、URL 或關鍵字",
+    "cidrPlaceholder": "搜尋 IP 或 CIDR",
+    "action": "搜尋"
   }
 }

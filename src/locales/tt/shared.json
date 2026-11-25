@@ -135,5 +135,14 @@
       "warn": "WARN",
       "error": "ERROR"
     }
+  },
+  "search": {
+    "content": "Эчтәлек",
+    "domain": "Домен",
+    "cidr": "CIDR",
+    "contentPlaceholder": "Кагыйдәләрне эзләү",
+    "domainPlaceholder": "Домен, URL яки ачкыч сүз эзләү",
+    "cidrPlaceholder": "IP яки CIDR эзләү",
+    "action": "Эзләү"
   }
 }

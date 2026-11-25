@@ -137,7 +137,48 @@ serializes the rewritten mapping so the service receives the canonical paths.
 The no-provider case therefore skips both the file read and a full YAML
 serialization.
 
-Application-level timings (startup to core ready, config apply p50/p95, peak
-RSS) are captured from the Chrome trace on the large fixture and belong in the
-same table when collected. The trace setup above keeps those measurements
-comparable with the Criterion numbers.
+### Phase 7 patch coalescing
+
+The patch queue collects a 5 ms burst and merges contiguous compatible patches:
+Clash mappings and Verge patches without a SystemProxy effect. System-proxy
+patches stay isolated because their failures carry structured classification.
+A merged group applies once and reports its shared detail; single jobs keep
+their full error.
+
+### Phase 8 runtime config IPC
+
+`get_runtime_config` omits `rules`, `rule-providers`, `proxy-providers`, and
+`proxy-groups`. The settings views read those sections from mihomo APIs, while
+`proxies` and every settings field remain in the payload.
+
+### Phase 9 startup trace
+
+Measured on an Apple M1 MacBook Pro, macOS 27.2, debug build, isolated `HOME`,
+sidecar mode, system proxy and TUN disabled, warm filesystem cache. Three runs,
+reading the `time.busy`/`time.idle` fields on span close:
+
+| Run | `window_init` | `config_init` | `core_init` | `app_setup` |
+| --- | ---: | ---: | ---: | ---: |
+| 1 | 214 ms | 178 ms | 260 ms | 883 ms |
+| 2 | 164 ms | 68 ms | 201 ms | 588 ms |
+| 3 | 172 ms | 52 ms | 206 ms | 599 ms |
+
+Median `app_setup` is about 599 ms; `core_init` is about 206 ms and
+`window_init` about 172 ms. Peak RSS for the app process was about 159 MiB
+(166,592,512 bytes) in a separate 20 s run. The sidecar is a separate process
+and is not included in that RSS. A SIGTERM stop did not flush the Chrome trace
+file, so these numbers come from the span-close log lines rather than Perfetto.
+
+### Phase 10 config apply
+
+Same isolated app and debug build, core already running. The executor span is
+the transaction itself; the caller elapsed includes the 5 ms queue window:
+
+| Patch | Samples | Executor median | Caller median |
+| --- | ---: | ---: | ---: |
+| `allow-lan` (`ClashConfig`, core reload) | 3 | 7.55 ms | 14.57 ms |
+| `verge_mixed_port` (`RestartCore`) | 1 | 158.8 ms | 164.7 ms |
+
+The reload-only patch stays under 10 ms; a port change spends almost all of its
+time in the coordinated core restart. These are single-machine, debug-build
+numbers, not a cross-platform p95.

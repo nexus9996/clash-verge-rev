@@ -13,6 +13,7 @@
 <details>
 <summary><strong> ✨ 新增功能 </strong></summary>
 
+- 规则页支持按内容、域名、IP/CIDR 三种模式搜索规则
 
 </details>
 

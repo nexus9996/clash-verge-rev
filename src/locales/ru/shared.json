@@ -135,5 +135,14 @@
       "warn": "WARN",
       "error": "ERROR"
     }
+  },
+  "search": {
+    "content": "Содержимое",
+    "domain": "Домен",
+    "cidr": "CIDR",
+    "contentPlaceholder": "Поиск правил",
+    "domainPlaceholder": "Поиск домена, URL или ключевого слова",
+    "cidrPlaceholder": "Поиск IP или CIDR",
+    "action": "Поиск"
   }
 }

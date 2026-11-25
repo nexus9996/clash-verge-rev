@@ -135,5 +135,14 @@
       "warn": "WARN",
       "error": "ERROR"
     }
+  },
+  "search": {
+    "content": "内容",
+    "domain": "域名",
+    "cidr": "CIDR",
+    "contentPlaceholder": "搜索规则",
+    "domainPlaceholder": "搜索域名、URL 或关键词",
+    "cidrPlaceholder": "搜索 IP 或 CIDR",
+    "action": "搜索"
   }
 }

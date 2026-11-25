@@ -135,5 +135,14 @@
       "warn": "WARN",
       "error": "ERROR"
     }
+  },
+  "search": {
+    "content": "المحتوى",
+    "domain": "النطاق",
+    "cidr": "CIDR",
+    "contentPlaceholder": "البحث في القواعد",
+    "domainPlaceholder": "البحث عن نطاق أو URL أو كلمة مفتاحية",
+    "cidrPlaceholder": "البحث عن IP أو CIDR",
+    "action": "بحث"
   }
 }
