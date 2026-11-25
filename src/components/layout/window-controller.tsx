@@ -6,6 +6,8 @@ import { type PointerEvent, useCallback, useEffect } from 'react'
 import getSystem from '@/utils/get-system'
 import { startWindowDragging } from '@/utils/window-drag'
 
+const OS = getSystem()
+
 const RESIZE_HANDLES = [
   { direction: 'North', position: 'north' },
   { direction: 'NorthEast', position: 'north-east' },
@@ -37,7 +39,7 @@ export const WindowResizeHandles = ({ maximized }: { maximized: boolean }) => {
     [],
   )
 
-  if (getSystem() !== 'linux' || maximized) return null
+  if (OS !== 'linux' || maximized) return null
 
   return (
     <div className="window-resize-handles" aria-hidden="true">
@@ -60,8 +62,6 @@ export const WindowControls = ({
   maximized: boolean
   setMaximized: (value: boolean) => void
 }) => {
-  const OS = getSystem()
-
   const close = useCallback(async () => {
     // Delay one frame so the UI can clear :hover before the window hides.
     await new Promise((resolve) => setTimeout(resolve, 20))

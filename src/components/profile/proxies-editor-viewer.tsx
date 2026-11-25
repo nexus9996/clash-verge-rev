@@ -4,6 +4,7 @@ import {
   VerticalAlignTopRounded,
 } from '@mui/icons-material'
 import {
+  Autocomplete,
   Box,
   Button,
   Dialog,
@@ -27,7 +28,8 @@ import {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { BaseSearchBox, MonacoEditor } from '@/components/base'
+import { BaseSearchBox } from '@/components/base'
+import { MonacoEditor } from '@/components/base/monaco-editor'
 import { ProxyItem } from '@/components/profile/proxy-item'
 import { readProfileFile, saveProfileFile } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
@@ -81,6 +83,9 @@ export const ProxiesEditorViewer = (props: Props) => {
   const [match, setMatch] = useState(() => (_: string) => true)
   const [proxyUri, setProxyUri] = useState<string>('')
 
+  const [groupList, setGroupList] = useState<string[]>([])
+  const [targetGroups, setTargetGroups] = useState<string[]>([])
+  const [proxyGroups, setProxyGroups] = useState<Record<string, string[]>>({})
   const [proxyList, setProxyList] = useState<IProxyConfig[]>([])
   const [prependSeq, setPrependSeq] = useState<IProxyConfig[]>([])
   const [appendSeq, setAppendSeq] = useState<IProxyConfig[]>([])
@@ -123,7 +128,7 @@ export const ProxiesEditorViewer = (props: Props) => {
           proxy={item}
           onDelete={() => {
             if (isDeleted) {
-              setDeleteSeq(deleteSeq.filter((v) => v !== item.name))
+              setDeleteSeq((prev) => prev.filter((v) => v !== item.name))
             } else {
               setDeleteSeq((prev) => [...prev, item.name])
             }
@@ -138,7 +143,7 @@ export const ProxiesEditorViewer = (props: Props) => {
           type="prepend"
           proxy={item}
           onDelete={() => {
-            setPrependSeq(prependSeq.filter((v) => v.name !== item.name))
+            setPrependSeq((prev) => prev.filter((v) => v.name !== item.name))
           }}
         />
       )
@@ -149,7 +154,7 @@ export const ProxiesEditorViewer = (props: Props) => {
         type="append"
         proxy={item}
         onDelete={() => {
-          setAppendSeq(appendSeq.filter((v) => v.name !== item.name))
+          setAppendSeq((prev) => prev.filter((v) => v.name !== item.name))
         }}
       />
     )
@@ -160,27 +165,28 @@ export const ProxiesEditorViewer = (props: Props) => {
     activeIndex: number,
     overIndex: number,
   ) => {
-    const list = category === 'prepend' ? prependSeq : appendSeq
-    const filtered =
-      category === 'prepend' ? filteredPrependSeq : filteredAppendSeq
     const setList = category === 'prepend' ? setPrependSeq : setAppendSeq
-    const activeRealIndex = findRealIndex(list, filtered, activeIndex)
-    const overRealIndex = findRealIndex(list, filtered, overIndex)
-    if (
-      activeRealIndex < 0 ||
-      overRealIndex < 0 ||
-      activeRealIndex === overRealIndex
-    ) {
-      return
-    }
+    // Recompute inside the updater: two writes in one batch must not read the same pre-batch array.
+    setList((prev) => {
+      const filtered = prev.filter((v) => hasValidName(v) && match(v.name))
+      const activeRealIndex = findRealIndex(prev, filtered, activeIndex)
+      const overRealIndex = findRealIndex(prev, filtered, overIndex)
+      if (
+        activeRealIndex < 0 ||
+        overRealIndex < 0 ||
+        activeRealIndex === overRealIndex
+      ) {
+        return prev
+      }
 
-    setList(arrayMove(list, activeRealIndex, overRealIndex))
+      return arrayMove(prev, activeRealIndex, overRealIndex)
+    })
   }
 
   // 优化：异步分片解析，避免主线程阻塞，解析完成后批量setState
   const handleParseAsync = (cb: (proxies: IProxyConfig[]) => void) => {
     const proxies: IProxyConfig[] = []
-    const names: string[] = []
+    const names = new Set<string>()
     let uris: string
     try {
       uris = atob(proxyUri)
@@ -198,9 +204,9 @@ export const ProxiesEditorViewer = (props: Props) => {
         const uri = lines[idx]
         try {
           const proxy = parseUri(uri.trim())
-          if (!names.includes(proxy.name)) {
+          if (!names.has(proxy.name)) {
             proxies.push(proxy)
-            names.push(proxy.name)
+            names.add(proxy.name)
           }
         } catch (err) {
           console.warn(
@@ -228,9 +234,16 @@ export const ProxiesEditorViewer = (props: Props) => {
 
     const originProxiesObj = parseYamlSafe(data) as {
       proxies: IProxyConfig[]
+      'proxy-groups'?: IProxyGroupConfig[]
     } | null
 
     setProxyList(originProxiesObj?.proxies || [])
+    const groups = originProxiesObj?.['proxy-groups'] ?? []
+    setGroupList(groups.map((group) => group.name))
+    const firstSelector = groups.find((group) =>
+      ['select', 'selector'].includes(group.type.toLowerCase()),
+    )
+    setTargetGroups(firstSelector ? [firstSelector.name] : [])
   }, [profileUid])
 
   const fetchContent = useCallback(async () => {
@@ -249,6 +262,7 @@ export const ProxiesEditorViewer = (props: Props) => {
     setPrependSeq(obj?.prepend || [])
     setAppendSeq(obj?.append || [])
     setDeleteSeq(obj?.delete || [])
+    setProxyGroups(obj?.groups || {})
     hasLoadedSeqConfigRef.current = true
   }, [property])
 
@@ -269,6 +283,7 @@ export const ProxiesEditorViewer = (props: Props) => {
       setPrependSeq(obj?.prepend ?? [])
       setAppendSeq(obj?.append ?? [])
       setDeleteSeq(obj?.delete ?? [])
+      setProxyGroups(obj?.groups ?? {})
     })
     setVisualization(true)
   }
@@ -289,7 +304,16 @@ export const ProxiesEditorViewer = (props: Props) => {
       try {
         setCurrData(
           yaml.dump(
-            { prepend: prependSeq, append: appendSeq, delete: deleteSeq },
+            {
+              prepend: prependSeq,
+              append: appendSeq,
+              delete: deleteSeq,
+              groups: Object.fromEntries(
+                [...prependSeq, ...appendSeq]
+                  .filter((proxy) => Object.hasOwn(proxyGroups, proxy.name))
+                  .map((proxy) => [proxy.name, proxyGroups[proxy.name]]),
+              ),
+            },
             { forceQuotes: true },
           ),
         )
@@ -313,7 +337,7 @@ export const ProxiesEditorViewer = (props: Props) => {
         clearTimeout(timeoutId)
       }
     }
-  }, [prependSeq, appendSeq, deleteSeq])
+  }, [prependSeq, appendSeq, deleteSeq, proxyGroups])
 
   useEffect(() => {
     if (!open) return
@@ -404,6 +428,24 @@ export const ProxiesEditorViewer = (props: Props) => {
                     onChange={(e) => setProxyUri(e.target.value)}
                   />
                 </Item>
+                <Item>
+                  <Autocomplete
+                    multiple
+                    fullWidth
+                    options={groupList}
+                    value={targetGroups}
+                    onChange={(_, value) => setTargetGroups(value)}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label={t(
+                          'profiles.modals.proxiesEditor.fields.targetGroups',
+                        )}
+                        size="small"
+                      />
+                    )}
+                  />
+                </Item>
               </Box>
               <Item>
                 <Button
@@ -413,6 +455,12 @@ export const ProxiesEditorViewer = (props: Props) => {
                   onClick={() => {
                     handleParseAsync((proxies) => {
                       setPrependSeq((prev) => [...proxies, ...prev])
+                      setProxyGroups((prev) => ({
+                        ...prev,
+                        ...Object.fromEntries(
+                          proxies.map((proxy) => [proxy.name, targetGroups]),
+                        ),
+                      }))
                     })
                   }}
                 >
@@ -427,6 +475,12 @@ export const ProxiesEditorViewer = (props: Props) => {
                   onClick={() => {
                     handleParseAsync((proxies) => {
                       setAppendSeq((prev) => [...prev, ...proxies])
+                      setProxyGroups((prev) => ({
+                        ...prev,
+                        ...Object.fromEntries(
+                          proxies.map((proxy) => [proxy.name, targetGroups]),
+                        ),
+                      }))
                     })
                   }}
                 >

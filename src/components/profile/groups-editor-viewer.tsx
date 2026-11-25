@@ -23,7 +23,6 @@ import {
   cancelIdleCallback,
   requestIdleCallback,
 } from 'foxact/request-idle-callback'
-import * as yaml from 'js-yaml'
 import {
   startTransition,
   useCallback,
@@ -35,7 +34,8 @@ import {
 import { Controller, useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
-import { BaseSearchBox, MonacoEditor, Switch } from '@/components/base'
+import { BaseSearchBox, Switch } from '@/components/base'
+import { MonacoEditor } from '@/components/base/monaco-editor'
 import { GroupItem } from '@/components/profile/group-item'
 import {
   getNetworkInterfaces,
@@ -45,7 +45,6 @@ import {
 import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'
 import { useThemeMode } from '@/services/states'
-import type { TranslationKey } from '@/types/generated/i18n-keys'
 import type { MonacoEditorInstance } from '@/types/monaco'
 import { MONACO_FONT_FAMILY } from '@/utils/font-family'
 import { parseYamlSafe } from '@/utils/yaml'
@@ -55,6 +54,14 @@ import {
   type GroupedVirtualItem,
   GroupedVirtualList,
 } from './grouped-virtual-list'
+import {
+  buildGroupsYaml,
+  builtinProxyPolicies,
+  findRealIndex,
+  normalizeDeleteSeq,
+  PROXY_POLICY_LABEL_KEYS,
+  PROXY_STRATEGY_LABEL_KEYS,
+} from './groups-editor-model'
 
 interface Props {
   proxiesUid: string
@@ -64,80 +71,6 @@ interface Props {
   open: boolean
   onClose: () => void
   onSave?: (prev?: string, curr?: string) => void
-}
-
-const builtinProxyPolicies = ['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS']
-
-const PROXY_STRATEGY_LABEL_KEYS: Record<string, TranslationKey> = {
-  select: 'proxies.components.enums.strategies.select',
-  'url-test': 'proxies.components.enums.strategies.url-test',
-  fallback: 'proxies.components.enums.strategies.fallback',
-  'load-balance': 'proxies.components.enums.strategies.load-balance',
-  relay: 'proxies.components.enums.strategies.relay',
-}
-
-const PROXY_POLICY_LABEL_KEYS: Record<string, TranslationKey> =
-  builtinProxyPolicies.reduce(
-    (acc, policy) => {
-      acc[policy] =
-        `proxies.components.enums.policies.${policy}` as TranslationKey
-      return acc
-    },
-    {} as Record<string, TranslationKey>,
-  )
-
-const normalizeDeleteSeq = (input?: unknown): string[] => {
-  if (!Array.isArray(input)) {
-    return []
-  }
-
-  const names = input
-    .map((item) => {
-      if (typeof item === 'string') {
-        return item
-      }
-
-      if (
-        item &&
-        typeof item === 'object' &&
-        'name' in item &&
-        typeof (item as { name: unknown }).name === 'string'
-      ) {
-        return (item as { name: string }).name
-      }
-
-      return undefined
-    })
-    .filter(
-      (name): name is string => typeof name === 'string' && name.length > 0,
-    )
-
-  return Array.from(new Set(names))
-}
-
-const buildGroupsYaml = (
-  prepend: IProxyGroupConfig[],
-  append: IProxyGroupConfig[],
-  deleteList: string[],
-) => {
-  return yaml.dump(
-    {
-      prepend,
-      append,
-      delete: deleteList,
-    },
-    { forceQuotes: true },
-  )
-}
-
-const findRealIndex = (
-  list: IProxyGroupConfig[],
-  filtered: IProxyGroupConfig[],
-  filteredIndex: number,
-): number => {
-  const item = filtered[filteredIndex]
-  if (!item) return -1
-  return list.findIndex((group) => group.name === item.name)
 }
 
 export const GroupsEditorViewer = (props: Props) => {
@@ -176,7 +109,10 @@ export const GroupsEditorViewer = (props: Props) => {
     },
   })
   const [groupList, setGroupList] = useState<IProxyGroupConfig[]>([])
-  const [proxyPolicyList, setProxyPolicyList] = useState<string[]>([])
+  const [originPolicy, setOriginPolicy] = useState<{
+    proxyNames: string[]
+    groupNames: string[]
+  }>({ proxyNames: [], groupNames: [] })
   const [proxyProviderList, setProxyProviderList] = useState<string[]>([])
   const [prependSeq, setPrependSeq] = useState<IProxyGroupConfig[]>([])
   const [appendSeq, setAppendSeq] = useState<IProxyGroupConfig[]>([])
@@ -218,7 +154,7 @@ export const GroupsEditorViewer = (props: Props) => {
           group={item}
           onDelete={() => {
             if (isDeleted) {
-              setDeleteSeq(deleteSeq.filter((v) => v !== item.name))
+              setDeleteSeq((prev) => prev.filter((v) => v !== item.name))
             } else {
               setDeleteSeq((prev) => [...prev, item.name])
             }
@@ -233,7 +169,7 @@ export const GroupsEditorViewer = (props: Props) => {
           type="prepend"
           group={item}
           onDelete={() => {
-            setPrependSeq(prependSeq.filter((v) => v.name !== item.name))
+            setPrependSeq((prev) => prev.filter((v) => v.name !== item.name))
           }}
         />
       )
@@ -244,7 +180,7 @@ export const GroupsEditorViewer = (props: Props) => {
         type="append"
         group={item}
         onDelete={() => {
-          setAppendSeq(appendSeq.filter((v) => v.name !== item.name))
+          setAppendSeq((prev) => prev.filter((v) => v.name !== item.name))
         }}
       />
     )
@@ -255,21 +191,22 @@ export const GroupsEditorViewer = (props: Props) => {
     activeIndex: number,
     overIndex: number,
   ) => {
-    const list = category === 'prepend' ? prependSeq : appendSeq
-    const filtered =
-      category === 'prepend' ? filteredPrependSeq : filteredAppendSeq
     const setList = category === 'prepend' ? setPrependSeq : setAppendSeq
-    const activeRealIndex = findRealIndex(list, filtered, activeIndex)
-    const overRealIndex = findRealIndex(list, filtered, overIndex)
-    if (
-      activeRealIndex < 0 ||
-      overRealIndex < 0 ||
-      activeRealIndex === overRealIndex
-    ) {
-      return
-    }
+    // Recompute inside the updater: two writes in one batch must not read the same pre-batch array.
+    setList((prev) => {
+      const filtered = prev.filter((v) => match(v.name))
+      const activeRealIndex = findRealIndex(prev, filtered, activeIndex)
+      const overRealIndex = findRealIndex(prev, filtered, overIndex)
+      if (
+        activeRealIndex < 0 ||
+        overRealIndex < 0 ||
+        activeRealIndex === overRealIndex
+      ) {
+        return prev
+      }
 
-    setList(arrayMove(list, activeRealIndex, overRealIndex))
+      return arrayMove(prev, activeRealIndex, overRealIndex)
+    })
   }
 
   const fetchContent = useCallback(async () => {
@@ -353,6 +290,9 @@ export const GroupsEditorViewer = (props: Props) => {
     }
   }, [prependSeq, appendSeq, deleteSeq])
 
+  // Origin policy names come from profile files that this dialog never
+  // rewrites while open, so they are read once per open; the live seq states
+  // are folded in by the derived proxyPolicyList below.
   const fetchProxyPolicy = useCallback(async () => {
     const data = await readProfileFile(profileUid)
     const proxiesData = await readProfileFile(proxiesUid)
@@ -388,17 +328,13 @@ export const GroupsEditorViewer = (props: Props) => {
         (name): name is string => typeof name === 'string' && name.length > 0,
       )
 
-    const computedPolicyList = builtinProxyPolicies.concat(
-      prependSeq.map((group: IProxyGroupConfig) => group.name),
-      (originGroupsObj?.['proxy-groups'] || [])
-        .map((group: IProxyGroupConfig) => group.name)
-        .filter((name) => !deleteSeq.includes(name)),
-      appendSeq.map((group: IProxyGroupConfig) => group.name),
+    setOriginPolicy({
       proxyNames,
-    )
-
-    setProxyPolicyList(Array.from(new Set(computedPolicyList)))
-  }, [appendSeq, deleteSeq, prependSeq, profileUid, proxiesUid])
+      groupNames: (originGroupsObj?.['proxy-groups'] || []).map(
+        (group) => group.name,
+      ),
+    })
+  }, [profileUid, proxiesUid])
   const fetchProfile = useCallback(async () => {
     const data = await readProfileFile(profileUid)
     const mergeData = await readProfileFile(mergeUid)
@@ -441,6 +377,16 @@ export const GroupsEditorViewer = (props: Props) => {
     if (!open) return
     fetchProxyPolicy()
   }, [fetchProxyPolicy, open])
+
+  const proxyPolicyList = useMemo(() => {
+    const computedPolicyList = builtinProxyPolicies.concat(
+      prependSeq.map((group) => group.name),
+      originPolicy.groupNames.filter((name) => !deleteSeq.includes(name)),
+      appendSeq.map((group) => group.name),
+      originPolicy.proxyNames,
+    )
+    return Array.from(new Set(computedPolicyList))
+  }, [appendSeq, deleteSeq, originPolicy, prependSeq])
 
   useEffect(() => {
     if (!open) return
@@ -635,13 +581,15 @@ export const GroupsEditorViewer = (props: Props) => {
                             <li
                               key={key}
                               {...optionProps}
-                              title={translatePolicy(option)}
+                              title={translatePolicy(String(option))}
                             >
-                              {translatePolicy(option)}
+                              {translatePolicy(String(option))}
                             </li>
                           )
                         }}
-                        getOptionLabel={translatePolicy}
+                        getOptionLabel={(option) =>
+                          translatePolicy(String(option))
+                        }
                       />
                     </Item>
                   )}
@@ -1019,14 +967,20 @@ export const GroupsEditorViewer = (props: Props) => {
                   onClick={() => {
                     try {
                       validateGroup()
+                      const values = formIns.getValues()
                       for (const item of [...prependSeq, ...groupList]) {
-                        if (item.name === formIns.getValues().name) {
+                        if (item.name === values.name) {
                           throw new Error(
                             t('profiles.modals.groupsEditor.errors.nameExists'),
                           )
                         }
                       }
-                      setPrependSeq([formIns.getValues(), ...prependSeq])
+                      // Recheck inside the updater so a same-batch second click cannot duplicate the entry.
+                      setPrependSeq((prev) =>
+                        prev.some((v) => v.name === values.name)
+                          ? prev
+                          : [values, ...prev],
+                      )
                     } catch (err) {
                       showNotice.error(err)
                     }
@@ -1043,14 +997,20 @@ export const GroupsEditorViewer = (props: Props) => {
                   onClick={() => {
                     try {
                       validateGroup()
+                      const values = formIns.getValues()
                       for (const item of [...appendSeq, ...groupList]) {
-                        if (item.name === formIns.getValues().name) {
+                        if (item.name === values.name) {
                           throw new Error(
                             t('profiles.modals.groupsEditor.errors.nameExists'),
                           )
                         }
                       }
-                      setAppendSeq([...appendSeq, formIns.getValues()])
+                      // Recheck inside the updater so a same-batch second click cannot duplicate the entry.
+                      setAppendSeq((prev) =>
+                        prev.some((v) => v.name === values.name)
+                          ? prev
+                          : [...prev, values],
+                      )
                     } catch (err) {
                       showNotice.error(err)
                     }

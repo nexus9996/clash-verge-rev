@@ -58,8 +58,13 @@ export const LayoutItem = (props: Props) => {
               mode === 'light'
                 ? alpha(primary.main, 0.15)
                 : alpha(primary.main, 0.35)
+            const hoverBgcolor =
+              mode === 'light'
+                ? alpha(primary.main, 0.06)
+                : alpha(primary.main, 0.16)
             const color = mode === 'light' ? text.primary : common.white
             return {
+              '&:hover': { bgcolor: hoverBgcolor },
               '&.Mui-selected': { bgcolor },
               '&.Mui-selected:hover': { bgcolor },
               '&.Mui-selected .MuiListItemText-primary': { color },
