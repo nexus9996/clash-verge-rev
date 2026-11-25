@@ -29,6 +29,9 @@ const CONSOLE_SCRIPT: &str = r#"var __verge_log_count = 0;
 var __verge_log_size = 0;
 function __verge_push_log(level, data) {
   var text = JSON.stringify(data, null, 2);
+  // JSON.stringify returns undefined for undefined, functions and symbols; logging those must
+  // not throw and abort the whole enhancement script.
+  if (text === undefined) text = String(data);
   __verge_log_count = __verge_log_count + 1;
   __verge_log_size = __verge_log_size + level.length + text.length;
   if (__verge_log_count > 1000) throw new Error("Maximum number of log outputs exceeded");
@@ -128,14 +131,18 @@ pub(super) async fn use_script(script: String, config: Mapping, name: String) ->
         Err(err) => return (config, vec![], vec![("exception".into(), err.to_string().into())]),
     };
 
-    let evaluated = AsyncHandler::spawn_blocking(move || eval_script(&script, &json, &name, SCRIPT_TIMEOUT));
-    let (outcome, mut logs) = match tokio::time::timeout(SCRIPT_TIMEOUT, evaluated).await {
+    let mut evaluated = AsyncHandler::spawn_blocking(move || eval_script(&script, &json, &name, SCRIPT_TIMEOUT));
+    let (outcome, mut logs) = match tokio::time::timeout(SCRIPT_TIMEOUT, &mut evaluated).await {
         Ok(Ok(evaluated)) => evaluated,
         Ok(Err(join_err)) => (Err(format!("script task panicked: {join_err}")), vec![]),
-        Err(_elapsed) => (
-            Err(format!("script execution timed out after {SCRIPT_TIMEOUT:?}")),
-            vec![],
-        ),
+        Err(_elapsed) => {
+            // Aborting prevents queued work from starting; running blocking tasks cannot be stopped.
+            evaluated.abort();
+            (
+                Err(format!("script execution timed out after {SCRIPT_TIMEOUT:?}")),
+                vec![],
+            )
+        }
     };
 
     match outcome {
@@ -384,6 +391,23 @@ nested:
         assert_eq!(logs.len(), 1);
         assert_eq!(logs[0].0.as_str(), "log");
         assert!(logs[0].1.contains("rules"));
+    }
+
+    #[test]
+    fn console_log_of_a_missing_value_still_transforms_the_config() {
+        let (outcome, logs) = run(
+            r#"function main(config) {
+                console.log(config.missing);
+                config.mode = "global";
+                return config;
+            }"#,
+            r#"{"mode":"rule"}"#,
+        );
+        let config = outcome.expect("logging an undefined value must not fail the script");
+        assert_eq!(config.get("mode").and_then(|value| value.as_str()), Some("global"));
+        assert_eq!(logs.len(), 1);
+        assert_eq!(logs[0].0.as_str(), "log");
+        assert_eq!(logs[0].1.as_str(), "undefined");
     }
 
     #[test]
