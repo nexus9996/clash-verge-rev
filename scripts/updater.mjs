@@ -40,9 +40,7 @@ async function resolveUpdater() {
   const tags = allTags
   console.log(`Retrieved ${tags.length} tags in total`)
 
-  // The updater parses `version` (or the legacy `name`) as semver, so only
-  // versioned prerelease tags can be published to the alpha channel.
-  const preReleaseRegex = /^v?\d+\.\d+\.\d+-(alpha|beta|rc|pre)(\.\d+)?$/i
+  const preReleaseRegex = /^(alpha|beta|rc|pre)$/i
 
   const { data: latestRelease } =
     await github.rest.repos.getLatestRelease(options)
@@ -82,7 +80,6 @@ async function processRelease(github, options, tag, isAlpha) {
 
     const updateData = {
       name: tag.name,
-      version: tag.name.replace(/^v/i, ''),
       notes: `${notes}\n\n**[See More](${releaseUrl})**`,
       pub_date: new Date().toISOString(),
       platforms: {

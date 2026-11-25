@@ -12,7 +12,6 @@ import type {
   ProxyPortSettings,
   UnlockItem,
   ProxyViewV1_Serialize as ProxyViewV1,
-  UpdateInfo,
   ProfileSelection,
   ProfilePatch,
   ProfileCreate,
@@ -28,7 +27,6 @@ export type {
   ProxyPortSettings,
   ListenerTransport,
   ListenerProbe,
-  UpdateInfo,
   UnlockItem,
 } from './bindings'
 
@@ -341,10 +339,6 @@ export async function syncRuntimeProviders() {
 
 export async function cmdTestDelay(url: string) {
   return commands.testDelay(url)
-}
-
-export async function checkUpdateAvailable(): Promise<UpdateInfo | null> {
-  return commands.checkUpdateAvailable()
 }
 
 export async function invoke_uwp_tool() {

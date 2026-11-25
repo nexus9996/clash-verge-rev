@@ -30,10 +30,10 @@ import {
   alpha,
   useTheme,
 } from '@mui/material'
+import { useNavigate } from '@tanstack/react-router'
 import { useLockFn } from 'ahooks'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router'
 
 import { EnhancedCard } from '@/components/home/enhanced-card'
 import type { ProxySortType } from '@/components/proxy/use-filter-sort'
@@ -795,7 +795,7 @@ export const CurrentProxyCard = () => {
   )
 
   const goToProxies = useCallback(() => {
-    navigate('/proxies')
+    void navigate({ to: '/proxies' })
   }, [navigate])
 
   const currentMember = currentOption?.member

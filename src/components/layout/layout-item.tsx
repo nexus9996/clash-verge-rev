@@ -5,14 +5,15 @@ import {
   ListItemIcon,
   ListItemText,
 } from '@mui/material'
+import { useMatchRoute, useNavigate } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
-import { useMatch, useNavigate, useResolvedPath } from 'react-router'
 
 import type { SortableItemRenderProps } from '@/components/base/sortable-item'
+import type { NavigationPath } from '@/config/navigation'
 import { useVerge } from '@/hooks/use-verge'
 
 interface Props {
-  to: string
+  to: NavigationPath
   children: string
   icon: ReactNode[]
   sortable?: SortableItemRenderProps
@@ -22,8 +23,8 @@ export const LayoutItem = (props: Props) => {
   const { verge } = useVerge()
   const { menu_icon } = verge ?? {}
   const navCollapsed = verge?.collapse_navbar ?? false
-  const resolved = useResolvedPath(to)
-  const match = useMatch({ path: resolved.pathname, end: true })
+  const matchRoute = useMatchRoute()
+  const match = Boolean(matchRoute({ to }))
   const navigate = useNavigate()
 
   const effectiveMenuIcon =
@@ -66,7 +67,7 @@ export const LayoutItem = (props: Props) => {
         ]}
         title={navCollapsed ? children : undefined}
         aria-label={navCollapsed ? children : undefined}
-        onClick={() => navigate(to)}
+        onClick={() => void navigate({ to })}
       >
         {(effectiveMenuIcon === 'monochrome' || !effectiveMenuIcon) && (
           <ListItemIcon

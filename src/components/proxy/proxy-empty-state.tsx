@@ -1,8 +1,8 @@
 import { Alert, AlertTitle, Box, Button, Stack } from '@mui/material'
+import { useNavigate } from '@tanstack/react-router'
 import { useLockFn } from 'ahooks'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router'
 
 import { useSystemState } from '@/hooks/use-system-state'
 import { useAppRefreshers } from '@/providers/app-data-context'
@@ -86,7 +86,7 @@ export const ProxyEmptyState = ({ reason }: Props) => {
             <Button
               size="small"
               variant="contained"
-              onClick={() => navigate('/profile')}
+              onClick={() => void navigate({ to: '/profile' })}
             >
               {t('proxies.page.empty.actions.openProfiles')}
             </Button>
