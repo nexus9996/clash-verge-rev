@@ -10,13 +10,18 @@ import noop from '@/utils/noop'
 
 import { createLatestSaver, type LatestSaver } from './guard-state-saver'
 
+/** The subset of a change event a formatter reads; Select passes its value second. */
+interface FormChangeEvent {
+  target: { value: string }
+}
+
 interface Props<Value> {
   value?: Value
   valueProps?: string
   onChangeProps?: string
   waitTime?: number
   onChange?: (value: Value) => void
-  onFormat?: (...args: any[]) => Value
+  onFormat?: (event: FormChangeEvent, value: Value) => Value
   onGuard?: (value: Value, oldValue: Value) => Promise<void>
   onCatch?: (error: Error) => void
   children: ReactNode
@@ -64,15 +69,21 @@ export function GuardState<T>(props: Props<T>) {
   const childProps = { ...(children.props as Record<string, any>) }
 
   childProps[valueProps] = value
-  childProps[onChangeProps] = (...args: any[]) => {
-    const { onChange: emitChange, onCatch: emitCatch, onFormat: format } =
-      handlersRef.current
+  childProps[onChangeProps] = (...args: unknown[]) => {
+    const {
+      onChange: emitChange,
+      onCatch: emitCatch,
+      onFormat: format,
+    } = handlersRef.current
 
     let newValue: T
     try {
-      newValue = format ? format(...args) : (args[0] as T)
-    } catch (err: any) {
-      emitCatch(err)
+      newValue = format
+        ? format(args[0] as FormChangeEvent, args[1] as T)
+        : (args[0] as T)
+    } catch (err) {
+      // A formatter may throw anything, while onCatch only promises an Error.
+      emitCatch(err instanceof Error ? err : new Error(String(err)))
       return
     }
 
