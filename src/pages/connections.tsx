@@ -25,7 +25,6 @@ import {
   BasePage,
   BaseSearchBox,
   BaseStyledSelect,
-  type SearchState,
 } from '@/components/base'
 import { VirtualList } from '@/components/base/virtual-list'
 import {
@@ -39,16 +38,16 @@ import {
   useConnectionRowViews,
 } from '@/components/connection/connection-row-view'
 import { ConnectionTable } from '@/components/connection/connection-table'
+import { ConnectionsTrafficSummary } from '@/components/connection/connections-traffic-summary'
 import { useConnectionData } from '@/hooks/use-connection-data'
 import { useConnectionSetting } from '@/hooks/use-connection-setting'
-import { useTrafficData } from '@/hooks/use-traffic-data'
+import { usePageSearch } from '@/hooks/use-page-search'
 import { useVisibility } from '@/hooks/use-visibility'
 import { mutate } from '@/services/mutate'
 import {
   type ConnectionFilter,
   createConnectionFilterMatcher,
 } from '@/utils/connection-filter'
-import parseTraffic from '@/utils/parse-traffic'
 
 type OrderFunc = (list: IConnectionsItem[]) => IConnectionsItem[]
 
@@ -89,10 +88,8 @@ const EMPTY_CONNECTIONS: IConnectionsItem[] = []
 const ConnectionsPage = () => {
   const { t } = useTranslation()
   const pageVisible = useVisibility()
-  const [match, setMatch] = useState<(input: string) => boolean>(
-    () => () => true,
-  )
-  const [hasSearch, setHasSearch] = useState(false)
+  const { searchState, match, onSearch } = usePageSearch('connections')
+  const hasSearch = searchState.text.trim().length > 0
   const [curOrderOpt, setCurOrderOpt] = useState<OrderKey>('default')
   const [connectionsType, setConnectionsType] = useState<'active' | 'closed'>(
     'active',
@@ -102,9 +99,6 @@ const ConnectionsPage = () => {
     response: { data: connections },
     clearClosedConnections,
   } = useConnectionData({ enabled: pageVisible })
-  const {
-    response: { data: traffic },
-  } = useTrafficData({ enabled: pageVisible })
 
   const [setting, setSetting] = useConnectionSetting()
 
@@ -205,13 +199,6 @@ const ConnectionsPage = () => {
     }),
   )
 
-  const handleSearch = useCallback(
-    (match: (content: string) => boolean, state: SearchState) => {
-      setMatch(() => match)
-      setHasSearch(state.text.length > 0)
-    },
-    [],
-  )
   const hasTableData = filterConn.length > 0
 
   return (
@@ -232,13 +219,7 @@ const ConnectionsPage = () => {
       }}
       header={
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Box sx={{ mx: 1 }}>
-            {t('shared.labels.downloaded')}:{' '}
-            {parseTraffic(traffic?.downTotal || 0)}
-          </Box>
-          <Box sx={{ mx: 1 }}>
-            {t('shared.labels.uploaded')}: {parseTraffic(traffic?.upTotal || 0)}
-          </Box>
+          <ConnectionsTrafficSummary enabled={pageVisible} />
           <IconButton
             color="inherit"
             size="small"
@@ -324,7 +305,11 @@ const ConnectionsPage = () => {
             onChange={setConnectionFilters}
           />
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <BaseSearchBox onSearch={handleSearch} />
+            <BaseSearchBox
+              defaultValue={searchState.text}
+              searchState={searchState}
+              onSearch={onSearch}
+            />
           </Box>
         </Box>
         {isTableLayout && hasTableData && (

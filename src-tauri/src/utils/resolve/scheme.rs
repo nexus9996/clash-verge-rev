@@ -101,11 +101,16 @@ fn extract_subscription_info(link_parsed: &Url) -> Option<(std::string::String, 
 }
 
 fn extract_subscription_url(link_parsed: &Url) -> Option<std::string::String> {
-    let query = link_parsed.query()?;
-    let prefix = "url=";
-    let pos = query.find(prefix)?;
-    let raw_url = query[pos + prefix.len()..].trim();
-    Some(decode_subscription_url(raw_url))
+    let raw_url = link_parsed
+        .query_pairs()
+        .find(|(key, _)| key == "url")
+        .map(|(_, value)| value.into_owned())?;
+    let url = decode_subscription_url(raw_url.trim());
+    let parsed = Url::parse(&url).ok()?;
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return None;
+    }
+    Some(url)
 }
 
 fn decode_subscription_url(raw_url: &str) -> std::string::String {

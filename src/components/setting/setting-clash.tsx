@@ -161,6 +161,7 @@ const SettingClash = ({ onError }: Props) => {
       <HeaderConfiguration ref={corsRef} />
       <TunnelsViewer ref={tunnelRef} />
       <SettingItem
+        data-setting-target="settings.sections.clash.form.fields.allowLan"
         label={t('settings.sections.clash.form.fields.allowLan')}
         extra={
           <TooltipIcon
@@ -186,6 +187,7 @@ const SettingClash = ({ onError }: Props) => {
       </SettingItem>
 
       <SettingItem
+        data-setting-target="settings.sections.clash.form.fields.dnsOverwrite"
         label={t('settings.sections.clash.form.fields.dnsOverwrite')}
         extra={
           <>
@@ -209,6 +211,7 @@ const SettingClash = ({ onError }: Props) => {
       </SettingItem>
 
       <SettingItem
+        data-setting-target="settings.sections.clash.form.fields.ipv6"
         label={t('settings.sections.clash.form.fields.ipv6')}
         secondary={
           selectedIpv6Mode === 'auto'
@@ -256,6 +259,7 @@ const SettingClash = ({ onError }: Props) => {
       </SettingItem>
 
       <SettingItem
+        data-setting-target="settings.sections.clash.form.fields.unifiedDelay"
         label={t('settings.sections.clash.form.fields.unifiedDelay')}
         extra={
           <TooltipIcon
@@ -277,6 +281,7 @@ const SettingClash = ({ onError }: Props) => {
       </SettingItem>
 
       <SettingItem
+        data-setting-target="settings.sections.clash.form.fields.logLevel"
         label={t('settings.sections.clash.form.fields.logLevel')}
         extra={
           <TooltipIcon
@@ -318,7 +323,10 @@ const SettingClash = ({ onError }: Props) => {
         </GuardState>
       </SettingItem>
 
-      <SettingItem label={t('settings.sections.clash.form.fields.portConfig')}>
+      <SettingItem
+        data-setting-target="settings.sections.clash.form.fields.portConfig"
+        label={t('settings.sections.clash.form.fields.portConfig')}
+      >
         <TextField
           autoComplete="new-password"
           disabled={false}
@@ -333,6 +341,7 @@ const SettingClash = ({ onError }: Props) => {
       </SettingItem>
 
       <SettingItem
+        data-setting-target="settings.sections.clash.form.fields.external"
         label={t('settings.sections.clash.form.fields.external')}
         extra={
           <TooltipIcon
@@ -350,11 +359,13 @@ const SettingClash = ({ onError }: Props) => {
       />
 
       <SettingItem
+        data-setting-target="settings.sections.clash.form.fields.webUI"
         onClick={() => webRef.current?.open()}
         label={t('settings.sections.clash.form.fields.webUI')}
       />
 
       <SettingItem
+        data-setting-target="settings.sections.clash.form.fields.clashCore"
         label={t('settings.sections.clash.form.fields.clashCore')}
         extra={
           <TooltipIcon
@@ -368,6 +379,7 @@ const SettingClash = ({ onError }: Props) => {
 
       {isWIN && (
         <SettingItem
+          data-setting-target="settings.sections.clash.form.fields.openUwpTool"
           onClick={invoke_uwp_tool}
           label={t('settings.sections.clash.form.fields.openUwpTool')}
           extra={
@@ -380,11 +392,13 @@ const SettingClash = ({ onError }: Props) => {
       )}
 
       <SettingItem
+        data-setting-target="settings.sections.clash.form.fields.updateGeoData"
         onClick={onUpdateGeo}
         label={t('settings.sections.clash.form.fields.updateGeoData')}
       />
 
       <SettingItem
+        data-setting-target="settings.sections.clash.form.fields.tunnels.title"
         label={t('settings.sections.clash.form.fields.tunnels.title')}
         onClick={() => tunnelRef.current?.open()}
       />

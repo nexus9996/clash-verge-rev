@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react'
 
+import type { SearchState } from '@/components/base'
+
 import { readPageFilter, writePageFilter } from '@/hooks/use-page-filter'
-import type { SearchState } from '@/utils/search-matcher'
 
 const initialSearch: SearchState = {
   text: '',

@@ -1,7 +1,7 @@
 use anyhow::{Result, bail};
 use serde_yaml_ng::{Mapping, Value};
+use smartstring::alias::String;
 use std::collections::HashSet;
-use tristr::alias::String;
 
 /// Rejects a chain that cannot be applied atomically: fewer than two hops, a
 /// duplicate node, or a node that is not an inline proxy mapping.
@@ -62,7 +62,6 @@ pub fn apply_proxy_chain(config: &mut Mapping, chain: &[String]) -> Result<()> {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, reason = "tests assert by panicking")]
 mod tests {
     use super::apply_proxy_chain;
 
@@ -90,7 +89,7 @@ proxies:
   - {name: exit, type: ss}
 ",
         );
-        let chain: Vec<tristr::alias::String> = vec!["entry".into(), "middle".into(), "exit".into()];
+        let chain: Vec<smartstring::alias::String> = vec!["entry".into(), "middle".into(), "exit".into()];
 
         apply_proxy_chain(&mut config, &chain).expect("valid chain");
 
@@ -111,7 +110,7 @@ proxies:
         );
         let before = config.clone();
         // Missing node and a duplicate both fail before any mutation.
-        let chain: Vec<tristr::alias::String> = vec!["entry".into(), "missing".into()];
+        let chain: Vec<smartstring::alias::String> = vec!["entry".into(), "missing".into()];
 
         assert!(apply_proxy_chain(&mut config, &chain).is_err());
         assert_eq!(config, before);

@@ -3,8 +3,10 @@ use crate::{
     config::PrfItem,
     utils::{dirs, help},
 };
+use clash_verge_logging::{Type, logging};
 use serde_yaml_ng::Mapping;
 use smartstring::alias::String;
+use std::sync::Arc;
 use tokio::fs;
 
 #[derive(Debug, Clone)]
@@ -15,26 +17,15 @@ pub struct ChainItem {
 
 #[derive(Debug, Clone)]
 pub enum ChainType {
-    Merge(Mapping),
+    Merge(Arc<Mapping>),
     Script(String),
     Rules(SeqMap),
     Proxies(SeqMap),
     Groups(SeqMap),
 }
 
-#[derive(Debug, Clone)]
-pub enum ChainSupport {
-    ClashMeta,
-    ClashMetaAlpha,
-}
-
-// Helper trait to allow async conversion
-pub trait AsyncChainItemFrom {
-    async fn from_async(item: &PrfItem) -> Option<ChainItem>;
-}
-
-impl AsyncChainItemFrom for Option<ChainItem> {
-    async fn from_async(item: &PrfItem) -> Self {
+impl ChainItem {
+    pub async fn from_profile(item: &PrfItem) -> Option<Self> {
         let itype = item.itype.as_ref()?.as_str();
         let file = item.file.clone()?;
         let uid = item.uid.clone().unwrap_or_else(|| "".into());
@@ -45,78 +36,56 @@ impl AsyncChainItemFrom for Option<ChainItem> {
         }
 
         match itype {
-            "script" => Some(ChainItem {
-                uid,
-                data: ChainType::Script(fs::read_to_string(path).await.ok()?.into()),
-            }),
-            "merge" => Some(ChainItem {
-                uid,
-                data: ChainType::Merge(help::read_mapping_cached(&path).await.ok()?),
-            }),
-            "rules" => {
-                let seq_map = help::read_yaml::<SeqMap>(&path).await.ok()?;
-                Some(ChainItem {
+            "script" => match fs::read_to_string(&path).await {
+                Ok(content) => Some(Self {
                     uid,
-                    data: ChainType::Rules(seq_map),
-                })
-            }
-            "proxies" => {
-                let seq_map = help::read_yaml::<SeqMap>(&path).await.ok()?;
-                Some(ChainItem {
+                    data: ChainType::Script(content.into()),
+                }),
+                Err(error) => {
+                    logging!(
+                        warn,
+                        Type::Config,
+                        "failed to read script file {}: {error:#}",
+                        path.display()
+                    );
+                    None
+                }
+            },
+            "merge" => match help::read_mapping_cached(&path).await {
+                Ok(mapping) => Some(Self {
                     uid,
-                    data: ChainType::Proxies(seq_map),
-                })
-            }
-            "groups" => {
-                let seq_map = help::read_yaml::<SeqMap>(&path).await.ok()?;
-                Some(ChainItem {
-                    uid,
-                    data: ChainType::Groups(seq_map),
-                })
-            }
+                    data: ChainType::Merge(mapping),
+                }),
+                Err(error) => {
+                    logging!(
+                        warn,
+                        Type::Config,
+                        "failed to read merge file {}: {error:#}",
+                        path.display()
+                    );
+                    None
+                }
+            },
+            "rules" | "proxies" | "groups" => match help::read_yaml::<SeqMap>(&path).await {
+                Ok(seq_map) => {
+                    let data = match itype {
+                        "rules" => ChainType::Rules(seq_map),
+                        "proxies" => ChainType::Proxies(seq_map),
+                        _ => ChainType::Groups(seq_map),
+                    };
+                    Some(Self { uid, data })
+                }
+                Err(error) => {
+                    logging!(
+                        warn,
+                        Type::Config,
+                        "failed to read chain file {}: {error:#}",
+                        path.display()
+                    );
+                    None
+                }
+            },
             _ => None,
-        }
-    }
-}
-impl ChainItem {
-    /// 内建支持一些脚本
-    pub fn builtin() -> Vec<(ChainSupport, Self)> {
-        // meta 的一些处理
-        let meta_guard = Self::to_script("verge_meta_guard", include_str!("./builtin/meta_guard.js"));
-
-        // meta 1.13.2 alpn string 转 数组
-        let hy_alpn = Self::to_script("verge_hy_alpn", include_str!("./builtin/meta_hy_alpn.js"));
-
-        // meta 的一些处理
-        let meta_guard_alpha = Self::to_script("verge_meta_guard", include_str!("./builtin/meta_guard.js"));
-
-        // meta 1.13.2 alpn string 转 数组
-        let hy_alpn_alpha = Self::to_script("verge_hy_alpn", include_str!("./builtin/meta_hy_alpn.js"));
-
-        vec![
-            (ChainSupport::ClashMeta, hy_alpn),
-            (ChainSupport::ClashMeta, meta_guard),
-            (ChainSupport::ClashMetaAlpha, hy_alpn_alpha),
-            (ChainSupport::ClashMetaAlpha, meta_guard_alpha),
-        ]
-    }
-
-    pub fn to_script<U: Into<String>, D: Into<String>>(uid: U, data: D) -> Self {
-        Self {
-            uid: uid.into(),
-            data: ChainType::Script(data.into()),
-        }
-    }
-}
-
-impl ChainSupport {
-    pub fn is_support(&self, core: Option<&String>) -> bool {
-        match core {
-            Some(core) => matches!(
-                (self, core.as_str()),
-                (Self::ClashMeta, "verge-mihomo") | (Self::ClashMetaAlpha, "verge-mihomo-alpha")
-            ),
-            None => true,
         }
     }
 }

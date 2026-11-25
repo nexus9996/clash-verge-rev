@@ -60,6 +60,9 @@ export const ProxyRender = memo(function ProxyRender(props: RenderProps) {
   } = props
   const { type, group, headState, member, memberCol } = item
   const { verge } = useVerge()
+  // One verge read per rendered row is enough: children receive the resolved
+  // number instead of mounting their own config subscription.
+  const latencyTimeout = verge?.default_latency_timeout || 10000
   const enable_group_icon = verge?.enable_group_icon ?? true
   const toolsOnLeft = verge?.proxy_group_tools_position === 'left'
   const headerId = useId()
@@ -92,6 +95,7 @@ export const ProxyRender = memo(function ProxyRender(props: RenderProps) {
         group={group}
         member={occurrence.member}
         selected={group.now === occurrence.member.ref.name}
+        latencyTimeout={latencyTimeout}
         showType={showType}
         groupNames={groupsOfMember(occurrence.member)}
         onGroupLocation={onGroupLocation}
@@ -103,6 +107,7 @@ export const ProxyRender = memo(function ProxyRender(props: RenderProps) {
     memberCol,
     item.key,
     group,
+    latencyTimeout,
     showType,
     onChangeProxy,
     groupsOfMember,
@@ -285,6 +290,7 @@ export const ProxyRender = memo(function ProxyRender(props: RenderProps) {
         group={group}
         member={member!.member}
         selected={group.now === member?.member.ref.name}
+        latencyTimeout={latencyTimeout}
         showType={headState?.showType}
         groupNames={groupsOfMember(member!.member)}
         onGroupLocation={onGroupLocation}

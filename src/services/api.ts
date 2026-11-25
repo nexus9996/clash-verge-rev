@@ -36,7 +36,6 @@ interface IpInfo {
 interface ServiceConfig {
   url: string
   mapping: (data: any) => IpInfo
-  timeout?: number // 保留timeout字段（如有需要）
 }
 
 // 可用的IP检测服务列表及字段映射
@@ -166,7 +165,7 @@ export const getIpInfo = async (): Promise<
           // and the same User-Agent for every probe.
           const response = await httpGetText(
             service.url,
-            service.timeout ?? serviceTimeout,
+            serviceTimeout,
             userAgent,
           )
 

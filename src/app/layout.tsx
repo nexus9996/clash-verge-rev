@@ -3,9 +3,8 @@ import { Outlet, useNavigate } from 'react-router'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import { useCallback, useEffect, useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
 
-import { BaseErrorBoundary } from '@/components/base'
+import { BaseErrorBoundary } from '@/components/base/base-error-boundary'
 import { LayoutSidebar } from '@/components/layout/layout-sidebar'
 import { NoticeManager } from '@/components/layout/notice-manager'
 import { ServiceMigrationDialog } from '@/components/layout/service-migration-dialog'
@@ -41,7 +40,6 @@ const OS = getSystem()
 const Layout = () => {
   const mode = useThemeMode()
   const isDark = mode !== 'light'
-  const { t } = useTranslation()
   const { theme } = useCustomTheme()
   const { verge } = useVerge()
   const { language } = verge ?? {}
@@ -69,14 +67,14 @@ const Layout = () => {
     (payload: [string, string]) => {
       const [status, msg] = payload
       try {
-        handleNoticeMessage(status, msg, t, (path) =>
+        handleNoticeMessage(status, msg, (path) =>
           navigate(resolveNavigationPath(path)),
         )
       } catch (error) {
         console.error('[通知处理] 失败:', error)
       }
     },
-    [t, navigate],
+    [navigate],
   )
 
   useEventBus(handleNotice)
@@ -113,20 +111,6 @@ const Layout = () => {
       <NoticeManager position={verge?.notice_position} />
       <ServiceMigrationDialog />
       <SysproxyPrivilegeDialog />
-      <div
-        style={{
-          animation: 'fadeIn 0.5s',
-          WebkitAnimation: 'fadeIn 0.5s',
-        }}
-      />
-      <style>
-        {`
-            @keyframes fadeIn {
-              from { opacity: 0; }
-              to { opacity: 1; }
-            }
-          `}
-      </style>
       <Paper
         square
         elevation={0}

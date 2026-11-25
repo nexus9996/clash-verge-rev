@@ -1,12 +1,15 @@
+use super::patch_opt_field;
+
 use crate::{
     config::profiles,
+    process::AsyncHandler,
     utils::{
         dirs, help,
         network::{NetworkManager, ProxyType},
         tmpl,
     },
 };
-use anyhow::{Context as _, Result, bail};
+use anyhow::{Context as _, Result, anyhow, bail};
 use serde::{Deserialize, Serialize};
 use serde_yaml_ng::Mapping;
 use smartstring::alias::String;
@@ -64,6 +67,11 @@ pub struct PrfItem {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[specta(type = Option<std::string::String>)]
     pub home: Option<String>,
+
+    /// Ordered proxy chain intent (entry first), persisted per profile. See ADR-0005.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[specta(type = Option<Vec<std::string::String>>)]
+    pub proxy_chain: Option<Vec<String>>,
 
     #[serde(skip)]
     #[specta(type = Option<std::string::String>)]
@@ -131,19 +139,18 @@ impl PrfOption {
         match (one, other) {
             (Some(a_ref), Some(b_ref)) => {
                 let mut result = a_ref.clone();
-                result.user_agent = b_ref.user_agent.clone().or(result.user_agent);
-                result.with_proxy = b_ref.with_proxy.or(result.with_proxy);
-                result.self_proxy = b_ref.self_proxy.or(result.self_proxy);
-                result.danger_accept_invalid_certs =
-                    b_ref.danger_accept_invalid_certs.or(result.danger_accept_invalid_certs);
-                result.allow_auto_update = b_ref.allow_auto_update.or(result.allow_auto_update);
-                result.update_interval = b_ref.update_interval.or(result.update_interval);
-                result.merge = b_ref.merge.clone().or(result.merge);
-                result.script = b_ref.script.clone().or(result.script);
-                result.rules = b_ref.rules.clone().or(result.rules);
-                result.proxies = b_ref.proxies.clone().or(result.proxies);
-                result.groups = b_ref.groups.clone().or(result.groups);
-                result.timeout_seconds = b_ref.timeout_seconds.or(result.timeout_seconds);
+                patch_opt_field!(result, b_ref, user_agent);
+                patch_opt_field!(result, b_ref, with_proxy);
+                patch_opt_field!(result, b_ref, self_proxy);
+                patch_opt_field!(result, b_ref, danger_accept_invalid_certs);
+                patch_opt_field!(result, b_ref, allow_auto_update);
+                patch_opt_field!(result, b_ref, update_interval);
+                patch_opt_field!(result, b_ref, merge);
+                patch_opt_field!(result, b_ref, script);
+                patch_opt_field!(result, b_ref, rules);
+                patch_opt_field!(result, b_ref, proxies);
+                patch_opt_field!(result, b_ref, groups);
+                patch_opt_field!(result, b_ref, timeout_seconds);
                 Some(result)
             }
             (Some(a_ref), None) => Some(a_ref.clone()),
@@ -181,6 +188,38 @@ impl PrfItem {
         }
     }
 
+    async fn append_companion_item(item: &mut Self) -> Result<String> {
+        profiles::profiles_append_item_safe(item).await?;
+        item.uid
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("appended companion item has no uid"))
+    }
+
+    async fn ensure_companion_items(
+        merge: &mut Option<String>,
+        script: &mut Option<String>,
+        rules: &mut Option<String>,
+        proxies: &mut Option<String>,
+        groups: &mut Option<String>,
+    ) -> Result<()> {
+        if merge.is_none() {
+            *merge = Some(Self::append_companion_item(&mut Self::from_merge(None)).await?);
+        }
+        if script.is_none() {
+            *script = Some(Self::append_companion_item(&mut Self::from_script(None)).await?);
+        }
+        if rules.is_none() {
+            *rules = Some(Self::append_companion_item(&mut Self::from_rules()).await?);
+        }
+        if proxies.is_none() {
+            *proxies = Some(Self::append_companion_item(&mut Self::from_proxies()).await?);
+        }
+        if groups.is_none() {
+            *groups = Some(Self::append_companion_item(&mut Self::from_groups()).await?);
+        }
+        Ok(())
+    }
+
     async fn from_local(
         name: String,
         desc: String,
@@ -197,31 +236,7 @@ impl PrfItem {
         let mut proxies = opt_ref.and_then(|o| o.proxies.clone());
         let mut groups = opt_ref.and_then(|o| o.groups.clone());
 
-        if merge.is_none() {
-            let merge_item = &mut Self::from_merge(None);
-            profiles::profiles_append_item_safe(merge_item).await?;
-            merge = merge_item.uid.clone();
-        }
-        if script.is_none() {
-            let script_item = &mut Self::from_script(None);
-            profiles::profiles_append_item_safe(script_item).await?;
-            script = script_item.uid.clone();
-        }
-        if rules.is_none() {
-            let rules_item = &mut Self::from_rules();
-            profiles::profiles_append_item_safe(rules_item).await?;
-            rules = rules_item.uid.clone();
-        }
-        if proxies.is_none() {
-            let proxies_item = &mut Self::from_proxies();
-            profiles::profiles_append_item_safe(proxies_item).await?;
-            proxies = proxies_item.uid.clone();
-        }
-        if groups.is_none() {
-            let groups_item = &mut Self::from_groups();
-            profiles::profiles_append_item_safe(groups_item).await?;
-            groups = groups_item.uid.clone();
-        }
+        Self::ensure_companion_items(&mut merge, &mut script, &mut rules, &mut proxies, &mut groups).await?;
         Ok(Self {
             uid: Some(uid),
             itype: Some("local".into()),
@@ -241,6 +256,7 @@ impl PrfItem {
                 ..PrfOption::default()
             }),
             home: None,
+            proxy_chain: None,
             updated: Some(chrono::Local::now().timestamp() as usize),
             file_data: Some(file_data.unwrap_or_else(|| tmpl::ITEM_LOCAL.into())),
         })
@@ -369,37 +385,25 @@ impl PrfItem {
 
         let data = data.trim_start_matches('\u{feff}');
 
-        let yaml = serde_yaml_ng::from_str::<Mapping>(data).context("the remote profile data is invalid yaml")?;
+        // A subscription body can be multi-megabyte and the check below only
+        // needs two top-level keys, so the parse runs on a blocking worker; the
+        // owned text travels through the task so `file_data` does not copy it again.
+        let data: String = data.into();
+        let data = AsyncHandler::spawn_blocking(move || {
+            let yaml =
+                serde_yaml_ng::from_str::<Mapping>(data.as_str()).context("the remote profile data is invalid yaml")?;
 
-        if !yaml.contains_key("proxies") && !yaml.contains_key("proxy-providers") {
-            bail!("profile does not contain `proxies` or `proxy-providers`");
-        }
+            if !yaml.contains_key("proxies") && !yaml.contains_key("proxy-providers") {
+                bail!("profile does not contain `proxies` or `proxy-providers`");
+            }
 
-        if merge.is_none() {
-            let merge_item = &mut Self::from_merge(None);
-            profiles::profiles_append_item_safe(merge_item).await?;
-            merge = merge_item.uid.clone();
-        }
-        if script.is_none() {
-            let script_item = &mut Self::from_script(None);
-            profiles::profiles_append_item_safe(script_item).await?;
-            script = script_item.uid.clone();
-        }
-        if rules.is_none() {
-            let rules_item = &mut Self::from_rules();
-            profiles::profiles_append_item_safe(rules_item).await?;
-            rules = rules_item.uid.clone();
-        }
-        if proxies.is_none() {
-            let proxies_item = &mut Self::from_proxies();
-            profiles::profiles_append_item_safe(proxies_item).await?;
-            proxies = proxies_item.uid.clone();
-        }
-        if groups.is_none() {
-            let groups_item = &mut Self::from_groups();
-            profiles::profiles_append_item_safe(groups_item).await?;
-            groups = groups_item.uid.clone();
-        }
+            drop(yaml);
+            Ok::<_, anyhow::Error>(data)
+        })
+        .await
+        .map_err(|join| anyhow!("profile parse task failed: {join}"))??;
+
+        Self::ensure_companion_items(&mut merge, &mut script, &mut rules, &mut proxies, &mut groups).await?;
 
         Ok(Self {
             uid: Some(uid),
@@ -421,8 +425,9 @@ impl PrfItem {
                 ..PrfOption::default()
             }),
             home,
+            proxy_chain: None,
             updated: Some(chrono::Local::now().timestamp() as usize),
-            file_data: Some(data.into()),
+            file_data: Some(data),
         })
     }
 
@@ -461,46 +466,30 @@ impl PrfItem {
         }
     }
 
-    fn from_rules() -> Self {
-        let uid = help::get_uid("r").into();
+    fn new_seq_item(prefix: &str, itype: &str, template: &str) -> Self {
+        let uid = help::get_uid(prefix).into();
         let file = format!("{uid}.yaml").into(); // yaml ext
 
         Self {
             uid: Some(uid),
-            itype: Some("rules".into()),
+            itype: Some(itype.into()),
             file: Some(file),
             updated: Some(chrono::Local::now().timestamp() as usize),
-            file_data: Some(tmpl::ITEM_RULES.into()),
+            file_data: Some(template.into()),
             ..Default::default()
         }
+    }
+
+    fn from_rules() -> Self {
+        Self::new_seq_item("r", "rules", tmpl::ITEM_RULES)
     }
 
     fn from_proxies() -> Self {
-        let uid = help::get_uid("p").into();
-        let file = format!("{uid}.yaml").into(); // yaml ext
-
-        Self {
-            uid: Some(uid),
-            itype: Some("proxies".into()),
-            file: Some(file),
-            updated: Some(chrono::Local::now().timestamp() as usize),
-            file_data: Some(tmpl::ITEM_PROXIES.into()),
-            ..Default::default()
-        }
+        Self::new_seq_item("p", "proxies", tmpl::ITEM_PROXIES)
     }
 
     fn from_groups() -> Self {
-        let uid = help::get_uid("g").into();
-        let file = format!("{uid}.yaml").into(); // yaml ext
-
-        Self {
-            uid: Some(uid),
-            itype: Some("groups".into()),
-            file: Some(file),
-            updated: Some(chrono::Local::now().timestamp() as usize),
-            file_data: Some(tmpl::ITEM_GROUPS.into()),
-            ..Default::default()
-        }
+        Self::new_seq_item("g", "groups", tmpl::ITEM_GROUPS)
     }
 
     pub(crate) async fn read_file(&self) -> Result<String> {
@@ -516,26 +505,20 @@ impl PrfItem {
     }
 }
 
+macro_rules! current_field {
+    ($name:ident, $field:ident) => {
+        pub(crate) fn $name(&self) -> Option<&String> {
+            self.option.as_ref().and_then(|o| o.$field.as_ref())
+        }
+    };
+}
+
 impl PrfItem {
-    pub(crate) fn current_merge(&self) -> Option<&String> {
-        self.option.as_ref().and_then(|o| o.merge.as_ref())
-    }
-
-    pub(crate) fn current_script(&self) -> Option<&String> {
-        self.option.as_ref().and_then(|o| o.script.as_ref())
-    }
-
-    pub(crate) fn current_rules(&self) -> Option<&String> {
-        self.option.as_ref().and_then(|o| o.rules.as_ref())
-    }
-
-    pub(crate) fn current_proxies(&self) -> Option<&String> {
-        self.option.as_ref().and_then(|o| o.proxies.as_ref())
-    }
-
-    pub(crate) fn current_groups(&self) -> Option<&String> {
-        self.option.as_ref().and_then(|o| o.groups.as_ref())
-    }
+    current_field!(current_merge, merge);
+    current_field!(current_script, script);
+    current_field!(current_rules, rules);
+    current_field!(current_proxies, proxies);
+    current_field!(current_groups, groups);
 }
 
 fn allow_auto_update_enabled(option: Option<&PrfOption>) -> bool {

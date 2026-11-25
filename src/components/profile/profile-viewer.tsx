@@ -106,17 +106,6 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
     },
   }))
 
-  const selfProxy = watch('option.self_proxy')
-  const withProxy = watch('option.with_proxy')
-
-  useEffect(() => {
-    if (selfProxy) setValue('option.with_proxy', false)
-  }, [selfProxy, setValue])
-
-  useEffect(() => {
-    if (withProxy) setValue('option.self_proxy', false)
-  }, [setValue, withProxy])
-
   const handleOk = useLockFn(
     handleSubmit(async (form) => {
       setLoading(true)
@@ -449,7 +438,15 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
                 <InputLabel>
                   {t('profiles.modals.profileForm.fields.useSystemProxy')}
                 </InputLabel>
-                <Switch checked={field.value!} {...field} color="primary" />
+                <Switch
+                  checked={field.value!}
+                  {...field}
+                  onChange={(_, checked) => {
+                    field.onChange(checked)
+                    if (checked) setValue('option.self_proxy', false)
+                  }}
+                  color="primary"
+                />
               </StyledBox>
             )}
           />
@@ -462,7 +459,15 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
                 <InputLabel>
                   {t('profiles.modals.profileForm.fields.useClashProxy')}
                 </InputLabel>
-                <Switch checked={field.value!} {...field} color="primary" />
+                <Switch
+                  checked={field.value!}
+                  {...field}
+                  onChange={(_, checked) => {
+                    field.onChange(checked)
+                    if (checked) setValue('option.with_proxy', false)
+                  }}
+                  color="primary"
+                />
               </StyledBox>
             )}
           />

@@ -48,7 +48,7 @@ src/hooks/data/
 - `services/bus` 仍是唯一 `listen/emit` 点；
 - `store` 仍拥有事件态与读序（`store-reads`），`services/mutate` 仍是写操作漏斗；
 - `services/cmds` 仍是唯一命令边界，组件不直接 `invoke`；
-- 分层方向由 `eslint.config.ts` 的 `import-x/no-restricted-paths` 强制（T2）。
+- 分层方向由 `.oxlintrc.json` 的 `no-restricted-imports` 强制（T2）。
 
 ### D4 不引入 Zustand / TanStack Query
 
@@ -81,4 +81,4 @@ src/hooks/data/
 
 - [ADR-0001](0001-router-choice.md)、[目标架构 §3](../frontend-architecture.md)
 - 提交：`d6ab8e62`（T1）、`f65c7346`（T2 分层强制）
-- 代码：`src/hooks/data/*`、`src/AGENTS.md`、`eslint.config.ts`
+- 代码：`src/hooks/data/*`、`src/AGENTS.md`、`.oxlintrc.json`

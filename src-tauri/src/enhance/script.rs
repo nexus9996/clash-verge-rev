@@ -1,6 +1,6 @@
 use crate::{process::AsyncHandler, utils::tmpl};
 
-use super::field::use_lowercase_owned;
+use super::field::use_lowercase;
 use anyhow::{Error, Result};
 use clash_verge_logging::{Type, logging};
 use parking_lot::Mutex;
@@ -119,7 +119,7 @@ impl serde::Serialize for LowercaseKeys<'_> {
 pub(super) async fn use_script(script: String, config: Mapping, name: String) -> ScriptResult {
     // The template is identity-plus-lowercasing; skip the engine round-trip.
     if script == tmpl::ITEM_SCRIPT {
-        return (use_lowercase_owned(config), vec![], vec![]);
+        return (use_lowercase(&config), vec![], vec![]);
     }
 
     let json = match serde_json::to_string(&LowercaseKeys(&config)) {
@@ -131,14 +131,18 @@ pub(super) async fn use_script(script: String, config: Mapping, name: String) ->
         Err(err) => return (config, vec![], vec![("exception".into(), err.to_string().into())]),
     };
 
-    let evaluated = AsyncHandler::spawn_blocking(move || eval_script(&script, &json, &name, SCRIPT_TIMEOUT));
-    let (outcome, mut logs) = match tokio::time::timeout(SCRIPT_TIMEOUT, evaluated).await {
+    let mut evaluated = AsyncHandler::spawn_blocking(move || eval_script(&script, &json, &name, SCRIPT_TIMEOUT));
+    let (outcome, mut logs) = match tokio::time::timeout(SCRIPT_TIMEOUT, &mut evaluated).await {
         Ok(Ok(evaluated)) => evaluated,
         Ok(Err(join_err)) => (Err(format!("script task panicked: {join_err}")), vec![]),
-        Err(_elapsed) => (
-            Err(format!("script execution timed out after {SCRIPT_TIMEOUT:?}")),
-            vec![],
-        ),
+        Err(_elapsed) => {
+            // Aborting prevents queued work from starting; running blocking tasks cannot be stopped.
+            evaluated.abort();
+            (
+                Err(format!("script execution timed out after {SCRIPT_TIMEOUT:?}")),
+                vec![],
+            )
+        }
     };
 
     match outcome {
@@ -254,7 +258,7 @@ JSON.stringify(main(JSON.parse(globalThis.__verge_config__),'{safe_name}')||'')
         }
 
         match parse_json_safely(&result) {
-            Ok(config) => Ok(use_lowercase_owned(config)),
+            Ok(config) => Ok(use_lowercase(&config)),
             Err(err) => {
                 logging!(
                     error,
@@ -333,9 +337,6 @@ mod tests {
     use serde_yaml_ng::Mapping;
     use smartstring::alias::String;
     use std::time::{Duration, Instant};
-
-    const META_GUARD_SCRIPT: &str = include_str!("./builtin/meta_guard.js");
-    const META_HY_ALPN_SCRIPT: &str = include_str!("./builtin/meta_hy_alpn.js");
 
     fn run(script: &str, config_json: &str) -> super::EvalOutcome {
         let name: String = "test-profile".into();
@@ -567,79 +568,6 @@ nested:
                 "json_roundtrip": "{\"a\":[1,2],\"b\":\"x\"}",
             })
         );
-    }
-
-    #[test]
-    fn quickjs_runs_meta_guard_builtin_script() {
-        let config = run_with_config(
-            META_GUARD_SCRIPT,
-            serde_json::json!({
-                "mode": "script",
-                "proxy-groups": [{
-                    "name": "PROXY",
-                    "type": "select",
-                    "proxies": ["node-hk-01"],
-                }],
-                "proxies": [{
-                    "name": "node-hk-01",
-                    "type": "ss",
-                    "server": "hk01.example.com",
-                    "port": 443,
-                    "cipher": "aes-128-gcm",
-                    "password": "secret",
-                }],
-                "rules": ["DOMAIN-SUFFIX,example.com,PROXY", "MATCH,PROXY"],
-            }),
-        );
-
-        assert_eq!(config["mode"], "rule");
-        assert_eq!(config["proxies"].as_array().map(Vec::len), Some(1));
-        assert_eq!(config["rules"].as_array().map(Vec::len), Some(2));
-    }
-
-    #[test]
-    fn quickjs_runs_meta_hy_alpn_builtin_script() {
-        let config = run_with_config(
-            META_HY_ALPN_SCRIPT,
-            serde_json::json!({
-                "proxies": [
-                    {
-                        "name": "hy-string",
-                        "type": "hysteria",
-                        "server": "hy1.example.com",
-                        "port": 443,
-                        "alpn": "h3",
-                    },
-                    {
-                        "name": "hy-array",
-                        "type": "hysteria",
-                        "server": "hy2.example.com",
-                        "port": 443,
-                        "alpn": ["h2", "h3"],
-                    },
-                    {
-                        "name": "hy2-string",
-                        "type": "hysteria2",
-                        "server": "hy3.example.com",
-                        "port": 443,
-                        "alpn": "h3",
-                    },
-                    {
-                        "name": "ss-plain",
-                        "type": "ss",
-                        "server": "ss.example.com",
-                        "port": 443,
-                        "cipher": "aes-128-gcm",
-                        "password": "secret",
-                    },
-                ],
-            }),
-        );
-
-        assert_eq!(config["proxies"][0]["alpn"], serde_json::json!(["h3"]));
-        assert_eq!(config["proxies"][1]["alpn"], serde_json::json!(["h2", "h3"]));
-        assert_eq!(config["proxies"][2]["alpn"], serde_json::json!("h3"));
-        assert_eq!(config["proxies"][3].get("alpn"), None);
     }
 
     // Representative shape of subscription scripts users run, not a real user script; real

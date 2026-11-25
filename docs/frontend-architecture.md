@@ -111,11 +111,12 @@ export const NAV_ITEMS: NavigationItem[] = NAV_IDS.map((id) => ({ id, ...NAV_MET
 - 后端导航（notice、托盘、深链）统一走 `resolveNavigationPath(path)` 映射；未知值 fallback 首页并 `console.warn`。
 - 防漂移由类型系统承担：`PAGE_ROUTES` 必须是 `Record<NavigationId, …>`，缺 id / 多 id 都会编译失败；`config/navigation.test.ts` 继续校验 id/path 唯一性与后端路径解析。
 
-### 2.4 新增页面步骤（3 步）
+### 2.4 新增页面步骤（4 步）
 
 1. `src/pages/<name>.tsx` 写页面组件（子组件放 `src/components/<domain>/`），默认导出。
-2. `src/app/route-pages.ts` 增加映射：除 `home` 外一律用 `{ lazy: lazyPage(() => import('@/pages/my-page')) }`（首页保持静态 import）。
-3. 导航与文案：`src/config/navigation.ts` 的 `NAV_META` 加 id/path/labelKey；`src/components/layout/navigation-icons.tsx` 的 `NAV_ICONS` 补图标；14 个 `src/locales/*/layout.json` 补 `tabs.<name>` → `bun run i18n:types`。
+2. `src/app/route-pages.ts` 增加映射：除 `home` 外一律用 `{ lazy: lazyPage('<name>', () => import('@/pages/my-page')) }`（首页保持静态 import）。
+3. 在 `src/app/route-pages.ts` 的 `PAGE_LANGUAGE_SECTIONS` 里列出该页面（及其 `src/components/<domain>/` 子组件）实际用到的 locale 分片：拆分页面路由会在 resolve 前 `await ensureLanguageSections(...)`，漏写分片会让页面带着原始 key 渲染。首屏只加载 `layout`/`home`/`shared`/`settings` 与首页卡片交叉引用的分片，不要在 `STARTUP_LANGUAGE_SECTIONS` 里补页面私有分片。
+4. 导航与文案：`src/config/navigation.ts` 的 `NAV_META` 加 id/path/labelKey；`src/components/layout/navigation-icons.tsx` 的 `NAV_ICONS` 补图标；14 个 `src/locales/*/layout.json` 补 `tabs.<name>` → `bun run i18n:types`。
 
 最后跑 `bun run typecheck && bun run test && bun run lint`。完整操作见 `CONTRIBUTING.md` 的 "Adding a Frontend Page"。
 

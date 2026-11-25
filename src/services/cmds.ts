@@ -2,11 +2,11 @@ import { Channel } from '@tauri-apps/api/core'
 import dayjs from 'dayjs'
 
 import { showNotice } from '@/services/notice-service'
-import { debugLog } from '@/utils/debug'
 
 import { commands } from './bindings'
 import type {
   DownloadEvent,
+  ExternalControllerSettings,
   JsonValue,
   ListenerProbe,
   ProxyPortSettings,
@@ -21,6 +21,7 @@ import type {
 
 export type {
   RunningMode,
+  ExternalControllerSettings,
   RunStateView as RunState,
   FailedOperation,
   PendingFailure,
@@ -123,6 +124,16 @@ export async function getClashInfo() {
   return commands.getClashInfo()
 }
 
+export async function getExternalController() {
+  return commands.getExternalController()
+}
+
+export async function saveExternalController(
+  settings: ExternalControllerSettings,
+) {
+  return commands.saveExternalController(settings)
+}
+
 // Fallback mode read independent of strict mihomo `/configs` deserialization.
 export async function getClashMode() {
   return commands.getClashMode()
@@ -165,17 +176,17 @@ export async function patchClashMode(payload: string) {
   return commands.patchClashMode(payload)
 }
 
-export async function syncTrayProxySelection() {
-  return commands.syncTrayProxySelection()
-}
-
 /** Sends one selection pair so the backend can merge against current profile state. */
 export async function recordSelectedNode(groupName: string, node: string) {
   return commands.recordSelectedNode(groupName, node)
 }
 
-export async function forgetSelectedNode(groupName: string) {
-  return commands.forgetSelectedNode(groupName)
+export async function switchProxyNode(
+  groupName: string,
+  proxyName: string,
+  unfix: boolean,
+) {
+  return commands.switchProxyNode(groupName, proxyName, unfix)
 }
 
 export async function getProxyView(): Promise<ProxyViewV1> {
@@ -265,23 +276,8 @@ export async function takeDiscardedKeysNotice() {
   return commands.takeDiscardedKeysNotice()
 }
 
-export async function getSystemProxy() {
-  return commands.getSysProxy()
-}
-
-export async function getAutoProxy() {
-  try {
-    debugLog('[API] 开始调用 get_auto_proxy')
-    const result = await commands.getAutoProxy()
-    debugLog('[API] get_auto_proxy 调用成功:', result)
-    return result
-  } catch (error) {
-    console.error('[API] get_auto_proxy 调用失败:', error)
-    return {
-      enable: false,
-      url: '',
-    }
-  }
+export async function getSystemProxyState() {
+  return commands.getSystemProxyState()
 }
 
 export async function getEmbeddedServerPort() {

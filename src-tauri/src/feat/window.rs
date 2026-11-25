@@ -130,9 +130,7 @@ pub async fn open_or_close_dashboard() {
     logging!(info, Type::Window, "Window toggle result: {result:?}");
 }
 
-pub async fn quit() {
-    logging!(debug, Type::System, "启动退出流程");
-    // 设置退出标志
+pub(crate) async fn run_exit_cleanup_flow(stop_failed_notice: NoticeStatus) -> CleanupResult {
     handle::Handle::global().set_is_exiting();
 
     Config::apply_all_and_save_file().await;
@@ -170,14 +168,21 @@ pub async fn quit() {
             }
         }
         handle::Handle::notice(
-            NoticeStatus::AppQuitCoreStopFailed,
-            cleanup_result.stop_error.unwrap_or_default(),
+            stop_failed_notice,
+            cleanup_result.stop_error.clone().unwrap_or_default(),
         );
         // A failed controlled stop cancels the quit. Cleanup already skipped the DNS restore and
         // left the core running, so tearing down the embedded server or exiting now would abandon
         // a live core behind an app that is gone.
-        return;
+        return cleanup_result;
     }
+
+    cleanup_result
+}
+
+pub async fn quit() {
+    logging!(debug, Type::System, "启动退出流程");
+    let cleanup_result = run_exit_cleanup_flow(NoticeStatus::AppQuitCoreStopFailed).await;
 
     utils::server::shutdown_embedded_server();
     let app_handle = handle::Handle::app_handle();
@@ -230,6 +235,32 @@ pub fn clean_session_ending_with_hard_deadline() -> Option<CleanupResult> {
             None
         }
     }
+}
+
+/// Last-chance cleanup for exit paths that bypass the event loop.
+///
+/// The plugin cleanup hook runs on paths like AppHandle::restart that never
+/// reach RunEvent::Exit. The interactive quit and restart flows set the
+/// exiting flag before cleaning up, so this only takes over when a caller
+/// skipped them; reuse the bounded cleanup written for OS session end instead
+/// of repeating the async interactive flow on the main thread.
+pub fn cleanup_before_exit_safety_net() {
+    if !handle::Handle::global().is_exiting() {
+        logging!(warn, Type::System, "退出路径未经过常规清理流程，执行兜底清理");
+        handle::Handle::global().set_is_exiting();
+        if let Some(result) = clean_session_ending_with_hard_deadline() {
+            logging!(
+                info,
+                Type::System,
+                "兜底清理完成 - 内核已停止: {}, 全部清理成功: {}",
+                result.core_stopped,
+                result.all_success
+            );
+        }
+        utils::server::shutdown_embedded_server();
+    }
+
+    crate::core::logger::Logger::global().flush_logs();
 }
 
 /// Avoids the app runtime, whose workers may wait on the blocked main thread.

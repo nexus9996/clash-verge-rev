@@ -78,11 +78,12 @@ jobs:
         uses: dtolnay/rust-toolchain@1.99.1
 
       - name: Rust Cache
+        if: github.event.inputs[matrix.input] == 'true'
         uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.ref == 'refs/heads/dev' }}
           prefix-key: 'v1-rust'
-          key: 'rust-shared-stable-${{ matrix.os }}-${{ matrix.target }}'
+          shared-key: 'rust-shared-stable-${{ matrix.os }}-${{ matrix.target }}'
           workspaces: |
             . -> target
           cache-all-crates: true
@@ -92,7 +93,7 @@ jobs:
         if: matrix.os == 'ubuntu-22.04' && github.event.inputs[matrix.input] == 'true'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libclang-dev clang libxslt1.1 libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libclang-dev clang libxslt1.1 libwebkit2gtk-4.1-dev librsvg2-dev patchelf
 
       - name: Install Bun
         if: github.event.inputs[matrix.input] == 'true'
@@ -104,7 +105,7 @@ jobs:
         if: github.event.inputs[matrix.input] == 'true'
         uses: actions/setup-node@v7
         with:
-          node-version: '24.22.1'
+          node-version: '26.13.0'
 
       - name: Bun cache
         uses: actions/cache@v6

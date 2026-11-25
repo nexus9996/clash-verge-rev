@@ -10,7 +10,9 @@ import { useLockFn } from 'ahooks'
 import { lazy, Suspense, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { type DialogRef, Switch, TooltipIcon } from '@/components/base'
+import type { DialogRef } from '@/components/base/base-dialog'
+import { Switch } from '@/components/base/base-switch'
+import { TooltipIcon } from '@/components/base/base-tooltip-icon'
 import { useServiceUninstaller } from '@/hooks/use-service-uninstaller'
 import { useSystemProxyState } from '@/hooks/use-system-proxy-state'
 import { useSystemState } from '@/hooks/use-system-state'
@@ -174,7 +176,7 @@ const ProxyControlSwitches = ({
       })
       return false
     }
-    mutateVerge({ ...verge, enable_tun_mode: value }, false)
+    mutateVerge({ ...verge, enable_tun_mode: value })
     await patchVerge({ enable_tun_mode: value })
   }
 
@@ -231,6 +233,7 @@ const ProxyControlSwitches = ({
                   )}
                   icon={DeleteForeverRounded}
                   color="secondary"
+                  data-setting-target="service-uninstall"
                   onClick={onUninstallService}
                   sx={{ ml: 1 }}
                 />
@@ -240,10 +243,16 @@ const ProxyControlSwitches = ({
         />
       )}
 
-      <Suspense fallback={null}>
-        <LazySysproxyViewer ref={sysproxyRef} />
-        <LazyTunViewer ref={tunRef} />
-      </Suspense>
+      {isSystemProxyMode && (
+        <Suspense fallback={null}>
+          <LazySysproxyViewer ref={sysproxyRef} />
+        </Suspense>
+      )}
+      {isTunMode && (
+        <Suspense fallback={null}>
+          <LazyTunViewer ref={tunRef} />
+        </Suspense>
+      )}
     </Box>
   )
 }

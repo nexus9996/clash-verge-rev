@@ -216,9 +216,28 @@ mod tests {
 pub async fn update_proxy_chain_config_in_runtime(
     proxy_chain_config: Option<crate::ipc::YamlValue>,
 ) -> CmdResult<crate::core::validate::ValidationOutcome> {
-    let proxy_chain_config = proxy_chain_config.map(|value| value.0);
+    let proxy_chain_config = parse_proxy_chain(proxy_chain_config)?;
     CoreManager::global()
-        .update_runtime_config(|d| d.update_proxy_chain_config(proxy_chain_config))
+        .update_proxy_chain_config(proxy_chain_config)
         .await
         .stringify_err()
+}
+
+/// Converts the frontend payload — a sequence of node names, or `None` to
+/// disconnect — into the persisted shape. Non-string entries are rejected.
+fn parse_proxy_chain(value: Option<crate::ipc::YamlValue>) -> CmdResult<Option<Vec<String>>> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    let serde_yaml_ng::Value::Sequence(seq) = value.0 else {
+        return Err("proxy chain must be a list of node names".into());
+    };
+    let mut chain = Vec::with_capacity(seq.len());
+    for item in seq {
+        let serde_yaml_ng::Value::String(name) = item else {
+            return Err("proxy chain entries must be node names".into());
+        };
+        chain.push(name.into());
+    }
+    Ok(Some(chain))
 }

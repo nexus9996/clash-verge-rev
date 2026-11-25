@@ -1,6 +1,8 @@
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 
+import type { TranslationResources } from '@/types/generated/i18n-resources'
+
 export const supportedLanguages = [
   'en',
   'ru',
@@ -105,6 +107,19 @@ type LocaleModule = {
   default: Record<string, unknown>
 }
 
+/** Top-level section names of the bundled `src/locales/<lng>/*.json` files. */
+export type LanguageSection = keyof TranslationResources['translation']
+
+/**
+ * Sections the first render needs: `layout` and `shared` back the app shell and
+ * the base components, `settings` carries the notice/error strings
+ * `handleNotice` can fire from anywhere, and the home screen is rendered
+ * eagerly, so `home` plus the sections its cards cross-link into stay here too:
+ * `current-proxy-card` renders `proxies.*` tooltips, `home-profile-card`
+ * renders `profiles.*` in its empty state and `test-card` renders `tests.*`.
+ * Sections only reachable from a split page are awaited by that page's route —
+ * see `PAGE_LANGUAGE_SECTIONS` in `src/app/route-pages.ts`.
+ */
 const STARTUP_LANGUAGE_SECTIONS = [
   'layout',
   'home',
@@ -113,9 +128,6 @@ const STARTUP_LANGUAGE_SECTIONS = [
   'profiles',
   'proxies',
   'tests',
-  'rules',
-  'connections',
-  'logs',
 ] as const
 
 const localeModules = import.meta.glob<LocaleModule>('@/locales/*/*.json')
@@ -175,14 +187,43 @@ i18n.use(initReactI18next).init({
   },
 })
 
-const ensureLanguageSections = async (
+/**
+ * In-flight section bundles, so concurrent callers (a hover preload racing the
+ * navigation that follows it) share one import per language and section.
+ */
+const pendingLanguageSections = new Map<string, Promise<void>>()
+
+const loadLanguageSection = (language: string, section: string) => {
+  const key = `${language}:${section}`
+  const pending = pendingLanguageSections.get(key)
+  if (pending) {
+    return pending
+  }
+
+  const promise = loadLanguageSections(language, [section])
+    .then((resources) => {
+      i18n.addResourceBundle(language, 'translation', resources, true, true)
+    })
+    .finally(() => {
+      pendingLanguageSections.delete(key)
+    })
+
+  pendingLanguageSections.set(key, promise)
+  return promise
+}
+
+/**
+ * Makes `sections` available for `language`, loading only the ones that are not
+ * resident yet.
+ */
+export const ensureLanguageSections = async (
   sections: string | readonly string[],
   language: string = i18n.language || FALLBACK_LANGUAGE,
 ) => {
   const targetLanguage = resolveLanguage(language)
   const sectionList = Array.isArray(sections) ? sections : [sections]
   const loadedSections = new Set(getLoadedLanguageSections(targetLanguage))
-  const missingSections = sectionList.filter(
+  const missingSections = [...new Set(sectionList)].filter(
     (section) => !loadedSections.has(section),
   )
 
@@ -190,8 +231,11 @@ const ensureLanguageSections = async (
     return
   }
 
-  const resources = await loadLanguageSections(targetLanguage, missingSections)
-  i18n.addResourceBundle(targetLanguage, 'translation', resources, true, true)
+  await Promise.all(
+    missingSections.map((section) =>
+      loadLanguageSection(targetLanguage, section),
+    ),
+  )
 }
 
 export const changeLanguage = async (language: string) => {

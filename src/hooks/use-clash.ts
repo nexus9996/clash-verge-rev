@@ -71,7 +71,19 @@ export const useRuntimeConfig = (shouldFetch: boolean = true) => {
     queryKey: ['getRuntimeConfig'],
     queryFn: getRuntimeConfig,
     enabled: shouldFetch,
+    // The runtime document carries the whole proxy map; a navigation burst must
+    // not re-pull it. Writers refresh it explicitly through `mutateClash`.
+    staleTime: 60_000,
   })
+}
+
+/** Core version string alone; consumers that only compare versions must not pull the runtime config. */
+export const useClashVersion = () => {
+  const { data } = useQuery({
+    queryKey: ['getVersion'],
+    queryFn: getVersion,
+  })
+  return data?.version
 }
 
 // Fault-tolerant fallback for the current proxy mode, read straight from the

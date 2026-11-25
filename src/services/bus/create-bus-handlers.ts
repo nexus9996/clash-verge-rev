@@ -3,6 +3,8 @@ import delayManager from '@/services/delay'
 import { forgetShownStartupError } from '@/services/notice-handlers'
 import type { AppStoreAction } from '@/store/app-state'
 
+import { resetPageFilters } from '@/hooks/use-page-filter'
+
 /** Frontend-internal event: home test card → test items. Not in the backend contract. */
 export const TEST_ALL_EVENT = 'verge://test-all'
 
@@ -30,14 +32,11 @@ export interface BusHandlerDeps {
 /**
  * Pure per-event handler table for the bus. Handlers may trigger documented
  * side effects (SWR revalidation, notice toasts) but write store state only
- * through dispatched pure actions. Created exactly once per bus mount; the
- * throttles below live in the returned closure, mirroring the previous
- * scattered listeners.
+ * through dispatched pure actions. Created exactly once per bus mount.
  */
 export const createEventBus = (deps: BusHandlerDeps) => {
   let lastProfileId: string | null = null
   let lastProfileChangeTime = 0
-  let lastProxyRefreshTime = 0
   const refreshThrottle = 800
 
   const handleProfileChanged = (newProfileId: string) => {
@@ -48,17 +47,14 @@ export const createEventBus = (deps: BusHandlerDeps) => {
     ) {
       return
     }
+    const changed = lastProfileId !== newProfileId
     lastProfileId = newProfileId
     lastProfileChangeTime = now
+    if (changed) {
+      resetPageFilters()
+    }
     delayManager.clear()
     deps.revalidateKeys(['getProfiles'])
-  }
-
-  const handleRefreshProxyConfig = () => {
-    const now = Date.now()
-    if (now - lastProxyRefreshTime <= refreshThrottle) return
-    lastProxyRefreshTime = now
-    deps.revalidateKeys(['getProxyView'])
   }
 
   const handlers: BusHandlers = {
@@ -74,9 +70,9 @@ export const createEventBus = (deps: BusHandlerDeps) => {
         'getRuleProviders',
       ]),
     'verge://refresh-verge-config': () =>
-      deps.revalidateKeys(['getVergeConfig', 'getSystemProxy', 'getAutoProxy']),
+      deps.revalidateKeys(['getVergeConfig', 'getSystemProxyState']),
     'verge://refresh-profiles': () => deps.revalidateKeys(['getProfiles']),
-    'verge://refresh-proxy-config': handleRefreshProxyConfig,
+    'verge://refresh-proxy-config': () => deps.revalidateKeys(['getProxyView']),
     'verge://notice-message': (payload) => deps.handleNotice(payload),
     'profile-changed': handleProfileChanged,
     'verge://timer-updated': (uid) =>

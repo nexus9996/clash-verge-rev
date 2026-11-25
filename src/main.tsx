@@ -1,6 +1,5 @@
 import './assets/styles/index.scss'
 
-import { ResizeObserver } from '@juggle/resize-observer'
 import { ComposeContextProvider } from 'foxact/compose-context-provider'
 import React from 'react'
 import { createRoot } from 'react-dom/client'
@@ -9,7 +8,7 @@ import { SWRConfig } from 'swr'
 import { MihomoWebSocket } from 'tauri-plugin-mihomo-api'
 
 import { router } from './app/router'
-import { BaseErrorBoundary } from './components/base'
+import { BaseErrorBoundary } from './components/base/base-error-boundary'
 import { disposeTrafficMonitor } from './hooks/use-traffic-monitor'
 import { preloadHomePageCards } from './pages/home'
 import { FALLBACK_LANGUAGE, initializeLanguage } from './services/i18n'
@@ -23,8 +22,12 @@ import { ThemeModeProvider, UpdateStateProvider } from './services/states'
 import { AppStoreProvider } from './store/app-store'
 import { disableWebViewShortcuts } from './utils/disable-webview-shortcuts'
 
+// Dynamic on purpose: the polyfill must stay out of the initial chunk, since
+// every targeted browser (edge>=109, safari>=14) ships ResizeObserver natively.
 if (!window.ResizeObserver) {
-  window.ResizeObserver = ResizeObserver
+  void import('@juggle/resize-observer').then(({ ResizeObserver }) => {
+    window.ResizeObserver = ResizeObserver
+  })
 }
 
 const mainElementId = 'root'

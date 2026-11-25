@@ -1,5 +1,5 @@
 use super::{
-    PrfOption,
+    PrfOption, patch_opt_field,
     prfitem::{PrfItem, PrfSelected, normalize_profile_home_url},
 };
 use crate::core::notify::{Refresh, announce};
@@ -84,14 +84,6 @@ impl ProfileDeletePlan {
             }
         }
     }
-}
-
-macro_rules! patch {
-    ($lv: expr, $rv: expr, $key: tt) => {
-        if ($rv.$key).is_some() {
-            $lv.$key = $rv.$key.to_owned();
-        }
-    };
 }
 
 impl IProfiles {
@@ -199,7 +191,7 @@ impl IProfiles {
                 .ok_or_else(|| anyhow::anyhow!("file field is required when file_data is provided"))?;
             let path = dirs::app_profiles_dir()?.join(file.as_str());
 
-            fs::write(&path, file_data.as_bytes())
+            help::save_bytes_atomic(&path, file_data.as_bytes())
                 .await
                 .with_context(|| format!("failed to write to file \"{file}\""))?;
         }
@@ -244,15 +236,15 @@ impl IProfiles {
 
         for each in items.iter_mut() {
             if each.uid.as_deref() == Some(uid) {
-                patch!(each, item, itype);
-                patch!(each, item, name);
-                patch!(each, item, desc);
-                patch!(each, item, file);
-                patch!(each, item, url);
-                patch!(each, item, selected);
-                patch!(each, item, extra);
-                patch!(each, item, updated);
-                patch!(each, item, option);
+                patch_opt_field!(each, item, itype);
+                patch_opt_field!(each, item, name);
+                patch_opt_field!(each, item, desc);
+                patch_opt_field!(each, item, file);
+                patch_opt_field!(each, item, url);
+                patch_opt_field!(each, item, selected);
+                patch_opt_field!(each, item, extra);
+                patch_opt_field!(each, item, updated);
+                patch_opt_field!(each, item, option);
 
                 self.items = Some(items);
                 return self.save_file().await;
@@ -303,9 +295,12 @@ impl IProfiles {
 
                         let path = dirs::app_profiles_dir()?.join(file.as_str());
 
-                        fs::write(&path, file_data.as_bytes())
+                        if !write_profile_file_if_changed(&path, file_data.as_bytes())
                             .await
-                            .with_context(|| format!("failed to write to file \"{file}\""))?;
+                            .with_context(|| format!("failed to write to file \"{file}\""))?
+                        {
+                            logging!(debug, Type::Config, "profile content unchanged, skipping write: {file}");
+                        }
                     }
 
                     break;
@@ -387,7 +382,9 @@ impl IProfiles {
                         Some(file) => dirs::app_profiles_dir()?.join(file.as_str()),
                         None => bail!("failed to get the file field"),
                     };
-                    return help::read_mapping_cached(&file_path).await;
+                    return help::read_mapping_cached(&file_path)
+                        .await
+                        .map(|mapping| (*mapping).clone());
                 }
                 bail!("failed to find the current profile \"uid:{current}\"");
             }
@@ -421,6 +418,21 @@ pub(crate) async fn profiles_append_item_with_filedata_safe(item: &PrfItem, file
     profiles_append_item_safe(item).await
 }
 
+/// Applies `edit` to the committed profiles; commits only when the edit succeeds.
+async fn with_profiles_edit<F, Fut>(edit: F) -> Result<()>
+where
+    F: FnOnce(IProfiles) -> Fut + Send,
+    Fut: std::future::Future<Output = Result<IProfiles>> + Send,
+{
+    Config::profiles()
+        .await
+        .with_data_modify(|profiles| async move {
+            let profiles = edit(profiles).await?;
+            Ok((profiles, ()))
+        })
+        .await
+}
+
 pub(crate) async fn profiles_append_item_safe(item: &mut PrfItem) -> Result<()> {
     let profiles = Config::profiles().await;
     profiles_append_item_to_safe(&profiles, item).await
@@ -436,43 +448,19 @@ pub(super) async fn profiles_append_item_to_safe(profiles: &Draft<IProfiles>, it
 }
 
 pub(crate) async fn profiles_patch_item_safe(index: &str, item: &PrfItem) -> Result<()> {
-    Config::profiles()
-        .await
-        .with_data_modify(|mut profiles| async move {
-            profiles.patch_item(index, item).await?;
-            Ok((profiles, ()))
-        })
-        .await
+    with_profiles_edit(|mut profiles| async move { profiles.patch_item(index, item).await.map(|_| profiles) }).await
 }
 
 pub(crate) async fn profiles_reorder_safe(active_id: &str, over_id: &str) -> Result<()> {
-    Config::profiles()
-        .await
-        .with_data_modify(|mut profiles| async move {
-            profiles.reorder(active_id, over_id).await?;
-            Ok((profiles, ()))
-        })
-        .await
+    with_profiles_edit(|mut profiles| async move { profiles.reorder(active_id, over_id).await.map(|_| profiles) }).await
 }
 
 pub(crate) async fn profiles_save_file_safe() -> Result<()> {
-    Config::profiles()
-        .await
-        .with_data_modify(|profiles| async move {
-            profiles.save_file().await?;
-            Ok((profiles, ()))
-        })
-        .await
+    with_profiles_edit(|profiles| async move { profiles.save_file().await.map(|_| profiles) }).await
 }
 
 pub(crate) async fn profiles_update_item_safe(index: &str, item: &mut PrfItem) -> Result<()> {
-    Config::profiles()
-        .await
-        .with_data_modify(|mut profiles| async move {
-            profiles.update_item(index, item).await?;
-            Ok((profiles, ()))
-        })
-        .await
+    with_profiles_edit(|mut profiles| async move { profiles.update_item(index, item).await.map(|_| profiles) }).await
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -632,6 +620,53 @@ async fn select_node_with_timeout(group_name: &String, node: &String) -> Result<
     .with_context(|| format!("failed to select node [{node}] for group [{group_name}]"))
 }
 
+// mihomo lists these first in GLOBAL, so an unpicked GLOBAL starts on DIRECT.
+const GLOBAL_BUILTINS: [&str; 2] = ["DIRECT", "REJECT"];
+
+/// GLOBAL's first visible group, else its first node, while GLOBAL is still on a built-in.
+fn global_exit_target(proxies: &Proxies) -> Option<&str> {
+    let global = proxies.proxies.get("GLOBAL")?;
+    if !global.now.as_deref().is_some_and(|now| GLOBAL_BUILTINS.contains(&now)) {
+        return None;
+    }
+    let members = global.all.as_deref()?;
+    let is_visible_group = |name: &str| {
+        proxies.proxies.get(name).is_some_and(|proxy| {
+            proxy.hidden != Some(true)
+                && matches!(
+                    proxy.proxy_type,
+                    ProxyType::Selector | ProxyType::URLTest | ProxyType::Fallback | ProxyType::LoadBalance
+                )
+        })
+    };
+    members
+        .iter()
+        .find(|name| is_visible_group(name))
+        .or_else(|| members.iter().find(|name| !GLOBAL_BUILTINS.contains(&name.as_str())))
+        .map(|name| name.as_str())
+}
+
+/// Moves GLOBAL off a built-in unless the profile records any GLOBAL choice.
+pub(crate) async fn leave_default_global_exit() -> Result<()> {
+    let profiles = Config::profiles().await.data_arc();
+    let has_record = profiles
+        .current
+        .as_ref()
+        .and_then(|current| profiles.get_item(current).ok())
+        .and_then(|item| item.selected.as_deref())
+        .is_some_and(|selected| selected.iter().any(|item| item.name.as_deref() == Some("GLOBAL")));
+    if has_record {
+        return Ok(());
+    }
+    let snapshot = fetch_proxies_with_timeout().await?;
+    let Some(target) = global_exit_target(&snapshot) else {
+        return Ok(());
+    };
+    select_node_with_timeout(&String::from("GLOBAL"), &String::from(target)).await?;
+    logging!(info, Type::Config, "moved GLOBAL off its built-in default to {target}");
+    Ok(())
+}
+
 fn remaining_activations(
     activations: &[(String, String)],
     completed: &HashMap<String, String>,
@@ -714,19 +749,21 @@ where
     Ok(())
 }
 
+fn current_item_mut(profiles: &mut IProfiles) -> Option<&mut PrfItem> {
+    let current = profiles.current.clone()?;
+    profiles
+        .items
+        .as_mut()?
+        .iter_mut()
+        .find(|item| item.uid.as_ref() == Some(&current))
+}
+
 /// Records a backend-made selection so the next core start restores it.
 pub(crate) async fn record_selected_node(group_name: &str, node: &str) -> Result<()> {
     let group_name = String::from(group_name);
     let node = String::from(node);
     persist_selected_update(true, move |mut profiles| async move {
-        let Some(current) = profiles.current.clone() else {
-            return Ok((profiles, false));
-        };
-        let Some(item) = profiles
-            .items
-            .as_mut()
-            .and_then(|items| items.iter_mut().find(|item| item.uid.as_ref() == Some(&current)))
-        else {
+        let Some(item) = current_item_mut(&mut profiles) else {
             return Ok((profiles, false));
         };
 
@@ -761,14 +798,7 @@ fn remove_selected_node(selected: &mut Vec<PrfSelected>, group_name: &str) -> bo
 
 pub(crate) async fn forget_selected_node(group_name: &str) -> Result<()> {
     persist_selected_update(true, move |mut profiles| async move {
-        let Some(current) = profiles.current.clone() else {
-            return Ok((profiles, false));
-        };
-        let Some(item) = profiles
-            .items
-            .as_mut()
-            .and_then(|items| items.iter_mut().find(|item| item.uid.as_ref() == Some(&current)))
-        else {
+        let Some(item) = current_item_mut(&mut profiles) else {
             return Ok((profiles, false));
         };
 
@@ -1042,6 +1072,12 @@ fn activate_selected_nodes_with(repair: SelectionRepair) -> tokio::sync::oneshot
                 .clone()
                 .unwrap_or_default();
 
+            if Config::clash().await.latest_arc().get_mode().as_deref() == Some("global")
+                && let Err(err) = leave_default_global_exit().await
+            {
+                logging!(warn, Type::Config, "failed to move GLOBAL off its default: {err:#}");
+            }
+
             if selected.is_empty() {
                 if is_activation_current(generation) {
                     announce(Refresh::Clash);
@@ -1065,6 +1101,20 @@ fn activate_selected_nodes_with(repair: SelectionRepair) -> tokio::sync::oneshot
     *active_task = Some(handle);
     drop(active_task);
     first_pass_done
+}
+
+/// Writes profile bytes only when they differ from the file already on disk.
+///
+/// A subscription refresh that returns unchanged content must not rewrite a multi-megabyte
+/// profile or disturb its modification time.
+async fn write_profile_file_if_changed(path: &Path, bytes: &[u8]) -> Result<bool> {
+    if let Ok(existing) = fs::read(path).await
+        && existing == bytes
+    {
+        return Ok(false);
+    }
+    help::save_bytes_atomic(path, bytes).await?;
+    Ok(true)
 }
 
 #[cfg(test)]
@@ -1495,5 +1545,22 @@ mod tests {
                 ("first-group".into(), "replacement".into()),
             ]
         );
+    }
+
+    #[tokio::test]
+    async fn refreshed_profile_bytes_that_match_are_not_rewritten() -> anyhow::Result<()> {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or_default();
+        let path = std::env::temp_dir().join(format!("clash-verge-profile-write-{}-{unique}", std::process::id()));
+
+        assert!(write_profile_file_if_changed(&path, b"first").await?);
+        assert!(!write_profile_file_if_changed(&path, b"first").await?);
+        assert!(write_profile_file_if_changed(&path, b"second").await?);
+        assert_eq!(tokio::fs::read(&path).await?, b"second");
+
+        let _ = tokio::fs::remove_file(&path).await;
+        Ok(())
     }
 }

@@ -7,8 +7,8 @@ pub mod seq;
 mod tun;
 
 use self::{
-    chain::{AsyncChainItemFrom as _, ChainItem, ChainType},
-    field::{use_keys, use_lowercase_owned, use_sort},
+    chain::{ChainItem, ChainType},
+    field::{use_keys, use_lowercase, use_sort},
     merge::use_merge,
     script::use_script,
     seq::{SeqMap, use_seq},
@@ -28,6 +28,7 @@ use parking_lot::Mutex;
 use serde_yaml_ng::{Mapping, Value};
 use smartstring::alias::String;
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use tokio::fs;
 
 type ResultLog = Vec<(String, String)>;
@@ -35,7 +36,6 @@ type EnhancedProfile = (Mapping, HashSet<String>, HashMap<String, ResultLog>, Dn
 #[derive(Debug)]
 struct ConfigValues {
     clash_config: Mapping,
-    clash_core: Option<String>,
     enable_tun: bool,
     enable_builtin: bool,
     socks_enabled: bool,
@@ -71,7 +71,7 @@ impl Default for ProfileItems {
             profile_name: Default::default(),
             merge_item: ChainItem {
                 uid: "".into(),
-                data: ChainType::Merge(Mapping::new()),
+                data: ChainType::Merge(Arc::new(Mapping::new())),
             },
             script_item: ChainItem {
                 uid: "".into(),
@@ -91,7 +91,7 @@ impl Default for ProfileItems {
             },
             global_merge: ChainItem {
                 uid: "Merge".into(),
-                data: ChainType::Merge(Mapping::new()),
+                data: ChainType::Merge(Arc::new(Mapping::new())),
             },
             global_script: ChainItem {
                 uid: "Script".into(),
@@ -103,7 +103,7 @@ impl Default for ProfileItems {
 
 async fn chain_item_or_default(item: Option<&PrfItem>, default_item: impl FnOnce() -> ChainItem) -> ChainItem {
     if let Some(item) = item {
-        <Option<ChainItem>>::from_async(item).await.unwrap_or_else(default_item)
+        ChainItem::from_profile(item).await.unwrap_or_else(default_item)
     } else {
         default_item()
     }
@@ -137,8 +137,7 @@ async fn get_config_values(profile_uid: &str) -> ConfigValues {
     let ipv6_auto_ipv4_only = crate::core::ipv6::is_auto(ipv6_mode.as_deref()) && !effective_ipv6;
     clash_config.insert(Value::from("ipv6"), Value::from(effective_ipv6));
 
-    let (clash_core, enable_tun, enable_builtin, socks_enabled, http_enabled, enable_dns_settings) = (
-        Some(verge_arc.get_valid_clash_core()),
+    let (enable_tun, enable_builtin, socks_enabled, http_enabled, enable_dns_settings) = (
         enable_tun_mode.unwrap_or(false),
         enable_builtin_enhanced.unwrap_or(true),
         verge_socks_enabled.unwrap_or(false),
@@ -157,7 +156,6 @@ async fn get_config_values(profile_uid: &str) -> ConfigValues {
 
     ConfigValues {
         clash_config,
-        clash_core,
         enable_tun,
         enable_builtin,
         socks_enabled,
@@ -209,35 +207,25 @@ async fn collect_profile_items(profiles: &IProfiles) -> Result<ProfileItems> {
 
     let name = current_item.name.clone().unwrap_or_default();
 
+    let ProfileItems {
+        merge_item: default_merge,
+        script_item: default_script,
+        rules_item: default_rules,
+        proxies_item: default_proxies,
+        groups_item: default_groups,
+        global_merge: default_global_merge,
+        global_script: default_global_script,
+        ..
+    } = ProfileItems::default();
+
     let (merge_item, script_item, rules_item, proxies_item, groups_item, global_merge, global_script) = tokio::join!(
-        chain_item_or_default(profiles.get_item(&merge_uid).ok(), || ChainItem {
-            uid: "".into(),
-            data: ChainType::Merge(Mapping::new()),
-        },),
-        chain_item_or_default(profiles.get_item(&script_uid).ok(), || ChainItem {
-            uid: "".into(),
-            data: ChainType::Script(tmpl::ITEM_SCRIPT.into()),
-        },),
-        chain_item_or_default(profiles.get_item(&rules_uid).ok(), || ChainItem {
-            uid: "".into(),
-            data: ChainType::Rules(SeqMap::default()),
-        },),
-        chain_item_or_default(profiles.get_item(&proxies_uid).ok(), || ChainItem {
-            uid: "".into(),
-            data: ChainType::Proxies(SeqMap::default()),
-        },),
-        chain_item_or_default(profiles.get_item(&groups_uid).ok(), || ChainItem {
-            uid: "".into(),
-            data: ChainType::Groups(SeqMap::default()),
-        },),
-        chain_item_or_default(profiles.get_item("Merge").ok(), || ChainItem {
-            uid: "Merge".into(),
-            data: ChainType::Merge(Mapping::new()),
-        },),
-        chain_item_or_default(profiles.get_item("Script").ok(), || ChainItem {
-            uid: "Script".into(),
-            data: ChainType::Script(tmpl::ITEM_SCRIPT.into()),
-        },),
+        chain_item_or_default(profiles.get_item(&merge_uid).ok(), || default_merge,),
+        chain_item_or_default(profiles.get_item(&script_uid).ok(), || default_script,),
+        chain_item_or_default(profiles.get_item(&rules_uid).ok(), || default_rules,),
+        chain_item_or_default(profiles.get_item(&proxies_uid).ok(), || default_proxies,),
+        chain_item_or_default(profiles.get_item(&groups_uid).ok(), || default_groups,),
+        chain_item_or_default(profiles.get_item("Merge").ok(), || default_global_merge,),
+        chain_item_or_default(profiles.get_item("Script").ok(), || default_global_script,),
     );
 
     Ok(ProfileItems {
@@ -253,16 +241,16 @@ async fn collect_profile_items(profiles: &IProfiles) -> Result<ProfileItems> {
     })
 }
 
-async fn process_global_items(
+async fn process_override_items(
     mut config: Mapping,
     mut exists_keys: Vec<String>,
     mut result_map: HashMap<String, ResultLog>,
-    global_merge: ChainItem,
-    global_script: ChainItem,
+    merge_item: ChainItem,
+    script_item: ChainItem,
     profile_name: &String,
     authoritative: &AuthoritativeFields,
 ) -> (Mapping, Vec<String>, HashMap<String, ResultLog>) {
-    if let ChainType::Merge(merge) = global_merge.data {
+    if let ChainType::Merge(merge) = merge_item.data {
         exists_keys.extend(use_keys(&merge));
         let before = authoritative.current(&config);
         config = use_merge(&merge, config);
@@ -272,11 +260,11 @@ async fn process_global_items(
             .map(discarded_note)
             .collect();
         if !notes.is_empty() {
-            result_map.entry(global_merge.uid).or_default().extend(notes);
+            result_map.entry(merge_item.uid).or_default().extend(notes);
         }
     }
 
-    if let ChainType::Script(script) = global_script.data {
+    if let ChainType::Script(script) = script_item.data {
         let before = authoritative.current(&config);
         let (res_config, changed_keys, mut logs) = use_script(script, config, profile_name.clone()).await;
         exists_keys.extend(changed_keys);
@@ -287,7 +275,7 @@ async fn process_global_items(
                 .into_iter()
                 .map(discarded_note),
         );
-        result_map.insert(global_script.uid, logs);
+        result_map.insert(script_item.uid, logs);
     }
 
     (config, exists_keys, result_map)
@@ -561,46 +549,6 @@ fn ensure_lan_bind_address(mut config: Mapping) -> Mapping {
     config
 }
 
-async fn process_profile_items(
-    mut config: Mapping,
-    mut exists_keys: Vec<String>,
-    mut result_map: HashMap<String, ResultLog>,
-    merge_item: ChainItem,
-    script_item: ChainItem,
-    profile_name: &String,
-    authoritative: &AuthoritativeFields,
-) -> (Mapping, Vec<String>, HashMap<String, ResultLog>) {
-    if let ChainType::Merge(merge) = merge_item.data {
-        exists_keys.extend(use_keys(&merge));
-        let before = authoritative.current(&config);
-        config = use_merge(&merge, config);
-        let notes: ResultLog = authoritative
-            .overridden(&before, &authoritative.current(&config))
-            .into_iter()
-            .map(discarded_note)
-            .collect();
-        if !notes.is_empty() {
-            result_map.entry(merge_item.uid).or_default().extend(notes);
-        }
-    }
-
-    if let ChainType::Script(script) = script_item.data {
-        let before = authoritative.current(&config);
-        let (res_config, changed_keys, mut logs) = use_script(script, config, profile_name.clone()).await;
-        exists_keys.extend(changed_keys);
-        config = res_config;
-        logs.extend(
-            authoritative
-                .overridden(&before, &authoritative.current(&config))
-                .into_iter()
-                .map(discarded_note),
-        );
-        result_map.insert(script_item.uid, logs);
-    }
-
-    (config, exists_keys, result_map)
-}
-
 /// Merges the app's clash config over the profile; switches are parameters to keep it pure.
 fn merge_default_config(
     mut config: Mapping,
@@ -672,25 +620,12 @@ fn merge_default_config(
     config
 }
 
-fn apply_builtin_scripts(mut config: Mapping, clash_core: Option<String>, enable_builtin: bool) -> Mapping {
+fn apply_builtin_scripts(mut config: Mapping, enable_builtin: bool) -> Mapping {
     if enable_builtin {
-        let items: Vec<_> = ChainItem::builtin()
-            .into_iter()
-            .filter(|(s, _)| s.is_support(clash_core.as_ref()))
-            .map(|(_, c)| c)
-            .collect();
-        if !items.is_empty() {
-            // The JS path saw a lowercased view; lowercase once, only when a builtin runs.
-            config = use_lowercase_owned(config);
-            for item in items {
-                logging!(debug, Type::Core, "run builtin script {}", item.uid);
-                config = match item.uid.as_str() {
-                    "verge_hy_alpn" => builtin_hy_alpn(config),
-                    "verge_meta_guard" => builtin_meta_guard(config),
-                    _ => config,
-                };
-            }
-        }
+        // The JS path saw a lowercased view; lowercase once, only when the builtin runs.
+        config = use_lowercase(&config);
+        logging!(debug, Type::Core, "run builtin script verge_hy_alpn");
+        config = builtin_hy_alpn(config);
     }
 
     config
@@ -705,14 +640,6 @@ fn builtin_hy_alpn(mut config: Mapping) -> Mapping {
                 proxy.insert("alpn".into(), Value::Sequence(vec![Value::String(alpn)]));
             }
         }
-    }
-
-    config
-}
-
-fn builtin_meta_guard(mut config: Mapping) -> Mapping {
-    if config.get("mode").and_then(Value::as_str) == Some("script") {
-        config.insert(Value::from("mode"), Value::from("rule"));
     }
 
     config
@@ -822,6 +749,34 @@ fn ensure_fake_ip_range6(dns: &mut Mapping) {
     }
 }
 
+/// `respect-rules` 或 `proxy-server-nameserver-policy` 开启且缺少 `proxy-server-nameserver` 时，
+/// 回填原配置 `nameserver` 或 `default-nameserver`，避免内核拒绝配置或丢失节点域名解析器（#8431）。
+fn ensure_proxy_server_nameserver(dns: &mut Mapping, profile_nameserver: Option<&Value>) {
+    let respect_rules = dns.get("respect-rules").and_then(Value::as_bool).unwrap_or(false);
+    let has_proxy_policy = dns.get("proxy-server-nameserver-policy").is_some_and(is_set);
+
+    if !respect_rules && !has_proxy_policy {
+        return;
+    }
+
+    if dns.get("proxy-server-nameserver").is_some_and(is_set) {
+        return;
+    }
+
+    let fallback = profile_nameserver
+        .filter(|v| is_set(v))
+        .cloned()
+        .or_else(|| dns.get("default-nameserver").filter(|v| is_set(v)).cloned())
+        .unwrap_or_else(|| {
+            Value::Sequence(vec![
+                Value::from("https://doh.pub/dns-query"),
+                Value::from("https://dns.alidns.com/dns-query"),
+            ])
+        });
+
+    dns.insert(Value::from("proxy-server-nameserver"), fallback);
+}
+
 /// On, non-blank text, or non-empty list/map; anything else keeps the profile's value.
 fn is_set(value: &Value) -> bool {
     match value {
@@ -864,8 +819,10 @@ fn merge_dns_config(mut config: Mapping, mut dns_config: Mapping) -> (Mapping, M
             applied.insert("dns".into(), dns_override.clone().into());
         }
         let mut dns = take_mapping(&mut config, "dns");
+        let profile_nameserver = dns.get("nameserver").cloned();
         dns.extend(dns_override);
         ensure_fake_ip_range6(&mut dns);
+        ensure_proxy_server_nameserver(&mut dns, profile_nameserver.as_ref());
         config.insert("dns".into(), dns.into());
         logging!(debug, Type::Core, "apply dns_config.yaml");
     }
@@ -905,7 +862,6 @@ pub async fn enhance(profiles: &IProfiles) -> Result<EnhancedProfile> {
     let cfg_vals = get_config_values(profile_uid).await;
     let ConfigValues {
         clash_config,
-        clash_core,
         enable_tun,
         enable_builtin,
         socks_enabled,
@@ -956,8 +912,13 @@ pub async fn enhance(profiles: &IProfiles) -> Result<EnhancedProfile> {
         tproxy_enabled,
     );
 
-    let config = apply_builtin_scripts(config, clash_core, enable_builtin);
+    let config = apply_builtin_scripts(config, enable_builtin);
     let config = use_tun(config, enable_tun);
+    let profile_nameserver = config
+        .get("dns")
+        .and_then(Value::as_mapping)
+        .and_then(|dns| dns.get("nameserver"))
+        .cloned();
     let (config, dns_settings) = apply_dns_settings(config, enable_dns_settings).await;
     // Nothing to constrain when no DNS block is generated: Mihomo's DNS is not in the path.
     let constrain_dns = ipv6_auto_ipv4_only && config.get("dns").and_then(Value::as_mapping).is_some();
@@ -973,7 +934,7 @@ pub async fn enhance(profiles: &IProfiles) -> Result<EnhancedProfile> {
         authoritative.constrain_dns_ipv6();
     }
 
-    let (config, exists_keys, result_map) = process_global_items(
+    let (config, exists_keys, result_map) = process_override_items(
         config,
         exists_keys,
         result_map,
@@ -984,7 +945,7 @@ pub async fn enhance(profiles: &IProfiles) -> Result<EnhancedProfile> {
     )
     .await;
 
-    let (config, exists_keys, result_map) = process_profile_items(
+    let (config, exists_keys, result_map) = process_override_items(
         config,
         exists_keys,
         result_map,
@@ -996,7 +957,10 @@ pub async fn enhance(profiles: &IProfiles) -> Result<EnhancedProfile> {
     .await;
 
     notify_discarded_keys(authoritative.overridden(&authoritative, &authoritative.current(&config)));
-    let config = authoritative.enforce(config);
+    let mut config = authoritative.enforce(config);
+    if let Some(dns) = config.get_mut("dns").and_then(Value::as_mapping_mut) {
+        ensure_proxy_server_nameserver(dns, profile_nameserver.as_ref());
+    }
     let config = ensure_lan_bind_address(config);
 
     let config = cleanup_proxy_groups(config);
@@ -1496,8 +1460,8 @@ mod authoritative_field_tests {
 #[cfg(test)]
 mod tests {
     use super::{
-        AuthoritativeFields, ChainItem, ChainType, Mapping, cleanup_proxy_groups, ensure_lan_bind_address,
-        process_global_items, process_profile_items, use_keys,
+        Arc, AuthoritativeFields, ChainItem, ChainType, Mapping, cleanup_proxy_groups, ensure_lan_bind_address,
+        process_override_items, use_keys,
     };
     use std::collections::HashMap;
 
@@ -1542,25 +1506,31 @@ mod tests {
             let authoritative = AuthoritativeFields::capture(&config, &[], dns_settings);
             let merge_item = |uid: &str| ChainItem {
                 uid: uid.into(),
-                data: ChainType::Merge(merge.clone()),
+                data: ChainType::Merge(Arc::new(merge.clone())),
             };
             let profile_name = "test-profile".into();
-            let (config, keys, logs) = process_global_items(
+            let (config, keys, logs) = process_override_items(
                 config,
                 vec![],
                 HashMap::new(),
                 merge_item("global-merge"),
-                ChainItem::to_script("global-script", script),
+                ChainItem {
+                    uid: "global-script".into(),
+                    data: ChainType::Script(script.into()),
+                },
                 &profile_name,
                 &authoritative,
             )
             .await;
-            let (config, _, logs) = process_profile_items(
+            let (config, _, logs) = process_override_items(
                 config,
                 keys,
                 logs,
                 merge_item("profile-merge"),
-                ChainItem::to_script("profile-script", script),
+                ChainItem {
+                    uid: "profile-script".into(),
+                    data: ChainType::Script(script.into()),
+                },
                 &profile_name,
                 &authoritative,
             )
@@ -1599,41 +1569,47 @@ mod tests {
 
         let global_merge = ChainItem {
             uid: "Merge".into(),
-            data: ChainType::Merge(mapping(
+            data: ChainType::Merge(Arc::new(mapping(
                 r"{global-merge-wins: global-merge, global-script-wins: global-merge,
                    profile-merge-wins: global-merge, profile-script-wins: global-merge,
                    nested: {winner: global-merge}, dns: {enable: false}, tun: {enable: false}}",
-            )),
+            ))),
         };
-        let global_script = ChainItem::to_script(
-            "Script",
-            r#"function main(config) {
+        let global_script = ChainItem {
+            uid: "Script".into(),
+            data: ChainType::Script(
+                r#"function main(config) {
               config["global-script-wins"] = "global-script";
               config["profile-merge-wins"] = "global-script";
               config["profile-script-wins"] = "global-script";
               config.nested.winner = "global-script";
               return config;
-            }"#,
-        );
+            }"#
+                .into(),
+            ),
+        };
         let profile_merge = ChainItem {
             uid: "profile-merge".into(),
-            data: ChainType::Merge(mapping(
+            data: ChainType::Merge(Arc::new(mapping(
                 r"{profile-merge-wins: profile-merge, profile-script-wins: profile-merge,
                    nested: {winner: profile-merge}}",
-            )),
+            ))),
         };
-        let profile_script = ChainItem::to_script(
-            "profile-script",
-            r#"function main(config) {
+        let profile_script = ChainItem {
+            uid: "profile-script".into(),
+            data: ChainType::Script(
+                r#"function main(config) {
               config["profile-script-wins"] = "profile-script";
               config.nested.winner = "profile-script";
               return config;
-            }"#,
-        );
+            }"#
+                .into(),
+            ),
+        };
 
         let profile_name = "test-profile".into();
         let authoritative = AuthoritativeFields::capture(&config, &[], Mapping::new());
-        let (config, exists_keys, result_map) = process_global_items(
+        let (config, exists_keys, result_map) = process_override_items(
             config,
             exists_keys,
             HashMap::new(),
@@ -1643,7 +1619,7 @@ mod tests {
             &authoritative,
         )
         .await;
-        let (config, exists_keys, _) = process_profile_items(
+        let (config, exists_keys, _) = process_override_items(
             config,
             exists_keys,
             result_map,
@@ -1812,6 +1788,26 @@ mod tests {
                 .and_then(|seq| seq.first())
                 .and_then(serde_yaml_ng::Value::as_str),
             Some("8.8.8.8")
+        );
+    }
+
+    #[test]
+    fn respect_rules_backfills_proxy_server_nameserver_without_claiming_ownership() {
+        let profile = mapping("dns: {nameserver: [223.5.5.5]}");
+        let settings = mapping("dns: {respect-rules: true, proxy-server-nameserver: []}");
+
+        let (merged, dns_settings) = super::merge_dns_config(profile, settings);
+        assert_eq!(
+            merged["dns"]["proxy-server-nameserver"],
+            serde_yaml_ng::Value::Sequence(vec![serde_yaml_ng::Value::from("223.5.5.5")])
+        );
+
+        let authoritative = AuthoritativeFields::capture(&merged, &[], dns_settings);
+        let overridden = mapping("dns: {respect-rules: true, proxy-server-nameserver: [8.8.8.8]}");
+        let result = authoritative.enforce(overridden);
+        assert_eq!(
+            result["dns"]["proxy-server-nameserver"],
+            serde_yaml_ng::Value::Sequence(vec![serde_yaml_ng::Value::from("8.8.8.8")])
         );
     }
 
