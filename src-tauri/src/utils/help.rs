@@ -3,14 +3,29 @@ use crate::{config::with_encryption, process::AsyncHandler};
 use anyhow::{Context as _, Result, anyhow, bail};
 use clash_verge_logging::{Type, logging};
 use nanoid::nanoid;
+use scopeguard::{ScopeGuard, guard};
 use serde::{Serialize, de::DeserializeOwned};
 use serde_yaml_ng::{Mapping, Value};
 use std::{
-    mem::DropGuard,
+    collections::VecDeque,
+    hash::{DefaultHasher, Hash as _, Hasher as _},
     path::{Path, PathBuf},
     str::FromStr,
+    sync::{Arc, LazyLock},
 };
 use tokio::io::AsyncWriteExt as _;
+
+const MAPPING_CACHE_CAPACITY: usize = 8;
+const MAPPING_CACHE_MAX_BYTES: usize = 8 * 1024 * 1024;
+
+struct CachedMapping {
+    path: PathBuf,
+    hash: u64,
+    mapping: Arc<Mapping>,
+}
+
+static MAPPING_CACHE: LazyLock<parking_lot::Mutex<VecDeque<CachedMapping>>> =
+    LazyLock::new(|| parking_lot::Mutex::new(VecDeque::new()));
 
 pub async fn read_yaml<T: DeserializeOwned>(path: &Path) -> Result<T> {
     if !tokio::fs::try_exists(path).await.unwrap_or(false) {
@@ -44,8 +59,63 @@ pub async fn read_mapping(path: &Path) -> Result<Mapping> {
         .map_err(|join| anyhow!("yaml parse task failed: {join}"))?
 }
 
+/// Reads a mapping while reusing a parse of identical bytes.
+///
+/// The hash is the cache identity, so an external edit that preserves size and
+/// timestamp still cannot serve a stale mapping.
+pub async fn read_mapping_cached(path: &Path) -> Result<Mapping> {
+    if !tokio::fs::try_exists(path).await.unwrap_or(false) {
+        bail!("file not found \"{}\"", path.display());
+    }
+
+    let bytes = tokio::fs::read(path)
+        .await
+        .with_context(|| format!("failed to read the file \"{}\"", path.display()))?;
+    let mut hasher = DefaultHasher::new();
+    bytes.hash(&mut hasher);
+    let hash = hasher.finish();
+
+    if let Some(mapping) = cached_mapping(path, hash) {
+        return Ok((*mapping).clone());
+    }
+
+    let yaml_str =
+        String::from_utf8(bytes).with_context(|| format!("failed to read the file \"{}\"", path.display()))?;
+    let cacheable = yaml_str.len() <= MAPPING_CACHE_MAX_BYTES;
+    let label = path.to_path_buf();
+
+    let mapping = AsyncHandler::spawn_blocking(move || parse_mapping(yaml_str, label))
+        .await
+        .map_err(|join| anyhow!("yaml parse task failed: {join}"))??;
+    if cacheable {
+        store_mapping(path.to_path_buf(), hash, Arc::new(mapping.clone()));
+    }
+    Ok(mapping)
+}
+
+fn cached_mapping(path: &Path, hash: u64) -> Option<Arc<Mapping>> {
+    let mut cache = MAPPING_CACHE.lock();
+    let index = cache
+        .iter()
+        .position(|entry| entry.path == path && entry.hash == hash)?;
+    let entry = cache.remove(index)?;
+    let mapping = Arc::clone(&entry.mapping);
+    cache.push_front(entry);
+    drop(cache);
+    Some(mapping)
+}
+
+fn store_mapping(path: PathBuf, hash: u64, mapping: Arc<Mapping>) {
+    let mut cache = MAPPING_CACHE.lock();
+    cache.retain(|entry| entry.path != path);
+    while cache.len() >= MAPPING_CACHE_CAPACITY {
+        cache.pop_back();
+    }
+    cache.push_front(CachedMapping { path, hash, mapping });
+}
+
 fn parse_mapping(yaml_str: String, path: PathBuf) -> Result<Mapping> {
-    match parse_short_id_text(&yaml_str, &path) {
+    match serde_yaml_ng::from_str::<serde_yaml_ng::Value>(&yaml_str) {
         Ok(mut val) => {
             val.apply_merge()
                 .with_context(|| format!("failed to apply merge \"{}\"", path.display()))?;
@@ -66,82 +136,19 @@ fn parse_mapping(yaml_str: String, path: PathBuf) -> Result<Mapping> {
     }
 }
 
-/// A float like `1234e123` loses its hex text, so retry with short-ids quoted and keep that only if nothing else changed.
-fn parse_short_id_text(yaml: &str, path: &Path) -> serde_yaml_ng::Result<Value> {
-    let value = serde_yaml_ng::from_str::<Value>(yaml)?;
-    if !has_numeric_short_id(&value) {
-        return Ok(value);
-    }
-    match serde_yaml_ng::from_str::<Value>(&quote_short_ids(yaml)) {
-        Ok(quoted) if same_except_short_id(&value, &quoted) => Ok(quoted),
-        _ => {
-            logging!(warn, Type::Config, "kept numeric short-id in {}", path.display());
-            Ok(value)
-        }
-    }
-}
-
-fn quote_short_ids(yaml: &str) -> String {
-    let mut quoted = String::with_capacity(yaml.len());
-    let mut rest = yaml;
-    while let Some((head, tail)) = rest.split_once("short-id:") {
-        let (gap, value) = tail.split_at(tail.len() - tail.trim_start_matches([' ', '\t']).len());
-        let (id, after) = value.split_at(value.bytes().take_while(u8::is_ascii_hexdigit).count());
-        quoted.push_str(head);
-        quoted.push_str("short-id:");
-        quoted.push_str(gap);
-        if !id.is_empty() && (after.is_empty() || after.starts_with([' ', '\t', '\r', '\n', ',', '}'])) {
-            quoted.push('"');
-            quoted.push_str(id);
-            quoted.push('"');
-        } else {
-            quoted.push_str(id);
-        }
-        rest = after;
-    }
-    quoted.push_str(rest);
-    quoted
-}
-
-fn has_numeric_short_id(value: &Value) -> bool {
-    match value {
-        Value::Mapping(map) => map
-            .iter()
-            .any(|(key, value)| (is_short_id(key) && matches!(value, Value::Number(_))) || has_numeric_short_id(value)),
-        Value::Sequence(seq) => seq.iter().any(has_numeric_short_id),
-        _ => false,
-    }
-}
-
-fn same_except_short_id(old: &Value, new: &Value) -> bool {
-    match (old, new) {
-        (Value::Mapping(old), Value::Mapping(new)) => {
-            old.len() == new.len()
-                && old.iter().zip(new).all(|((key, old), (new_key, new))| {
-                    key == new_key
-                        && (same_except_short_id(old, new)
-                            || (is_short_id(key) && matches!((old, new), (Value::Number(_), Value::String(_)))))
-                })
-        }
-        (Value::Sequence(old), Value::Sequence(new)) => {
-            old.len() == new.len() && old.iter().zip(new).all(|(old, new)| same_except_short_id(old, new))
-        }
-        _ => old == new,
-    }
-}
-
-fn is_short_id(key: &Value) -> bool {
-    key.as_str() == Some("short-id")
-}
-
 pub async fn save_yaml<T: Serialize + Sync>(path: &Path, data: &T, prefix: Option<&str>) -> Result<()> {
     let data_str = with_encryption(|| async { serde_yaml_ng::to_string(data) }).await?;
 
-    save_yaml_str(path, &data_str, prefix).await
+    let yaml_str = match prefix {
+        Some(prefix) => format!("{prefix}\n\n{data_str}"),
+        None => data_str,
+    };
+
+    save_yaml_str(path, &yaml_str).await
 }
 
 /// Atomic replace with pre-serialized content; the payload must not need the encryption scope.
-pub async fn save_yaml_str(path: &Path, yaml_str: &str, prefix: Option<&str>) -> Result<()> {
+pub async fn save_yaml_str(path: &Path, yaml_str: &str) -> Result<()> {
     let (temporary, file) = loop {
         let temporary = path.with_extension(format!("tmp-{}-{}", std::process::id(), nanoid!()));
         match std::fs::OpenOptions::new()
@@ -163,20 +170,13 @@ pub async fn save_yaml_str(path: &Path, yaml_str: &str, prefix: Option<&str>) ->
         }
     };
 
-    let temporary = DropGuard::new(temporary, |path| {
+    let temporary = guard(temporary, |path| {
         let _ = std::fs::remove_file(path);
     });
     let mut file = tokio::fs::File::from_std(file);
-    async fn write_chunk(file: &mut tokio::fs::File, bytes: &[u8], path: &Path) -> Result<()> {
-        file.write_all(bytes)
-            .await
-            .with_context(|| format!("failed to write temporary file for \"{}\"", path.display()))
-    }
-    if let Some(prefix) = prefix {
-        write_chunk(&mut file, prefix.as_bytes(), path).await?;
-        write_chunk(&mut file, b"\n\n", path).await?;
-    }
-    write_chunk(&mut file, yaml_str.as_bytes(), path).await?;
+    file.write_all(yaml_str.as_bytes())
+        .await
+        .with_context(|| format!("failed to write temporary file for \"{}\"", path.display()))?;
     file.flush()
         .await
         .with_context(|| format!("failed to flush temporary file for \"{}\"", path.display()))?;
@@ -197,7 +197,7 @@ pub async fn save_yaml_str(path: &Path, yaml_str: &str, prefix: Option<&str>) ->
 
     std::fs::rename(temporary.as_path(), path)
         .with_context(|| format!("failed to replace file \"{}\"", path.display()))?;
-    let _ = DropGuard::dismiss(temporary);
+    let _ = ScopeGuard::into_inner(temporary);
     Ok(())
 }
 
@@ -220,16 +220,6 @@ pub fn parse_str<T: FromStr>(target: &str, key: &str) -> Option<T> {
             _ => None,
         }
     })
-}
-
-pub fn hex_encode(bytes: &[u8]) -> String {
-    const HEX: &[u8; 16] = b"0123456789abcdef";
-    let mut out = String::with_capacity(bytes.len() * 2);
-    for &byte in bytes {
-        out.push(HEX[usize::from(byte >> 4)] as char);
-        out.push(HEX[usize::from(byte & 0x0f)] as char);
-    }
-    out
 }
 
 /// Masks query values and token-like path segments for logging.
@@ -401,39 +391,24 @@ pub fn snapshot_path(original_path: &Path) -> Result<PathBuf> {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, reason = "tests assert by panicking")]
 mod tests {
-    use super::{parse_mapping, parse_short_id_text};
-    use serde_yaml_ng::Value;
-    use std::path::{Path, PathBuf};
+    use super::read_mapping_cached;
 
-    #[test]
-    fn plain_short_id_stays_text() {
-        let profile = "\
-proxies:
-  - name: a
-    reality-opts:
-      short-id: 1234e123
-  - {name: b, reality-opts: {public-key: k, short-id: 0e5}}
-";
-        let mapping = parse_mapping(profile.into(), PathBuf::from("profile.yaml")).expect("profile should parse");
-        let output = serde_yaml_ng::to_string(&mapping).expect("mapping should serialize");
-        assert!(output.contains("short-id: '1234e123'"), "{output}");
-        assert!(output.contains("short-id: '0e5'"), "{output}");
-    }
+    #[tokio::test]
+    async fn cached_mapping_reparses_changed_bytes_even_at_the_same_size() -> anyhow::Result<()> {
+        let root = std::env::temp_dir().join(format!("clash-verge-mapping-cache-{}", nanoid::nanoid!()));
+        tokio::fs::create_dir_all(&root).await?;
+        let path = root.join("profile.yaml");
 
-    #[test]
-    fn short_id_quoting_changing_other_values_is_dropped() {
-        let profile = "\
-proxies:
-  - name: a
-    reality-opts:
-      short-id: 1234e123
-note: |
-  short-id: 1234e123
-";
-        let today = serde_yaml_ng::from_str::<Value>(profile).expect("profile should parse");
-        let value = parse_short_id_text(profile, Path::new("profile.yaml")).expect("profile should parse");
-        assert_eq!(value, today);
+        tokio::fs::write(&path, "mode: rule\n").await?;
+        let first = read_mapping_cached(&path).await?;
+        assert_eq!(first["mode"].as_str(), Some("rule"));
+
+        tokio::fs::write(&path, "mode: glob\n").await?;
+        let second = read_mapping_cached(&path).await?;
+        assert_eq!(second["mode"].as_str(), Some("glob"));
+
+        tokio::fs::remove_dir_all(root).await?;
+        Ok(())
     }
 }

@@ -14,13 +14,6 @@ pub mod network {
     }
 }
 
-pub mod sysproxy {
-    /// Single source of the macOS default bypass list; both proxy backends compose from it.
-    #[cfg(target_os = "macos")]
-    pub const MACOS_DEFAULT_BYPASS: &str =
-        "127.0.0.1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,localhost,*.local,*.crashlytics.com,<local>";
-}
-
 pub mod timing {
     use super::Duration;
 
@@ -70,8 +63,6 @@ pub mod files {
 pub mod tun {
     pub const DEFAULT_STACK: &str = "mips";
 
-    pub const DEFAULT_MTU: u16 = 1500;
-
     pub const DNS_HIJACK: &[&str] = &["any:53"];
 
     /// Saved dialog fields; `enable` belongs to the verge switch.
@@ -84,7 +75,6 @@ pub mod tun {
         "auto-redirect",
         "auto-detect-interface",
         "dns-hijack",
-        "dns-mode",
         "strict-route",
         "mtu",
     ];

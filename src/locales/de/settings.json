@@ -231,7 +231,7 @@
       "layout": {
         "title": "Layout-Einstellungen",
         "fields": {
-          "preferSystemTitlebar": "System-Titelleiste bevorzugen",
+          "enableSystemTitlebar": "System-Titelleiste aktivieren",
           "trafficGraph": "Verkehrsdiagramm",
           "memoryUsage": "Kern-Speichernutzung",
           "proxyGroupIcon": "Proxy-Gruppen-Symbol",
@@ -251,6 +251,7 @@
           "pauseRenderTrafficStatsOnBlur": "Rendering der Verkehrsstatistiken bei Fokusverlust pausieren"
         },
         "tooltips": {
+          "enableSystemTitlebar": "Die native Titelleiste des Systems anstelle der integrierten benutzerdefinierten Titelleiste verwenden (unter Linux ist ein Neustart erforderlich).",
           "hoverNavigator": "Beim Darüberfahren mit der Maus über die Buchstaben automatisch zur passenden Proxy-Gruppe scrollen",
           "hoverNavigatorDelay": "Wartezeit vor dem automatischen Scrollen beim Darüberfahren, in Millisekunden"
         },
@@ -411,7 +412,6 @@
         "appLogMaxSize": "Maximale Größe des Anwendungsprotokolls",
         "appLogMaxCount": "Maximale Anzahl der Anwendungsprotokolle",
         "autoCloseConnections": "Verbindungen automatisch schließen",
-        "autoSwitchSelectorGroup": "Select-Gruppe automatisch umschalten",
         "autoCheckUpdate": "Automatisch auf Updates prüfen",
         "enableBuiltinEnhanced": "Eingebaute Verbesserungen aktivieren",
         "proxyLayoutColumns": "Anzahl der Spalten im Proxy-Layout",
@@ -423,7 +423,6 @@
       },
       "tooltips": {
         "autoCloseConnections": "Wenn der ausgewählte Knoten in der Proxy-Gruppe oder der Proxy-Modus geändert wird, werden die bestehenden Verbindungen geschlossen.",
-        "autoSwitchSelectorGroup": "Wird im Regelmodus ein Knoten in einer Gruppe gewählt, die kein Regelverkehr erreicht, wechselt auch die erste select-Gruppe, die diese Gruppe enthält, auf diese Gruppe.",
         "enableBuiltinEnhanced": "Kompatibilitätsbehandlung der Konfigurationsdatei",
         "autoDelayDetection": "Überprüft regelmäßig im Hintergrund die Latenz des aktuellen Knotens",
         "defaultLatencyTest": "Dies wird nur für HTTP-Client-Anfragentests verwendet und hat keine Auswirkungen auf die Konfigurationsdatei."
@@ -497,13 +496,11 @@
         "strictRoute": "Strenges Routing",
         "autoDetectInterface": "Netzwerkschnittstelle automatisch auswählen",
         "dnsHijack": "DNS-Hijacking",
-        "dnsMode": "DNS-Modus",
         "mtu": "Maximale Übertragungseinheit",
         "autoRedirect": "Automatische Umleitung"
       },
       "tooltips": {
         "dnsHijack": "Mehrere DNS-Server durch Kommas trennen",
-        "dnsMode": "Auto behält das alte Verhalten bei; hijack erfordert Strenges Routing unter Windows oder Automatische Umleitung unter Linux",
         "autoRedirect": "Richtet TCP-Umleitungen per nftables/iptables automatisch ein"
       },
       "messages": {
@@ -716,12 +713,5 @@
       "installing": "Service wird installiert...",
       "uninstalling": "Service wird deinstalliert..."
     }
-  },
-  "search": {
-    "placeholder": "Einstellungen suchen",
-    "clear": "Suche löschen",
-    "back": "Zurück zu Ergebnissen",
-    "results": "Suchergebnisse",
-    "empty": "Keine Einstellungen gefunden"
   }
 }

@@ -4,7 +4,7 @@ use crate::{
     config::{Config, IVerge},
     core, feat,
 };
-use tristr::alias::String;
+use smartstring::alias::String;
 
 #[tauri::command]
 #[specta::specta]

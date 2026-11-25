@@ -18,10 +18,7 @@ import { useLockFn } from 'ahooks'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import {
-  useClashConfigData,
-  useProxiesData,
-} from '@/providers/app-data-context'
+import { useClashConfigData, useProxiesData } from '@/hooks/data'
 import { getProfiles, readProfileFile, saveProfileFile } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'

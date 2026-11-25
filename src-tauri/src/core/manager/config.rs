@@ -11,18 +11,19 @@ use crate::{
     utils::{dirs, help},
 };
 use anyhow::{Result, anyhow};
-use clash_verge_draft::DraftTransaction;
+use clash_verge_draft::{DraftTransaction, SharedDraft};
 use clash_verge_logging::{Type, logging};
-use clash_verge_service_ipc::StageRuntimeOutcome;
+use clash_verge_service_ipc::{RuntimeBundle, StageRuntimeOutcome};
+use scopeguard::defer;
+use serde_yaml_ng::Mapping;
+use smartstring::alias::String;
 use std::{
     collections::HashSet,
-    mem::DropGuard,
     path::PathBuf,
     sync::Arc,
     time::{Duration, Instant},
 };
 use tauri_plugin_mihomo::Error as MihomoError;
-use tristr::alias::String;
 
 /// A staging result separated from the policy that acts on it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -88,8 +89,8 @@ fn plan_config_application(attempt: &StageAttempt) -> ConfigApplication {
     }
 }
 
-async fn ask_to_stage(path: &std::path::Path) -> StageAttempt {
-    match crate::core::service::stage_runtime_by_service(path).await {
+async fn ask_to_stage(runtime: Arc<RuntimeBundle>) -> StageAttempt {
+    match crate::core::service::stage_runtime_by_service(runtime).await {
         Ok(StageRequest::Answered(outcome)) => StageAttempt::Answered(outcome),
         Ok(StageRequest::Refused { code, message }) => {
             let message = message.into();
@@ -162,11 +163,14 @@ impl CoreManager {
         let clash_config = &Config::clash().await.latest_arc().0;
 
         Config::runtime().await.edit_draft(|d| {
+            let revision = d.revision.wrapping_add(1);
             *d = IRuntime {
                 config: Some(clash_config.to_owned()),
                 dns_override: None,
                 exists_keys: HashSet::new(),
                 chain_logs: Default::default(),
+                revision,
+                ..IRuntime::default()
             }
         });
 
@@ -191,9 +195,9 @@ impl CoreManager {
             logging!(debug, Type::Core, "Configuration update is already running");
             return Ok(ValidationOutcome::Busy);
         }
-        let _config_update = DropGuard::new((), |()| {
+        defer! {
             self.finish_config_update();
-        });
+        }
 
         if !force && !self.should_update_config() {
             logging!(debug, Type::Core, "Skipping config update due to debounce");
@@ -314,13 +318,16 @@ impl CoreManager {
             logging!(debug, Type::Core, "Configuration update is already running");
             return Ok(ValidationOutcome::Busy);
         }
-        let _config_update = DropGuard::new((), |()| {
+        defer! {
             self.finish_config_update();
-        });
+        }
 
         let runtime = Config::runtime().await;
         let transaction = DraftTransaction::begin(vec![&runtime])?;
-        runtime.edit_draft(f);
+        runtime.edit_draft(|draft| {
+            f(draft);
+            draft.invalidate_yaml();
+        });
         self.validate_and_apply(transaction).await
     }
 
@@ -355,8 +362,9 @@ impl CoreManager {
         }
 
         let run_path = Config::write_runtime_file(&yaml).await?;
+        let runtime = Config::runtime().await.latest_arc();
         let previous = self.current_core_readiness_generation();
-        let result = self.apply_config(run_path).await;
+        let result = self.apply_config(run_path, runtime, yaml).await;
         self.retain_applied_runtime(&Config::runtime().await, previous, &result);
         result?;
         // Under the lifecycle lock, so a stop for exit waits for this write instead of outrunning it.
@@ -384,13 +392,17 @@ impl CoreManager {
     }
 
     /// Applies a generated configuration through the active core owner.
-    async fn apply_config(&self, path: PathBuf) -> Result<()> {
+    async fn apply_config(&self, path: PathBuf, runtime: SharedDraft<IRuntime>, yaml: Arc<str>) -> Result<()> {
         if matches!(*self.get_running_mode(), RunningMode::Service) {
             let _lifecycle = self.lifecycle_lock.lock().await;
             if !matches!(*self.get_running_mode(), RunningMode::Service) {
                 return Err(anyhow!("core mode changed while applying service configuration"));
             }
-            return self.apply_config_by_service(&path).await;
+            let config = runtime
+                .config
+                .clone()
+                .ok_or_else(|| anyhow!("runtime configuration is unavailable"))?;
+            return self.apply_config_by_service(&path, config, yaml).await;
         }
 
         let path = dirs::path_to_str(&path)?;
@@ -400,8 +412,8 @@ impl CoreManager {
     /// Applies through the service, replacing the core when in-place staging is unavailable.
     /// Caller must hold `lifecycle_lock`.
     #[tracing::instrument(skip_all, level = "info", fields(path = %path.display(), outcome = tracing::field::Empty))]
-    async fn apply_config_by_service(&self, path: &std::path::Path) -> Result<()> {
-        match plan_config_application(&self.attempt_staging(path).await) {
+    async fn apply_config_by_service(&self, path: &std::path::Path, config: Mapping, yaml: Arc<str>) -> Result<()> {
+        match plan_config_application(&self.attempt_staging(path, config, yaml).await) {
             ConfigApplication::Fail(message) => {
                 // Replacement would hand the service the same rejected bundle.
                 logging!(
@@ -431,11 +443,15 @@ impl CoreManager {
         Ok(())
     }
 
-    async fn attempt_staging(&self, path: &std::path::Path) -> StageAttempt {
+    async fn attempt_staging(&self, path: &std::path::Path, config: Mapping, yaml: Arc<str>) -> StageAttempt {
         if !crate::core::service::active_service_supports_runtime_staging() {
             return StageAttempt::Unsupported;
         }
-        stage_with_confirmation(timing::STAGE_CONFIRM_TIMEOUT, || ask_to_stage(path)).await
+        let runtime = match crate::core::service::collect_service_runtime_bundle_from_config(config, path, yaml).await {
+            Ok(runtime) => Arc::new(runtime),
+            Err(error) => return StageAttempt::Unanswered(format!("{error:#}").into()),
+        };
+        stage_with_confirmation(timing::STAGE_CONFIRM_TIMEOUT, || ask_to_stage(Arc::clone(&runtime))).await
     }
 
     /// Reload the Core from `path`, and replace the Core if it will not take it.

@@ -2,6 +2,7 @@ use crate::core::notify::{Refresh, announce};
 use crate::{
     config::{
         Config, MixedPort,
+        runtime::IRuntime,
         snapshot::{FileSnapshot, capture_config_files, restore_files},
     },
     core::{
@@ -17,9 +18,9 @@ use crate::{
     process::AsyncHandler,
 };
 use anyhow::{Context as _, Result, anyhow, bail};
-use clash_verge_draft::DraftTransaction;
+use clash_verge_draft::{DraftTransaction, SharedDraft};
 use clash_verge_logging::{Type, logging};
-use std::mem::DropGuard;
+use scopeguard::{ScopeGuard, defer, guard};
 use std::sync::Arc;
 
 pub async fn probe_listener(request: ListenerProbe) -> Result<ListenerProbeOutcome> {
@@ -36,12 +37,12 @@ pub async fn save_proxy_ports(settings: ProxyPortSettings) -> Result<SaveProxyPo
     if !manager.try_start_config_update() {
         bail!("configuration update is already running");
     }
-    let _config_update = DropGuard::new((), |()| {
+    defer! {
         manager.finish_config_update();
-    });
+    }
 
     // Read first because transaction rollback discards all claimed drafts.
-    let current = Arc::new(current_runtime_mapping().await?);
+    let current = current_runtime().await?;
 
     let clash = Config::clash().await;
     let verge = Config::verge().await;
@@ -53,18 +54,18 @@ pub async fn save_proxy_ports(settings: ProxyPortSettings) -> Result<SaveProxyPo
     // Hide PAC while the staged ports are not yet serving traffic.
     manager.core_starting();
     // Recompute PAC state after every exit path.
-    let _core_start = DropGuard::new((), |()| {
+    defer! {
         manager.core_start_settled();
-    });
+    }
     // A user-picked port ends the startup fallback, but only once the save lands: until then the
     // Core still serves the borrowed port, so every failing exit must put it back or the system
     // proxy and PAC point at a dead port. Declared after the PAC guard so it restores first.
-    let borrowed_port = DropGuard::new(MixedPort::session_fallback(), restore_borrowed_port);
+    let borrowed_port = guard(MixedPort::session_fallback(), restore_borrowed_port);
     MixedPort::clear_session_fallback();
     Config::generate()
         .await
         .context("failed to generate candidate proxy port configuration")?;
-    let candidate = Arc::new(latest_runtime_mapping().await?);
+    let candidate = latest_runtime().await?;
 
     let was_running = !matches!(*manager.get_running_mode(), RunningMode::NotRunning);
     let assessment = probe_proxy_ports(Arc::clone(&current), Arc::clone(&candidate), was_running).await?;
@@ -83,7 +84,7 @@ pub async fn save_proxy_ports(settings: ProxyPortSettings) -> Result<SaveProxyPo
         bail!("candidate proxy port configuration is invalid: {validation}");
     }
 
-    let snapshots = capture_config_files().await?;
+    let snapshots = capture_config_files(true, true, true).await?;
     // Once files change, failures must restore both files and drafts.
     if let Err(error) = Config::write_runtime_file(&yaml).await {
         transaction.rollback();
@@ -126,7 +127,7 @@ pub async fn save_proxy_ports(settings: ProxyPortSettings) -> Result<SaveProxyPo
 
     transaction.commit();
     // The save landed, so the port the app had borrowed is now irrelevant.
-    let _ = DropGuard::dismiss(borrowed_port);
+    let _ = ScopeGuard::into_inner(borrowed_port);
     announce(Refresh::Clash);
     announce(Refresh::Verge);
     logging!(info, Type::Config, "Proxy port configuration applied and persisted");
@@ -141,32 +142,40 @@ fn restore_borrowed_port(previous: Option<u16>) {
     }
 }
 
-async fn current_runtime_mapping() -> Result<serde_yaml_ng::Mapping> {
-    Config::runtime()
-        .await
-        .data_arc()
-        .config
-        .clone()
-        .ok_or_else(|| anyhow!("current Runtime Configuration is unavailable"))
+async fn current_runtime() -> Result<SharedDraft<IRuntime>> {
+    let runtime = Config::runtime().await.data_arc();
+    if runtime.config.is_none() {
+        bail!("current Runtime Configuration is unavailable");
+    }
+    Ok(runtime)
 }
 
-async fn latest_runtime_mapping() -> Result<serde_yaml_ng::Mapping> {
-    Config::runtime()
-        .await
-        .latest_arc()
-        .config
-        .clone()
-        .ok_or_else(|| anyhow!("candidate Runtime Configuration is unavailable"))
+async fn latest_runtime() -> Result<SharedDraft<IRuntime>> {
+    let runtime = Config::runtime().await.latest_arc();
+    if runtime.config.is_none() {
+        bail!("candidate Runtime Configuration is unavailable");
+    }
+    Ok(runtime)
 }
 
 async fn probe_proxy_ports(
-    current: Arc<serde_yaml_ng::Mapping>,
-    candidate: Arc<serde_yaml_ng::Mapping>,
+    current: SharedDraft<IRuntime>,
+    candidate: SharedDraft<IRuntime>,
     current_core_is_running: bool,
 ) -> Result<ListenerProbeOutcome> {
-    AsyncHandler::spawn_blocking(move || probe_proxy_port_change(&current, &candidate, current_core_is_running))
-        .await
-        .context("proxy port probe task failed")
+    AsyncHandler::spawn_blocking(move || {
+        let current = current
+            .config
+            .as_ref()
+            .ok_or_else(|| anyhow!("current Runtime Configuration is unavailable"))?;
+        let candidate = candidate
+            .config
+            .as_ref()
+            .ok_or_else(|| anyhow!("candidate Runtime Configuration is unavailable"))?;
+        Ok(probe_proxy_port_change(current, candidate, current_core_is_running))
+    })
+    .await
+    .context("proxy port probe task failed")?
 }
 
 fn rejected_save_outcome(assessment: ListenerProbeOutcome) -> Result<Option<SaveProxyPortsOutcome>> {

@@ -23,6 +23,15 @@ pub(super) enum Patch<'a> {
     Clash(&'a Mapping),
 }
 
+/// The configuration layers a patch can change, and therefore must snapshot.
+fn snapshot_scope(patch: &Patch<'_>, effects: &Effects) -> (bool, bool, bool) {
+    let runtime = effects.contains(&Effect::RestartCore) || effects.contains(&Effect::ClashConfig);
+    match patch {
+        Patch::Verge { persist, .. } => (false, *persist, runtime),
+        Patch::Clash(_) => (true, false, runtime),
+    }
+}
+
 async fn ensure_restart(manager: &CoreManager) -> Result<()> {
     Config::generate().await?;
     let previous = manager.current_core_readiness_generation();
@@ -108,6 +117,12 @@ async fn ensure_effect(
     Ok(())
 }
 
+#[tracing::instrument(
+    name = "config_apply",
+    skip_all,
+    level = "debug",
+    fields(effects = effects.len())
+)]
 pub(super) async fn apply(config_write: &MutexGuard<'_, ()>, patch: Patch<'_>, effects: Effects) -> Result<()> {
     let manager = CoreManager::global();
     let update = manager.claim_config_update(config_write)?;
@@ -119,7 +134,8 @@ pub(super) async fn apply(config_write: &MutexGuard<'_, ()>, patch: Patch<'_>, e
         Patch::Clash(_) => DraftTransaction::begin(vec![&clash, &runtime])?,
     };
     let original_runtime = runtime.data_arc();
-    let mut snapshots = capture_config_files().await?;
+    let (snapshot_clash, snapshot_verge, snapshot_runtime) = snapshot_scope(&patch, &effects);
+    let mut snapshots = capture_config_files(snapshot_clash, snapshot_verge, snapshot_runtime).await?;
     let empty = IVerge::default();
     let verge_patch = match &patch {
         Patch::Verge { patch, .. } => patch,
@@ -180,6 +196,54 @@ pub(super) async fn apply(config_write: &MutexGuard<'_, ()>, patch: Patch<'_>, e
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn effects(items: &[Effect]) -> Effects {
+        items.iter().copied().collect()
+    }
+
+    #[test]
+    fn snapshots_only_the_layers_a_transaction_can_change() {
+        let verge = IVerge::default();
+        let clash = Mapping::new();
+
+        let scope = |patch: &Patch<'_>, selected: &[Effect]| snapshot_scope(patch, &effects(selected));
+
+        assert_eq!(
+            scope(
+                &Patch::Verge {
+                    patch: &verge,
+                    persist: true
+                },
+                &[]
+            ),
+            (false, true, false)
+        );
+        assert_eq!(
+            scope(
+                &Patch::Verge {
+                    patch: &verge,
+                    persist: false
+                },
+                &[Effect::TrayMenu]
+            ),
+            (false, false, false)
+        );
+        assert_eq!(
+            scope(
+                &Patch::Verge {
+                    patch: &verge,
+                    persist: true
+                },
+                &[Effect::ClashConfig]
+            ),
+            (false, true, true)
+        );
+        assert_eq!(scope(&Patch::Clash(&clash), &[]), (true, false, false));
+        assert_eq!(
+            scope(&Patch::Clash(&clash), &[Effect::RestartCore]),
+            (true, false, true)
+        );
+    }
 
     #[tokio::test]
     async fn config_claim_is_exclusive_and_released_on_drop() -> Result<()> {

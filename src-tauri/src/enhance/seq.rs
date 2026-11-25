@@ -20,10 +20,14 @@ fn collect_proxy_names(seq: &Sequence) -> Vec<String> {
 }
 
 fn is_selector_group(group_map: &Mapping) -> bool {
-    group_map.get("type").and_then(Value::as_str).is_some_and(|value| {
-        let value = value.to_ascii_lowercase();
-        value == "select" || value == "selector"
-    })
+    group_map
+        .get("type")
+        .and_then(Value::as_str)
+        .map(|value| {
+            let value = value.to_ascii_lowercase();
+            value == "select" || value == "selector"
+        })
+        .unwrap_or(false)
 }
 
 pub fn use_seq(seq: SeqMap, mut config: Mapping, field: &str) -> Mapping {
@@ -151,6 +155,7 @@ mod tests {
     use serde_yaml_ng::Value;
 
     #[test]
+    #[allow(clippy::unwrap_used)]
     #[allow(clippy::expect_used)]
     fn test_delete_proxy_and_references() {
         let config_str = r#"
@@ -228,6 +233,7 @@ proxy-groups:
     }
 
     #[test]
+    #[allow(clippy::unwrap_used)]
     #[allow(clippy::expect_used)]
     fn test_add_new_proxies_to_first_selector_group() {
         let config_str = r#"
@@ -297,6 +303,7 @@ proxy-groups:
     }
 
     #[test]
+    #[allow(clippy::unwrap_used)]
     #[allow(clippy::expect_used)]
     fn test_preserve_non_sequence_proxy_groups() {
         let config_str = r#"

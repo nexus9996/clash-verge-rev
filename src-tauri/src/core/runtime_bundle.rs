@@ -1,10 +1,11 @@
+use crate::utils::yaml_emitter;
 use anyhow::{Context as _, Result, bail};
 use clash_verge_logging::{Type, logging};
 use clash_verge_service_ipc::{RemoteProvider, RuntimeAsset, RuntimeBundle};
 use serde_yaml_ng::{Mapping, Value};
 use sha2::{Digest as _, Sha256};
 use std::collections::{BTreeMap, HashSet};
-use std::path::{Component, Path, PathBuf, Prefix};
+use std::path::{Component, Path, PathBuf};
 
 pub(crate) const GEO_ASSETS: &[&str] = &[
     "Country.mmdb",
@@ -27,8 +28,16 @@ struct RuntimeParts {
     config: Value,
     assets: Vec<RuntimeAsset>,
     remote_providers: Vec<RemoteProviderRef>,
+    /// Whether a provider path was actually changed.
+    rewritten: bool,
 }
 
+#[tracing::instrument(
+    name = "collect_runtime_bundle",
+    skip_all,
+    level = "debug",
+    fields(config = %config_file.display(), core = %core_path.display())
+)]
 pub(crate) async fn collect_runtime_bundle(config_file: &Path, core_path: &Path) -> Result<RuntimeBundle> {
     let yaml = tokio::fs::read_to_string(config_file)
         .await
@@ -38,9 +47,33 @@ pub(crate) async fn collect_runtime_bundle(config_file: &Path, core_path: &Path)
     let config_root = config_file
         .parent()
         .ok_or_else(|| anyhow::anyhow!("runtime config has no parent directory"))?;
+    runtime_bundle_from_parts(config, config_root, core_path, Some(&yaml))
+}
+
+/// Builds the same bundle from the already generated mapping, skipping the file read and parse.
+pub(crate) fn collect_runtime_bundle_from_config(
+    config: Mapping,
+    config_root: &Path,
+    core_path: &Path,
+    validated_yaml: Option<&str>,
+) -> Result<RuntimeBundle> {
+    runtime_bundle_from_parts(Value::Mapping(config), config_root, core_path, validated_yaml)
+}
+
+fn runtime_bundle_from_parts(
+    config: Value,
+    config_root: &Path,
+    core_path: &Path,
+    validated_yaml: Option<&str>,
+) -> Result<RuntimeBundle> {
     let parts = collect_runtime_parts(config, config_root)?;
+    let yaml = match validated_yaml {
+        Some(yaml) if !parts.rewritten => yaml.to_owned(),
+        _ => yaml_emitter::to_runtime_config_string(&parts.config)
+            .context("failed to serialize service runtime config")?,
+    };
     Ok(RuntimeBundle {
-        yaml: serde_yaml_ng::to_string(&parts.config).context("failed to serialize service runtime config")?,
+        yaml,
         assets: parts.assets,
         remote_providers: parts
             .remote_providers
@@ -51,8 +84,67 @@ pub(crate) async fn collect_runtime_bundle(config_file: &Path, core_path: &Path)
     })
 }
 
+/// Reads the remote providers without cloning or rewriting the runtime config.
 pub(crate) fn remote_providers_of(config: &Mapping, config_root: &Path) -> Result<Vec<RemoteProviderRef>> {
-    Ok(collect_runtime_parts(Value::Mapping(config.clone()), config_root)?.remote_providers)
+    let config_root = std::fs::canonicalize(config_root)?;
+    let mut destinations: HashSet<String> = GEO_ASSETS.iter().map(|name| (*name).to_owned()).collect();
+    let mut remote_providers = Vec::new();
+
+    for section in ["proxy-providers", "rule-providers"] {
+        let Some(providers) = config.get(section).and_then(Value::as_mapping) else {
+            continue;
+        };
+        for (name, provider) in providers {
+            let Some(provider) = provider.as_mapping() else {
+                continue;
+            };
+            let Some(raw_path) = provider.get("path").and_then(Value::as_str) else {
+                continue;
+            };
+            let is_remote = provider.get("type").and_then(Value::as_str) == Some("http");
+
+            if !is_remote {
+                if let Ok(source) = local_provider_source(&config_root, raw_path)
+                    && let Ok(destination) = destination_below_root(&config_root, &source)
+                {
+                    destinations.insert(destination);
+                }
+                continue;
+            }
+
+            let Some(url) = provider.get("url").and_then(Value::as_str) else {
+                logging!(
+                    warn,
+                    Type::Config,
+                    "remote provider {name:?} declares no url; leaving its path to the core"
+                );
+                continue;
+            };
+            let destination = provider_destination(&config_root, raw_path)?;
+            match remote_providers
+                .iter()
+                .find(|declared: &&RemoteProviderRef| declared.provider.destination == destination)
+            {
+                Some(declared) if declared.provider.url == url => {}
+                Some(_) => bail!("runtime provider destination {destination:?} is declared for two different sources"),
+                None => {
+                    if !destinations.insert(destination.clone()) {
+                        bail!("runtime provider destination {destination:?} is claimed more than once");
+                    }
+                    remote_providers.push(RemoteProviderRef {
+                        section,
+                        name: name.as_str().unwrap_or_default().to_owned(),
+                        provider: RemoteProvider {
+                            destination,
+                            url: url.to_owned(),
+                        },
+                    });
+                }
+            }
+        }
+    }
+
+    Ok(remote_providers)
 }
 
 #[derive(Default)]
@@ -122,11 +214,12 @@ fn allocate_provider_destination(destination: &str, url: &str, reserved: &mut Ha
     digest.update(destination.as_bytes());
     digest.update([0]);
     digest.update(url.as_bytes());
-    let digest: String = crate::utils::help::hex_encode(&digest.finalize());
+    let digest: String = digest.finalize().iter().map(|byte| format!("{byte:02x}")).collect();
     let path = Path::new(destination);
     let extension = path
         .extension()
-        .map_or_default(|ext| format!(".{}", ext.to_string_lossy()));
+        .map(|ext| format!(".{}", ext.to_string_lossy()))
+        .unwrap_or_default();
     let mut suffix = String::new();
     let mut sequence = 0;
     loop {
@@ -142,11 +235,13 @@ fn allocate_provider_destination(destination: &str, url: &str, reserved: &mut Ha
     }
 }
 
+#[tracing::instrument(name = "collect_runtime_parts", skip_all, level = "debug")]
 fn collect_runtime_parts(mut config: Value, config_root: &Path) -> Result<RuntimeParts> {
     let config_root = std::fs::canonicalize(config_root)?;
     let mut assets = Vec::new();
     let mut destinations = HashSet::new();
     let mut remote_providers = Vec::new();
+    let mut rewritten = false;
 
     collect_provider_assets(
         &mut config,
@@ -155,6 +250,7 @@ fn collect_runtime_parts(mut config: Value, config_root: &Path) -> Result<Runtim
         &mut destinations,
         &mut assets,
         &mut remote_providers,
+        &mut rewritten,
     )?;
     collect_provider_assets(
         &mut config,
@@ -163,8 +259,8 @@ fn collect_runtime_parts(mut config: Value, config_root: &Path) -> Result<Runtim
         &mut destinations,
         &mut assets,
         &mut remote_providers,
+        &mut rewritten,
     )?;
-    collect_ssh_private_keys(&mut config, &config_root, &mut destinations, &mut assets);
     for filename in GEO_ASSETS {
         let source = config_root.join(filename);
         if source.is_file() && destinations.insert((*filename).to_string()) {
@@ -179,6 +275,7 @@ fn collect_runtime_parts(mut config: Value, config_root: &Path) -> Result<Runtim
         config,
         assets,
         remote_providers,
+        rewritten,
     })
 }
 
@@ -191,6 +288,7 @@ fn collect_provider_assets(
     destinations: &mut HashSet<String>,
     assets: &mut Vec<RuntimeAsset>,
     remote_providers: &mut Vec<RemoteProviderRef>,
+    rewritten: &mut bool,
 ) -> Result<()> {
     let Some(providers) = config
         .as_mapping_mut()
@@ -265,78 +363,12 @@ fn collect_provider_assets(
                 destination
             }
         };
-        provider.insert(Value::String("path".to_owned()), Value::String(destination));
+        let previous = provider.insert(Value::String("path".to_owned()), Value::String(destination.clone()));
+        if previous.as_ref().and_then(Value::as_str) != Some(destination.as_str()) {
+            *rewritten = true;
+        }
     }
     Ok(())
-}
-
-/// Stages file-based ssh keys, which mihomo resolves against the core home directory.
-fn collect_ssh_private_keys(
-    config: &mut Value,
-    config_root: &Path,
-    destinations: &mut HashSet<String>,
-    assets: &mut Vec<RuntimeAsset>,
-) {
-    let Some(config) = config.as_mapping_mut() else {
-        return;
-    };
-    // mihomo parses `payload` for every provider type, eagerly as fallback proxies for file and http.
-    let mut proxy_lists = Vec::new();
-    for (key, value) in config.iter_mut() {
-        match key.as_str() {
-            Some("proxies") => proxy_lists.extend(value.as_sequence_mut()),
-            Some("proxy-providers") => proxy_lists.extend(
-                value
-                    .as_mapping_mut()
-                    .into_iter()
-                    .flat_map(Mapping::values_mut)
-                    .filter_map(|provider| provider.get_mut("payload").and_then(Value::as_sequence_mut)),
-            ),
-            _ => {}
-        }
-    }
-
-    for proxy in proxy_lists.into_iter().flatten().filter_map(Value::as_mapping_mut) {
-        if proxy.get("type").and_then(Value::as_str) != Some("ssh") {
-            continue;
-        }
-        // mihomo reads any value containing "PRIVATE KEY" as inline key material.
-        let Some(raw_path) = proxy
-            .get("private-key")
-            .and_then(Value::as_str)
-            .filter(|key| !key.is_empty() && !key.contains("PRIVATE KEY") && is_local_path(key))
-        else {
-            continue;
-        };
-        let Some(source) = local_provider_source(config_root, raw_path)
-            .ok()
-            .filter(|source| source.is_file())
-        else {
-            let name = proxy.get("name").and_then(Value::as_str).unwrap_or_default();
-            logging!(
-                warn,
-                Type::Config,
-                "ssh proxy {name:?} private key is unavailable below the config root; leaving it to the core"
-            );
-            continue;
-        };
-        // A root-level alias keeps the user's path away from service name rules and mihomo's inline-key test.
-        let source = source.to_string_lossy().into_owned();
-        let destination = allocate_provider_destination("ssh-private-key", &source, destinations);
-        assets.push(RuntimeAsset {
-            source,
-            destination: destination.clone(),
-        });
-        proxy.insert(Value::String("private-key".to_owned()), Value::String(destination));
-    }
-}
-
-/// Resolving a UNC or device path would authenticate to its server, so those stay with the core.
-fn is_local_path(raw_path: &str) -> bool {
-    match Path::new(raw_path).components().next() {
-        Some(Component::Prefix(prefix)) => matches!(prefix.kind(), Prefix::Disk(_) | Prefix::VerbatimDisk(_)),
-        _ => true,
-    }
 }
 
 fn local_provider_source(config_root: &Path, raw_path: &str) -> Result<PathBuf> {
@@ -413,7 +445,61 @@ fn normalized_destination(relative: &Path) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{collect_runtime_bundle, remote_providers_of, resolve_provider_path_conflicts};
+    use super::{
+        collect_runtime_bundle, collect_runtime_bundle_from_config, collect_runtime_parts, remote_providers_of,
+        resolve_provider_path_conflicts,
+    };
+
+    #[tokio::test]
+    async fn in_memory_bundle_matches_the_file_bundle() -> anyhow::Result<()> {
+        let root = std::env::temp_dir().join(format!("clash-verge-memory-bundle-{}", std::process::id()));
+        std::fs::create_dir_all(&root)?;
+        let config: serde_yaml_ng::Mapping = serde_yaml_ng::from_str(
+            "proxy-providers:\n  Alpha:\n    type: http\n    url: https://one.example/alpha.yaml\n    path: ./providers/alpha.yaml\n",
+        )?;
+        let file = root.join("config.yaml");
+        let yaml = serde_yaml_ng::to_string(&config)?;
+        std::fs::write(&file, &yaml)?;
+        let core = root.join("mihomo");
+
+        let from_file = collect_runtime_bundle(&file, &core).await?;
+        let from_memory = collect_runtime_bundle_from_config(config, &root, &core, Some(&yaml))?;
+        assert_eq!(from_memory, from_file);
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn validated_yaml_is_reused_when_no_provider_path_changes() -> anyhow::Result<()> {
+        let root = std::env::temp_dir().join(format!("clash-verge-yaml-reuse-{}", std::process::id()));
+        std::fs::create_dir_all(&root)?;
+        let config: serde_yaml_ng::Mapping =
+            serde_yaml_ng::from_str("mixed-port: 7897\nproxies:\n  - {name: one, type: ss}\nrules:\n  - MATCH,one\n")?;
+        let yaml = serde_yaml_ng::to_string(&config)?;
+        let core = root.join("mihomo");
+
+        let from_memory = collect_runtime_bundle_from_config(config, &root, &core, Some(&yaml))?;
+        assert_eq!(from_memory.yaml, yaml);
+
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn read_only_remote_provider_readback_matches_the_bundle() -> anyhow::Result<()> {
+        let root = std::env::temp_dir().join(format!("clash-verge-remote-readback-{}", std::process::id()));
+        std::fs::create_dir_all(&root)?;
+        let config: serde_yaml_ng::Mapping = serde_yaml_ng::from_str(
+            "proxy-providers:\n  Alpha:\n    type: http\n    url: https://one.example/alpha.yaml\n    path: ./providers/alpha.yaml\n  Beta:\n    type: http\n    url: https://two.example/beta.yaml\n    path: providers/beta.yaml\n",
+        )?;
+        let root = std::fs::canonicalize(root)?;
+        let expected = collect_runtime_parts(serde_yaml_ng::Value::Mapping(config.clone()), &root)?.remote_providers;
+
+        assert_eq!(remote_providers_of(&config, &root)?, expected);
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
 
     #[tokio::test]
     async fn conflicting_sources_get_separate_paths_in_config_bundle_and_readback() -> anyhow::Result<()> {

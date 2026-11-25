@@ -64,7 +64,12 @@ pub async fn upgrade_core(force: bool) -> Result<CoreUpgradeReport> {
     }
 
     let package = download_package(proxy, alpha, &latest).await?;
-    let staged = stage_core(&target, &package, &latest)?;
+    let stage_target = target.clone();
+    let stage_version = latest.clone();
+    let staged =
+        crate::process::AsyncHandler::spawn_blocking(move || stage_core(&stage_target, &package, &stage_version))
+            .await
+            .map_err(|join| anyhow!("core staging task failed: {join}"))??;
 
     // A hard link keeps the previous core reachable without touching the inode the running
     // core executes from, so publishing below stays one atomic rename.
@@ -487,8 +492,8 @@ mod tests {
 
     #[test]
     fn package_urls_pin_the_resolved_version() {
-        let release = package_url(false, "v1.19.30").unwrap();
-        let alpha = package_url(true, "alpha-c0e43eb").unwrap();
+        let release = package_url(false, "v1.19.30").unwrap_or_default();
+        let alpha = package_url(true, "alpha-c0e43eb").unwrap_or_default();
         assert!(release.contains("/releases/download/v1.19.30/"), "{release}");
         assert!(
             release.ends_with("-v1.19.30.gz") || release.ends_with("-v1.19.30.zip"),

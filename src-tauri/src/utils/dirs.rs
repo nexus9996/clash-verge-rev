@@ -5,17 +5,18 @@ use clash_verge_logging::{Type, logging};
 use std::{
     fs,
     path::{Path, PathBuf},
+    sync::{Mutex, OnceLock},
 };
 use tauri::Manager as _;
 
-#[cfg(not(debug_assertions))]
+#[cfg(not(feature = "verge-dev"))]
 pub static APP_ID: &str = "io.github.clash-verge-rev.clash-verge-rev";
-#[cfg(not(debug_assertions))]
+#[cfg(not(feature = "verge-dev"))]
 pub static BACKUP_DIR: &str = "clash-verge-rev-backup";
 
-#[cfg(debug_assertions)]
+#[cfg(feature = "verge-dev")]
 pub static APP_ID: &str = "io.github.clash-verge-rev.clash-verge-rev.dev";
-#[cfg(debug_assertions)]
+#[cfg(feature = "verge-dev")]
 pub static BACKUP_DIR: &str = "clash-verge-rev-backup-dev";
 
 pub static CLASH_CONFIG: &str = "config.yaml";
@@ -24,11 +25,18 @@ pub static PROFILE_YAML: &str = "profiles.yaml";
 /// Marks that the one-shot raise of too-short auto-update intervals has already run.
 pub static UPDATE_INTERVAL_MIGRATED: &str = ".update-interval-migrated";
 
+static APP_HOME_DIR: OnceLock<PathBuf> = OnceLock::new();
+
 /// Uses the same platform data resolver as Tauri, including before its handle exists.
 pub fn app_home_dir() -> Result<PathBuf> {
-    ::dirs::data_dir()
+    if let Some(path) = APP_HOME_DIR.get() {
+        return Ok(path.clone());
+    }
+    let path = ::dirs::data_dir()
         .map(|root| root.join(APP_ID))
-        .ok_or_else(|| anyhow::anyhow!("Failed to get the app home directory"))
+        .ok_or_else(|| anyhow::anyhow!("Failed to get the app home directory"))?;
+    let _ = APP_HOME_DIR.set(path.clone());
+    Ok(path)
 }
 
 pub fn preinit_app_data_dir() -> Result<PathBuf> {
@@ -152,12 +160,26 @@ pub fn path_to_str(path: &Path) -> Result<&str> {
         .ok_or_else(|| anyhow::anyhow!("failed to get path from {:?}", path))
 }
 
+static ENCRYPTION_KEY: OnceLock<Vec<u8>> = OnceLock::new();
+static ENCRYPTION_KEY_INIT: Mutex<()> = Mutex::new(());
+
 pub fn get_encryption_key() -> Result<Vec<u8>> {
+    if let Some(key) = ENCRYPTION_KEY.get() {
+        return Ok(key.clone());
+    }
+
+    // Serialize the read-or-create path so two first-time callers cannot generate different keys.
+    let _init = ENCRYPTION_KEY_INIT
+        .lock()
+        .map_err(|_| anyhow::anyhow!("Encryption key initialization lock is poisoned"))?;
+    if let Some(key) = ENCRYPTION_KEY.get() {
+        return Ok(key.clone());
+    }
+
     let app_dir = app_home_dir()?;
     let key_path = app_dir.join(".encryption_key");
-
-    if key_path.exists() {
-        fs::read(&key_path).map_err(|e| anyhow::anyhow!("Failed to read encryption key: {}", e))
+    let key = if key_path.exists() {
+        fs::read(&key_path).map_err(|e| anyhow::anyhow!("Failed to read encryption key: {}", e))?
     } else {
         let mut key = vec![0u8; 32];
         getrandom::fill(&mut key)?;
@@ -166,8 +188,11 @@ pub fn get_encryption_key() -> Result<Vec<u8>> {
             fs::create_dir_all(parent).map_err(|e| anyhow::anyhow!("Failed to create key directory: {}", e))?;
         }
         fs::write(&key_path, &key).map_err(|e| anyhow::anyhow!("Failed to save encryption key: {}", e))?;
-        Ok(key)
-    }
+        key
+    };
+
+    let _ = ENCRYPTION_KEY.set(key.clone());
+    Ok(key)
 }
 
 pub fn ipc_path() -> Result<PathBuf> {
@@ -219,9 +244,9 @@ fn sidecar_ipc_path_for(
 
     let root = std::ffi::CStr::from_bytes_until_nul(&buffer)
         .map_err(|_| anyhow::anyhow!("macOS per-user temporary directory is not NUL-terminated"))?;
-    #[cfg(debug_assertions)]
+    #[cfg(feature = "verge-dev")]
     let filename = "verge-mihomo-dev.sock";
-    #[cfg(not(debug_assertions))]
+    #[cfg(not(feature = "verge-dev"))]
     let filename = "verge-mihomo.sock";
     let path = PathBuf::from(OsStr::from_bytes(root.to_bytes())).join(filename);
 
@@ -238,7 +263,7 @@ fn sidecar_ipc_path_for(
 
 #[cfg(windows)]
 fn sidecar_ipc_path_for(_app_root: &std::path::Path, identity: &clash_verge_service_ipc::OwnerIdentity) -> PathBuf {
-    PathBuf::from(sidecar_pipe_name(identity, cfg!(debug_assertions)))
+    PathBuf::from(sidecar_pipe_name(identity, cfg!(feature = "verge-dev")))
 }
 
 #[cfg(any(windows, test))]
@@ -285,9 +310,9 @@ mod ipc_tests {
 
         assert!(!path.starts_with(app_root));
         assert!(path.as_os_str().as_bytes().len() < 104);
-        #[cfg(debug_assertions)]
+        #[cfg(feature = "verge-dev")]
         assert_eq!(path.file_name(), Some(OsStr::new("verge-mihomo-dev.sock")));
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(feature = "verge-dev"))]
         assert_eq!(path.file_name(), Some(OsStr::new("verge-mihomo.sock")));
         assert_eq!(path, sidecar_ipc_path_for(Path::new("/different/root"), &identity)?);
         assert!(path.parent().is_some_and(Path::is_dir));
@@ -312,7 +337,7 @@ mod ipc_tests {
             path,
             Path::new(&format!(
                 r"\\.\pipe\verge-mihomo-sidecar-{}-{}",
-                if cfg!(debug_assertions) { "dev" } else { "release" },
+                if cfg!(feature = "verge-dev") { "dev" } else { "release" },
                 clash_verge_service_ipc::owner_key(&identity)
             ))
         );

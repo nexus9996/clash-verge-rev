@@ -131,7 +131,6 @@ export const WebUIItem = (props: Props) => {
         </Typography>
         <IconButton
           size="small"
-          data-setting-target="web-ui-open"
           title={t('settings.modals.webUI.actions.openUrl')}
           color="inherit"
           onClick={() => onOpenUrl?.(value)}
@@ -140,7 +139,6 @@ export const WebUIItem = (props: Props) => {
         </IconButton>
         <IconButton
           size="small"
-          data-setting-target="web-ui-edit"
           title={t('shared.actions.edit')}
           color="inherit"
           onClick={() => {
@@ -152,7 +150,6 @@ export const WebUIItem = (props: Props) => {
         </IconButton>
         <IconButton
           size="small"
-          data-setting-target="web-ui-delete"
           title={t('shared.actions.delete')}
           color="inherit"
           onClick={onDelete}

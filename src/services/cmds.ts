@@ -19,7 +19,7 @@ import type {
 
 export type {
   RunningMode,
-  RunStateView_Serialize as RunState,
+  RunStateView as RunState,
   FailedOperation,
   PendingFailure,
   SidecarFailureSnapshot,
@@ -91,8 +91,18 @@ export async function deleteProfile(index: string) {
 }
 
 export async function patchProfile(index: string, profile: ProfilePatch) {
-  const { type, name, desc, file, url, selected, extra, updated, option } =
-    profile
+  const {
+    type,
+    name,
+    desc,
+    file,
+    url,
+    selected,
+    latency_test_urls,
+    extra,
+    updated,
+    option,
+  } = profile
   return commands.patchProfile(index, {
     type,
     name,
@@ -100,6 +110,7 @@ export async function patchProfile(index: string, profile: ProfilePatch) {
     file,
     url,
     selected,
+    latency_test_urls,
     extra,
     updated,
     option,
@@ -152,17 +163,17 @@ export async function patchClashMode(payload: string) {
   return commands.patchClashMode(payload)
 }
 
+export async function syncTrayProxySelection() {
+  return commands.syncTrayProxySelection()
+}
+
 /** Sends one selection pair so the backend can merge against current profile state. */
 export async function recordSelectedNode(groupName: string, node: string) {
   return commands.recordSelectedNode(groupName, node)
 }
 
-export async function switchProxyNode(
-  groupName: string,
-  proxyName: string,
-  unfix: boolean,
-) {
-  return commands.switchProxyNode(groupName, proxyName, unfix)
+export async function forgetSelectedNode(groupName: string) {
+  return commands.forgetSelectedNode(groupName)
 }
 
 export async function getProxyView(): Promise<ProxyViewV1> {
@@ -173,15 +184,13 @@ export async function getProxyView(): Promise<ProxyViewV1> {
   return view
 }
 
-// getClashLogs matches both patterns against every log line.
-const CLASH_LOG_REGEX = /time="(.+?)"\s+level=(.+?)\s+msg="(.+?)"/
-const CLASH_LOG_NEW_REGEX = /(.+?)\s+(.+?)\s+(.+)/
-
 export async function getClashLogs() {
+  const regex = /time="(.+?)"\s+level=(.+?)\s+msg="(.+?)"/
+  const newRegex = /(.+?)\s+(.+?)\s+(.+)/
   const logs = await commands.getClashLogs()
 
   return logs.reduce<ILogItem[]>((acc, log) => {
-    const result = log.match(CLASH_LOG_REGEX)
+    const result = log.match(regex)
     if (result) {
       const [_, _time, type, payload] = result
       const time = dayjs(_time).format('MM-DD HH:mm:ss')
@@ -189,7 +198,7 @@ export async function getClashLogs() {
       return acc
     }
 
-    const result2 = log.match(CLASH_LOG_NEW_REGEX)
+    const result2 = log.match(newRegex)
     if (result2) {
       const [_, time, type, payload] = result2
       acc.push({ time, type, payload })

@@ -41,10 +41,7 @@ fi
 
 tmpfile=$(mktemp)
 {
-	node -e '
-		const fs = require("node:fs");
-		process.stdout.write(fs.readFileSync(process.argv[1], "utf8").replace(/<!--[\s\S]*?-->/g, "").trimStart());
-	' "$CHANGELOG"
+	cat "$CHANGELOG"
 	echo
 	echo "" 
 	if [ -f "$HISTORY" ]; then

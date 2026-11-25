@@ -17,15 +17,25 @@ export interface TranslationResources {
         fields: {
           chains: string
           destination: string
+          destinationIp: string
           destinationPort: string
           dlSpeed: string
           host: string
+          network: string
           process: string
           rule: string
           source: string
+          sourceIp: string
+          sourcePort: string
           time: string
           type: string
           ulSpeed: string
+        }
+        filters: {
+          clear: string
+          noOptions: string
+          placeholder: string
+          searchValue: string
         }
         order: {
           default: string
@@ -35,42 +45,6 @@ export interface TranslationResources {
       }
       page: {
         title: string
-      }
-      ruleDialog: {
-        addAndApply: string
-        allSubdomains: string
-        applyFailed: string
-        connectionHost: string
-        destination: string
-        destinationHint: string
-        destinationIp: string
-        domain: string
-        domainScope: string
-        editDestination: string
-        entry: string
-        exactDomain: string
-        fullPath: string
-        invalidDomain: string
-        invalidIp: string
-        matchBy: string
-        matchingDomain: string
-        modifyTitle: string
-        newConnections: string
-        noMetadata: string
-        noProfile: string
-        policyUnavailable: string
-        processNameHint: string
-        processPathHint: string
-        profileChanged: string
-        rootDomain: string
-        ruleModeHint: string
-        saveAndApply: string
-        saved: string
-        sourceHint: string
-        sourceIp: string
-        title: string
-        unavailable: string
-        unsupportedValue: string
       }
     }
     home: {
@@ -105,14 +79,11 @@ export interface TranslationResources {
             refreshDelay: string
           }
           labels: {
-            defaultRoute: string
             directMode: string
             globalMode: string
             group: string
             noActiveNode: string
             proxy: string
-            ruleCount: string
-            ruleTarget: string
           }
           status: {
             error: string
@@ -564,7 +535,6 @@ export interface TranslationResources {
           toggleChain: string
         }
         chain: {
-          confirmEnable: string
           connectFailed: string
           disconnectFailed: string
           duplicateNode: string
@@ -573,7 +543,6 @@ export interface TranslationResources {
           exitNode: string
           header: string
           instruction: string
-          keepDisabled: string
           minimumNodes: string
           minimumNodesHint: string
           warning: string
@@ -787,6 +756,7 @@ export interface TranslationResources {
             fields: {
               collapseNavBar: string
               commonTrayIcon: string
+              enableSystemTitlebar: string
               enableTrayIcon: string
               enableTraySpeed: string
               hoverNavigator: string
@@ -794,7 +764,6 @@ export interface TranslationResources {
               memoryUsage: string
               navIcon: string
               pauseRenderTrafficStatsOnBlur: string
-              preferSystemTitlebar: string
               proxyGroupIcon: string
               proxyGroupsDisplayMode: string
               showOutboundModesInline: string
@@ -824,6 +793,7 @@ export interface TranslationResources {
             }
             title: string
             tooltips: {
+              enableSystemTitlebar: string
               hoverNavigator: string
               hoverNavigatorDelay: string
             }
@@ -1162,7 +1132,6 @@ export interface TranslationResources {
             autoDelayDetection: string
             autoDelayDetectionInterval: string
             autoLogClean: string
-            autoSwitchSelectorGroup: string
             defaultLatencyTest: string
             defaultLatencyTimeout: string
             enableBuiltinEnhanced: string
@@ -1181,7 +1150,6 @@ export interface TranslationResources {
           tooltips: {
             autoCloseConnections: string
             autoDelayDetection: string
-            autoSwitchSelectorGroup: string
             defaultLatencyTest: string
             enableBuiltinEnhanced: string
           }
@@ -1231,7 +1199,6 @@ export interface TranslationResources {
             autoRoute: string
             device: string
             dnsHijack: string
-            dnsMode: string
             mtu: string
             routeExcludeAddress: string
             stack: string
@@ -1246,7 +1213,6 @@ export interface TranslationResources {
           tooltips: {
             autoRedirect: string
             dnsHijack: string
-            dnsMode: string
           }
         }
         update: {
@@ -1291,13 +1257,6 @@ export interface TranslationResources {
         }
         actionsGroupLabel: string
         title: string
-      }
-      search: {
-        back: string
-        clear: string
-        empty: string
-        placeholder: string
-        results: string
       }
       sections: {
         appearance: {
@@ -1637,7 +1596,6 @@ export interface TranslationResources {
           noDisney: string
           originalsOnly: string
           pending: string
-          risky: string
           unsupportedRegion: string
           yes: string
         }

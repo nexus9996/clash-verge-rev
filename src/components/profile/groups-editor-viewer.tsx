@@ -176,10 +176,7 @@ export const GroupsEditorViewer = (props: Props) => {
     },
   })
   const [groupList, setGroupList] = useState<IProxyGroupConfig[]>([])
-  const [originPolicy, setOriginPolicy] = useState<{
-    proxyNames: string[]
-    groupNames: string[]
-  }>({ proxyNames: [], groupNames: [] })
+  const [proxyPolicyList, setProxyPolicyList] = useState<string[]>([])
   const [proxyProviderList, setProxyProviderList] = useState<string[]>([])
   const [prependSeq, setPrependSeq] = useState<IProxyGroupConfig[]>([])
   const [appendSeq, setAppendSeq] = useState<IProxyGroupConfig[]>([])
@@ -221,7 +218,7 @@ export const GroupsEditorViewer = (props: Props) => {
           group={item}
           onDelete={() => {
             if (isDeleted) {
-              setDeleteSeq((prev) => prev.filter((v) => v !== item.name))
+              setDeleteSeq(deleteSeq.filter((v) => v !== item.name))
             } else {
               setDeleteSeq((prev) => [...prev, item.name])
             }
@@ -236,7 +233,7 @@ export const GroupsEditorViewer = (props: Props) => {
           type="prepend"
           group={item}
           onDelete={() => {
-            setPrependSeq((prev) => prev.filter((v) => v.name !== item.name))
+            setPrependSeq(prependSeq.filter((v) => v.name !== item.name))
           }}
         />
       )
@@ -247,7 +244,7 @@ export const GroupsEditorViewer = (props: Props) => {
         type="append"
         group={item}
         onDelete={() => {
-          setAppendSeq((prev) => prev.filter((v) => v.name !== item.name))
+          setAppendSeq(appendSeq.filter((v) => v.name !== item.name))
         }}
       />
     )
@@ -258,22 +255,21 @@ export const GroupsEditorViewer = (props: Props) => {
     activeIndex: number,
     overIndex: number,
   ) => {
+    const list = category === 'prepend' ? prependSeq : appendSeq
+    const filtered =
+      category === 'prepend' ? filteredPrependSeq : filteredAppendSeq
     const setList = category === 'prepend' ? setPrependSeq : setAppendSeq
-    // Recompute inside the updater: two writes in one batch must not read the same pre-batch array.
-    setList((prev) => {
-      const filtered = prev.filter((v) => match(v.name))
-      const activeRealIndex = findRealIndex(prev, filtered, activeIndex)
-      const overRealIndex = findRealIndex(prev, filtered, overIndex)
-      if (
-        activeRealIndex < 0 ||
-        overRealIndex < 0 ||
-        activeRealIndex === overRealIndex
-      ) {
-        return prev
-      }
+    const activeRealIndex = findRealIndex(list, filtered, activeIndex)
+    const overRealIndex = findRealIndex(list, filtered, overIndex)
+    if (
+      activeRealIndex < 0 ||
+      overRealIndex < 0 ||
+      activeRealIndex === overRealIndex
+    ) {
+      return
+    }
 
-      return arrayMove(prev, activeRealIndex, overRealIndex)
-    })
+    setList(arrayMove(list, activeRealIndex, overRealIndex))
   }
 
   const fetchContent = useCallback(async () => {
@@ -357,9 +353,6 @@ export const GroupsEditorViewer = (props: Props) => {
     }
   }, [prependSeq, appendSeq, deleteSeq])
 
-  // Origin policy names come from profile files that this dialog never
-  // rewrites while open, so they are read once per open; the live seq states
-  // are folded in by the derived proxyPolicyList below.
   const fetchProxyPolicy = useCallback(async () => {
     const data = await readProfileFile(profileUid)
     const proxiesData = await readProfileFile(proxiesUid)
@@ -395,13 +388,17 @@ export const GroupsEditorViewer = (props: Props) => {
         (name): name is string => typeof name === 'string' && name.length > 0,
       )
 
-    setOriginPolicy({
+    const computedPolicyList = builtinProxyPolicies.concat(
+      prependSeq.map((group: IProxyGroupConfig) => group.name),
+      (originGroupsObj?.['proxy-groups'] || [])
+        .map((group: IProxyGroupConfig) => group.name)
+        .filter((name) => !deleteSeq.includes(name)),
+      appendSeq.map((group: IProxyGroupConfig) => group.name),
       proxyNames,
-      groupNames: (originGroupsObj?.['proxy-groups'] || []).map(
-        (group) => group.name,
-      ),
-    })
-  }, [profileUid, proxiesUid])
+    )
+
+    setProxyPolicyList(Array.from(new Set(computedPolicyList)))
+  }, [appendSeq, deleteSeq, prependSeq, profileUid, proxiesUid])
   const fetchProfile = useCallback(async () => {
     const data = await readProfileFile(profileUid)
     const mergeData = await readProfileFile(mergeUid)
@@ -444,16 +441,6 @@ export const GroupsEditorViewer = (props: Props) => {
     if (!open) return
     fetchProxyPolicy()
   }, [fetchProxyPolicy, open])
-
-  const proxyPolicyList = useMemo(() => {
-    const computedPolicyList = builtinProxyPolicies.concat(
-      prependSeq.map((group) => group.name),
-      originPolicy.groupNames.filter((name) => !deleteSeq.includes(name)),
-      appendSeq.map((group) => group.name),
-      originPolicy.proxyNames,
-    )
-    return Array.from(new Set(computedPolicyList))
-  }, [appendSeq, deleteSeq, originPolicy, prependSeq])
 
   useEffect(() => {
     if (!open) return
@@ -1032,20 +1019,14 @@ export const GroupsEditorViewer = (props: Props) => {
                   onClick={() => {
                     try {
                       validateGroup()
-                      const values = formIns.getValues()
                       for (const item of [...prependSeq, ...groupList]) {
-                        if (item.name === values.name) {
+                        if (item.name === formIns.getValues().name) {
                           throw new Error(
                             t('profiles.modals.groupsEditor.errors.nameExists'),
                           )
                         }
                       }
-                      // Recheck inside the updater so a same-batch second click cannot duplicate the entry.
-                      setPrependSeq((prev) =>
-                        prev.some((v) => v.name === values.name)
-                          ? prev
-                          : [values, ...prev],
-                      )
+                      setPrependSeq([formIns.getValues(), ...prependSeq])
                     } catch (err) {
                       showNotice.error(err)
                     }
@@ -1062,20 +1043,14 @@ export const GroupsEditorViewer = (props: Props) => {
                   onClick={() => {
                     try {
                       validateGroup()
-                      const values = formIns.getValues()
                       for (const item of [...appendSeq, ...groupList]) {
-                        if (item.name === values.name) {
+                        if (item.name === formIns.getValues().name) {
                           throw new Error(
                             t('profiles.modals.groupsEditor.errors.nameExists'),
                           )
                         }
                       }
-                      // Recheck inside the updater so a same-batch second click cannot duplicate the entry.
-                      setAppendSeq((prev) =>
-                        prev.some((v) => v.name === values.name)
-                          ? prev
-                          : [...prev, values],
-                      )
+                      setAppendSeq([...appendSeq, formIns.getValues()])
                     } catch (err) {
                       showNotice.error(err)
                     }

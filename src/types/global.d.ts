@@ -40,7 +40,6 @@ interface IConfigData {
     'auto-redirect'?: boolean
     'auto-detect-interface': boolean
     'dns-hijack': string[]
-    'dns-mode'?: string
     'route-exclude-address'?: string[]
     'strict-route': boolean
     mtu: number
@@ -115,21 +114,6 @@ interface ITrafficItem {
   downTotal?: number
 }
 
-interface IFormattedTrafficData {
-  up_rate_formatted: string
-  down_rate_formatted: string
-  total_up_formatted: string
-  total_down_formatted: string
-  is_fresh: boolean
-}
-
-interface IFormattedMemoryData {
-  inuse_formatted: string
-  oslimit_formatted: string
-  usage_percent: number
-  is_fresh: boolean
-}
-
 interface ILogItem {
   type: string
   time?: string
@@ -181,8 +165,6 @@ interface IConnectionSetting {
   layout: 'table' | 'list'
 }
 
-type IClashInfo = import('@/services/bindings').ClashInfo
-
 type IProfileItem = import('@/services/bindings').PrfItem_Serialize
 
 type IProfileOption = import('@/services/bindings').PrfOption_Deserialize
@@ -193,7 +175,6 @@ type IProfilesConfig = Partial<
 
 type IVergeTestItem = import('@/services/bindings').IVergeTestItem
 type IAddress = import('@/services/bindings').InterfaceAddress
-type INetworkInterface = import('@/services/bindings').NetworkInterfaceView
 
 interface ISeqProfileConfig {
   prepend: []

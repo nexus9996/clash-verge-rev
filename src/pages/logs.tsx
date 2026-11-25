@@ -4,7 +4,7 @@ import {
   SwapVertRounded,
 } from '@mui/icons-material'
 import { Box, Button, IconButton, MenuItem } from '@mui/material'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -12,13 +12,13 @@ import {
   BasePage,
   BaseSearchBox,
   BaseStyledSelect,
+  type SearchState,
   VirtualList,
   type VirtualListHandle,
 } from '@/components/base'
 import LogItem from '@/components/log/log-item'
 import { useClashLog } from '@/hooks/use-clash-log'
 import { useLogData } from '@/hooks/use-log-data'
-import { usePageSearch } from '@/hooks/use-page-search'
 
 const LogPage = () => {
   const { t } = useTranslation()
@@ -28,7 +28,8 @@ const LogPage = () => {
   const logOrder = clashLog.logOrder ?? 'asc'
   const isDescending = logOrder === 'desc'
 
-  const { searchState, match, onSearch } = usePageSearch('logs')
+  const [match, setMatch] = useState(() => (_: string) => true)
+  const [searchState, setSearchState] = useState<SearchState>()
   const {
     response: { data: logData },
     refreshGetClashLog,
@@ -39,18 +40,21 @@ const LogPage = () => {
       return []
     }
 
-    const hasSearch = searchState.text.length > 0
-    if (!hasSearch && logState === 'all') return logData
-
+    // Server-side filtering handles level filtering via query parameters
+    // We only need to apply search filtering here
     return logData.filter((data) => {
-      if (logState !== 'all' && !data.type.includes(logState)) return false
-      if (!hasSearch) return true
-
+      // 构建完整的搜索文本，包含时间、类型和内容
       const searchText =
         `${data.time || ''} ${data.type} ${data.payload}`.toLowerCase()
-      return match(searchText)
+
+      const matchesSearch = match(searchText)
+
+      return (
+        (logState == 'all' ? true : data.type.includes(logState)) &&
+        matchesSearch
+      )
     })
-  }, [logData, logState, match, searchState.text])
+  }, [logData, logState, match])
 
   const filteredLogs = useMemo(
     () => (isDescending ? [...filterLogs].reverse() : filterLogs),
@@ -170,9 +174,10 @@ const LogPage = () => {
           <MenuItem value="err">{t('shared.filters.logLevels.error')}</MenuItem>
         </BaseStyledSelect>
         <BaseSearchBox
-          defaultValue={searchState.text}
-          {...searchState}
-          onSearch={onSearch}
+          onSearch={(matcher, state) => {
+            setMatch(() => matcher)
+            setSearchState(state)
+          }}
         />
       </Box>
 

@@ -231,7 +231,7 @@
       "layout": {
         "title": "تنظیمات چیدمان",
         "fields": {
-          "preferSystemTitlebar": "Prefer System Titlebar",
+          "enableSystemTitlebar": "فعالسازی نوار عنوان سیستم",
           "trafficGraph": "نمودار ترافیک",
           "memoryUsage": "استفاده از حافظه",
           "proxyGroupIcon": "آیکون گروه پراکسی",
@@ -251,6 +251,7 @@
           "pauseRenderTrafficStatsOnBlur": "توقف رندر آمار ترافیک هنگام از دست رفتن فوکوس"
         },
         "tooltips": {
+          "enableSystemTitlebar": "استفاده از نوار عنوان بومی سیستم بهجای نوار عنوان سفارشی داخلی (در لینوکس نیاز به راهاندازی مجدد است).",
           "hoverNavigator": "Automatically scroll to the corresponding proxy group when hovering over alphabet letters",
           "hoverNavigatorDelay": "Delay before auto scrolling when hovering, in milliseconds"
         },
@@ -411,7 +412,6 @@
         "appLogMaxSize": "App Log Max Size",
         "appLogMaxCount": "App Log Max Count",
         "autoCloseConnections": "بستن خودکار اتصالات",
-        "autoSwitchSelectorGroup": "تغییر خودکار گروه select",
         "autoCheckUpdate": "بررسی خودکار به‌روزرسانی",
         "enableBuiltinEnhanced": "فعال کردن تقویت داخلی",
         "proxyLayoutColumns": "ستون چیدمان پراکسی",
@@ -423,7 +423,6 @@
       },
       "tooltips": {
         "autoCloseConnections": "اتصالات برقرار شده را هنگام تغییر انتخاب گروه پروکسی یا حالت پروکسی خاتمه دهید",
-        "autoSwitchSelectorGroup": "در حالت قانون، با انتخاب یک گره در گروهی که ترافیک قوانین از آن عبور نمی‌کند، اولین گروه select شامل آن نیز به همان گروه تغییر می‌کند",
         "enableBuiltinEnhanced": "مدیریت سازگاری برای فایل پیکربندی",
         "autoDelayDetection": "به‌صورت دوره‌ای تأخیر گره فعلی را در پس‌زمینه آزمایش می‌کند",
         "defaultLatencyTest": "فقط برای تست درخواست‌های کلاینت HTTP استفاده می‌شود و بر فایل پیکربندی تأثیری نخواهد داشت"
@@ -497,13 +496,11 @@
         "strictRoute": "مسیر دقیق",
         "autoDetectInterface": "تشخیص خودکار رابط",
         "dnsHijack": "ربایش DNS",
-        "dnsMode": "حالت DNS",
         "mtu": "واحد حداکثر انتقال",
         "autoRedirect": "Auto Redirect"
       },
       "tooltips": {
         "dnsHijack": "لطفا برای جدا کردن چندین سرور DNS از , استفاده کنید.",
-        "dnsMode": "Auto رفتار قدیمی را حفظ می‌کند؛ hijack در ویندوز نیاز به مسیر دقیق یا در لینوکس نیاز به Auto Redirect دارد",
         "autoRedirect": "پیکربندی خودکار ریدایرکت‌های TCP در nftables/iptables"
       },
       "messages": {
@@ -716,12 +713,5 @@
       "installing": "در حال نصب سرویس...",
       "uninstalling": "در حال حذف سرویس..."
     }
-  },
-  "search": {
-    "placeholder": "جستجوی تنظیمات",
-    "clear": "پاک کردن جستجو",
-    "back": "بازگشت به نتایج",
-    "results": "نتایج جستجو",
-    "empty": "تنظیماتی یافت نشد"
   }
 }

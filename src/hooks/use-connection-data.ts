@@ -150,49 +150,25 @@ const mergeConnectionSnapshot = (
   const nextConnections = payload.connections ?? []
   const previousActive = previous.activeConnections ?? []
   const previousClosed = previous.closedConnections ?? []
-  const sameOrder =
-    nextConnections.length === previousActive.length &&
-    nextConnections.every(
-      (connection, i) => connection.id === previousActive[i].id,
-    )
-  let previousActiveById: Map<string, IConnectionsItem> | undefined
+  const previousActiveById = new Map<string, IConnectionsItem>()
 
-  if (!sameOrder) {
-    previousActiveById = new Map()
-    for (let i = 0; i < previousActive.length; i++) {
-      const previousConnection = previousActive[i]
-      previousActiveById.set(previousConnection.id, previousConnection)
-    }
+  for (let i = 0; i < previousActive.length; i++) {
+    const previousConnection = previousActive[i]
+    previousActiveById.set(previousConnection.id, previousConnection)
   }
 
-  let activeConnections = sameOrder ? previousActive : []
+  const activeConnections: IConnectionsItem[] = []
   for (let i = 0; i < nextConnections.length; i++) {
     const connection = nextConnections[i]
-    const previousConnection = sameOrder
-      ? previousActive[i]
-      : previousActiveById?.get(connection.id)
-    previousActiveById?.delete(connection.id)
-    const normalized = normalizeConnection(connection, previousConnection)
-    if (activeConnections[i] === normalized) continue
-    if (activeConnections === previousActive) {
-      activeConnections = previousActive.slice()
-    }
-    activeConnections[i] = normalized
+    const previousConnection = previousActiveById.get(connection.id)
+    if (previousConnection) previousActiveById.delete(connection.id)
+    activeConnections.push(normalizeConnection(connection, previousConnection))
   }
 
-  const uploadTotal = payload.uploadTotal ?? 0
-  const downloadTotal = payload.downloadTotal ?? 0
-  if (!previousActiveById?.size) {
-    if (
-      activeConnections === previousActive &&
-      uploadTotal === previous.uploadTotal &&
-      downloadTotal === previous.downloadTotal
-    ) {
-      return previous
-    }
+  if (previousActiveById.size === 0) {
     return {
-      uploadTotal,
-      downloadTotal,
+      uploadTotal: payload.uploadTotal ?? 0,
+      downloadTotal: payload.downloadTotal ?? 0,
       activeConnections,
       closedConnections: previousClosed,
     }
@@ -222,8 +198,8 @@ const mergeConnectionSnapshot = (
   }
 
   return {
-    uploadTotal,
-    downloadTotal,
+    uploadTotal: payload.uploadTotal ?? 0,
+    downloadTotal: payload.downloadTotal ?? 0,
     activeConnections,
     closedConnections,
   }
@@ -251,9 +227,7 @@ const flushPendingMessage = () => {
 
   lastFlushAt = Date.now()
 
-  const nextData = mergeConnectionSnapshot(payload, connectionData)
-  if (nextData === connectionData) return
-  connectionData = nextData
+  connectionData = mergeConnectionSnapshot(payload, connectionData)
   notifyConnectionListeners()
 }
 
@@ -388,8 +362,6 @@ const handleSummaryText = (messageData: string) => {
     )
     return
   }
-
-  if (connectionSummary.activeConnectionCount === (payload.count ?? 0)) return
 
   connectionSummary = mergeConnectionSummary(payload)
   notifySummaryListeners()

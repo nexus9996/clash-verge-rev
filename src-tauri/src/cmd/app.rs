@@ -1,15 +1,12 @@
 use super::CmdResult;
 use crate::{
     cmd::StringifyErr as _,
-    core::{
-        SilentUpdater,
-        updater::{DownloadEvent, InstallUpdateOutcome},
-    },
+    core::{SilentUpdater, updater::DownloadEvent},
     feat,
     utils::dirs,
 };
+use smartstring::alias::String;
 use tauri::{AppHandle, Manager as _, ipc::Channel};
-use tristr::alias::String;
 
 #[tauri::command]
 #[specta::specta]
@@ -64,7 +61,8 @@ pub async fn install_update(
     app_handle: AppHandle,
     version: std::string::String,
     on_event: Channel<DownloadEvent>,
-) -> CmdResult<InstallUpdateOutcome> {
+) -> CmdResult<bool> {
+    let version: String = version.into();
     SilentUpdater::global()
         .install_update(&app_handle, &version, |event| {
             let _ = on_event.send(event);

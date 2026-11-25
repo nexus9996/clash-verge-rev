@@ -41,8 +41,7 @@ export function useAppUptime() {
   const { data: uptime = 0 } = useQuery({
     queryKey: appUptimeQueryKey,
     queryFn: getAppUptime,
-    // The wrapper maps staleTime to SWR's dedupingInterval, which drops
-    // refetchInterval ticks while it exceeds the interval.
+    staleTime: 5000,
     refetchInterval: 3000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,

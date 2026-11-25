@@ -8,7 +8,7 @@ import {
 } from '@mui/icons-material'
 import { Typography, Stack, Divider, Chip, IconButton } from '@mui/material'
 import { useLockFn } from 'ahooks'
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
@@ -22,22 +22,9 @@ import {
 import { useVerge } from '@/hooks/use-verge'
 import { getSystemInfo } from '@/services/cmds'
 import { showNotice } from '@/services/notice-service'
-import { useQuery } from '@/services/query-client'
 import { version as appVersion } from '@root/package.json'
 
 import { EnhancedCard } from './enhanced-card'
-
-const getOsInfo = async () => {
-  const info = await getSystemInfo()
-  const sysName = info.system_name
-  let sysVersion = info.system_version
-
-  if (sysName && sysVersion.toLowerCase().startsWith(sysName.toLowerCase())) {
-    sysVersion = sysVersion.substring(sysName.length).trim()
-  }
-
-  return `${sysName} ${sysVersion}`
-}
 
 export const SystemInfoCard = () => {
   const { t } = useTranslation()
@@ -49,15 +36,30 @@ export const SystemInfoCard = () => {
 
   const { checkUpdate: triggerCheckUpdate, lastCheckUpdate } = useUpdate(true)
 
-  const { data: osInfo = '' } = useQuery({
-    queryKey: ['getSystemInfo'],
-    queryFn: getOsInfo,
-  })
+  const [osInfo, setOsInfo] = useState('')
 
   const lastCheckUpdateText = useMemo(
     () => (lastCheckUpdate ? new Date(lastCheckUpdate).toLocaleString() : '-'),
     [lastCheckUpdate],
   )
+
+  useEffect(() => {
+    getSystemInfo()
+      .then((info) => {
+        const sysName = info.system_name
+        let sysVersion = info.system_version
+
+        if (
+          sysName &&
+          sysVersion.toLowerCase().startsWith(sysName.toLowerCase())
+        ) {
+          sysVersion = sysVersion.substring(sysName.length).trim()
+        }
+
+        setOsInfo(`${sysName} ${sysVersion}`)
+      })
+      .catch(console.error)
+  }, [])
 
   useEffect(() => {
     if (!verge?.auto_check_update) return
@@ -79,16 +81,21 @@ export const SystemInfoCard = () => {
     try {
       await patchVerge({ enable_auto_launch: !verge.enable_auto_launch })
     } catch (err) {
-      showNotice.error(err)
+      console.error('切换开机自启动状态失败:', err)
     }
   }, [verge, patchVerge])
 
   const handleRunningModeClick = useCallback(async () => {
-    if (isSidecarMode) {
+    if (isSidecarMode || (isAdminMode && isSidecarMode)) {
       await installServiceAndRestartCore()
       await mutateSystemState()
     }
-  }, [isSidecarMode, installServiceAndRestartCore, mutateSystemState])
+  }, [
+    isSidecarMode,
+    isAdminMode,
+    installServiceAndRestartCore,
+    mutateSystemState,
+  ])
 
   const onCheckUpdate = useLockFn(async () => {
     try {
@@ -115,16 +122,18 @@ export const SystemInfoCard = () => {
 
   const runningModeStyle = useMemo(
     () => ({
-      cursor: isSidecarMode ? 'pointer' : 'default',
-      textDecoration: isSidecarMode ? 'underline' : 'none',
+      cursor:
+        isSidecarMode || (isAdminMode && isSidecarMode) ? 'pointer' : 'default',
+      textDecoration:
+        isSidecarMode || (isAdminMode && isSidecarMode) ? 'underline' : 'none',
       display: 'flex',
       alignItems: 'center',
       gap: 0.5,
       '&:hover': {
-        opacity: isSidecarMode ? 0.7 : 1,
+        opacity: isSidecarMode || (isAdminMode && isSidecarMode) ? 0.7 : 1,
       },
     }),
-    [isSidecarMode],
+    [isSidecarMode, isAdminMode],
   )
 
   const getModeIcon = () => {

@@ -231,7 +231,7 @@
       "layout": {
         "title": "Düzen Ayarı",
         "fields": {
-          "preferSystemTitlebar": "Sistem Başlık Çubuğunu Tercih Et",
+          "enableSystemTitlebar": "Sistem başlık çubuğunu etkinleştir",
           "trafficGraph": "Trafik Grafiği",
           "memoryUsage": "Çekirdek Kullanımı",
           "proxyGroupIcon": "Vekil Grup Simgesi",
@@ -251,6 +251,7 @@
           "pauseRenderTrafficStatsOnBlur": "Odak kaybolduğunda trafik istatistiklerinin işlenmesini duraklat"
         },
         "tooltips": {
+          "enableSystemTitlebar": "Yerleşik özel başlık çubuğu yerine sistemin yerel başlık çubuğunu kullan (Linux'ta yeniden başlatma gerekir).",
           "hoverNavigator": "Alfabe harflerinin üzerine gelindiğinde ilgili vekil grubuna otomatik olarak kaydırır",
           "hoverNavigatorDelay": "Üzerine gelindiğinde otomatik kaydırmadan önceki gecikme, milisaniye cinsinden"
         },
@@ -411,7 +412,6 @@
         "appLogMaxSize": "Uygulama Günlüğü En Büyük Boyutu",
         "appLogMaxCount": "Uygulama Günlüğü En Fazla Dosya Sayısı",
         "autoCloseConnections": "Bağlantıları Otomatik Kapat",
-        "autoSwitchSelectorGroup": "Select Grubunu Otomatik Değiştir",
         "autoCheckUpdate": "Otomatik Güncelleme Kontrolü",
         "enableBuiltinEnhanced": "Yerleşik Geliştirilmiş Modu Etkinleştir",
         "proxyLayoutColumns": "Vekil Düzeni Sütunları",
@@ -423,7 +423,6 @@
       },
       "tooltips": {
         "autoCloseConnections": "Vekil grup seçimi veya vekil modu değiştiğinde kurulan bağlantıları sonlandır",
-        "autoSwitchSelectorGroup": "Kural modunda, kural trafiğinin ulaşmadığı bir grupta düğüm seçildiğinde, bu grubu içeren ilk select grubu da o gruba geçer",
         "enableBuiltinEnhanced": "Yapılandırma dosyası için uyumluluk işleme",
         "autoDelayDetection": "Arka planda mevcut düğümün gecikmesini periyodik olarak test eder",
         "defaultLatencyTest": "Yalnızca HTTP istemci isteği testi için kullanılır ve yapılandırma dosyasında bir fark yaratmaz"
@@ -497,13 +496,11 @@
         "strictRoute": "Katı Yönlendirme",
         "autoDetectInterface": "Arayüzü Otomatik Algıla",
         "dnsHijack": "DNS Ele Geçirme",
-        "dnsMode": "DNS Modu",
         "mtu": "Maksimum İletim Birimi",
         "autoRedirect": "Otomatik Yönlendirme"
       },
       "tooltips": {
         "dnsHijack": "Birden fazla DNS sunucusunu ayırmak için lütfen , kullanın",
-        "dnsMode": "Auto eski davranışı korur; hijack için Windows'ta Katı Yönlendirme veya Linux'ta Otomatik Yönlendirme gerekir",
         "autoRedirect": "nftables/iptables TCP yönlendirmelerini otomatik olarak yapılandırır"
       },
       "messages": {
@@ -716,12 +713,5 @@
       "installing": "Hizmet Kuruluyor...",
       "uninstalling": "Hizmet Kaldırılıyor..."
     }
-  },
-  "search": {
-    "placeholder": "Ayarları ara",
-    "clear": "Aramayı temizle",
-    "back": "Sonuçlara dön",
-    "results": "Arama sonuçları",
-    "empty": "Ayar bulunamadı"
   }
 }

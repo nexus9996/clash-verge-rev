@@ -231,7 +231,7 @@
       "layout": {
         "title": "إعدادات التخطيط",
         "fields": {
-          "preferSystemTitlebar": "Prefer System Titlebar",
+          "enableSystemTitlebar": "تفعيل شريط عنوان النظام",
           "trafficGraph": "مخطط حركة المرور",
           "memoryUsage": "استهلاك الذاكرة",
           "proxyGroupIcon": "أيقونة مجموعة الوكلاء",
@@ -251,6 +251,7 @@
           "pauseRenderTrafficStatsOnBlur": "إيقاف عرض إحصاءات حركة المرور مؤقتًا عند فقدان التركيز"
         },
         "tooltips": {
+          "enableSystemTitlebar": "استخدام شريط عنوان النظام الأصلي بدلاً من شريط العنوان المخصص المدمج (يلزم إعادة التشغيل على Linux).",
           "hoverNavigator": "Automatically scroll to the corresponding proxy group when hovering over alphabet letters",
           "hoverNavigatorDelay": "Delay before auto scrolling when hovering, in milliseconds"
         },
@@ -411,7 +412,6 @@
         "appLogMaxSize": "App Log Max Size",
         "appLogMaxCount": "App Log Max Count",
         "autoCloseConnections": "إغلاق الاتصالات تلقائيًا",
-        "autoSwitchSelectorGroup": "تبديل مجموعة select تلقائيًا",
         "autoCheckUpdate": "فحص التحديث تلقائيًا",
         "enableBuiltinEnhanced": "تفعيل التحسين المدمج",
         "proxyLayoutColumns": "أعمدة عرض الوكيل",
@@ -423,7 +423,6 @@
       },
       "tooltips": {
         "autoCloseConnections": "إنهاء الاتصالات القائمة عند تغيير اختيار مجموعة الوكيل أو وضع الوكيل",
-        "autoSwitchSelectorGroup": "في وضع القواعد، عند اختيار عقدة في مجموعة لا تمر بها حركة القواعد يتم أيضًا تحويل أول مجموعة select تحتوي عليها إلى تلك المجموعة",
         "enableBuiltinEnhanced": "معالجة توافق ملف التكوين",
         "autoDelayDetection": "يختبر زمن استجابة العقدة الحالية على نحو دوري في الخلفية",
         "defaultLatencyTest": "يُستخدم فقط لاختبار طلب HTTP العميل. لن يؤثر على ملف التكوين"
@@ -497,13 +496,11 @@
         "strictRoute": "توجيه صارم",
         "autoDetectInterface": "الكشف التلقائي عن الواجهة",
         "dnsHijack": "اختطاف DNS",
-        "dnsMode": "وضع DNS",
         "mtu": "وحدة الإرسال القصوى",
         "autoRedirect": "Auto Redirect"
       },
       "tooltips": {
         "dnsHijack": "Please use , to separate multiple DNS servers",
-        "dnsMode": "يحافظ Auto على السلوك القديم؛ يتطلب hijack تفعيل توجيه صارم على Windows أو Auto Redirect على Linux",
         "autoRedirect": "Automatically configures nftables/iptables TCP redirects"
       },
       "messages": {
@@ -716,12 +713,5 @@
       "installing": "جاري تثبيت الخدمة...",
       "uninstalling": "Uninstalling Service..."
     }
-  },
-  "search": {
-    "placeholder": "البحث في الإعدادات",
-    "clear": "مسح البحث",
-    "back": "العودة إلى النتائج",
-    "results": "نتائج البحث",
-    "empty": "لم يتم العثور على إعدادات"
   }
 }

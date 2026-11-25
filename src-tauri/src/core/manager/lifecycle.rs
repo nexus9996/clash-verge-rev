@@ -6,10 +6,11 @@ use crate::core::proxy_control::{self, SysproxyFailure};
 use crate::core::service::{SERVICE_MANAGER, ServiceStatus};
 use anyhow::Result;
 use clash_verge_logging::{Type, logging};
-use std::{mem::DropGuard, path::Path};
+use scopeguard::defer;
+use smartstring::alias::String;
+use std::path::Path;
 #[cfg(target_os = "windows")]
 use tauri_plugin_clash_verge_sysinfo::is_current_app_handle_admin;
-use tristr::alias::String;
 
 #[cfg(any(target_os = "windows", test))]
 const fn should_wait_for_service(tun_enabled: bool, service_ready: bool, is_admin: bool) -> bool {
@@ -355,9 +356,9 @@ impl CoreManager {
         if !self.try_start_config_update() {
             anyhow::bail!("configuration update is already running");
         }
-        let _config_update = DropGuard::new((), |()| {
+        defer! {
             self.finish_config_update();
-        });
+        }
         self.start_core_during_config_update().await
     }
 
@@ -382,9 +383,9 @@ impl CoreManager {
                 service_rejection,
             ));
         }
-        let _config_update = DropGuard::new((), |()| {
+        defer! {
             self.finish_config_update();
-        });
+        }
         // Lock order is config then lifecycle. disable_tun_and_persist commits the shared Verge
         // draft without claiming it, so without this it can commit another transaction's staged patch.
         let config_write = Config::lock_config_write().await;
@@ -434,10 +435,6 @@ impl CoreManager {
                 {
                     anyhow::bail!("Sidecar did not become ready");
                 }
-                // A Sidecar that was already running never loaded this generation.
-                if matches!(*mode, RunningMode::NotRunning) {
-                    Config::runtime().await.apply();
-                }
                 tracing::Span::current().record("readiness_generation", self.current_core_readiness_generation());
                 self.apply_proxy_after_start().await
             }
@@ -462,9 +459,9 @@ impl CoreManager {
         if !self.try_start_config_update() {
             anyhow::bail!("configuration update is already running");
         }
-        let _config_update = DropGuard::new((), |()| {
+        defer! {
             self.finish_config_update();
-        });
+        }
         // Lock order is config then lifecycle, for the unclaimed draft write below.
         let _config_write = Config::lock_config_write().await;
         let _life = self.lifecycle_lock.lock().await;
@@ -495,7 +492,6 @@ impl CoreManager {
                 {
                     anyhow::bail!("Sidecar did not become ready after service uninstall");
                 }
-                Config::runtime().await.apply();
                 tracing::Span::current().record("readiness_generation", self.current_core_readiness_generation());
                 self.apply_proxy_after_start().await
             },
@@ -558,13 +554,12 @@ impl CoreManager {
         })?;
         #[cfg(target_os = "macos")]
         crate::utils::resolve::dns::sync_public_dns().await;
-        // Only automatic restores can wait for the watcher; explicit requests must report failure.
+        // At login the app usually beats the network. Leave the write to the network watcher
+        // rather than fail — only if the watcher is actually live; a user toggling while
+        // offline still fails fast.
         #[cfg(target_os = "macos")]
-        let defer_until_network = crate::core::network_watch::is_armed()
-            && crate::core::notification::what_was_asked()
-                == crate::core::notification::FailedOperation::SystemProxyRestore;
-        #[cfg(target_os = "macos")]
-        if defer_until_network
+        if crate::core::network_watch::is_armed()
+            && !crate::utils::resolve::is_resolve_done()
             && Config::verge()
                 .await
                 .latest_arc()
@@ -579,20 +574,7 @@ impl CoreManager {
             );
             return Ok(());
         }
-        #[cfg(not(target_os = "macos"))]
         proxy_control::apply().await?;
-        #[cfg(target_os = "macos")]
-        if let Err(error) = proxy_control::apply().await {
-            if defer_until_network && proxy_control::is_missing_network_service_failure(&error) {
-                logging!(
-                    debug,
-                    Type::Core,
-                    "network service disappeared; the system proxy waits for its return"
-                );
-                return Ok(());
-            }
-            return Err(error);
-        }
         if !expectation.is_valid(
             self.get_running_mode().as_ref(),
             self.current_core_readiness_generation(),
@@ -794,9 +776,9 @@ impl CoreManager {
         if !self.try_start_config_update() {
             anyhow::bail!("configuration update is already running");
         }
-        let _config_update = DropGuard::new((), |()| {
+        defer! {
             self.finish_config_update();
-        });
+        }
         self.restart_core_during_config_update().await
     }
 
@@ -965,9 +947,9 @@ impl CoreManager {
         if !self.try_start_config_update() {
             return HandoffOutcome::NotReady;
         }
-        let _config_update = DropGuard::new((), |()| {
+        defer! {
             self.finish_config_update();
-        });
+        }
 
         // Lock order is config then lifecycle.
         let _life = self.lifecycle_lock.lock().await;

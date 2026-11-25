@@ -33,13 +33,15 @@ export const useMemoryData = (options?: { enabled?: boolean }) => {
   const enabled = options?.enabled ?? true
 
   const { response, refresh } = useMihomoWsSubscription<IMemoryUsageItem>({
-    subscriptionKey: enabled ? 'getClashMemory' : null,
+    storageKey: 'mihomo_memory_date',
+    buildSubscriptKey: (date) => (enabled ? `getClashMemory-${date}` : null),
     fallbackData: FALLBACK_MEMORY_USAGE,
     connect: () => MihomoWebSocket.connect_memory(),
     throttleMs: 500,
     setupHandlers: ({ next, scheduleReconnect }) => ({
       handleMessage: (data) => {
         if (data.startsWith('Websocket error')) {
+          next(data, FALLBACK_MEMORY_USAGE)
           void scheduleReconnect()
           return
         }
@@ -49,8 +51,10 @@ export const useMemoryData = (options?: { enabled?: boolean }) => {
           if (shouldSkipDuplicateMemory(parsed)) {
             return
           }
-          next(parsed)
-        } catch {}
+          next(null, parsed)
+        } catch (error) {
+          next(error, FALLBACK_MEMORY_USAGE)
+        }
       },
     }),
   })

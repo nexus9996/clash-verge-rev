@@ -1,4 +1,5 @@
 import { convertFileSrc } from '@tauri-apps/api/core'
+import { useMemo } from 'react'
 
 import { downloadIconCache } from '@/services/cmds'
 import { useQuery } from '@/services/query-client'
@@ -22,8 +23,9 @@ export const useIconCache = ({
   const iconValue = icon?.trim() ?? ''
   const cacheKeyValue = cacheKey?.trim() ?? ''
 
-  const isEnabled =
-    enabled && iconValue.startsWith('http') && cacheKeyValue !== ''
+  const isEnabled = useMemo(() => {
+    return enabled && iconValue.startsWith('http') && cacheKeyValue !== ''
+  }, [enabled, iconValue, cacheKeyValue])
 
   const { data } = useQuery({
     queryKey: ['icon-cache', iconValue, cacheKeyValue],

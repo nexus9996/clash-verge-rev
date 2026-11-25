@@ -1,15 +1,15 @@
 use anyhow::Result;
+use scopeguard::defer;
 use serde::Serialize;
+use smartstring::alias::String;
 use std::{
     fmt,
     hash::{DefaultHasher, Hash as _, Hasher as _},
-    mem::DropGuard,
     sync::LazyLock,
     sync::atomic::{AtomicBool, Ordering},
 };
 use tauri_plugin_shell::ShellExt as _;
 use tokio::fs;
-use tristr::alias::String;
 
 use crate::config::Config;
 use crate::core::handle;
@@ -114,8 +114,14 @@ impl fmt::Display for ValidationSkipReason {
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum ValidationOutcome {
     Valid,
-    Invalid { kind: ValidationErrorKind, message: String },
-    Skipped { reason: ValidationSkipReason },
+    Invalid {
+        kind: ValidationErrorKind,
+        #[specta(type = std::string::String)]
+        message: String,
+    },
+    Skipped {
+        reason: ValidationSkipReason,
+    },
     Busy,
 }
 
@@ -318,7 +324,6 @@ impl CoreConfigValidator {
             return Self::validate_file_syntax_outcome(config_path).await;
         }
 
-        crate::core::service::sync_runtime_geo_by_service().await;
         let is_script = match Self::is_script_file(config_path).await {
             Ok(result) => result,
             Err(err) => {
@@ -341,6 +346,12 @@ impl CoreConfigValidator {
         Self::validate_config_internal_outcome(config_path).await
     }
 
+    #[tracing::instrument(
+        name = "validate_config_core_process",
+        skip_all,
+        level = "debug",
+        fields(path = %config_path)
+    )]
     async fn validate_config_internal_outcome(config_path: &str) -> Result<ValidationOutcome> {
         if handle::Handle::global().is_exiting() {
             logging!(info, Type::Validate, "应用正在退出，跳过验证");
@@ -410,18 +421,22 @@ impl CoreConfigValidator {
     }
 
     /// Skips the subprocess when these bytes were already accepted by the same core build.
+    #[tracing::instrument(
+        name = "validate_config_with_core",
+        skip_all,
+        level = "debug",
+        fields(bytes = yaml.len())
+    )]
     pub async fn validate_config_outcome_with(&self, yaml: &str) -> Result<ValidationOutcome> {
         if !self.try_start() {
             logging!(info, Type::Validate, "验证已在进行中，跳过新的验证请求");
             return Ok(ValidationOutcome::Busy);
         }
-        let _validation = DropGuard::new((), |()| {
+        defer! {
             self.finish();
-        });
+        }
         logging!(info, Type::Validate, "生成临时配置文件用于验证");
 
-        // The test run reads the app dir, which never sees updates made by a service core.
-        crate::core::service::sync_runtime_geo_by_service().await;
         let fingerprint = validation_fingerprint(yaml).await;
         if *LAST_VALIDATED.lock() == Some(fingerprint) {
             logging!(info, Type::Validate, "配置与上次通过验证的字节一致，跳过内核检查");
@@ -429,7 +444,7 @@ impl CoreConfigValidator {
         }
 
         let check_path = dirs::app_home_dir()?.join(crate::constants::files::CHECK_CONFIG);
-        help::save_yaml_str(&check_path, yaml, None).await?;
+        help::save_yaml_str(&check_path, yaml).await?;
         let outcome = Self::validate_config_internal_outcome(dirs::path_to_str(&check_path)?).await?;
         if outcome.is_valid() {
             *LAST_VALIDATED.lock() = Some(fingerprint);
@@ -443,7 +458,8 @@ fn has_ext<P: AsRef<std::path::Path>>(path: P, ext: &str) -> bool {
     path.as_ref()
         .extension()
         .and_then(|s| s.to_str())
-        .is_some_and(|s| s.eq_ignore_ascii_case(ext))
+        .map(|s| s.eq_ignore_ascii_case(ext))
+        .unwrap_or(false)
 }
 
 fn contains_any_keyword<'a>(buf: &'a [u8], keywords: &'a [&str]) -> bool {

@@ -26,9 +26,7 @@ const TQ_MIHOMO = {
   refetchOnReconnect: false,
   staleTime: 1500,
   retry: 3,
-  // SWR's default retry waits about 2^retryCount * errorRetryInterval with
-  // jitter, so 100 reproduces the previous 200 * 2^attempt backoff.
-  retryDelay: 100,
+  retryDelay: (attempt: number) => Math.min(200 * 2 ** attempt, 3000),
 } as const
 
 const TQ_DEFAULTS = {

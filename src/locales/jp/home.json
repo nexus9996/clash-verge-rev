@@ -98,9 +98,6 @@
         "directMode": "直接接続モード",
         "group": "プロキシグループ",
         "proxy": "ノード",
-        "ruleTarget": "ルールの宛先",
-        "defaultRoute": "デフォルト",
-        "ruleCount": "{{count}} 件のルール",
         "noActiveNode": "アクティブなプロキシノードがありません。"
       },
       "status": {

@@ -67,6 +67,7 @@ verge_registry! {
     proxy_group_tools_position => NoEffect;
     notice_position => NoEffect;
     collapse_navbar => NoEffect;
+    enable_system_titlebar => NoEffect;
     sysproxy_tray_icon => [TrayIcon];
     tun_tray_icon => [TrayIcon];
     enable_tun_mode => Tun;
@@ -90,7 +91,6 @@ verge_registry! {
     enable_global_hotkey => NoEffect;
     home_cards => NoEffect;
     auto_close_connection => NoEffect;
-    auto_switch_selector_group => NoEffect;
     auto_check_update => NoEffect;
     default_latency_test => NoEffect;
     default_latency_timeout => NoEffect;

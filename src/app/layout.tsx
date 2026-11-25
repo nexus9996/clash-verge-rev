@@ -1,0 +1,169 @@
+import { Paper, ThemeProvider } from '@mui/material'
+import { Outlet, useNavigate } from 'react-router'
+import dayjs from 'dayjs'
+import relativeTime from 'dayjs/plugin/relativeTime'
+import { useCallback, useEffect, useMemo } from 'react'
+
+import { BaseErrorBoundary } from '@/components/base/base-error-boundary'
+import { LayoutSidebar } from '@/components/layout/layout-sidebar'
+import { NoticeManager } from '@/components/layout/notice-manager'
+import { ServiceMigrationDialog } from '@/components/layout/service-migration-dialog'
+import { SysproxyPrivilegeDialog } from '@/components/layout/sysproxy-privilege-dialog'
+import {
+  WindowControls,
+  WindowResizeHandles,
+} from '@/components/layout/window-controller'
+import { resolveNavigationPath } from '@/config/navigation'
+import { resolveModeSurfaces } from '@/config/theme'
+import {
+  useCustomTheme,
+  useLoadingOverlay,
+  usePendingFailures,
+} from '@/hooks/layout'
+import { useI18n } from '@/hooks/use-i18n'
+import { useServiceCoreDrift } from '@/hooks/use-service-core-drift'
+import { useVerge } from '@/hooks/use-verge'
+import { useWindowMaximized } from '@/hooks/use-window-maximized'
+import { useEventBus } from '@/services/bus'
+import { handleNoticeMessage } from '@/services/notice-handlers'
+import { useThemeMode } from '@/services/states'
+import getSystem from '@/utils/get-system'
+
+import { preloadPage } from './route-pages'
+
+import 'dayjs/locale/ru'
+import 'dayjs/locale/zh-cn'
+
+dayjs.extend(relativeTime)
+
+const OS = getSystem()
+const Layout = () => {
+  const mode = useThemeMode()
+  const isDark = mode !== 'light'
+  const { theme } = useCustomTheme()
+  const { verge } = useVerge()
+  const { language } = verge ?? {}
+  const navCollapsed = verge?.collapse_navbar ?? false
+  const { switchLanguage } = useI18n()
+  const navigate = useNavigate()
+  const themeReady = useMemo(() => Boolean(theme), [theme])
+  const showCustomTitlebar = verge?.enable_system_titlebar === false
+  const { maximized, setMaximized } = useWindowMaximized(showCustomTitlebar)
+
+  const customTitlebar = useMemo(
+    () =>
+      showCustomTitlebar ? (
+        <div className="the_titlebar">
+          <WindowControls maximized={maximized} setMaximized={setMaximized} />
+        </div>
+      ) : null,
+    [showCustomTitlebar, maximized, setMaximized],
+  )
+
+  useLoadingOverlay(themeReady)
+  useServiceCoreDrift()
+
+  const handleNotice = useCallback(
+    (payload: [string, string]) => {
+      const [status, msg] = payload
+      try {
+        handleNoticeMessage(status, msg, (path) =>
+          navigate(resolveNavigationPath(path)),
+        )
+      } catch (error) {
+        console.error('[通知处理] 失败:', error)
+      }
+    },
+    [navigate],
+  )
+
+  useEventBus(handleNotice)
+  usePendingFailures()
+
+  useEffect(() => {
+    if (language) {
+      dayjs.locale(language === 'zh' ? 'zh-cn' : language)
+      switchLanguage(language)
+    }
+  }, [language, switchLanguage])
+
+  if (!themeReady) {
+    const loadingSurfaces = resolveModeSurfaces(mode)
+    return (
+      <div
+        style={{
+          width: '100vw',
+          height: '100vh',
+          background: loadingSurfaces.loadingBackground,
+          transition: 'background 0.2s',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: loadingSurfaces.loadingText,
+        }}
+      ></div>
+    )
+  }
+
+  return (
+    <ThemeProvider theme={theme}>
+      {/* 左侧底部窗口控制按钮 */}
+      <NoticeManager position={verge?.notice_position} />
+      <ServiceMigrationDialog />
+      <SysproxyPrivilegeDialog />
+      <Paper
+        square
+        elevation={0}
+        className={`${OS} layout${showCustomTitlebar ? ' layout--custom-frame' : ' layout--native-frame'}${navCollapsed ? ' layout--nav-collapsed' : ''}`}
+        style={{
+          borderTopLeftRadius: '0px',
+          borderTopRightRadius: '0px',
+        }}
+        onContextMenu={(e) => {
+          if (
+            OS === 'windows' &&
+            !['input', 'textarea'].includes(
+              e.currentTarget.tagName.toLowerCase(),
+            ) &&
+            !e.currentTarget.isContentEditable
+          ) {
+            e.preventDefault()
+          }
+        }}
+        sx={[
+          ({ palette }) => ({ bgcolor: palette.background.paper }),
+          OS === 'linux'
+            ? {
+                borderRadius: '8px',
+                width: '100vw',
+                height: '100vh',
+              }
+            : {},
+        ]}
+      >
+        {showCustomTitlebar && <WindowResizeHandles maximized={maximized} />}
+
+        {/* Custom titlebar - rendered only when the system titlebar is not preferred, memoized for performance */}
+        {customTitlebar}
+
+        <div className="layout-content">
+          <LayoutSidebar
+            isDark={isDark}
+            isCollapsed={navCollapsed}
+            preloadPage={preloadPage}
+          />
+
+          <div className="layout-content__right">
+            <div className="the-content">
+              <BaseErrorBoundary>
+                <Outlet />
+              </BaseErrorBoundary>
+            </div>
+          </div>
+        </div>
+      </Paper>
+    </ThemeProvider>
+  )
+}
+
+export default Layout

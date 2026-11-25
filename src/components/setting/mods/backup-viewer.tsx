@@ -9,7 +9,7 @@ import {
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { useLockFn } from 'ahooks'
 import type { ReactNode, Ref } from 'react'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useImperativeHandle, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BaseDialog, DialogRef } from '@/components/base'
@@ -22,8 +22,6 @@ import {
 import { mutate } from '@/services/mutate'
 import { errorDetail, showNotice } from '@/services/notice-service'
 import { buildWebdavSignature, setWebdavStatus } from '@/services/webdav-status'
-
-import { useSettingDialog } from '../settings-search-context'
 
 import { AutoBackupSettings } from './auto-backup-settings'
 import { BackupHistoryViewer } from './backup-history-viewer'
@@ -41,18 +39,9 @@ export function BackupViewer({ ref }: { ref?: Ref<DialogRef> }) {
   const [historySource, setHistorySource] = useState<BackupSource>('local')
   const [historyPage, setHistoryPage] = useState(0)
   const [webdavDialogOpen, setWebdavDialogOpen] = useState(false)
-  const searchParentRef = useRef<'webdav' | 'history' | null>(null)
-  const closeSearchDetail = (detail: 'webdav' | 'history') => {
-    if (detail === 'webdav') setWebdavDialogOpen(false)
-    else setHistoryOpen(false)
-    if (searchParentRef.current === detail) {
-      searchParentRef.current = null
-      setOpen(false)
-    }
-  }
   const webdavSignature = buildWebdavSignature(verge)
 
-  useSettingDialog(ref, 'backup-viewer', open, () => ({
+  useImperativeHandle(ref, () => ({
     open: () => setOpen(true),
     close: () => setOpen(false),
   }))
@@ -62,23 +51,6 @@ export function BackupViewer({ ref }: { ref?: Ref<DialogRef> }) {
     setHistoryPage(0)
     setHistoryOpen(true)
   }
-
-  useSettingDialog(undefined, 'backup-webdav', webdavDialogOpen, () => ({
-    open: () => {
-      if (!open) searchParentRef.current = 'webdav'
-      setOpen(true)
-      setWebdavDialogOpen(true)
-    },
-    close: () => setWebdavDialogOpen(false),
-  }))
-  useSettingDialog(undefined, 'backup-history', historyOpen, () => ({
-    open: () => {
-      if (!open) searchParentRef.current = 'history'
-      setOpen(true)
-      openHistory('local')
-    },
-    close: () => setHistoryOpen(false),
-  }))
 
   const handleBackup = useLockFn(async (target: BackupSource) => {
     try {
@@ -157,7 +129,6 @@ export function BackupViewer({ ref }: { ref?: Ref<DialogRef> }) {
       onCancel={() => setOpen(false)}
       onClose={() => setOpen(false)}
     >
-      <span data-settings-dialog="backup-viewer" />
       <Stack spacing={2}>
         <Stack
           spacing={1}
@@ -195,7 +166,6 @@ export function BackupViewer({ ref }: { ref?: Ref<DialogRef> }) {
                   description: t('settings.modals.backup.manual.local'),
                   actions: [
                     <Button
-                      data-setting-target="settings.modals.backup.actions.backup"
                       key="backup"
                       variant="contained"
                       size="small"
@@ -206,7 +176,6 @@ export function BackupViewer({ ref }: { ref?: Ref<DialogRef> }) {
                       {t('settings.modals.backup.actions.backup')}
                     </Button>,
                     <Button
-                      data-setting-target="settings.modals.backup.actions.viewHistory"
                       key="history"
                       variant="outlined"
                       size="small"
@@ -216,7 +185,6 @@ export function BackupViewer({ ref }: { ref?: Ref<DialogRef> }) {
                       {t('settings.modals.backup.actions.viewHistory')}
                     </Button>,
                     <Button
-                      data-setting-target="settings.modals.backup.actions.importBackup"
                       key="import"
                       variant="text"
                       size="small"
@@ -295,11 +263,11 @@ export function BackupViewer({ ref }: { ref?: Ref<DialogRef> }) {
         page={historyPage}
         onSourceChange={setHistorySource}
         onPageChange={setHistoryPage}
-        onClose={() => closeSearchDetail('history')}
+        onClose={() => setHistoryOpen(false)}
       />
       <BackupWebdavDialog
         open={webdavDialogOpen}
-        onClose={() => closeSearchDetail('webdav')}
+        onClose={() => setWebdavDialogOpen(false)}
         onBackupSuccess={() => openHistory('webdav')}
         setBusy={setWebdavBusy}
       />

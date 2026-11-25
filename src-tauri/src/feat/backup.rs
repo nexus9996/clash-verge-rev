@@ -9,17 +9,20 @@ use crate::{
 };
 use anyhow::{Result, anyhow};
 use chrono::Utc;
-use clash_verge_logging::{Type, logging};
+use clash_verge_logging::{Type, logging, logging_error};
 use reqwest_dav::list_cmd::ListFile;
 use serde::Serialize;
+use smartstring::alias::String;
 use std::path::PathBuf;
 use tokio::fs;
-use tristr::alias::String;
 
 #[derive(Debug, Serialize, specta::Type)]
 pub struct LocalBackupFile {
+    #[specta(type = std::string::String)]
     pub filename: String,
+    #[specta(type = std::string::String)]
     pub path: String,
+    #[specta(type = std::string::String)]
     pub last_modified: String,
     pub content_length: u64,
 }
@@ -30,8 +33,6 @@ async fn finalize_restored_verge_config(
     webdav_username: Option<String>,
     webdav_password: Option<String>,
 ) -> Result<()> {
-    let config_write = Config::lock_config_write().await;
-
     // A broken restored `verge.yaml` is a restore failure, not a reason to load defaults.
     let mut restored = help::read_yaml::<IVerge>(&verge_path()?).await?;
     restored.webdav_url = webdav_url;
@@ -42,41 +43,42 @@ async fn finalize_restored_verge_config(
     let restored_clash = IClashTemp::new().await;
     let clash_draft = Config::clash().await;
     clash_draft.edit_draft(|d| {
-        *d = restored_clash;
+        *d = restored_clash.clone();
     });
     clash_draft.apply();
 
     let restored_profiles = IProfiles::new().await;
     let profiles_draft = Config::profiles().await;
     profiles_draft.edit_draft(|d| {
-        *d = restored_profiles;
+        *d = restored_profiles.clone();
     });
     profiles_draft.apply();
 
     let verge_draft = Config::verge().await;
-    verge_draft.edit_draft(|d| {
-        *d = restored.clone();
-    });
-    verge_draft.apply();
+    {
+        // Hold the write lock so a concurrent patch cannot stage a draft the proxy write reads.
+        let _config_write = Config::lock_config_write().await;
+        verge_draft.edit_draft(|d| {
+            *d = restored.clone();
+        });
+        verge_draft.apply();
 
-    // Turn it off here; a failing core side effect below would otherwise skip this step.
-    if !restored.enable_system_proxy.unwrap_or_default() {
-        let result = async {
-            let _lifecycle = CoreManager::global().lifecycle_lock.lock().await;
-            proxy_control::apply().await?;
-            proxy_control::refresh_guard().await
-        }
-        .await;
-        if let Err(err) = result {
-            logging!(error, Type::Backup, "Failed to turn the system proxy off: {err:#}");
-            if SystemProxyStateUnknown::is_in(&err) {
-                return Err(err);
+        // Turn it off here; a failing core side effect below would otherwise skip this step.
+        if !restored.enable_system_proxy.unwrap_or_default() {
+            let result = async {
+                let _lifecycle = CoreManager::global().lifecycle_lock.lock().await;
+                proxy_control::apply().await?;
+                proxy_control::refresh_guard().await
+            }
+            .await;
+            if let Err(err) = result {
+                logging!(error, Type::Backup, "Failed to turn the system proxy off: {err:#}");
+                if SystemProxyStateUnknown::is_in(&err) {
+                    return Err(err);
+                }
             }
         }
     }
-
-    // `patch_verge` re-acquires the configuration write lock.
-    drop(config_write);
 
     // Run configuration side effects without rewriting the already-restored file.
     if let Err(err) = super::patch_verge(&restored, true).await {
@@ -86,6 +88,7 @@ async fn finalize_restored_verge_config(
             return Err(err);
         }
     }
+    logging_error!(Type::Config, Config::sync_dns_override().await);
     Ok(())
 }
 
@@ -120,7 +123,7 @@ pub async fn list_wevdav_backup() -> Result<Vec<ListFile>> {
 }
 
 pub async fn delete_webdav_backup(filename: String) -> Result<()> {
-    let name = filename.clone();
+    let name = filename.to_string();
     backup::WebDavClient::global().delete(filename).await.map_err(|err| {
         logging!(
             error,
@@ -131,38 +134,18 @@ pub async fn delete_webdav_backup(filename: String) -> Result<()> {
     })
 }
 
-/// Backup creation strips the WebDAV credentials, so the live ones are kept.
-async fn restore_backup_archive(path: PathBuf) -> Result<()> {
-    let (webdav_url, webdav_username, webdav_password) = {
-        let verge = Config::verge().await;
-        let verge = verge.latest_arc();
-        (
-            verge.webdav_url.clone(),
-            verge.webdav_username.clone(),
-            verge.webdav_password.clone(),
-        )
-    };
-
-    let home_dir = app_home_dir()?;
-    AsyncHandler::spawn_blocking(move || -> Result<()> {
-        let file = std::fs::File::open(&path)?;
-        let mut zip = zip::ZipArchive::new(file)?;
-        zip.extract(&home_dir)?;
-        Ok(())
-    })
-    .await
-    .map_err(|join| anyhow!("backup extraction task failed: {join}"))??;
-
-    let _profile_write = crate::config::profiles::PROFILE_WRITE_LOCK.lock().await;
-    finalize_restored_verge_config(webdav_url, webdav_username, webdav_password).await
-}
-
 #[tracing::instrument(skip_all, level = "info", fields(filename = %filename))]
 pub async fn restore_webdav_backup(filename: String) -> Result<()> {
+    let verge = Config::verge().await;
+    let verge_data = verge.latest_arc();
+    let webdav_url = verge_data.webdav_url.clone();
+    let webdav_username = verge_data.webdav_username.clone();
+    let webdav_password = verge_data.webdav_password.clone();
+
     let backup_storage_path = app_home_dir()
         .map_err(|e| anyhow::anyhow!("Failed to get app home dir: {e}"))?
         .join(filename.as_str());
-    let name = filename.clone();
+    let name = filename.to_string();
     backup::WebDavClient::global()
         .download(filename, backup_storage_path.clone())
         .await
@@ -175,9 +158,23 @@ pub async fn restore_webdav_backup(filename: String) -> Result<()> {
             err
         })?;
 
-    let res = restore_backup_archive(backup_storage_path.clone()).await;
+    let _profile_write = crate::config::profiles::PROFILE_WRITE_LOCK.lock().await;
+    extract_backup(backup_storage_path.clone()).await?;
+    let res = finalize_restored_verge_config(webdav_url, webdav_username, webdav_password).await;
     let _ = backup_storage_path.remove_if_exists().await;
     res
+}
+
+async fn extract_backup(zip_path: PathBuf) -> Result<()> {
+    let target = app_home_dir()?;
+    AsyncHandler::spawn_blocking(move || {
+        let file = std::fs::File::open(zip_path)?;
+        let mut zip = zip::ZipArchive::new(file)?;
+        zip.extract(target)?;
+        Ok(())
+    })
+    .await
+    .map_err(|join| anyhow!("backup extraction task failed: {join}"))?
 }
 
 pub async fn create_local_backup() -> Result<()> {
@@ -232,7 +229,8 @@ pub async fn import_local_backup(source: String) -> Result<String> {
     let ext = source_path
         .extension()
         .and_then(|ext| ext.to_str())
-        .map_or_default(|ext| ext.to_ascii_lowercase());
+        .map(|ext| ext.to_ascii_lowercase())
+        .unwrap_or_default();
     if ext != "zip" {
         return Err(anyhow!("Only .zip backup files are supported"));
     }
@@ -310,7 +308,8 @@ pub async fn list_local_backup() -> Result<Vec<LocalBackupFile>> {
         };
         let last_modified = metadata
             .modified()
-            .map_or_default(|time| chrono::DateTime::<Utc>::from(time).to_rfc3339());
+            .map(|time| chrono::DateTime::<Utc>::from(time).to_rfc3339())
+            .unwrap_or_default();
         backups.push(LocalBackupFile {
             filename: file_name.into(),
             path: path.to_string_lossy().into(),
@@ -342,7 +341,20 @@ pub async fn restore_local_backup(filename: String) -> Result<()> {
         return Err(anyhow!("Backup file not found: {}", filename));
     }
 
-    restore_backup_archive(target_path).await
+    let (webdav_url, webdav_username, webdav_password) = {
+        let verge = Config::verge().await;
+        let verge = verge.latest_arc();
+        (
+            verge.webdav_url.clone(),
+            verge.webdav_username.clone(),
+            verge.webdav_password.clone(),
+        )
+    };
+
+    let _profile_write = crate::config::profiles::PROFILE_WRITE_LOCK.lock().await;
+    extract_backup(target_path).await?;
+    finalize_restored_verge_config(webdav_url, webdav_username, webdav_password).await?;
+    Ok(())
 }
 
 #[tracing::instrument(skip_all, level = "info", fields(filename = %filename, destination = %destination))]

@@ -1,31 +1,65 @@
 use super::CmdResult;
-use crate::{cmd::StringifyErr as _, config::Config, core::CoreManager, utils::yaml_emitter};
+use crate::{
+    cmd::StringifyErr as _,
+    config::{Config, runtime::IRuntime},
+    core::CoreManager,
+    utils::yaml_emitter,
+};
 use anyhow::{Context as _, anyhow};
+use clash_verge_draft::SharedDraft;
+use serde::ser::SerializeMap as _;
+use smartstring::alias::String;
 use std::collections::HashMap;
-use tristr::alias::String;
 
-#[tauri::command]
-#[specta::specta]
-pub async fn get_runtime_config() -> CmdResult<Option<crate::ipc::YamlMapping>> {
-    Ok(Config::runtime()
-        .await
-        .latest_arc()
-        .config
-        .clone()
-        .map(crate::ipc::YamlMapping))
+/// Bulky sections the frontend reads from mihomo APIs instead of Runtime Config.
+const IPC_OMITTED_KEYS: &[&str] = &["rules", "rule-providers", "proxy-providers", "proxy-groups"];
+
+/// Serializes only the runtime config the frontend consumes, borrowing the committed snapshot.
+#[derive(specta::Type)]
+#[specta(inline, type = crate::ipc::YamlMapping)]
+pub struct RuntimeConfigView(SharedDraft<IRuntime>);
+
+impl serde::Serialize for RuntimeConfigView {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let Some(config) = self.0.config.as_ref() else {
+            return serializer.serialize_none();
+        };
+        let mut map = serializer.serialize_map(Some(config.len().saturating_sub(IPC_OMITTED_KEYS.len())))?;
+        for (key, value) in config {
+            if key.as_str().is_some_and(|key| IPC_OMITTED_KEYS.contains(&key)) {
+                continue;
+            }
+            map.serialize_entry(key, value)?;
+        }
+        map.end()
+    }
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn get_runtime_yaml() -> CmdResult<std::string::String> {
-    let runtime = Config::runtime().await;
-    let runtime = runtime.latest_arc();
+#[tracing::instrument(name = "ipc_get_runtime_config", skip_all, level = "debug")]
+pub async fn get_runtime_config() -> CmdResult<Option<RuntimeConfigView>> {
+    let runtime = Config::runtime().await.latest_arc();
+    if runtime.config.is_none() {
+        return Ok(None);
+    }
+    Ok(Some(RuntimeConfigView(runtime)))
+}
 
-    let config = runtime.config.as_ref();
-    config
-        .ok_or_else(|| anyhow!("failed to parse config to yaml file"))
-        .and_then(|config| yaml_emitter::to_mihomo_config_string(config).context("failed to convert config to yaml"))
-        .stringify_err()
+#[tauri::command]
+#[specta::specta]
+#[tracing::instrument(name = "ipc_get_runtime_yaml", skip_all, level = "debug")]
+pub async fn get_runtime_yaml() -> CmdResult<std::string::String> {
+    let yaml = Config::runtime_config_yaml().await.stringify_err()?;
+
+    crate::process::AsyncHandler::spawn_blocking(move || {
+        let body = Config::runtime_yaml_body(&yaml);
+        Ok::<_, anyhow::Error>(yaml_emitter::to_mihomo_config_string_from_yaml(body))
+    })
+    .await
+    .map_err(|join| anyhow!("runtime yaml task failed: {join}"))
+    .and_then(|result| result)
+    .stringify_err()
 }
 
 #[tauri::command]
@@ -36,7 +70,10 @@ pub async fn get_runtime_logs() -> CmdResult<RuntimeLogs> {
 
 #[derive(serde::Serialize, specta::Type)]
 #[serde(transparent)]
-pub struct RuntimeLogs(HashMap<String, Vec<(String, String)>>);
+pub struct RuntimeLogs(
+    #[specta(type = HashMap<std::string::String, Vec<(std::string::String, std::string::String)>>)]
+    HashMap<String, Vec<(String, String)>>,
+);
 
 #[tauri::command]
 #[specta::specta]
@@ -92,6 +129,37 @@ pub async fn get_runtime_proxy_chain_config(
             .stringify_err()
     } else {
         Err("failed to get proxies or proxy-groups".into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{IPC_OMITTED_KEYS, RuntimeConfigView};
+    use crate::config::runtime::IRuntime;
+    use serde_yaml_ng::{Mapping, Value};
+    use std::sync::Arc;
+
+    #[test]
+    fn runtime_config_view_omits_only_bulk_sections() -> anyhow::Result<()> {
+        let mut config = Mapping::new();
+        config.insert("mode".into(), Value::from("rule"));
+        config.insert("proxies".into(), Value::Sequence(Vec::new()));
+        for key in IPC_OMITTED_KEYS {
+            config.insert((*key).into(), Value::Sequence(Vec::new()));
+        }
+
+        let runtime = Arc::new(Box::new(IRuntime {
+            config: Some(config),
+            ..IRuntime::default()
+        }));
+        let value = serde_json::to_value(RuntimeConfigView(runtime))?;
+
+        assert_eq!(value["mode"], serde_json::json!("rule"));
+        assert!(value.get("proxies").is_some());
+        for key in IPC_OMITTED_KEYS {
+            assert!(value.get(*key).is_none(), "{key} must stay out of the IPC payload");
+        }
+        Ok(())
     }
 }
 

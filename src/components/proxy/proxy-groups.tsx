@@ -23,7 +23,9 @@ import { useProfiles } from '@/hooks/use-profiles'
 import { useProxySelection } from '@/hooks/use-proxy-selection'
 import { useVerge } from '@/hooks/use-verge'
 import { useProxiesData, useSystemData } from '@/providers/app-data-context'
+import { syncTrayProxySelection } from '@/services/cmds'
 import delayManager from '@/services/delay'
+import { mutate } from '@/services/mutate'
 import {
   isInteractableMember,
   resolveMember,
@@ -32,7 +34,6 @@ import {
 } from '@/types/proxy-view'
 import { debugLog } from '@/utils/debug'
 
-import type { ProxyChainItem } from './proxy-chain-model'
 import { ProxyEmptyState } from './proxy-empty-state'
 import {
   resolveEmptyListReason,
@@ -60,23 +61,6 @@ const ProxyGroupsChain = lazy(() =>
   })),
 )
 
-const SCROLL_POSITIONS_KEY = 'proxy-scroll-positions'
-type ScrollPositions = Record<string, number>
-let scrollPositionsCache: ScrollPositions | undefined
-
-// Scroll handling runs per frame and is throttled to 500ms writes; keep the
-// parsed object so saves do not re-read and re-parse localStorage each time.
-const readScrollPositions = (): ScrollPositions | undefined => {
-  if (scrollPositionsCache) return scrollPositionsCache
-  try {
-    const raw = localStorage.getItem(SCROLL_POSITIONS_KEY)
-    if (raw) scrollPositionsCache = JSON.parse(raw) as ScrollPositions
-  } catch (e) {
-    console.error('Error restoring scroll position:', e)
-  }
-  return scrollPositionsCache
-}
-
 function useStableCallback<T extends (...args: any[]) => any>(fn: T): T {
   const ref = useRef(fn)
   ref.current = fn
@@ -86,8 +70,7 @@ function useStableCallback<T extends (...args: any[]) => any>(fn: T): T {
 interface Props {
   mode: string
   isChainMode?: boolean
-  chainConfigItems?: ProxyChainItem[] | null
-  onExitChainMode: () => void
+  chainConfigData?: string | null
 }
 
 function useEmptyRenderList() {
@@ -161,18 +144,25 @@ function useProxyRenderState(
         console.error(`[ProxyGroups] 延迟测试出错，组: ${groupName}`, error)
       } finally {
         onProxies()
+        mutate(() => syncTrayProxySelection(), {
+          id: 'sync-tray-selection',
+          errorNotice: false,
+        }).catch((error) => {
+          console.error('[ProxyGroups] Failed to sync tray latency:', error)
+        })
       }
     }),
   )
 
   const saveScrollPosition = useCallback(
     (scrollTop: number) => {
-      const scrollPositions = readScrollPositions() ?? {}
+      const scrollPositions = localStorage.getItem('proxy-scroll-positions')
+        ? JSON.parse(localStorage.getItem('proxy-scroll-positions') ?? '{}')
+        : {}
       scrollPositions[scrollPositionKey] = scrollTop
-      scrollPositionsCache = scrollPositions
       try {
         localStorage.setItem(
-          SCROLL_POSITIONS_KEY,
+          'proxy-scroll-positions',
           JSON.stringify(scrollPositions),
         )
       } catch (e) {
@@ -183,10 +173,15 @@ function useProxyRenderState(
   )
 
   const getScrollPosition = useCallback(() => {
-    const savedPositions = readScrollPositions()
-    if (savedPositions) {
-      const savedPosition = savedPositions[scrollPositionKey]
-      return savedPosition ?? 0
+    try {
+      const savedPositions = localStorage.getItem('proxy-scroll-positions')
+      if (savedPositions) {
+        const positions = JSON.parse(savedPositions)
+        const savedPosition = positions[scrollPositionKey]
+        return savedPosition ?? 0
+      }
+    } catch (e) {
+      console.error('Error restoring scroll position:', e)
     }
   }, [scrollPositionKey])
 
@@ -195,7 +190,6 @@ function useProxyRenderState(
     renderList,
     onProxies,
     onHeadState,
-    setHeadState: setListHeadState,
     handleCheckAll,
     saveScrollPosition,
     getScrollPosition,
@@ -204,10 +198,9 @@ function useProxyRenderState(
 
 function ChainProxyGroups(props: {
   mode: string
-  chainConfigItems?: ProxyChainItem[] | null
-  onExitChainMode: () => void
+  chainConfigData?: string | null
 }) {
-  const { mode, chainConfigItems, onExitChainMode } = props
+  const { mode, chainConfigData } = props
   const { proxyView } = useProxiesData()
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
 
@@ -251,13 +244,9 @@ function ChainProxyGroups(props: {
 
   const rangeExtractor = useCallback(
     (range: Parameters<typeof defaultRangeExtractor>[0]) => {
-      let activeStickyIndex: number | undefined
-      for (let i = stickyGroupIndexes.length - 1; i >= 0; i--) {
-        if (stickyGroupIndexes[i] <= range.startIndex) {
-          activeStickyIndex = stickyGroupIndexes[i]
-          break
-        }
-      }
+      const activeStickyIndex = [...stickyGroupIndexes]
+        .reverse()
+        .find((index) => index <= range.startIndex)
       activeStickyIndexRef.current = activeStickyIndex ?? null
 
       const indexes = defaultRangeExtractor(range)
@@ -339,20 +328,16 @@ function ChainProxyGroups(props: {
     scrollTopRef.current = 0
   }, [])
 
-  const handleLocation = useStableCallback((groupName: string) => {
-    // Flat (type 1) headers such as GLOBAL carry the same live group.
-    const headerIndex = renderList.findIndex(
-      (e) => (e.type === 0 || e.type === 1) && e.group?.name === groupName,
-    )
-    const now = renderList[headerIndex]?.group?.now
-    if (!now) return
+  const handleLocation = useStableCallback((group: ProxyGroupView) => {
+    if (!group) return
+    const { name, now } = group
 
     const index = renderList.findIndex(
-      (e) =>
-        e.group?.name === groupName &&
-        ((e.type === 2 && e.member?.member.ref.name === now) ||
-          (e.type === 4 &&
-            e.memberCol?.some(({ member }) => member.ref.name === now))),
+      (item) =>
+        item.group?.name === name &&
+        ((item.type === 2 && item.member?.member.ref.name === now) ||
+          (item.type === 4 &&
+            item.memberCol?.some(({ member }) => member.ref.name === now))),
     )
 
     if (index >= 0) {
@@ -369,8 +354,7 @@ function ChainProxyGroups(props: {
     <Suspense fallback={<BaseLoading />}>
       <ProxyGroupsChain
         mode={mode}
-        chainConfigItems={chainConfigItems}
-        onExitChainMode={onExitChainMode}
+        chainConfigData={chainConfigData}
         availableGroups={availableGroups}
         activeSelectedGroup={activeSelectedGroup}
         showScrollTop={showScrollTop}
@@ -398,17 +382,12 @@ function NormalProxyGroups(props: { mode: string }) {
     renderList,
     onProxies,
     onHeadState,
-    setHeadState,
     handleCheckAll,
     getScrollPosition,
     saveScrollPosition,
   } = useProxyRenderState(mode, false, null)
   const emptyList = useEmptyRenderList()
   const { onDragEnd: onHeaderDragEnd } = useProxyGroupHeaderLayout()
-  const { proxyView } = useProxiesData()
-  const globalGroupName = proxyView?.global?.name
-  // The revealed group sits below GLOBAL's rows, so a click must bring it into view.
-  const pendingRevealRef = useRef<string | null>(null)
   const renderFirstRef = useRef(true)
   // Do not persist intermediate positions produced while restoring virtual scroll.
   const isRestoringRef = useRef(false)
@@ -488,44 +467,33 @@ function NormalProxyGroups(props: { mode: string }) {
     }
   }, [handleScroll])
 
-  const onSelectionError = useCallback(
-    (error: unknown) => {
+  const { handleProxyGroupChange } = useProxySelection({
+    onSuccess: () => {
+      onProxies()
+    },
+    onError: (error) => {
       console.error('代理切换失败', error)
       onProxies()
     },
-    [onProxies],
-  )
-  const { select } = useProxySelection({ onError: onSelectionError })
+  })
 
   const handleChangeProxy = useCallback(
     (group: ProxyGroupView, member: ResolvedProxyMember) => {
       if (!['Selector', 'URLTest', 'Fallback'].includes(group.type)) return
       if (!isInteractableMember(member)) return
 
-      if (group.name === globalGroupName) {
-        pendingRevealRef.current =
-          member.kind === 'group' ? member.ref.name : null
-        // The backend selection event refreshes the view.
-        if (member.kind === 'group') {
-          setHeadState(member.ref.name, { open: true })
-        }
-      }
-      select(group.name, member.ref.name, group.fixed!)
+      handleProxyGroupChange(group, { name: member.ref.name })
     },
-    [globalGroupName, select, setHeadState],
+    [handleProxyGroupChange],
   )
 
-  const handleLocation = useStableCallback((groupName: string) => {
-    // Flat (type 1) headers such as GLOBAL carry the same live group.
-    const headerIndex = renderList.findIndex(
-      (e) => (e.type === 0 || e.type === 1) && e.group?.name === groupName,
-    )
-    const now = renderList[headerIndex]?.group?.now
-    if (!now) return
+  const handleLocation = useStableCallback((group: ProxyGroupView) => {
+    if (!group) return
+    const { name, now } = group
 
     const index = renderList.findIndex(
       (e) =>
-        e.group?.name === groupName &&
+        e.group?.name === name &&
         ((e.type === 2 && e.member?.member.ref.name === now) ||
           (e.type === 4 &&
             e.memberCol?.some(({ member }) => member.ref.name === now))),
@@ -539,20 +507,21 @@ function NormalProxyGroups(props: { mode: string }) {
     }
   })
 
-  // Stable identity: this feeds the sticky-header render callback; a
-  // [renderList] dep would re-create it on every list rebuild.
-  const handleGroupLocationByName = useStableCallback((groupName: string) => {
-    const index = renderList.findIndex(
-      (item) => item.type === 0 && item.group?.name === groupName,
-    )
+  const handleGroupLocationByName = useCallback(
+    (groupName: string) => {
+      const index = renderList.findIndex(
+        (item) => item.type === 0 && item.group?.name === groupName,
+      )
 
-    if (index >= 0) {
-      stickyListRef.current?.scrollToIndex(index, {
-        align: 'start',
-        behavior: 'smooth',
-      })
-    }
-  })
+      if (index >= 0) {
+        stickyListRef.current?.scrollToIndex(index, {
+          align: 'start',
+          behavior: 'smooth',
+        })
+      }
+    },
+    [renderList],
+  )
 
   const proxyGroupNames = useMemo(() => {
     const names = renderList
@@ -560,17 +529,6 @@ function NormalProxyGroups(props: { mode: string }) {
       .map((item) => item.group!.name)
     return Array.from(new Set(names))
   }, [renderList])
-
-  useEffect(() => {
-    if (mode !== 'global') {
-      pendingRevealRef.current = null
-      return
-    }
-    const groupName = pendingRevealRef.current
-    if (!groupName || !proxyGroupNames.includes(groupName)) return
-    pendingRevealRef.current = null
-    handleGroupLocationByName(groupName)
-  }, [handleGroupLocationByName, mode, proxyGroupNames])
 
   const handleGroupToggle = useCallback(
     async (group: ProxyGroupView) => {
@@ -593,17 +551,6 @@ function NormalProxyGroups(props: { mode: string }) {
     [renderList],
   )
 
-  const onStickyHeadState = useCallback(
-    async (groupName: string, patch: Partial<HeadState>) => {
-      if (patch.filterText !== undefined) {
-        handleGroupLocationByName(groupName)
-        await stickyListRef.current?.waitForScrollEnd()
-      }
-      onHeadState(groupName, patch)
-    },
-    [handleGroupLocationByName, onHeadState],
-  )
-
   const renderGroupItem = useCallback(
     (item: IRenderItem, _index: number, stickyed: boolean) => (
       <ProxyRender
@@ -611,7 +558,13 @@ function NormalProxyGroups(props: { mode: string }) {
         stickyed={stickyed}
         onLocation={handleLocation}
         onCheckAll={handleCheckAll}
-        onHeadState={stickyed ? onStickyHeadState : onHeadState}
+        onHeadState={async (groupName, patch) => {
+          if (stickyed && patch.filterText !== undefined) {
+            handleGroupLocationByName(groupName)
+            await stickyListRef.current?.waitForScrollEnd()
+          }
+          onHeadState(groupName, patch)
+        }}
         onChangeProxy={handleChangeProxy}
         onGroupToggle={handleGroupToggle}
       />
@@ -622,7 +575,7 @@ function NormalProxyGroups(props: { mode: string }) {
       onHeadState,
       handleLocation,
       handleGroupToggle,
-      onStickyHeadState,
+      handleGroupLocationByName,
     ],
   )
 
@@ -673,7 +626,7 @@ function NormalProxyGroups(props: { mode: string }) {
 }
 
 export const ProxyGroups = (props: Props) => {
-  const { mode, isChainMode = false, chainConfigItems, onExitChainMode } = props
+  const { mode, isChainMode = false, chainConfigData } = props
   const { profiles, isLoading: isProfilesLoading } = useProfiles()
   const { isProxyViewPending } = useProxiesData()
   const { isRunningModePending } = useSystemData()
@@ -695,11 +648,7 @@ export const ProxyGroups = (props: Props) => {
       return <ProxyEmptyState reason={listState.reason} />
     case 'render':
       return isChainMode ? (
-        <ChainProxyGroups
-          mode={mode}
-          chainConfigItems={chainConfigItems}
-          onExitChainMode={onExitChainMode}
-        />
+        <ChainProxyGroups mode={mode} chainConfigData={chainConfigData} />
       ) : (
         <NormalProxyGroups mode={mode} />
       )

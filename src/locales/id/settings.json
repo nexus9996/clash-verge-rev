@@ -231,7 +231,7 @@
       "layout": {
         "title": "Pengaturan Tata Letak",
         "fields": {
-          "preferSystemTitlebar": "Prefer System Titlebar",
+          "enableSystemTitlebar": "Aktifkan bilah judul sistem",
           "trafficGraph": "Grafik Lalu Lintas",
           "memoryUsage": "Penggunaan Memori",
           "proxyGroupIcon": "Ikon Grup Proksi",
@@ -251,6 +251,7 @@
           "pauseRenderTrafficStatsOnBlur": "Jeda render statistik lalu lintas saat jendela tidak fokus"
         },
         "tooltips": {
+          "enableSystemTitlebar": "Gunakan bilah judul asli sistem sebagai ganti bilah judul kustom bawaan (perlu mulai ulang di Linux).",
           "hoverNavigator": "Automatically scroll to the corresponding proxy group when hovering over alphabet letters",
           "hoverNavigatorDelay": "Delay before auto scrolling when hovering, in milliseconds"
         },
@@ -411,7 +412,6 @@
         "appLogMaxSize": "App Log Max Size",
         "appLogMaxCount": "App Log Max Count",
         "autoCloseConnections": "Tutup Koneksi Otomatis",
-        "autoSwitchSelectorGroup": "Alihkan Grup Select Otomatis",
         "autoCheckUpdate": "Periksa Pembaruan Otomatis",
         "enableBuiltinEnhanced": "Aktifkan Peningkatan Bawaan",
         "proxyLayoutColumns": "Kolom Tata Letak Proksi",
@@ -423,7 +423,6 @@
       },
       "tooltips": {
         "autoCloseConnections": "Hentikan koneksi yang sudah ada saat pemilihan grup proksi atau mode proksi berubah",
-        "autoSwitchSelectorGroup": "Dalam mode aturan, memilih node di grup yang tidak dilalui lalu lintas aturan juga mengalihkan grup select pertama yang memuatnya ke grup tersebut",
         "enableBuiltinEnhanced": "Penanganan kompatibilitas untuk file konfigurasi",
         "autoDelayDetection": "Secara berkala menguji latensi node saat ini di latar belakang",
         "defaultLatencyTest": "Digunakan hanya untuk pengujian permintaan klien HTTP dan tidak akan mempengaruhi file konfigurasi"
@@ -497,13 +496,11 @@
         "strictRoute": "Rute Ketat",
         "autoDetectInterface": "Deteksi Antarmuka Otomatis",
         "dnsHijack": "Pembajakan DNS",
-        "dnsMode": "Mode DNS",
         "mtu": "Unit Transmisi Maksimum",
         "autoRedirect": "Auto Redirect"
       },
       "tooltips": {
         "dnsHijack": "Please use , to separate multiple DNS servers",
-        "dnsMode": "Auto mempertahankan perilaku lama; hijack memerlukan Rute Ketat di Windows atau Auto Redirect di Linux",
         "autoRedirect": "Automatically configures nftables/iptables TCP redirects"
       },
       "messages": {
@@ -716,12 +713,5 @@
       "installing": "Memasang Layanan...",
       "uninstalling": "Uninstalling Service..."
     }
-  },
-  "search": {
-    "placeholder": "Cari pengaturan",
-    "clear": "Hapus pencarian",
-    "back": "Kembali ke hasil",
-    "results": "Hasil pencarian",
-    "empty": "Pengaturan tidak ditemukan"
   }
 }

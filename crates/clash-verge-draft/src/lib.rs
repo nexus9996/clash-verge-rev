@@ -102,7 +102,6 @@ impl<T: Clone> Draft<T> {
         let (local, original_arc) = {
             let guard = self.inner.data.lock();
             let arc = Arc::clone(&guard.0);
-            drop(guard);
             ((**arc).clone(), arc)
         };
         let (new_local, res) = f(local).await?;
@@ -113,7 +112,6 @@ impl<T: Clone> Draft<T> {
             ));
         }
         guard.0 = Arc::new(Box::new(new_local));
-        drop(guard);
         Ok(res)
     }
 
@@ -127,10 +125,7 @@ impl<T: Clone> Draft<T> {
     }
 
     #[inline]
-    async fn acquire_data_modify_permit(&self) -> DataModifyPermit<'_>
-    where
-        T: Send + Sync,
-    {
+    async fn acquire_data_modify_permit(&self) -> DataModifyPermit<'_> {
         for _ in 0..DATA_MODIFY_FAST_RETRY_YIELDS {
             if let Some(permit) = self.try_acquire_data_modify_permit() {
                 return permit;

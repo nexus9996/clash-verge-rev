@@ -539,16 +539,18 @@ fn bind_socket(claim: &BindClaim) -> io::Result<Socket> {
 }
 
 fn is_bind_conflict(error: &io::Error) -> bool {
+    if error.kind() == io::ErrorKind::AddrInUse {
+        return true;
+    }
+
     #[cfg(windows)]
     {
         use windows_sys::Win32::Networking::WinSock::WSAEACCES;
 
-        error.kind() == io::ErrorKind::AddrInUse || error.raw_os_error() == Some(WSAEACCES)
+        error.raw_os_error() == Some(WSAEACCES)
     }
     #[cfg(not(windows))]
-    {
-        error.kind() == io::ErrorKind::AddrInUse
-    }
+    false
 }
 
 #[cfg(windows)]

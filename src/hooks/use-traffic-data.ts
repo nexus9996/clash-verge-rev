@@ -32,13 +32,15 @@ export const useTrafficData = (options?: { enabled?: boolean }) => {
     graphData: { appendData },
   } = useTrafficMonitorEnhanced({ subscribe: false, enabled })
   const { response, refresh } = useMihomoWsSubscription<ITrafficItem>({
-    subscriptionKey: enabled ? 'getClashTraffic' : null,
+    storageKey: 'mihomo_traffic_date',
+    buildSubscriptKey: (date) => (enabled ? `getClashTraffic-${date}` : null),
     fallbackData: FALLBACK_TRAFFIC,
     connect: () => MihomoWebSocket.connect_traffic(),
     throttleMs: 200,
     setupHandlers: ({ next, scheduleReconnect }) => ({
       handleMessage: (data) => {
         if (data.startsWith('Websocket error')) {
+          next(data, FALLBACK_TRAFFIC)
           void scheduleReconnect()
           return
         }
@@ -49,8 +51,10 @@ export const useTrafficData = (options?: { enabled?: boolean }) => {
             return
           }
           appendData(parsed)
-          next(parsed)
-        } catch {}
+          next(null, parsed)
+        } catch (error) {
+          next(error, FALLBACK_TRAFFIC)
+        }
       },
     }),
   })

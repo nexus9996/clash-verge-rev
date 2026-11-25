@@ -99,7 +99,7 @@ impl IClashTemp {
                 "tauri://localhost",
                 "http://tauri.localhost",
                 // Only enable this in dev mode
-                #[cfg(debug_assertions)]
+                #[cfg(feature = "verge-dev")]
                 "http://localhost:3000",
                 "https://yacd.metacubex.one",
                 "https://metacubex.github.io",
@@ -184,41 +184,84 @@ impl IClashTemp {
             _ => None,
         })
     }
-    fn guard_port_value(config: &Mapping, key: &str, default: u16) -> u16 {
+    #[cfg(not(target_os = "windows"))]
+    fn guard_redir_port(config: &Mapping) -> u16 {
         let mut port = config
-            .get(key)
+            .get("redir-port")
             .and_then(|value| match value {
                 Value::String(val_str) => val_str.parse().ok(),
                 Value::Number(val_num) => val_num.as_u64().map(|u| u as u16),
                 _ => None,
             })
-            .unwrap_or(default);
+            .unwrap_or(7895);
         if port == 0 {
-            port = default;
+            port = 7895;
         }
         port
     }
 
-    #[cfg(not(target_os = "windows"))]
-    fn guard_redir_port(config: &Mapping) -> u16 {
-        Self::guard_port_value(config, "redir-port", network::ports::DEFAULT_REDIR)
-    }
-
     #[cfg(target_os = "linux")]
     fn guard_tproxy_port(config: &Mapping) -> u16 {
-        Self::guard_port_value(config, "tproxy-port", network::ports::DEFAULT_TPROXY)
+        let mut port = config
+            .get("tproxy-port")
+            .and_then(|value| match value {
+                Value::String(val_str) => val_str.parse().ok(),
+                Value::Number(val_num) => val_num.as_u64().map(|u| u as u16),
+                _ => None,
+            })
+            .unwrap_or(network::ports::DEFAULT_TPROXY);
+        if port == 0 {
+            port = network::ports::DEFAULT_TPROXY;
+        }
+        port
     }
 
     fn guard_mixed_port(config: &Mapping) -> u16 {
-        Self::guard_port_value(config, "mixed-port", network::ports::DEFAULT_MIXED)
+        let raw_value = config.get("mixed-port");
+
+        let mut port = raw_value
+            .and_then(|value| match value {
+                Value::String(val_str) => val_str.parse().ok(),
+                Value::Number(val_num) => val_num.as_u64().map(|u| u as u16),
+                _ => None,
+            })
+            .unwrap_or(network::ports::DEFAULT_MIXED);
+
+        if port == 0 {
+            port = network::ports::DEFAULT_MIXED;
+        }
+
+        port
     }
 
     fn guard_socks_port(config: &Mapping) -> u16 {
-        Self::guard_port_value(config, "socks-port", network::ports::DEFAULT_SOCKS)
+        let mut port = config
+            .get("socks-port")
+            .and_then(|value| match value {
+                Value::String(val_str) => val_str.parse().ok(),
+                Value::Number(val_num) => val_num.as_u64().map(|u| u as u16),
+                _ => None,
+            })
+            .unwrap_or(7898);
+        if port == 0 {
+            port = 7898;
+        }
+        port
     }
 
     fn guard_port(config: &Mapping) -> u16 {
-        Self::guard_port_value(config, "port", network::ports::DEFAULT_HTTP)
+        let mut port = config
+            .get("port")
+            .and_then(|value| match value {
+                Value::String(val_str) => val_str.parse().ok(),
+                Value::Number(val_num) => val_num.as_u64().map(|u| u as u16),
+                _ => None,
+            })
+            .unwrap_or(7899);
+        if port == 0 {
+            port = 7899;
+        }
+        port
     }
 
     pub(super) fn guard_server_ctrl(config: &Mapping) -> String {
@@ -319,63 +362,4 @@ fn test_clash_info() {
     assert_eq!(get_case(8888, "192.168.1.1:8080"), get_result(8888, "192.168.1.1:8080"));
 
     assert_eq!(get_case(8888, "192.168.1.1:80800"), get_result(8888, "127.0.0.1:9097"));
-}
-
-#[derive(Default, Debug, Clone, Deserialize, Serialize, PartialEq, Eq, specta::Type)]
-#[serde(rename_all = "kebab-case")]
-pub struct IClashExternalControllerCors {
-    pub allow_origins: Option<Vec<String>>,
-    pub allow_private_network: Option<bool>,
-}
-
-#[derive(Default, Debug, Clone, Deserialize, Serialize, PartialEq, Eq, specta::Type)]
-#[serde(rename_all = "kebab-case")]
-pub struct IClash {
-    pub mixed_port: Option<u16>,
-    pub allow_lan: Option<bool>,
-    pub log_level: Option<String>,
-    pub ipv6: Option<bool>,
-    pub mode: Option<String>,
-    pub external_controller: Option<String>,
-    pub secret: Option<String>,
-    pub dns: Option<IClashDNS>,
-    pub tun: Option<IClashTUN>,
-    pub interface_name: Option<String>,
-    pub external_controller_cors: Option<IClashExternalControllerCors>,
-}
-
-#[derive(Default, Debug, Clone, Deserialize, Serialize, PartialEq, Eq, specta::Type)]
-#[serde(rename_all = "kebab-case")]
-pub struct IClashTUN {
-    pub enable: Option<bool>,
-    pub stack: Option<String>,
-    pub auto_route: Option<bool>,
-    pub auto_detect_interface: Option<bool>,
-    pub dns_hijack: Option<Vec<String>>,
-}
-
-#[derive(Default, Debug, Clone, Deserialize, Serialize, PartialEq, Eq, specta::Type)]
-#[serde(rename_all = "kebab-case")]
-pub struct IClashDNS {
-    pub enable: Option<bool>,
-    pub listen: Option<String>,
-    pub default_nameserver: Option<Vec<String>>,
-    pub enhanced_mode: Option<String>,
-    pub fake_ip_range: Option<String>,
-    pub fake_ip_range6: Option<String>,
-    pub use_hosts: Option<bool>,
-    pub fake_ip_filter: Option<Vec<String>>,
-    pub nameserver: Option<Vec<String>>,
-    pub fallback: Option<Vec<String>>,
-    pub fallback_filter: Option<IClashFallbackFilter>,
-    pub nameserver_policy: Option<Vec<String>>,
-}
-
-#[derive(Default, Debug, Clone, Deserialize, Serialize, PartialEq, Eq, specta::Type)]
-#[serde(rename_all = "kebab-case")]
-pub struct IClashFallbackFilter {
-    pub geoip: Option<bool>,
-    pub geoip_code: Option<String>,
-    pub ipcidr: Option<Vec<String>>,
-    pub domain: Option<Vec<String>>,
 }

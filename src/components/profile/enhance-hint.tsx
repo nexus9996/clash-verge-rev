@@ -1,5 +1,4 @@
 import { Alert, Box, Typography } from '@mui/material'
-import { useMemo } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 
 const stageHints = {
@@ -15,31 +14,26 @@ interface Props {
 
 export const EnhanceHint = ({ stage }: Props) => {
   const { t } = useTranslation()
-  // The component map identity changes only when the active stage changes.
-  const orderComponents = useMemo(
-    () =>
-      Object.fromEntries(
-        Object.keys(stageHints).map((key) => [
-          key,
-          <Box
-            key={key}
-            component={key === stage ? 'strong' : 'span'}
-            sx={
-              key === stage
-                ? {
-                    fontWeight: 'bold',
-                    color: 'primary.contrastText',
-                    bgcolor: 'primary.main',
-                    borderRadius: 0.5,
-                    px: 0.5,
-                    boxDecorationBreak: 'clone',
-                  }
-                : undefined
-            }
-          />,
-        ]),
-      ),
-    [stage],
+  const orderComponents = Object.fromEntries(
+    Object.keys(stageHints).map((key) => [
+      key,
+      <Box
+        key={key}
+        component={key === stage ? 'strong' : 'span'}
+        sx={
+          key === stage
+            ? {
+                fontWeight: 'bold',
+                color: 'primary.contrastText',
+                bgcolor: 'primary.main',
+                borderRadius: 0.5,
+                px: 0.5,
+                boxDecorationBreak: 'clone',
+              }
+            : undefined
+        }
+      />,
+    ]),
   )
 
   return (

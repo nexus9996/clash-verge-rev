@@ -40,47 +40,8 @@ impl LightweightState {
 
 static LIGHTWEIGHT_STATE: AtomicU8 = AtomicU8::new(LightweightState::Normal as u8);
 
-struct WindowListener {
-    handler_id: AtomicU32,
-    event: &'static str,
-    label: &'static str,
-}
-
-impl WindowListener {
-    fn setup(&self, on_event: impl Fn() + Send + 'static) {
-        if let Some(window) = WindowManager::get_main_window() {
-            let previous_handler_id = self.handler_id.swap(0, Ordering::AcqRel);
-            if previous_handler_id != 0 {
-                window.unlisten(previous_handler_id);
-                logging!(debug, Type::Lightweight, "覆盖旧的{}监听", self.label);
-            }
-            let handler_id = window.listen(self.event, move |_event| on_event());
-            self.handler_id.store(handler_id, Ordering::Release);
-        }
-    }
-
-    fn cancel(&self) {
-        let id = self.handler_id.swap(0, Ordering::AcqRel);
-        if id != 0 {
-            if let Some(window) = WindowManager::get_main_window() {
-                window.unlisten(id);
-            }
-            logging!(debug, Type::Lightweight, "取消了{}监听", self.label);
-        }
-    }
-}
-
-static WINDOW_CLOSE_LISTENER: WindowListener = WindowListener {
-    handler_id: AtomicU32::new(0),
-    event: "tauri://close-requested",
-    label: "窗口关闭",
-};
-
-static WEBVIEW_FOCUS_LISTENER: WindowListener = WindowListener {
-    handler_id: AtomicU32::new(0),
-    event: "tauri://focus",
-    label: "窗口焦点",
-};
+static WINDOW_CLOSE_HANDLER_ID: AtomicU32 = AtomicU32::new(0);
+static WEBVIEW_FOCUS_HANDLER_ID: AtomicU32 = AtomicU32::new(0);
 
 static CANCEL_TX: Mutex<Option<oneshot::Sender<()>>> = Mutex::new(None);
 
@@ -103,6 +64,36 @@ fn record_state_and_log(state: LightweightState) {
         LightweightState::Normal => logging!(info, Type::Lightweight, "轻量模式已关闭"),
         LightweightState::In => logging!(info, Type::Lightweight, "轻量模式已开启"),
         LightweightState::Exiting => logging!(info, Type::Lightweight, "正在退出轻量模式"),
+    }
+}
+
+/// Keeps the exit transition recoverable if an async exit is cancelled mid-flight.
+struct ExitTransition {
+    completed: bool,
+}
+
+impl ExitTransition {
+    fn begin() -> Option<Self> {
+        if !try_transition(LightweightState::In, LightweightState::Exiting) {
+            return None;
+        }
+        record_state_and_log(LightweightState::Exiting);
+        Some(Self { completed: false })
+    }
+
+    fn complete(mut self) {
+        self.completed = true;
+        record_state_and_log(LightweightState::Normal);
+    }
+}
+
+impl Drop for ExitTransition {
+    fn drop(&mut self) {
+        if self.completed {
+            return;
+        }
+        LIGHTWEIGHT_STATE.store(LightweightState::Normal.as_u8(), Ordering::Release);
+        logging!(warn, Type::Lightweight, "轻量模式退出被中断，状态回滚为普通模式");
     }
 }
 
@@ -161,7 +152,7 @@ pub async fn entry_lightweight_mode() -> bool {
 }
 
 pub async fn exit_lightweight_mode() -> bool {
-    if !try_transition(LightweightState::In, LightweightState::Exiting) {
+    let Some(exit) = ExitTransition::begin() else {
         logging!(
             debug,
             Type::Lightweight,
@@ -169,8 +160,7 @@ pub async fn exit_lightweight_mode() -> bool {
         );
         refresh_lightweight_tray_state().await;
         return false;
-    }
-    record_state_and_log(LightweightState::Exiting);
+    };
     WindowManager::show_main_window().await;
     let enable_auto_light_weight_mode = Config::verge()
         .await
@@ -182,7 +172,7 @@ pub async fn exit_lightweight_mode() -> bool {
         setup_webview_focus_listener();
     }
     cancel_light_weight_timer();
-    record_state_and_log(LightweightState::Normal);
+    exit.complete();
     refresh_lightweight_tray_state().await;
     true
 }
@@ -193,27 +183,55 @@ pub async fn add_light_weight_timer() {
 }
 
 fn setup_window_close_listener() {
-    WINDOW_CLOSE_LISTENER.setup(|| {
-        std::mem::drop(AsyncHandler::spawn(|| async {
-            setup_light_weight_timer().await;
-        }));
-        logging!(info, Type::Lightweight, "监听到关闭请求，开始轻量模式计时");
-    });
+    if let Some(window) = WindowManager::get_main_window() {
+        let previous_handler_id = WINDOW_CLOSE_HANDLER_ID.swap(0, Ordering::AcqRel);
+        if previous_handler_id != 0 {
+            window.unlisten(previous_handler_id);
+            logging!(debug, Type::Lightweight, "覆盖旧的窗口关闭监听");
+        }
+        let handler_id = window.listen("tauri://close-requested", move |_event| {
+            std::mem::drop(AsyncHandler::spawn(|| async {
+                setup_light_weight_timer().await;
+            }));
+            logging!(info, Type::Lightweight, "监听到关闭请求，开始轻量模式计时");
+        });
+        WINDOW_CLOSE_HANDLER_ID.store(handler_id, Ordering::Release);
+    }
 }
 
 fn cancel_window_close_listener() {
-    WINDOW_CLOSE_LISTENER.cancel();
+    let id = WINDOW_CLOSE_HANDLER_ID.swap(0, Ordering::AcqRel);
+    if id != 0 {
+        if let Some(window) = WindowManager::get_main_window() {
+            window.unlisten(id);
+        }
+        logging!(debug, Type::Lightweight, "取消了窗口关闭监听");
+    }
 }
 
 fn setup_webview_focus_listener() {
-    WEBVIEW_FOCUS_LISTENER.setup(|| {
-        cancel_light_weight_timer();
-        logging!(debug, Type::Lightweight, "监听到窗口获得焦点，取消轻量模式计时");
-    });
+    if let Some(window) = WindowManager::get_main_window() {
+        let previous_handler_id = WEBVIEW_FOCUS_HANDLER_ID.swap(0, Ordering::AcqRel);
+        if previous_handler_id != 0 {
+            window.unlisten(previous_handler_id);
+            logging!(debug, Type::Lightweight, "覆盖旧的窗口焦点监听");
+        }
+        let handler_id = window.listen("tauri://focus", move |_event| {
+            cancel_light_weight_timer();
+            logging!(debug, Type::Lightweight, "监听到窗口获得焦点，取消轻量模式计时");
+        });
+        WEBVIEW_FOCUS_HANDLER_ID.store(handler_id, Ordering::Release);
+    }
 }
 
 fn cancel_webview_focus_listener() {
-    WEBVIEW_FOCUS_LISTENER.cancel();
+    let id = WEBVIEW_FOCUS_HANDLER_ID.swap(0, Ordering::AcqRel);
+    if id != 0 {
+        if let Some(window) = WindowManager::get_main_window() {
+            window.unlisten(id);
+        }
+        logging!(debug, Type::Lightweight, "取消了窗口焦点监听");
+    }
 }
 
 async fn setup_light_weight_timer() {
@@ -262,5 +280,51 @@ fn cancel_light_weight_timer() {
     if let Some(tx) = cancel_tx_guard.take() {
         let _ = tx.send(());
         logging!(debug, Type::Timer, "Timer cancelled");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    fn set_state(state: LightweightState) {
+        LIGHTWEIGHT_STATE.store(state.as_u8(), Ordering::Release);
+    }
+
+    #[test]
+    fn an_abandoned_exit_restores_a_usable_state() {
+        let _lock = TEST_LOCK.lock();
+        set_state(LightweightState::In);
+
+        let exit = ExitTransition::begin();
+        assert_eq!(get_state(), LightweightState::Exiting);
+        drop(exit);
+
+        assert_eq!(get_state(), LightweightState::Normal);
+        assert!(try_transition(LightweightState::Normal, LightweightState::In));
+        set_state(LightweightState::Normal);
+    }
+
+    #[test]
+    fn a_completed_exit_stays_normal() {
+        let _lock = TEST_LOCK.lock();
+        set_state(LightweightState::In);
+
+        if let Some(exit) = ExitTransition::begin() {
+            exit.complete();
+        }
+
+        assert_eq!(get_state(), LightweightState::Normal);
+    }
+
+    #[test]
+    fn an_exit_outside_lightweight_mode_takes_no_transition() {
+        let _lock = TEST_LOCK.lock();
+        set_state(LightweightState::Normal);
+
+        assert!(ExitTransition::begin().is_none());
+        assert_eq!(get_state(), LightweightState::Normal);
     }
 }

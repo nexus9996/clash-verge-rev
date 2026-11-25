@@ -17,12 +17,7 @@ const PRESET_PROXY_NAMES = [
   'COMPATIBLE',
 ]
 
-const identity = (previous: DelayUpdate, next: DelayUpdate): DelayUpdate =>
-  previous.delay === next.delay &&
-  previous.elapsed === next.elapsed &&
-  previous.updatedAt === next.updatedAt
-    ? previous
-    : next
+const identity = (_: DelayUpdate, next: DelayUpdate): DelayUpdate => next
 
 const INITIAL_DELAY: DelayUpdate = { delay: -1, updatedAt: 0 }
 
@@ -39,7 +34,6 @@ export function useProxyDelayState(
   groupName: string,
 ): UseProxyDelayState {
   const name = member.ref.name
-  const details = memberDetails(member)
   const unresolved = member.kind === 'unresolved'
   const isPreset = unresolved || PRESET_PROXY_NAMES.includes(name)
   const [delayState, setDelayState] = useReducer(identity, INITIAL_DELAY)
@@ -48,20 +42,20 @@ export function useProxyDelayState(
 
   useEffect(() => {
     if (isPreset) return
-    delayManager.setListener(name, groupName, setDelayState)
+    delayManager.setListener(member, groupName, setDelayState)
     return () => {
-      delayManager.removeListener(name, groupName)
+      delayManager.removeListener(member, groupName)
     }
-  }, [name, groupName, isPreset])
+  }, [member, groupName, isPreset])
 
   const updateDelay = useCallback(() => {
     if (unresolved) {
       setDelayState(INITIAL_DELAY)
       return
     }
-    const cachedUpdate = delayManager.getDelayUpdate(name, groupName)
+    const cachedUpdate = delayManager.getDelayUpdate(member, groupName)
     if (cachedUpdate) {
-      setDelayState(cachedUpdate)
+      setDelayState({ ...cachedUpdate })
       return
     }
 
@@ -72,7 +66,9 @@ export function useProxyDelayState(
     }
 
     let updatedAt = 0
-    const history = details?.history
+    const history =
+      delayManager.getHistory(member, groupName) ??
+      memberDetails(member)?.history
     if (history && history.length > 0) {
       const lastRecord = history[history.length - 1]
       const parsed = Date.parse(lastRecord.time)
@@ -82,16 +78,18 @@ export function useProxyDelayState(
     }
 
     setDelayState({ delay: fallbackDelay, updatedAt })
-  }, [details?.history, groupName, member, name, unresolved])
+  }, [groupName, member, unresolved])
 
   useEffect(() => {
     updateDelay()
-  }, [updateDelay])
+    return delayManager.addGroupListener(groupName, updateDelay)
+  }, [groupName, updateDelay])
 
   const onDelay = useLockFn(async () => {
     if (!isInteractableMember(member)) return
     setDelayState({ delay: -2, updatedAt: Date.now() })
-    setDelayState(await delayManager.checkDelay(member, groupName, timeout))
+    await delayManager.checkDelay(member, groupName, timeout)
+    updateDelay()
   })
 
   return {

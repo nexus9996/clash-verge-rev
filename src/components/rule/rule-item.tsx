@@ -16,8 +16,7 @@ const COLOR = [
 ]
 
 interface Props {
-  value: Rule
-  lineNo: number
+  value: Rule & { lineNo: number }
 }
 
 const parseColor = (text: string) => {
@@ -32,7 +31,7 @@ const parseColor = (text: string) => {
 }
 
 const RuleItem = (props: Props) => {
-  const { value, lineNo } = props
+  const { value } = props
 
   return (
     <Item sx={{ borderBottom: '1px solid var(--divider-color)' }}>
@@ -41,7 +40,7 @@ const RuleItem = (props: Props) => {
         variant="body2"
         sx={{ lineHeight: 2, minWidth: 30, mr: 2.25, textAlign: 'center' }}
       >
-        {lineNo}
+        {value.lineNo}
       </Typography>
 
       <Box sx={{ userSelect: 'text' }}>

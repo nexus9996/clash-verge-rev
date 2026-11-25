@@ -123,7 +123,7 @@ export const ProxiesEditorViewer = (props: Props) => {
           proxy={item}
           onDelete={() => {
             if (isDeleted) {
-              setDeleteSeq((prev) => prev.filter((v) => v !== item.name))
+              setDeleteSeq(deleteSeq.filter((v) => v !== item.name))
             } else {
               setDeleteSeq((prev) => [...prev, item.name])
             }
@@ -138,7 +138,7 @@ export const ProxiesEditorViewer = (props: Props) => {
           type="prepend"
           proxy={item}
           onDelete={() => {
-            setPrependSeq((prev) => prev.filter((v) => v.name !== item.name))
+            setPrependSeq(prependSeq.filter((v) => v.name !== item.name))
           }}
         />
       )
@@ -149,7 +149,7 @@ export const ProxiesEditorViewer = (props: Props) => {
         type="append"
         proxy={item}
         onDelete={() => {
-          setAppendSeq((prev) => prev.filter((v) => v.name !== item.name))
+          setAppendSeq(appendSeq.filter((v) => v.name !== item.name))
         }}
       />
     )
@@ -160,28 +160,27 @@ export const ProxiesEditorViewer = (props: Props) => {
     activeIndex: number,
     overIndex: number,
   ) => {
+    const list = category === 'prepend' ? prependSeq : appendSeq
+    const filtered =
+      category === 'prepend' ? filteredPrependSeq : filteredAppendSeq
     const setList = category === 'prepend' ? setPrependSeq : setAppendSeq
-    // Recompute inside the updater: two writes in one batch must not read the same pre-batch array.
-    setList((prev) => {
-      const filtered = prev.filter((v) => hasValidName(v) && match(v.name))
-      const activeRealIndex = findRealIndex(prev, filtered, activeIndex)
-      const overRealIndex = findRealIndex(prev, filtered, overIndex)
-      if (
-        activeRealIndex < 0 ||
-        overRealIndex < 0 ||
-        activeRealIndex === overRealIndex
-      ) {
-        return prev
-      }
+    const activeRealIndex = findRealIndex(list, filtered, activeIndex)
+    const overRealIndex = findRealIndex(list, filtered, overIndex)
+    if (
+      activeRealIndex < 0 ||
+      overRealIndex < 0 ||
+      activeRealIndex === overRealIndex
+    ) {
+      return
+    }
 
-      return arrayMove(prev, activeRealIndex, overRealIndex)
-    })
+    setList(arrayMove(list, activeRealIndex, overRealIndex))
   }
 
   // 优化：异步分片解析，避免主线程阻塞，解析完成后批量setState
   const handleParseAsync = (cb: (proxies: IProxyConfig[]) => void) => {
     const proxies: IProxyConfig[] = []
-    const names = new Set<string>()
+    const names: string[] = []
     let uris: string
     try {
       uris = atob(proxyUri)
@@ -199,9 +198,9 @@ export const ProxiesEditorViewer = (props: Props) => {
         const uri = lines[idx]
         try {
           const proxy = parseUri(uri.trim())
-          if (!names.has(proxy.name)) {
+          if (!names.includes(proxy.name)) {
             proxies.push(proxy)
-            names.add(proxy.name)
+            names.push(proxy.name)
           }
         } catch (err) {
           console.warn(

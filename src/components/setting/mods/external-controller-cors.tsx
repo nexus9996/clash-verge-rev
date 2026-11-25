@@ -1,7 +1,7 @@
 import { Delete as DeleteIcon } from '@mui/icons-material'
 import { Box, Button, Divider, List, ListItem, TextField } from '@mui/material'
 import { useLockFn, useRequest } from 'ahooks'
-import { forwardRef, useRef, useState } from 'react'
+import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BaseDialog, Switch } from '@/components/base'
@@ -9,8 +9,6 @@ import { useClash } from '@/hooks/use-clash'
 import { restartCore } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'
-
-import { useSettingDialog } from '../settings-search-context'
 
 // Development origins must never be persisted into production configuration.
 const DEV_URLS = [
@@ -156,7 +154,7 @@ export const HeaderConfiguration = forwardRef<ClashHeaderConfigingRef>(
       },
     )
 
-    useSettingDialog(ref, 'external-controller-cors', open, () => ({
+    useImperativeHandle(ref, () => ({
       open: () => {
         const cors = clash?.['external-controller-cors']
         const origins = cors?.['allow-origins'] ?? []
@@ -188,12 +186,8 @@ export const HeaderConfiguration = forwardRef<ClashHeaderConfigingRef>(
         onCancel={() => setOpen(false)}
         onOk={handleSave}
       >
-        <span data-settings-dialog="external-controller-cors" />
         <List sx={{ width: '90%', padding: 2 }}>
-          <ListItem
-            data-setting-target="settings.sections.externalCors.fields.allowPrivateNetwork"
-            sx={{ padding: '8px 0' }}
-          >
+          <ListItem sx={{ padding: '8px 0' }}>
             <Box
               sx={{
                 display: 'flex',
@@ -220,10 +214,7 @@ export const HeaderConfiguration = forwardRef<ClashHeaderConfigingRef>(
 
           <Divider sx={{ my: 2 }} />
 
-          <ListItem
-            data-setting-target="settings.sections.externalCors.fields.allowedOrigins"
-            sx={{ padding: '8px 0' }}
-          >
+          <ListItem sx={{ padding: '8px 0' }}>
             <div style={{ width: '100%' }}>
               <div style={{ marginBottom: 8, fontWeight: 'bold' }}>
                 {t('settings.sections.externalCors.fields.allowedOrigins')}
@@ -261,7 +252,6 @@ export const HeaderConfiguration = forwardRef<ClashHeaderConfigingRef>(
                 </div>
               ))}
               <Button
-                data-setting-target="settings.sections.externalCors.actions.add"
                 variant="contained"
                 size="small"
                 onClick={handleAddOrigin}

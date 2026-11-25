@@ -12,8 +12,8 @@ use crate::{
     },
 };
 use clash_verge_logging::{Type, logging, logging_error};
+use smartstring::alias::String;
 use tokio::fs;
-use tristr::alias::String;
 
 #[tauri::command]
 #[specta::specta]
@@ -205,6 +205,7 @@ pub async fn apply_dns_config(apply: bool) -> CmdResult {
         logging!(info, Type::Config, "Config regenerated successfully");
     }
 
+    logging_error!(Type::Config, Config::sync_dns_override().await);
     handle::Handle::refresh_clash();
     Ok(())
 }

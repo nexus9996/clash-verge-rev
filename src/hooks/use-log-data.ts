@@ -12,9 +12,6 @@ const FLUSH_DELAY_MS = 50
 type LogType = ILogItem['type']
 
 const DEFAULT_LOG_TYPES: LogType[] = ['debug', 'info', 'warning', 'error']
-// Shared empty fallback: a fresh [] would give `refresh` a new identity on
-// every render and re-run the snapshot effect while logs stream.
-const EMPTY_LOGS: ILogItem[] = []
 const LOG_LEVEL_FILTERS: Record<LogLevel, LogType[]> = {
   DEBUG: DEFAULT_LOG_TYPES,
   INFO: ['info', 'warning', 'error'],
@@ -57,8 +54,9 @@ export const useLogData = () => {
   const hasLoadedInitialLogsRef = useRef(false)
 
   const { response, refresh, setData } = useMihomoWsSubscription<ILogItem[]>({
-    subscriptionKey: enableLog ? 'getClashLog' : null,
-    fallbackData: EMPTY_LOGS,
+    storageKey: 'mihomo_logs_date',
+    buildSubscriptKey: (date) => (enableLog ? `getClashLog-${date}` : null),
+    fallbackData: [],
     connect: () => MihomoWebSocket.connect_logs(logLevel),
     setupHandlers: ({ next, scheduleReconnect, isMounted }) => {
       let flushTimer: ReturnType<typeof setTimeout> | null = null
@@ -79,13 +77,14 @@ export const useLogData = () => {
         }
         const pendingLogs = buffer.splice(0, buffer.length)
         flushTimeStr = null
-        next((current) => appendLogs(current, pendingLogs))
+        next(null, (current) => appendLogs(current, pendingLogs))
         flushTimer = null
       }
 
       return {
         handleMessage: (data) => {
           if (data.startsWith('Websocket error')) {
+            next(data)
             void scheduleReconnect()
             return
           }
@@ -109,7 +108,9 @@ export const useLogData = () => {
             if (!flushTimer) {
               flushTimer = setTimeout(flush, FLUSH_DELAY_MS)
             }
-          } catch {}
+          } catch (error) {
+            next(error)
+          }
         },
         async onConnected() {
           if (hasLoadedInitialLogsRef.current) {
@@ -118,7 +119,7 @@ export const useLogData = () => {
           const logs = await getClashLogs()
           hasLoadedInitialLogsRef.current = true
           if (isMounted()) {
-            next((current) => {
+            next(null, (current) => {
               if (!current || current.length === 0) {
                 return clampLogs(filterLogsByLevel(logs, allowedTypes))
               }

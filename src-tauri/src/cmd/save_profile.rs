@@ -10,9 +10,9 @@ use crate::{
     },
     utils::dirs,
 };
-use clash_verge_logging::{Type, logging};
+use clash_verge_logging::{Type, logging, logging_error};
+use smartstring::alias::String;
 use tokio::fs;
-use tristr::alias::String;
 
 /// 保存profiles的配置
 #[tauri::command]
@@ -168,6 +168,7 @@ async fn handle_saved_profile_file(
     );
     match CoreManager::global().update_config_forced().await {
         Ok(outcome) if outcome.is_valid() => {
+            logging_error!(Type::Config, Config::sync_dns_override().await);
             handle::Handle::refresh_clash();
             Ok(ValidationOutcome::Valid)
         }

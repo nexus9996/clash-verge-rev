@@ -2,12 +2,10 @@
 
 use crate::core::notify::NoticeStatus;
 
-use std::{
-    mem::DropGuard,
-    sync::atomic::{AtomicBool, Ordering},
-};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use clash_verge_logging::{Type, logging};
+use scopeguard::defer;
 
 use crate::{
     config::{Config, IVerge},
@@ -63,9 +61,9 @@ pub async fn reconcile_tun_availability() {
 
     // The flag coalesces newly spawned tasks while the config lock serializes writers.
     DISABLING_TUN.store(true, Ordering::Release);
-    let _disabling_tun = DropGuard::new((), |()| {
+    defer! {
         DISABLING_TUN.store(false, Ordering::Release);
-    });
+    }
 
     logging!(
         info,

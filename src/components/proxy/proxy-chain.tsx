@@ -25,6 +25,7 @@ import {
   keyframes,
   useTheme,
 } from '@mui/material'
+import * as yaml from 'js-yaml'
 import {
   type Ref,
   useCallback,
@@ -57,17 +58,23 @@ const chainPointerSensor = PointerSensor.configure({
   activationConstraints: () => undefined,
 })
 
-const CHAIN_SENSORS = [chainPointerSensor, KeyboardSensor]
-
 type RuntimeConfigWithProxySequence = IConfigData & { proxies?: unknown }
+
+interface ParsedChainConfig {
+  proxies?: Array<{
+    name: string
+    type: string
+    [key: string]: any
+  }>
+}
 
 interface ProxyChainProps {
   proxyChain: ProxyChainItem[]
   onUpdateChain: (chain: ProxyChainItem[]) => void
+  chainConfigData?: string | null
   onMarkUnsavedChanges?: () => void
   mode?: string
   selectedGroup?: string | null
-  onExitChainMode: () => void
 }
 
 interface ProxyChainItemProps {
@@ -89,6 +96,21 @@ const arrowFadeIn = keyframes`
     transform: translateY(0);
   }
 `
+
+const toChainItems = (
+  parsedConfig: ParsedChainConfig | null | undefined,
+): ProxyChainItem[] => {
+  const timestamp = Date.now()
+
+  return (
+    parsedConfig?.proxies?.map((proxy, index) => ({
+      id: `${proxy.name}_${timestamp}_${index}`,
+      name: proxy.name,
+      type: proxy.type,
+      delay: undefined,
+    })) || []
+  )
+}
 
 interface ChainCardProps {
   proxy: ProxyChainItem
@@ -305,10 +327,10 @@ const SortableProxyChainItem = ({
 export const ProxyChain = ({
   proxyChain,
   onUpdateChain,
+  chainConfigData,
   onMarkUnsavedChanges,
   mode,
   selectedGroup,
-  onExitChainMode,
 }: ProxyChainProps) => {
   const theme = useTheme()
   const { t } = useTranslation()
@@ -465,12 +487,15 @@ export const ProxyChain = ({
 
         localStorage.removeItem('proxy-chain-group')
         localStorage.removeItem('proxy-chain-exit-node')
+        localStorage.removeItem('proxy-chain-items')
 
         await mutate(() => closeAllConnections(), {
           id: 'close-all-connections',
           errorNotice: false,
         })
         await refreshProxy()
+
+        onUpdateChain([])
       } catch (error) {
         console.error('Failed to disconnect from proxy chain:', error)
         alert(t('proxies.page.chain.disconnectFailed'))
@@ -549,8 +574,26 @@ export const ProxyChain = ({
     mode,
     proxyView,
     selectedGroup,
+    onUpdateChain,
     recordSelection,
   ])
+
+  // 处理链式代理配置数据
+  useEffect(() => {
+    if (chainConfigData) {
+      try {
+        // JSON is valid YAML, so one parser covers both persisted formats.
+        const parsedConfig = yaml.load(chainConfigData) as ParsedChainConfig
+        const chainItems = toChainItems(parsedConfig)
+
+        if (chainItems.length > 0) {
+          onUpdateChain(chainItems)
+        }
+      } catch (error) {
+        console.error('Failed to process chain config data:', error)
+      }
+    }
+  }, [chainConfigData, onUpdateChain])
 
   return (
     <Paper
@@ -653,21 +696,19 @@ export const ProxyChain = ({
           <Box
             sx={{
               display: 'flex',
-              flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 2,
               height: '100%',
               color: theme.palette.text.secondary,
             }}
           >
             <Typography>{t('proxies.page.chain.empty')}</Typography>
-            <Button size="small" variant="outlined" onClick={onExitChainMode}>
-              {t('shared.actions.close')}
-            </Button>
           </Box>
         ) : (
-          <DragDropProvider sensors={CHAIN_SENSORS} onDragEnd={handleDragEnd}>
+          <DragDropProvider
+            sensors={[chainPointerSensor, KeyboardSensor]}
+            onDragEnd={handleDragEnd}
+          >
             <Box sx={{ borderRadius: 1, minHeight: 60, p: 1 }}>
               {currentProxyChain.map((proxy, index) => (
                 <SortableProxyChainItem

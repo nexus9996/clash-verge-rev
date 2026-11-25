@@ -1,27 +1,19 @@
-import { useCallback, useMemo, useSyncExternalStore } from 'react'
+import { useCallback, useSyncExternalStore } from 'react'
 
 import delayManager, { type DelaySnapshot } from '@/services/delay'
-import type { ResolvedProxyMember } from '@/types/proxy-view'
 
-/** A closed menu observes only its current member, not every settled group delay. */
-export const useGroupDelays = (
-  group: string | null,
-  member: ResolvedProxyMember | undefined,
-  menuOpen: boolean,
-): DelaySnapshot | number => {
+const NO_DELAYS: DelaySnapshot = { of: () => -1 }
+
+/** Exposes the external delay store to React, updating sort order only after a test settles. */
+export const useGroupDelays = (group: string | null): DelaySnapshot => {
   const subscribe = useCallback(
     (onSettle: () => void) =>
       group ? delayManager.addGroupListener(group, onSettle) : () => {},
     [group],
   )
   const read = useCallback(
-    () =>
-      group && menuOpen
-        ? delayManager.groupDelays(group)
-        : group && member
-          ? delayManager.getDelayFix(member, group)
-          : -1,
-    [group, member, menuOpen],
+    () => (group ? delayManager.groupDelays(group) : NO_DELAYS),
+    [group],
   )
 
   return useSyncExternalStore(subscribe, read, read)
@@ -31,12 +23,12 @@ export const useGroupDelays = (
 export const useGroupsDelays = (
   groups: readonly string[],
 ): ReadonlyMap<string, DelaySnapshot> => {
-  // Group membership must remain unambiguous when names contain spaces.
-  const groupKey = useMemo(() => JSON.stringify(groups), [groups])
+  // Subscribe by group membership; callers rebuild the array on every render.
+  const groupKey = groups.join(' ')
 
   const subscribe = useCallback(
     (onSettle: () => void) => {
-      const names: string[] = JSON.parse(groupKey)
+      const names = groupKey ? groupKey.split(' ') : []
       const unsubscribes = names.map((name) =>
         delayManager.addGroupListener(name, onSettle),
       )

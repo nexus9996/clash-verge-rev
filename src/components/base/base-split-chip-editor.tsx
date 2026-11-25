@@ -22,16 +22,23 @@ interface BaseSplitChipEditorProps {
   error?: boolean
   helperText?: ReactNode
   placeholder?: string
+  rows?: number
   separator?: string
+  splitPattern?: RegExp
+  defaultMode?: BaseSplitChipEditorMode
+  showModeToggle?: boolean
   ariaLabel?: string
+  addLabel?: ReactNode
+  emptyLabel?: ReactNode
+  modeLabels?: Partial<Record<BaseSplitChipEditorMode, ReactNode>>
   renderHeader?: (modeToggle: ReactNode) => ReactNode
 }
 
 const DEFAULT_SPLIT_PATTERN = /[,\n;\r]+/
 
-const splitValue = (value: string) =>
+const splitValue = (value: string, splitPattern: RegExp) =>
   value
-    .split(DEFAULT_SPLIT_PATTERN)
+    .split(splitPattern)
     .map((item) => item.trim())
     .filter(Boolean)
 
@@ -42,25 +49,35 @@ export const BaseSplitChipEditor = ({
   error = false,
   helperText,
   placeholder,
+  rows = 4,
   separator = ',',
+  splitPattern = DEFAULT_SPLIT_PATTERN,
+  defaultMode = 'visual',
+  showModeToggle = true,
   ariaLabel,
+  addLabel,
+  emptyLabel,
+  modeLabels,
   renderHeader,
 }: BaseSplitChipEditorProps) => {
   const { t } = useTranslation()
-  const [mode, setMode] = useState<BaseSplitChipEditorMode>('visual')
+  const [mode, setMode] = useState<BaseSplitChipEditorMode>(defaultMode)
   const [draft, setDraft] = useState('')
 
   const resolvedLabels = useMemo(
     () => ({
-      visual: t('shared.editorModes.visualization'),
-      advanced: t('shared.editorModes.advanced'),
-      add: t('shared.actions.new'),
-      empty: t('shared.statuses.empty'),
+      visual: modeLabels?.visual ?? t('shared.editorModes.visualization'),
+      advanced: modeLabels?.advanced ?? t('shared.editorModes.advanced'),
+      add: addLabel ?? t('shared.actions.new'),
+      empty: emptyLabel ?? t('shared.statuses.empty'),
     }),
-    [t],
+    [t, modeLabels, addLabel, emptyLabel],
   )
 
-  const values = useMemo(() => splitValue(value), [value])
+  const values = useMemo(
+    () => splitValue(value, splitPattern),
+    [value, splitPattern],
+  )
 
   const items = useMemo(() => {
     const counts = new Map<string, number>()
@@ -75,7 +92,7 @@ export const BaseSplitChipEditor = ({
   }, [values])
 
   const handleAddDraft = () => {
-    const nextValues = splitValue(draft)
+    const nextValues = splitValue(draft, splitPattern)
     if (!nextValues.length) {
       return
     }
@@ -96,7 +113,7 @@ export const BaseSplitChipEditor = ({
   const resolvedAriaLabel =
     ariaLabel ?? (typeof toggleLabel === 'string' ? toggleLabel : undefined)
 
-  const modeToggle = (
+  const modeToggle = showModeToggle ? (
     <Tooltip title={toggleLabel}>
       <IconButton
         size="small"
@@ -111,7 +128,7 @@ export const BaseSplitChipEditor = ({
         <ToggleIcon fontSize="small" />
       </IconButton>
     </Tooltip>
-  )
+  ) : null
 
   return (
     <>
@@ -185,7 +202,7 @@ export const BaseSplitChipEditor = ({
           disabled={disabled}
           size="small"
           multiline
-          rows={4}
+          rows={rows}
           sx={{ width: '100%' }}
           value={value}
           helperText={helperText}

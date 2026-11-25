@@ -231,7 +231,7 @@
       "layout": {
         "title": "Configuración de la interfaz",
         "fields": {
-          "preferSystemTitlebar": "Prefer System Titlebar",
+          "enableSystemTitlebar": "Activar barra de título del sistema",
           "trafficGraph": "Gráfico de tráfico",
           "memoryUsage": "Uso de memoria del núcleo",
           "proxyGroupIcon": "Icono del grupo de proxy",
@@ -251,6 +251,7 @@
           "pauseRenderTrafficStatsOnBlur": "Pausar el renderizado de estadísticas de tráfico al perder el foco"
         },
         "tooltips": {
+          "enableSystemTitlebar": "Usar la barra de título nativa del sistema en lugar de la barra de título personalizada integrada (se requiere reiniciar en Linux).",
           "hoverNavigator": "Automatically scroll to the corresponding proxy group when hovering over alphabet letters",
           "hoverNavigatorDelay": "Delay before auto scrolling when hovering, in milliseconds"
         },
@@ -411,7 +412,6 @@
         "appLogMaxSize": "App Log Max Size",
         "appLogMaxCount": "App Log Max Count",
         "autoCloseConnections": "Cerrar conexiones automáticamente",
-        "autoSwitchSelectorGroup": "Cambiar grupo select automáticamente",
         "autoCheckUpdate": "Comprobar actualizaciones automáticamente",
         "enableBuiltinEnhanced": "Habilitar funciones mejoradas integradas",
         "proxyLayoutColumns": "Número de columnas en la disposición de la página de proxy",
@@ -423,7 +423,6 @@
       },
       "tooltips": {
         "autoCloseConnections": "Cierra las conexiones establecidas cuando se cambia el nodo seleccionado en el grupo de proxy o el modo de proxy.",
-        "autoSwitchSelectorGroup": "En modo de reglas, al elegir un nodo en un grupo al que no llega tráfico de reglas, el primer grupo select que lo contiene también cambia a ese grupo.",
         "enableBuiltinEnhanced": "Procesamiento de compatibilidad de archivos de configuración",
         "autoDelayDetection": "Prueba periódicamente la latencia del nodo actual en segundo plano",
         "defaultLatencyTest": "Solo se utiliza para pruebas de solicitudes de clientes HTTP y no afectará al archivo de configuración."
@@ -497,13 +496,11 @@
         "strictRoute": "Enrutamiento estricto",
         "autoDetectInterface": "Detectar automáticamente la interfaz de salida del tráfico",
         "dnsHijack": "Secuestro de DNS",
-        "dnsMode": "Modo DNS",
         "mtu": "Unidad máxima de transmisión",
         "autoRedirect": "Auto Redirect"
       },
       "tooltips": {
         "dnsHijack": "Please use , to separate multiple DNS servers",
-        "dnsMode": "Auto mantiene el comportamiento anterior; hijack requiere Enrutamiento estricto en Windows o Auto Redirect en Linux",
         "autoRedirect": "Automatically configures nftables/iptables TCP redirects"
       },
       "messages": {
@@ -716,12 +713,5 @@
       "installing": "Instalando servicio...",
       "uninstalling": "Desinstalando servicio..."
     }
-  },
-  "search": {
-    "placeholder": "Buscar ajustes",
-    "clear": "Borrar búsqueda",
-    "back": "Volver a resultados",
-    "results": "Resultados de búsqueda",
-    "empty": "No se encontraron ajustes"
   }
 }
