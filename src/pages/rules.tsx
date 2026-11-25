@@ -2,12 +2,11 @@ import { Box } from '@mui/material'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { BaseEmpty, BasePage } from '@/components/base'
 import {
-  BaseEmpty,
-  BasePage,
   VirtualList,
   type VirtualListHandle,
-} from '@/components/base'
+} from '@/components/base/virtual-list'
 import { ScrollTopButton } from '@/components/layout/scroll-top-button'
 import { ProviderButton } from '@/components/rule/provider-button'
 import RuleItem from '@/components/rule/rule-item'

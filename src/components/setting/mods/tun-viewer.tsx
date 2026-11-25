@@ -25,7 +25,7 @@ import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'
 import { supportsTunDnsMode } from '@/utils/core-version'
 import getSystem from '@/utils/get-system'
-import { areValidIpCidrs } from '@/utils/network'
+import { areValidIpCidrs } from '@/utils/network-cidr'
 
 import { DnsModeSwitch } from './dns-mode-switch'
 import { StackModeSwitch } from './stack-mode-switch'

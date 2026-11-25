@@ -124,7 +124,7 @@ The route table and the sidebar both derive from `config/navigation.ts`, so a pa
    }
    ```
 
-   Heavy pages should use `{ lazy: lazyPage(() => import('@/pages/my-page')) }` instead: the router keeps them out of the initial bundle and preloads the chunk when the sidebar entry is hovered or focused.
+   Every page except `home` uses `{ lazy: lazyPage(() => import('@/pages/my-page')) }`: the router keeps it out of the initial bundle and preloads the chunk when the sidebar entry is hovered or focused.
 
 3. **Navigation and copy** — add the entry to `NAV_META` in `src/config/navigation.ts` (id, path, i18n label key), add its icon pair to `NAV_ICONS` in `src/components/layout/navigation-icons.tsx`, add `tabs.<id>` to all 14 `src/locales/*/layout.json` files, then run `bun run i18n:types`.
 

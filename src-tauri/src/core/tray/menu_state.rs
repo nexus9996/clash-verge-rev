@@ -6,18 +6,18 @@ use crate::Type;
 use crate::config::{IProfiles, IVerge};
 use clash_verge_logging::logging_error;
 use parking_lot::Mutex;
+use smartstring::alias::String;
 use std::collections::HashMap;
 use tauri::menu::{CheckMenuItem, IsMenuItem, Submenu};
 use tauri::tray::TrayIcon;
-use tauri::{AppHandle, DynRuntime};
+use tauri::{AppHandle, Wry};
 use tauri_plugin_mihomo::models::Proxies;
-use tristr::alias::String;
 
 use super::{TrayMenuOptions, build_tray_menu, create_subcreate_proxy_menu_item};
 
 pub(super) struct ProxyNodeItem {
     pub(super) name: String,
-    pub(super) item: CheckMenuItem<DynRuntime>,
+    pub(super) item: CheckMenuItem<Wry>,
     pub(super) text: String,
     pub(super) checked: bool,
 }
@@ -28,12 +28,12 @@ pub(super) struct ProxyGroupItems {
 }
 
 pub(super) struct TrayMenuState {
-    pub(super) mode_items: [CheckMenuItem<DynRuntime>; 3],
-    pub(super) system_proxy_item: CheckMenuItem<DynRuntime>,
-    pub(super) tun_item: CheckMenuItem<DynRuntime>,
-    pub(super) lightweight_item: CheckMenuItem<DynRuntime>,
-    pub(super) profile_items: Vec<(String, CheckMenuItem<DynRuntime>)>,
-    pub(super) proxies_submenu: Option<Submenu<DynRuntime>>,
+    pub(super) mode_items: [CheckMenuItem<Wry>; 3],
+    pub(super) system_proxy_item: CheckMenuItem<Wry>,
+    pub(super) tun_item: CheckMenuItem<Wry>,
+    pub(super) lightweight_item: CheckMenuItem<Wry>,
+    pub(super) profile_items: Vec<(String, CheckMenuItem<Wry>)>,
+    pub(super) proxies_submenu: Option<Submenu<Wry>>,
     pub(super) proxy_groups: Vec<ProxyGroupItems>,
     pub(super) signature: String,
     pub(super) proxy_signature: Option<String>,
@@ -44,19 +44,17 @@ pub(super) fn proxy_delay_text(proxy_nodes_data: &Proxies, proxy_str: &str) -> S
         .proxies
         .get(proxy_str)
         .and_then(|h| h.history.last())
-        .map_or_else(
-            || "-ms".into(),
-            |h| match h.delay {
-                0 => "-ms".into(),
-                delay if delay >= 10000 => "-ms".into(),
-                _ => format!("{}ms", h.delay).into(),
-            },
-        )
+        .map(|h| match h.delay {
+            0 => "-ms".into(),
+            delay if delay >= 10000 => "-ms".into(),
+            _ => format!("{}ms", h.delay).into(),
+        })
+        .unwrap_or_else(|| "-ms".into())
 }
 
 /// Topology inputs that a rebuild cannot reconcile by mutating items.
 pub(super) fn menu_signature(verge: &IVerge, profiles: &IProfiles, mode: &str) -> String {
-    let hotkeys = verge.hotkeys.as_ref().map_or_default(|h| h.join(","));
+    let hotkeys = verge.hotkeys.as_ref().map(|h| h.join(",")).unwrap_or_default();
     let profiles = profiles
         .profiles_preview()
         .unwrap_or_default()
@@ -107,8 +105,8 @@ pub(super) fn proxy_structure_signature(
 }
 
 pub(super) struct ReconcileContext<'a> {
-    pub(super) app_handle: &'a AppHandle<DynRuntime>,
-    pub(super) tray: &'a TrayIcon<DynRuntime>,
+    pub(super) app_handle: &'a AppHandle<Wry>,
+    pub(super) tray: &'a TrayIcon<Wry>,
     pub(super) options: TrayMenuOptions<'a>,
     pub(super) verge: &'a IVerge,
     pub(super) profiles: &'a IProfiles,
@@ -214,7 +212,7 @@ impl TrayMenuState {
 
     fn swap_proxy_section(
         &mut self,
-        app_handle: &AppHandle<DynRuntime>,
+        app_handle: &AppHandle<Wry>,
         proxy_mode: &str,
         order_map: Option<&HashMap<String, usize>>,
         proxy_nodes_data: &Proxies,
@@ -229,10 +227,8 @@ impl TrayMenuState {
             return false;
         }
         while proxies_submenu.remove_at(0).is_ok_and(|item| item.is_some()) {}
-        let group_menus_refs: Vec<&dyn IsMenuItem<DynRuntime>> = group_menus
-            .iter()
-            .map(|menu| menu as &dyn IsMenuItem<DynRuntime>)
-            .collect();
+        let group_menus_refs: Vec<&dyn IsMenuItem<Wry>> =
+            group_menus.iter().map(|menu| menu as &dyn IsMenuItem<Wry>).collect();
         logging_error!(Type::Tray, proxies_submenu.append_items(&group_menus_refs));
         self.proxy_groups = group_state;
         self.proxy_signature = proxy_signature.map(Into::into);

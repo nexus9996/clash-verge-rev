@@ -10,7 +10,7 @@ import { isSortable, isSortableOperation } from '@dnd-kit/react/sortable'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { type CSSProperties, type ReactNode, useRef, useState } from 'react'
 
-import { SortableItem } from '../base'
+import { SortableItem } from '@/components/base/sortable-item'
 
 type GroupedVirtualCategory = 'prepend' | 'original' | 'append'
 
