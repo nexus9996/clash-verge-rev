@@ -1,3 +1,11 @@
+/** Text and flags shared by the search box and the page-level filter hooks. */
+export type SearchState = {
+  text: string
+  matchCase: boolean
+  matchWholeWord: boolean
+  useRegularExpression: boolean
+}
+
 export type SearchMatcherOptions = {
   matchCase?: boolean
   matchWholeWord?: boolean

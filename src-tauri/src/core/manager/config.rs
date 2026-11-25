@@ -14,12 +14,12 @@ use anyhow::{Result, anyhow};
 use clash_verge_draft::{DraftTransaction, SharedDraft};
 use clash_verge_logging::{Type, logging};
 use clash_verge_service_ipc::{RuntimeBundle, StageRuntimeOutcome};
-use scopeguard::defer;
 use serde_yaml_ng::Mapping;
 use smartstring::alias::String;
 use std::{
     collections::HashSet,
     hash::{DefaultHasher, Hasher as _},
+    mem::DropGuard,
     path::PathBuf,
     sync::{Arc, LazyLock},
     time::{Duration, Instant},
@@ -250,9 +250,9 @@ impl CoreManager {
             logging!(debug, Type::Core, "Configuration update is already running");
             return Ok(ValidationOutcome::Busy);
         }
-        defer! {
+        let _config_update = DropGuard::new((), |()| {
             self.finish_config_update();
-        }
+        });
 
         if !force && !self.should_update_config() {
             logging!(debug, Type::Core, "Skipping config update due to debounce");

@@ -62,6 +62,7 @@ pub fn apply_proxy_chain(config: &mut Mapping, chain: &[String]) -> Result<()> {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, reason = "tests assert by panicking")]
 mod tests {
     use super::apply_proxy_chain;
 

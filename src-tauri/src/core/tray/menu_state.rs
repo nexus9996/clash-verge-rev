@@ -44,17 +44,19 @@ pub(super) fn proxy_delay_text(proxy_nodes_data: &Proxies, proxy_str: &str) -> S
         .proxies
         .get(proxy_str)
         .and_then(|h| h.history.last())
-        .map(|h| match h.delay {
-            0 => "-ms".into(),
-            delay if delay >= 10000 => "-ms".into(),
-            _ => format!("{}ms", h.delay).into(),
-        })
-        .unwrap_or_else(|| "-ms".into())
+        .map_or_else(
+            || "-ms".into(),
+            |h| match h.delay {
+                0 => "-ms".into(),
+                delay if delay >= 10000 => "-ms".into(),
+                _ => format!("{}ms", h.delay).into(),
+            },
+        )
 }
 
 /// Topology inputs that a rebuild cannot reconcile by mutating items.
 pub(super) fn menu_signature(verge: &IVerge, profiles: &IProfiles, mode: &str) -> String {
-    let hotkeys = verge.hotkeys.as_ref().map(|h| h.join(",")).unwrap_or_default();
+    let hotkeys = verge.hotkeys.as_ref().map_or_default(|h| h.join(","));
     let profiles = profiles
         .profiles_preview()
         .unwrap_or_default()

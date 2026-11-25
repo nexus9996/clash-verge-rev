@@ -1551,8 +1551,7 @@ mod tests {
     async fn refreshed_profile_bytes_that_match_are_not_rewritten() -> anyhow::Result<()> {
         let unique = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .map(|duration| duration.as_nanos())
-            .unwrap_or_default();
+            .map_or_default(|duration| duration.as_nanos());
         let path = std::env::temp_dir().join(format!("clash-verge-profile-write-{}-{unique}", std::process::id()));
 
         assert!(write_profile_file_if_changed(&path, b"first").await?);

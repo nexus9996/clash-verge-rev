@@ -52,7 +52,7 @@ muda = { git = "https://github.com/wonfen/muda.git", rev = "547de49352791653fbdf
 # tauri-specta has no tauri 3 release yet; ride the tauri team's port and the
 # unpublished specta rc.26 line it pins. Drop all six entries once both ship
 # on crates.io.
-tauri-specta = { git = "https://github.com/tauri-apps/tauri-specta", branch = "tauri-v3" }
+tauri-specta = { git = "https://github.com/tauri-apps/tauri-specta", rev = "6bcec0cdec0c92decf404c85ff01b4d8c3868599" }
 specta = { git = "https://github.com/specta-rs/specta.git", rev = "2757fa8899926dce7da999780c7edf2dc08a732a" }
 specta-macros = { git = "https://github.com/specta-rs/specta.git", rev = "2757fa8899926dce7da999780c7edf2dc08a732a" }
 specta-serde = { git = "https://github.com/specta-rs/specta.git", rev = "2757fa8899926dce7da999780c7edf2dc08a732a" }
@@ -65,7 +65,7 @@ clash-verge-logging = { path = "crates/clash-verge-logging" }
 clash-verge-signal = { path = "crates/clash-verge-signal" }
 clash-verge-i18n = { path = "crates/clash-verge-i18n" }
 clash-verge-limiter = { path = "crates/clash-verge-limiter" }
-tracing-estuary = { git = "https://github.com/Tunglies/tracing-estuary.git", branch = "main" }
+tracing-estuary = { git = "https://github.com/Tunglies/tracing-estuary.git", rev = "dbfce033fa4cff8f936f3e7c2282af1277546f3c" }
 tauri-plugin-clash-verge-sysinfo = { path = "crates/tauri-plugin-clash-verge-sysinfo" }
 tracing = "0.1.44"
 
@@ -84,6 +84,7 @@ tokio = { version = "1.53.3", features = [
 ] }
 flexi_logger = "0.31.10"
 log = "0.4.34"
+keyring-core = "1"
 encoding_rs = "0.8.35"
 reqwest = { version = "0.13.5", features = [
   "json",
@@ -142,6 +143,7 @@ large_const_arrays = "warn"
 large_futures = "deny"
 large_stack_arrays = "warn"
 large_types_passed_by_value = "deny"
+map_unwrap_or = "deny"
 missing_const_for_fn = "deny"
 mutex_atomic = "deny"
 mutex_integer = "deny"

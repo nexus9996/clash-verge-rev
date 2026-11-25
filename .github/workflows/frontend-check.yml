@@ -68,7 +68,7 @@ jobs:
       - uses: actions/setup-node@v7
         if: steps.check_frontend.outputs.frontend == 'true'
         with:
-          node-version: '26.13.0'
+          node-version: '26.13.1'
 
       - name: Restore Bun cache
         if: steps.check_frontend.outputs.frontend == 'true'
@@ -98,7 +98,7 @@ jobs:
         if: steps.check_frontend.outputs.frontend == 'true'
         run: bun run test
 
-      - name: Run performance harness tests
+      - name: Run performance budget tests
         if: steps.check_frontend.outputs.frontend == 'true'
         run: bun run perf:test
 

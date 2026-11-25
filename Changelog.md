@@ -13,6 +13,8 @@
        first (Windows/macOS/Linux) when the change is platform-specific;
        merge sub-symptoms as 主题：症状、症状; full-width punctuation,
        「」 for UI labels, backticks for config keys and commands
+     - omit the redundant suffix 「的问题」; end with the concrete symptom
+       or outcome instead
      - platform entries sit under their platform heading (bold, emoji
        prefixed, ordered Windows/macOS/Linux, combined for pairs like
        macOS/Linux) at the end of their section;
@@ -21,6 +23,8 @@
      GitHub, so they never reach users. -->
 
 ## v2.6.0
+
+- **Mihomo 内核升级至 v1.19.34**
 
 <details>
 <summary><strong> 🐞 修复问题 </strong></summary>
@@ -52,6 +56,11 @@
 - 修复订阅响应过大导致内存占用过高，限制单次下载为 4 MiB
 - 修复全局模式默认停在 `DIRECT` 或 `REJECT` 导致流量未经代理，现自动切换到第一个策略组
 - 修复订阅中未加引号的 REALITY `short-id`（如 `1234e123`）被误读为数字，导致订阅无法启用
+- 修复订阅中唯一的代理组名为 `GLOBAL` 或没有代理组时，规则模式下代理页面显示「未获取到代理信息」
+- 修复窗口较窄时，首页「当前节点」卡片中过长的节点名把延迟标签挤出卡片
+- 修复断开链式代理时清空已选节点，导致再次连接需要重新选择
+- 修复「连接」页表格排序时表头换行、标题位置跳动
+- 修复「TUN 设置」未手动保存时，界面显示的默认 MTU 1500 未生效
 
 **🖥️ Windows**
 
@@ -69,6 +78,9 @@
 - macOS：修复 Bigsur 上首页测速和流量图无法显示的问题
 - macOS：修复 TUN 模式下原有 DNS 被清除、关闭后 DNS 未恢复及联网后设置未生效
 - macOS：修复断网时误报代理已回退直连，恢复联网后自动重试系统代理
+- 修复 macOS TUN 模式下原有 DNS 被清除、关闭后 DNS 未恢复及联网后设置未生效
+- 修复 macOS 断网时误报代理已回退直连，恢复联网后自动重试系统代理
+- 修复 macOS 切换主题后标题栏保留原有深浅色
 
 **🐧 Linux**
 
@@ -90,6 +102,7 @@
 - 代理节点支持显示所属代理组并快速跳转到对应分组
 - 设置页支持安装指定版本的 Mihomo 内核，安装失败时自动回滚到原版本
 - 新增虚拟网卡设置的「DNS 模式」选项，支持配置 mihomo 系统 DNS 行为
+- 新增连接页面按网络协议（TCP/UDP）筛选连接
 
 **🍎/🐧 macOS/Linux**
 
@@ -103,6 +116,7 @@
 - 除首页外所有页面、拖拽排序、CIDR 校验与设置弹窗改为按需加载，首屏 JS gzip 在上一版 415.8 kB 基础上降至 340.5 kB（约 -18%）
 - 优化托盘菜单刷新：构建合并为主线程单次派发，状态变化原地更新、仅在结构变化时重建，代理节点较多时更流畅
 - 「DNS 模式」仅在 mihomo v1.19.33 及以上内核显示，避免旧内核出现无效选项
+- 优化 WebDAV 密码存储：优先写入系统钥匙串，不再持久化到配置文件
 
 **🖥️ Windows**
 

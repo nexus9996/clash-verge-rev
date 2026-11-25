@@ -5,6 +5,7 @@ pub mod dirs;
 pub mod elevated;
 pub mod help;
 pub mod init;
+pub mod keychain;
 #[cfg(target_os = "linux")]
 pub mod linux;
 #[cfg(target_os = "macos")]

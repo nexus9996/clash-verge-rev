@@ -55,7 +55,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v7
         with:
-          node-version: '26.13.0'
+          node-version: '26.13.1'
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -158,7 +158,7 @@ jobs:
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: '1.99.1'
+          toolchain: '1.100.0'
           targets: ${{ matrix.target }}
 
       - name: Rust Cache
@@ -186,7 +186,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v7
         with:
-          node-version: '26.13.0'
+          node-version: '26.13.1'
 
       - name: Bun cache
         uses: actions/cache@v6
@@ -251,7 +251,7 @@ jobs:
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: '1.99.1'
+          toolchain: '1.100.0'
           targets: ${{ matrix.target }}
 
       - name: Rust Cache
@@ -273,7 +273,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v7
         with:
-          node-version: '26.13.0'
+          node-version: '26.13.1'
 
       - name: Bun cache
         uses: actions/cache@v6
@@ -394,7 +394,7 @@ jobs:
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: '1.99.1'
+          toolchain: '1.100.0'
           targets: ${{ matrix.target }}
 
       - name: Rust Cache
@@ -416,7 +416,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v7
         with:
-          node-version: '26.13.0'
+          node-version: '26.13.1'
 
       - name: Bun cache
         uses: actions/cache@v6
@@ -507,7 +507,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v7
         with:
-          node-version: '26.13.0'
+          node-version: '26.13.1'
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v2

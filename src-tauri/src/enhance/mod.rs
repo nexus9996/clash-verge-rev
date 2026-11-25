@@ -477,7 +477,7 @@ fn gui_tun_keys(clash_config: &Mapping) -> Vec<Value> {
         keys.extend(
             constants::tun::GUI_KEYS
                 .iter()
-                .filter(|key| tun.contains_key(**key))
+                .filter(|key| tun.get(**key).is_some_and(|value| !value.is_null()))
                 .map(|key| Value::from(*key)),
         );
     }
@@ -549,6 +549,16 @@ fn ensure_lan_bind_address(mut config: Mapping) -> Mapping {
     config
 }
 
+fn ensure_tun_default_mtu(mut config: Mapping) -> Mapping {
+    if let Some(Value::Mapping(tun)) = config.get_mut("tun")
+        && matches!(tun.get("mtu"), None | Some(Value::Null))
+    {
+        tun.insert(Value::from("mtu"), Value::from(constants::tun::DEFAULT_MTU));
+    }
+
+    config
+}
+
 /// Merges the app's clash config over the profile; switches are parameters to keep it pure.
 fn merge_default_config(
     mut config: Mapping,
@@ -566,7 +576,9 @@ fn merge_default_config(
             });
             let patch_tun = value.as_mapping().cloned().unwrap_or_else(Mapping::new);
             for (key, value) in patch_tun.into_iter() {
-                tun.insert(key, value);
+                if !value.is_null() {
+                    tun.insert(key, value);
+                }
             }
             config.insert("tun".into(), tun.into());
         } else {
@@ -652,7 +664,7 @@ fn cleanup_proxy_groups(mut config: Mapping) -> Mapping {
     let proxy_names = config
         .get("proxies")
         .and_then(|v| v.as_sequence())
-        .map(|seq| {
+        .map_or_default(|seq| {
             seq.iter()
                 .filter_map(|item| match item {
                     Value::Mapping(map) => map
@@ -663,13 +675,12 @@ fn cleanup_proxy_groups(mut config: Mapping) -> Mapping {
                     _ => None,
                 })
                 .collect::<HashSet<String>>()
-        })
-        .unwrap_or_default();
+        });
 
     let group_names = config
         .get("proxy-groups")
         .and_then(|v| v.as_sequence())
-        .map(|seq| {
+        .map_or_default(|seq| {
             seq.iter()
                 .filter_map(|item| {
                     item.as_mapping()
@@ -678,19 +689,17 @@ fn cleanup_proxy_groups(mut config: Mapping) -> Mapping {
                         .map(std::convert::Into::into)
                 })
                 .collect::<HashSet<String>>()
-        })
-        .unwrap_or_default();
+        });
 
     let provider_names = config
         .get("proxy-providers")
         .and_then(Value::as_mapping)
-        .map(|map| {
+        .map_or_default(|map| {
             map.keys()
                 .filter_map(Value::as_str)
                 .map(std::convert::Into::into)
                 .collect::<HashSet<String>>()
-        })
-        .unwrap_or_default();
+        });
 
     let mut allowed_names = proxy_names;
     allowed_names.extend(group_names);
@@ -734,15 +743,13 @@ fn ensure_fake_ip_range6(dns: &mut Mapping) {
     let is_fake_ip = dns
         .get("enhanced-mode")
         .and_then(|v| v.as_str())
-        .map(|m| m == "fake-ip")
-        .unwrap_or(true);
+        .is_none_or(|m| m == "fake-ip");
 
     // Hand-edited YAML may leave the key present but empty.
     let range6_missing = dns
         .get("fake-ip-range6")
         .and_then(|v| v.as_str())
-        .map(|s| s.trim().is_empty())
-        .unwrap_or(true);
+        .is_none_or(|s| s.trim().is_empty());
 
     if ipv6_enabled && is_fake_ip && range6_missing {
         dns.insert(Value::from("fake-ip-range6"), Value::from("2001:2::0/64"));
@@ -793,8 +800,7 @@ fn take_mapping(config: &mut Mapping, key: &str) -> Mapping {
     config
         .get_mut(key)
         .and_then(Value::as_mapping_mut)
-        .map(std::mem::take)
-        .unwrap_or_default()
+        .map_or_default(std::mem::take)
 }
 
 fn merge_dns_config(mut config: Mapping, mut dns_config: Mapping) -> (Mapping, Mapping) {
@@ -961,6 +967,7 @@ pub async fn enhance(profiles: &IProfiles) -> Result<EnhancedProfile> {
     if let Some(dns) = config.get_mut("dns").and_then(Value::as_mapping_mut) {
         ensure_proxy_server_nameserver(dns, profile_nameserver.as_ref());
     }
+    let config = ensure_tun_default_mtu(config);
     let config = ensure_lan_bind_address(config);
 
     let config = cleanup_proxy_groups(config);

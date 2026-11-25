@@ -8,7 +8,7 @@ repository = "https://github.com/clash-verge-rev/clash-verge-rev.git"
 default-run = "clash-verge"
 build = "build.rs"
 edition = "2024"
-rust-version = "1.99"
+rust-version = "1.100"
 
 [lib]
 name = "app_lib"
@@ -57,13 +57,14 @@ parking_lot = { workspace = true }
 anyhow = { workspace = true }
 tokio = { workspace = true }
 log = { workspace = true }
+keyring-core = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 serde_yaml_ng = { workspace = true }
 granit-parser = "1.2.1"
 smartstring = { workspace = true, features = ["serde"] }
 socket2 = { workspace = true }
-warp = { version = "0.4.3", features = ["server"] }
+warp = { version = "0.4.4", features = ["server"] }
 open = "5.4.4"
 rfd = { version = "0.16.0", default-features = false, features = ["common-controls-v6"] }
 dirs = "7.0.0"
@@ -72,7 +73,7 @@ nanoid = "0.5"
 chrono = { workspace = true }
 rquickjs = { version = "0.14", features = ["bindgen"] }
 boa_engine = "0.22.0"
-http-body-util = "0.1.4"
+http-body-util = "0.1.5"
 percent-encoding = "2.3.2"
 reqwest = { workspace = true }
 encoding_rs = { workspace = true }
@@ -86,8 +87,8 @@ tauri-plugin-dialog = "3.0.0-alpha.3"
 tauri-plugin-fs = "3.0.0-alpha.2"
 tauri-plugin-deep-link = "3.0.0-alpha.2"
 tauri-plugin-window-state = "3.0.0-alpha.2"
-zip = "9.3.0"
-flate2 = "1.1.10"
+zip = "9.5.1"
+flate2 = "1.1.11"
 reqwest_dav = "0.3.3"
 aes-gcm = { version = "0.11.1" }
 base64 = "0.23.1"
@@ -95,12 +96,11 @@ sha2 = "0.11.1"
 getrandom = "0.4.3"
 futures = "0.3.34"
 gethostname = "1.1.0"
-scopeguard = "1.2.0"
 tauri-plugin-notification = "3.0.0-alpha.2"
 backon = { version = "1.6.0", features = ["tokio-sleep"] }
 tracing = { workspace = true }
 tauri-plugin-devtools = { version = "3.0.0-alpha.0", optional = true }
-tauri-plugin-mihomo = { git = "https://github.com/clash-verge-rev/tauri-plugin-mihomo", branch = "feat/tauri-v3" }
+tauri-plugin-mihomo = { git = "https://github.com/clash-verge-rev/tauri-plugin-mihomo", rev = "7e5d90afca7b9fde172f6e542f5f43078eacee31" }
 async-trait = "0.1.92"
 clash_verge_service_ipc = { git = "https://github.com/clash-verge-rev/clash-verge-service-ipc.git", tag = "v2.7.7", version = "2.7.7", features = [
   "client",
@@ -122,6 +122,7 @@ libc = "0.2.191"
 [target.'cfg(target_os = "linux")'.dependencies]
 # Upstream has no session-end signal support on Linux; see crates/clash-verge-signal.
 clash-verge-signal = { workspace = true }
+dbus-secret-service-keyring-store = { version = "1", features = ["crypto-rust"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6.5"
@@ -149,6 +150,7 @@ objc2-app-kit = { version = "0.3.2", features = [
   "NSText",
   "NSWindow",
 ] }
+apple-native-keyring-store = { version = "1", features = ["keychain"] }
 
 [target.'cfg(windows)'.dependencies]
 deelevate = { workspace = true }
@@ -157,6 +159,7 @@ winreg = "0.56.0"
 windows-service = "0.8.1"
 windows = { version = "0.62.2", features = ["Win32_Globalization"] }
 windows-sys.workspace = true
+windows-native-keyring-store = "1"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-autostart = "3.0.0-alpha.2"
@@ -167,7 +170,7 @@ tauri-plugin-updater = "3.0.0-alpha.2"
 criterion = { workspace = true }
 tauri = { workspace = true, features = ["test"] }
 tokio = { workspace = true, features = ["test-util"] }
-warp = { version = "0.4.3", features = ["test"] }
+warp = { version = "0.4.4", features = ["test"] }
 
 [lints]
 workspace = true
