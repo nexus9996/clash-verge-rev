@@ -37,23 +37,23 @@ type MarkdownNode = {
 const GITHUB_ALERTS = {
   note: {
     labelKey: 'settings.modals.update.alerts.note',
-    color: '#0969da',
+    palette: 'info',
   },
   tip: {
     labelKey: 'settings.modals.update.alerts.tip',
-    color: '#1a7f37',
+    palette: 'success',
   },
   important: {
     labelKey: 'settings.modals.update.alerts.important',
-    color: '#8250df',
+    palette: 'secondary',
   },
   warning: {
     labelKey: 'settings.modals.update.alerts.warning',
-    color: '#9a6700',
+    palette: 'warning',
   },
   caution: {
     labelKey: 'settings.modals.update.alerts.caution',
-    color: '#cf222e',
+    palette: 'error',
   },
 } as const
 
@@ -538,7 +538,8 @@ export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
                       component="blockquote"
                       className={className}
                       sx={(theme) => {
-                        const color = GITHUB_ALERTS[alertType].color
+                        const color =
+                          theme.palette[GITHUB_ALERTS[alertType].palette].main
                         return {
                           m: '12px 0 18px',
                           px: 2,

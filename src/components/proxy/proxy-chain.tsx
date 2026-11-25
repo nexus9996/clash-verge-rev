@@ -187,7 +187,7 @@ const ChainCard = ({
           sx={{
             mr: 1,
             fontWeight: 700,
-            color: '#fff',
+            color: 'common.white',
             backgroundColor: roleColor,
           }}
         />

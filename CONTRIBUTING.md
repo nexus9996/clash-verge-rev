@@ -100,6 +100,30 @@ Fast build for testing:
 pnpm build:fast
 ```
 
+### Adding a Frontend Page (TanStack Router)
+
+The router is file-based and the sidebar catalog is centralized, so a page takes three edits:
+
+1. **Page component** — add `src/pages/<name>.tsx` and export the component as default. Domain-specific components belong under `src/components/<domain>/`.
+2. **Route shell** — add `src/routes/<name>.tsx`:
+
+   ```tsx
+   import { createFileRoute } from '@tanstack/react-router'
+
+   import MyPage from '@/pages/my-page'
+
+   export const Route = createFileRoute('/my-page')({
+     component: MyPage,
+     staticData: { navId: 'myPage' },
+   })
+   ```
+
+   Then run `pnpm generate-routes` to refresh `src/routeTree.gen.ts` (the Vite plugin also regenerates it during dev/build).
+
+3. **Navigation and copy** — add the entry to `NAV_META` in `src/config/navigation.ts` (id, path, i18n label key), add its icon pair to `NAV_ICONS` in `src/components/layout/navigation-icons.tsx`, add `tabs.<id>` to all 14 `src/locales/*/layout.json` files, then run `pnpm i18n:types`.
+
+Finally run `pnpm typecheck && pnpm test && pnpm lint`. `src/routes/__route-catalog.test.ts` fails when the route tree, `staticData.navId` and the navigation catalog drift apart. The architecture contract is documented in [`docs/frontend-architecture.md`](docs/frontend-architecture.md).
+
 ## Contributing Your Changes
 
 ### Before Committing

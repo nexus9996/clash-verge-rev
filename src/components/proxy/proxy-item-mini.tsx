@@ -1,5 +1,6 @@
 import { CheckCircleOutlineRounded } from '@mui/icons-material'
 import { alpha, Box, ListItemButton, styled, Typography } from '@mui/material'
+import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BaseLoading } from '@/components/base'
@@ -24,7 +25,7 @@ interface Props {
 }
 
 // 多列布局
-export const ProxyItemMini = (props: Props) => {
+export const ProxyItemMini = memo(function ProxyItemMini(props: Props) {
   const {
     group,
     member,
@@ -64,7 +65,7 @@ export const ProxyItemMini = (props: Props) => {
           alignItems: 'center',
         },
         ({ palette: { mode, primary } }) => {
-          const bgcolor = mode === 'light' ? '#ffffff' : '#24252f'
+          const bgcolor = 'var(--surface-raised)'
           const showDelay = delayValue > 0
           const selectColor = mode === 'light' ? primary.main : primary.light
 
@@ -241,7 +242,7 @@ export const ProxyItemMini = (props: Props) => {
       )}
     </ListItemButton>
   )
-}
+})
 
 const Widget = styled(Box)(({ theme: { typography } }) => ({
   padding: '2px 4px',
@@ -254,7 +255,7 @@ const TypeBox = styled(Box, {
   shouldForwardProp: (prop) => prop !== 'component',
 })<{ component?: React.ElementType }>(({ theme: { typography } }) => ({
   display: 'inline-block',
-  border: '1px solid #ccc',
+  border: '1px solid',
   borderColor: 'text.secondary',
   color: 'text.secondary',
   borderRadius: 4,

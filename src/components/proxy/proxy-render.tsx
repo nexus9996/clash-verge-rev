@@ -18,7 +18,6 @@ import { useTranslation } from 'react-i18next'
 
 import { useIconCache } from '@/hooks/use-icon-cache'
 import { useVerge } from '@/hooks/use-verge'
-import { useThemeMode } from '@/services/states'
 import type { ResolvedProxyMember } from '@/types/proxy-view'
 
 import { ProxyGroupHeaderBlock } from './proxy-group-header-block'
@@ -64,9 +63,7 @@ export const ProxyRender = memo(function ProxyRender(props: RenderProps) {
   const enable_group_icon = verge?.enable_group_icon ?? true
   const toolsOnLeft = verge?.proxy_group_tools_position === 'left'
   const headerId = useId()
-  const mode = useThemeMode()
-  const isDark = mode === 'dark'
-  const itembackgroundcolor = isDark ? '#282A36' : '#ffffff'
+  const itembackgroundcolor = 'var(--surface-card)'
   const iconCachePath = useIconCache({
     icon: group.icon,
     cacheKey: group.name.replaceAll(' ', ''),
@@ -177,7 +174,7 @@ export const ProxyRender = memo(function ProxyRender(props: RenderProps) {
               sx: {
                 display: 'flex',
                 alignItems: 'center',
-                color: '#ccc',
+                color: 'text.disabled',
               },
             },
           }}
@@ -355,7 +352,7 @@ const StyledSubtitle = styled('span')`
 
 const StyledTypeBox = styled(Box)(({ theme }) => ({
   display: 'inline-block',
-  border: '1px solid #ccc',
+  border: '1px solid',
   borderColor: alpha(theme.palette.primary.main, 0.5),
   color: alpha(theme.palette.primary.main, 0.8),
   borderRadius: 4,

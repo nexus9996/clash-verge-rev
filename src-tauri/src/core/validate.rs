@@ -264,18 +264,33 @@ impl CoreConfigValidator {
         let has_main =
             content.contains("function main") || content.contains("const main") || content.contains("let main");
 
-        // Boa parsing is pure CPU; keep it off the async worker, with a timeout.
+        // Script parsing is pure CPU; keep it off the async worker, with a timeout.
         let syntax = crate::process::AsyncHandler::spawn_blocking(move || {
-            use boa_engine::{Context, Source};
+            use rquickjs::{Context, Runtime};
+            use std::time::{Duration, Instant};
 
-            let mut context = Context::default();
-            let _ = context.eval(Source::from_bytes(
-                "var console = Object.freeze({log(...data){},info(...data){},error(...data){},debug(...data){}});",
-            ));
-            context
-                .eval(Source::from_bytes(&content))
-                .map(|_| ())
-                .map_err(|err| err.to_string())
+            const MEMORY_LIMIT: usize = 256 * 1024 * 1024;
+            const STACK_SIZE: usize = 1024 * 1024;
+            let runtime = Runtime::new().map_err(|err| err.to_string())?;
+            runtime.set_memory_limit(MEMORY_LIMIT);
+            runtime.set_max_stack_size(STACK_SIZE);
+
+            let deadline = Instant::now() + Duration::from_secs(5);
+            runtime.set_interrupt_handler(Some(Box::new(move || Instant::now() >= deadline)));
+
+            let result = (|| -> Result<(), std::string::String> {
+                let context = Context::full(&runtime).map_err(|err| err.to_string())?;
+                context.with(|ctx| {
+                    ctx.eval::<(), _>(
+                        "var console = Object.freeze({log(...data){},info(...data){},error(...data){},debug(...data){}});",
+                    )
+                    .map_err(|err| err.to_string())?;
+                    ctx.eval::<(), _>(content.into_bytes()).map_err(|err| err.to_string())
+                })
+            })();
+
+            runtime.set_interrupt_handler(None);
+            result
         });
         let result = match tokio::time::timeout(SYNTAX_CHECK_TIMEOUT, syntax).await {
             Ok(Ok(evaluated)) => evaluated,

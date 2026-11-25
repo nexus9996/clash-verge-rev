@@ -2,7 +2,7 @@
 
 > 日期：2026-10-19
 > 分支：`migrate/fe-router-poc`（基于集成分支 `migrate/self-frontend-architecture` @ `63bfae17`）
-> 关联：[迁移计划](frontend-architecture-migration-plan.md) · [ADR-0001](../adr/0001-router-choice.md) · [Phase 0 基线](frontend-baseline-2026-10-19.md)
+> 关联：[迁移计划](../frontend-architecture-migration-plan.md) · [ADR-0001](../adr/0001-router-choice.md) · [Phase 0 基线](frontend-baseline-2026-10-19.md)
 > 结论：**G1 全部通过（Full Go）**：bundle −22.7% gzip；2026-10-19 桌面 smoke 无异常；R1+R2 已合入集成分支
 
 ## 1. PoC 范围

@@ -42,7 +42,7 @@ const Widget = styled(Box)(() => ({
 
 const TypeBox = styled('span')(({ theme }) => ({
   display: 'inline-block',
-  border: '1px solid #ccc',
+  border: '1px solid',
   borderColor: alpha(theme.palette.text.secondary, 0.36),
   color: alpha(theme.palette.text.secondary, 0.42),
   borderRadius: 4,
@@ -86,7 +86,7 @@ export const ProxyItem = (props: Props) => {
         sx={[
           { borderRadius: 1 },
           ({ palette: { mode, primary } }) => {
-            const bgcolor = mode === 'light' ? '#ffffff' : '#24252f'
+            const bgcolor = 'var(--surface-raised)'
             const selectColor = mode === 'light' ? primary.main : primary.light
             const showDelay = delayValue > 0
 

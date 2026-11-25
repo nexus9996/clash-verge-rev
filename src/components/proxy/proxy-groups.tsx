@@ -33,6 +33,7 @@ import {
   type ResolvedProxyMember,
 } from '@/types/proxy-view'
 import { debugLog } from '@/utils/debug'
+import { recordDiagnostic } from '@/utils/diagnostics'
 
 import { ProxyEmptyState } from './proxy-empty-state'
 import {
@@ -378,6 +379,8 @@ function ChainProxyGroups(props: {
 function NormalProxyGroups(props: { mode: string }) {
   const { mode } = props
   const stickyListRef = useRef<StickyVirtualListHandle>(null)
+  const [mountStartedAt] = useState(() => performance.now())
+  const mountMetricsRef = useRef({ rows: 0, groups: 0, records: 0 })
   const {
     verge,
     renderList,
@@ -390,54 +393,34 @@ function NormalProxyGroups(props: { mode: string }) {
   } = useProxyRenderState(mode, false, null)
   const emptyList = useEmptyRenderList()
   const { onDragEnd: onHeaderDragEnd } = useProxyGroupHeaderLayout()
-  const renderFirstRef = useRef(true)
-  // Do not persist intermediate positions produced while restoring virtual scroll.
-  const isRestoringRef = useRef(false)
+  const [navigatorReady, setNavigatorReady] = useState(false)
 
-  useLayoutEffect(() => {
-    if (renderList.length === 0) return
-    if (!renderFirstRef.current) return
-    const node = stickyListRef.current?.getScrollElement()
-    if (!node) return
-
-    const savedPosition = getScrollPosition()
-    if (!savedPosition) {
-      renderFirstRef.current = false
-      return
+  useEffect(() => {
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(() => setNavigatorReady(true), {
+        timeout: 1200,
+      })
+      return () => window.cancelIdleCallback?.(id)
     }
+    const id = window.setTimeout(() => setNavigatorReady(true), 600)
+    return () => window.clearTimeout(id)
+  }, [])
 
-    // Retry across frames until virtual-list measurements can reach the saved offset.
-    isRestoringRef.current = true
-    let rafId = 0
-    let attempts = 0
-    const maxAttempts = 30
+  mountMetricsRef.current = {
+    rows: renderList.length,
+    groups: proxyView?.groups.length ?? 0,
+    records: proxyView ? Object.keys(proxyView.records).length : 0,
+  }
 
-    const step = () => {
-      const el = stickyListRef.current?.getScrollElement()
-      if (!el) {
-        isRestoringRef.current = false
-        return
-      }
-
-      el.scrollTop = savedPosition
-      attempts += 1
-
-      const reached = Math.abs(el.scrollTop - savedPosition) <= 1
-      if (reached || attempts >= maxAttempts) {
-        renderFirstRef.current = false
-        isRestoringRef.current = false
-        return
-      }
-
-      rafId = requestAnimationFrame(step)
-    }
-
-    rafId = requestAnimationFrame(step)
-    return () => {
-      cancelAnimationFrame(rafId)
-      isRestoringRef.current = false
-    }
-  }, [renderList.length, getScrollPosition])
+  useEffect(() => {
+    recordDiagnostic('proxies-mount', {
+      ms: Math.round((performance.now() - mountStartedAt) * 10) / 10,
+      ...mountMetricsRef.current,
+    })
+  }, [mountStartedAt])
+  // The virtualizer applies this offset on mount and clamps stale values as row
+  // measurements grow the scroll range, so no rAF retry loop is needed.
+  const [initialOffset] = useState(() => getScrollPosition())
 
   const saveScrollPositionThrottled = useMemo(
     () => throttle(saveScrollPosition, 500),
@@ -446,7 +429,6 @@ function NormalProxyGroups(props: { mode: string }) {
 
   const handleScroll = useCallback(
     (event: Event) => {
-      if (isRestoringRef.current) return
       const target = event.target as HTMLElement | null
       const nextScrollTop = target?.scrollTop ?? 0
 
@@ -640,6 +622,8 @@ function NormalProxyGroups(props: { mode: string }) {
       >
         <StickyVirtualList
           ref={stickyListRef}
+          initialOffset={initialOffset}
+          overscan={2}
           items={renderList}
           isGroupItem={(item) => item.type === 0}
           getItemKey={(item) => item.key}
@@ -650,7 +634,7 @@ function NormalProxyGroups(props: { mode: string }) {
         />
       </DragDropProvider>
 
-      {mode === 'rule' && (
+      {mode === 'rule' && navigatorReady && (
         <ProxyGroupNavigator
           proxyGroupNames={proxyGroupNames}
           onGroupLocation={handleGroupLocationByName}

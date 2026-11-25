@@ -1,6 +1,7 @@
 export { defaultDarkTheme, defaultTheme } from './defaults'
 export {
   createThemeCssVariables,
+  resolveModeSurfaces,
   resolveThemeColors,
   type ResolvedThemeColors,
 } from './tokens'

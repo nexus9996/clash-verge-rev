@@ -1,6 +1,7 @@
 import { GitHub, HelpOutlineRounded, Telegram } from '@mui/icons-material'
 import { Box, ButtonGroup, IconButton, Grid } from '@mui/material'
 import { useLockFn } from 'ahooks'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BasePage } from '@/components/base'
@@ -9,11 +10,18 @@ import SettingSystem from '@/components/setting/setting-system'
 import SettingVergeAdvanced from '@/components/setting/setting-verge-advanced'
 import SettingVergeBasic from '@/components/setting/setting-verge-basic'
 import { showNotice } from '@/services/notice-service'
-import { useThemeMode } from '@/services/states'
+import { recordDiagnostic } from '@/utils/diagnostics'
 import { openExternalUrl } from '@/utils/open-external-url'
 
 const SettingPage = () => {
   const { t } = useTranslation()
+  const [mountStartedAt] = useState(() => performance.now())
+
+  useEffect(() => {
+    recordDiagnostic('settings-mount', {
+      ms: Math.round((performance.now() - mountStartedAt) * 10) / 10,
+    })
+  }, [mountStartedAt])
 
   const onError = (err: any) => {
     showNotice.error(err)
@@ -34,9 +42,6 @@ const SettingPage = () => {
   const toTelegramChannel = useLockFn(() =>
     openExternalUrl('https://t.me/clash_verge_re').catch(onError),
   )
-
-  const mode = useThemeMode()
-  const isDark = mode === 'light' ? false : true
 
   return (
     <BasePage
@@ -80,7 +85,9 @@ const SettingPage = () => {
             sx={{
               borderRadius: 2,
               marginBottom: 1.5,
-              backgroundColor: isDark ? '#282a36' : '#ffffff',
+              backgroundColor: 'var(--surface-card)',
+              contentVisibility: 'auto',
+              containIntrinsicSize: 'auto 640px',
             }}
           >
             <SettingSystem onError={onError} />
@@ -88,7 +95,9 @@ const SettingPage = () => {
           <Box
             sx={{
               borderRadius: 2,
-              backgroundColor: isDark ? '#282a36' : '#ffffff',
+              backgroundColor: 'var(--surface-card)',
+              contentVisibility: 'auto',
+              containIntrinsicSize: 'auto 640px',
             }}
           >
             <SettingClash onError={onError} />
@@ -99,7 +108,9 @@ const SettingPage = () => {
             sx={{
               borderRadius: 2,
               marginBottom: 1.5,
-              backgroundColor: isDark ? '#282a36' : '#ffffff',
+              backgroundColor: 'var(--surface-card)',
+              contentVisibility: 'auto',
+              containIntrinsicSize: 'auto 640px',
             }}
           >
             <SettingVergeBasic onError={onError} />
@@ -107,7 +118,9 @@ const SettingPage = () => {
           <Box
             sx={{
               borderRadius: 2,
-              backgroundColor: isDark ? '#282a36' : '#ffffff',
+              backgroundColor: 'var(--surface-card)',
+              contentVisibility: 'auto',
+              containIntrinsicSize: 'auto 640px',
             }}
           >
             <SettingVergeAdvanced onError={onError} />

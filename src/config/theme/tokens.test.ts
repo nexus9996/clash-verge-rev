@@ -51,6 +51,18 @@ describe('theme tokens', () => {
     expect(variables['--color-divider']).toBe(
       resolveModeSurfaces('light').divider,
     )
+    expect(variables['--surface-card']).toBe(
+      resolveModeSurfaces('light').cardBackground,
+    )
+    expect(variables['--surface-page']).toBe(
+      resolveModeSurfaces('light').pageBackground,
+    )
+    expect(variables['--log-highlight']).toBe(
+      resolveModeSurfaces('light').logHighlight,
+    )
+    expect(variables['--switch-track-off']).toBe(
+      resolveModeSurfaces('light').switchTrackOff,
+    )
   })
 
   it('prefers user color settings over defaults', () => {
