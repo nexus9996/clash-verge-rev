@@ -1,4 +1,3 @@
-/* eslint-disable @eslint-react/set-state-in-effect */
 import {
   AccessTimeRounded,
   ArrowDropDown,
@@ -30,27 +29,25 @@ import {
   alpha,
   useTheme,
 } from '@mui/material'
+import { useNavigate } from 'react-router'
 import { useLockFn } from 'ahooks'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router'
 
 import { EnhancedCard } from '@/components/home/enhanced-card'
 import type { ProxySortType } from '@/components/proxy/use-filter-sort'
-import { useGroupDelays } from '@/hooks/use-group-delays'
-import { useProfiles } from '@/hooks/use-profiles'
-import { useProxySelection } from '@/hooks/use-proxy-selection'
-import { useVerge } from '@/hooks/use-verge'
 import {
+  HOME_PROXY_VIEW_REFETCH_MS,
   useAppRefreshers,
   useClashConfigData,
   useCoreDataStatus,
   useProxiesData,
-} from '@/providers/app-data-context'
-import { syncTrayProxySelection } from '@/services/cmds'
+} from '@/hooks/data'
+import { useGroupDelays } from '@/hooks/use-group-delays'
+import { useProfiles } from '@/hooks/use-profiles'
+import { useProxySelection } from '@/hooks/use-proxy-selection'
+import { useVerge } from '@/hooks/use-verge'
 import delayManager from '@/services/delay'
-import { mutate } from '@/services/mutate'
-import { profileTestUrls } from '@/services/proxy-test-url'
 import {
   findCurrentGroupMember,
   getRecord,
@@ -418,8 +415,10 @@ const PersistentSelect = ({
   )
 }
 
-interface PersistentProxySelectProps
-  extends Omit<PersistentSelectProps, 'displayValue' | 'renderOptions'> {
+interface PersistentProxySelectProps extends Omit<
+  PersistentSelectProps,
+  'displayValue' | 'renderOptions'
+> {
   value: string
   selectedName: string
   groupName: string
@@ -540,7 +539,7 @@ export const CurrentProxyCard = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const theme = useTheme()
-  const { proxyView } = useProxiesData()
+  const { proxyView } = useProxiesData(HOME_PROXY_VIEW_REFETCH_MS)
   const { clashConfig } = useClashConfigData()
   const { refreshProxy } = useAppRefreshers()
   const { isCoreDataPending } = useCoreDataStatus()
@@ -678,20 +677,6 @@ export const CurrentProxyCard = () => {
     [proxyView],
   )
 
-  useEffect(() => {
-    if (!selectedGroup) return
-    const customUrl = currentProfile
-      ? profileTestUrls(currentProfile)[selectedGroup.name]
-      : undefined
-    delayManager.setUrl(
-      selectedGroup.name,
-      customUrl?.trim() ||
-        selectedGroup.testUrl?.trim() ||
-        verge?.default_latency_test?.trim() ||
-        'http://cp.cloudflare.com/generate_204',
-    )
-  }, [selectedGroup, currentProfile, verge?.default_latency_test])
-
   const unsortedProxyOptions = useMemo(
     () => optionsForGroup(selectedGroup),
     [optionsForGroup, selectedGroup],
@@ -795,7 +780,7 @@ export const CurrentProxyCard = () => {
   )
 
   const goToProxies = useCallback(() => {
-    navigate('/proxies')
+    void navigate('/proxies')
   }, [navigate])
 
   const currentMember = currentOption?.member
@@ -849,9 +834,8 @@ export const CurrentProxyCard = () => {
       )
     } finally {
       autoCheckInProgressRef.current = false
-      refreshProxy()
     }
-  }, [isDirectMode, refreshProxy, selectedGroupName, selectedProxyName])
+  }, [isDirectMode, selectedGroupName, selectedProxyName])
 
   useEffect(() => {
     if (isDirectMode) return
@@ -924,12 +908,6 @@ export const CurrentProxyCard = () => {
     }
 
     refreshProxy()
-    mutate(() => syncTrayProxySelection(), {
-      id: 'sync-tray-selection',
-      errorNotice: false,
-    }).catch((error) => {
-      console.error('[CurrentProxyCard] Failed to sync tray latency:', error)
-    })
   })
 
   const proxyOptions = useMemo(

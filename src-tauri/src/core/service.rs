@@ -823,6 +823,20 @@ async fn service_core_bin_path() -> Result<PathBuf> {
     service_core_path(&clash_core, bin_ext)
 }
 
+/// Version of the core bundled next to the app executable.
+///
+/// The Service runs its own administrator-approved copy, so after an app update this version can
+/// be newer than the kernel the Service still starts. The frontend compares it with the live core
+/// version to surface that drift instead of leaving the old kernel silently in place.
+pub(crate) async fn bundled_core_version() -> Result<std::string::String> {
+    let core = Config::verge().await.latest_arc().get_valid_clash_core();
+    let path = current_exe()?.with_file_name(format!("{core}{}", std::env::consts::EXE_SUFFIX));
+
+    AsyncHandler::spawn_blocking(move || crate::feat::read_core_version(&path))
+        .await
+        .map_err(|join| anyhow!("bundled core version task failed: {join}"))?
+}
+
 /// Builds the same runtime bundle description for both service start and staging.
 #[tracing::instrument(name = "collect_service_runtime_bundle", skip_all, level = "debug")]
 async fn collect_service_runtime_bundle(config_file: &Path) -> Result<RuntimeBundle> {

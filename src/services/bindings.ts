@@ -44,6 +44,14 @@ export const commands = {
   /**  Installs an explicit core version through the same stage/publish/rollback path as an upgrade. */
   installCoreVersion: (version: string) =>
     __TAURI_INVOKE<CoreUpgradeReport>('install_core_version', { version }),
+  /**
+   *  Version reported by the core bundled beside the app (`verge-mihomo`/`verge-mihomo-alpha`).
+   *
+   *  Service mode runs the Service's approved copy, so the frontend compares this bundled version
+   *  with the live core version to detect an app update that the Service has not accepted yet.
+   */
+  getBundledCoreVersion: () =>
+    __TAURI_INVOKE<string>('get_bundled_core_version'),
   /**  Returns one coherent core/service snapshot instead of independently refreshed state. */
   getRuntimeState: () => __TAURI_INVOKE<RunStateView>('get_runtime_state'),
   getPendingFailures: () =>

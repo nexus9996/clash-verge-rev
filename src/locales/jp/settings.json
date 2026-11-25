@@ -760,7 +760,8 @@
         "permissionRejectedReason": "コアファイルとフォルダーを高い権限で安全に実行できるか確認できませんでした。",
         "permissionRepairGuide": "修復方法を見る",
         "sidecarFallback": "サービスでコアを起動できなかったため、Sidecar モードで動作を継続しています。サービスは引き続き利用できません。",
-        "uninstallSuccess": "サービスのアンインストールに成功しました。"
+        "uninstallSuccess": "サービスのアンインストールに成功しました。",
+        "coreVersionDrift": "サービスモードで実行中のコア {{running}} が同梱コア {{bundled}} と一致しません。「設定 → Mihomo バージョン」で {{bundled}} をインストールするか、サービスを再インストール/修復してコアを再起動してください。"
       },
       "updater": {
         "withClashProxySuccess": "Clashプロキシを使用して更新に成功しました。",

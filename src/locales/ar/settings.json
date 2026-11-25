@@ -760,7 +760,8 @@
         "permissionRejectedReason": "تعذّر على الخدمة التأكد من أن ملفات النواة ومجلداتها آمنة للتشغيل بصلاحيات مرتفعة.",
         "permissionRepairGuide": "عرض خطوات الإصلاح",
         "sidecarFallback": "تعذّر على الخدمة تشغيل النواة. تم التبديل إلى وضع Sidecar؛ ولا تزال الخدمة غير متاحة.",
-        "uninstallSuccess": "تم إلغاء تثبيت الخدمة بنجاح"
+        "uninstallSuccess": "تم إلغاء تثبيت الخدمة بنجاح",
+        "coreVersionDrift": "يعمل وضع الخدمة بالنواة {{running}} بينما النواة المضمّنة هي {{bundled}}. افتح الإعدادات → إصدارات Mihomo لتثبيت {{bundled}}، أو أعد تثبيت الخدمة/أصلحها ثم أعد تشغيل النواة."
       },
       "updater": {
         "withClashProxySuccess": "Update with Clash proxy successfully",

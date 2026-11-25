@@ -760,7 +760,8 @@
         "permissionRejectedReason": "El servicio no pudo confirmar que los archivos y carpetas del núcleo sean seguros para ejecutarlos con privilegios elevados.",
         "permissionRepairGuide": "Ver instrucciones de reparación",
         "sidecarFallback": "El servicio no pudo iniciar el núcleo. Se ha cambiado al modo Sidecar; el servicio sigue sin estar disponible.",
-        "uninstallSuccess": "Servicio desinstalado con éxito"
+        "uninstallSuccess": "Servicio desinstalado con éxito",
+        "coreVersionDrift": "El modo servicio ejecuta el núcleo {{running}} mientras que el núcleo incluido es {{bundled}}. Abre Ajustes → Versiones de Mihomo para instalar {{bundled}}, o reinstala/repara el servicio y reinicia el núcleo."
       },
       "updater": {
         "withClashProxySuccess": "Actualización con el proxy de Clash exitosa",

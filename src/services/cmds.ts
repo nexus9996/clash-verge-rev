@@ -308,6 +308,11 @@ export async function installCoreVersion(version: string) {
   return commands.installCoreVersion(version)
 }
 
+/** Version of the core bundled next to the app; Service mode may still run an older approved copy. */
+export async function getBundledCoreVersion() {
+  return commands.getBundledCoreVersion()
+}
+
 export async function restartApp() {
   return commands.restartApp()
 }
