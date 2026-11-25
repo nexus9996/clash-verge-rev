@@ -14,12 +14,26 @@ import { ProviderButton } from '@/components/rule/provider-button'
 import RuleItem from '@/components/rule/rule-item'
 import { useVisibility } from '@/hooks/use-visibility'
 import { useAppRefreshers, useRulesData } from '@/providers/app-data-context'
+import {
+  getRulesExtra,
+  updateRulesDisable,
+  type RuleExtraInfo,
+} from '@/services/cmds'
+import { mutate } from '@/services/mutate'
+
+const HIT_REFRESH_INTERVAL_MS = 5000
 
 const RulesPage = () => {
   const { t } = useTranslation()
   const { rules = [] } = useRulesData()
   const { refreshRules, refreshRuleProviders } = useAppRefreshers()
   const [match, setMatch] = useState(() => (_: string) => true)
+  const [ruleExtras, setRuleExtras] = useState<
+    ReadonlyMap<number, RuleExtraInfo>
+  >(() => new Map())
+  const [pendingRuleIndexes, setPendingRuleIndexes] = useState<
+    ReadonlySet<number>
+  >(() => new Set())
   const virtuosoRef = useRef<VirtualListHandle>(null)
   const [showScrollTop, setShowScrollTop] = useState(false)
   const pageVisible = useVisibility()
@@ -34,6 +48,46 @@ const RulesPage = () => {
       refreshRuleProviders()
     }
   }, [refreshRules, refreshRuleProviders, pageVisible])
+
+  const refreshExtras = useCallback(async () => {
+    try {
+      const extras = await getRulesExtra()
+      setRuleExtras(new Map(extras.map((extra) => [extra.index, extra])))
+    } catch (error) {
+      console.warn('Failed to load rule hit information', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!pageVisible) return
+    void refreshExtras()
+    const timer = window.setInterval(
+      () => void refreshExtras(),
+      HIT_REFRESH_INTERVAL_MS,
+    )
+    return () => window.clearInterval(timer)
+  }, [pageVisible, refreshExtras])
+
+  const handleToggleRule = useCallback(
+    async (index: number, disabled: boolean) => {
+      setPendingRuleIndexes((prev) => new Set(prev).add(index))
+      try {
+        await mutate(() => updateRulesDisable([{ index, disabled }]), {
+          id: `rule-disable-${index}`,
+        })
+        await refreshExtras()
+      } catch (error) {
+        console.error('Failed to update rule state', error)
+      } finally {
+        setPendingRuleIndexes((prev) => {
+          const next = new Set(prev)
+          next.delete(index)
+          return next
+        })
+      }
+    },
+    [refreshExtras],
+  )
 
   const filteredRules = useMemo(() => {
     const rulesWithLineNo = rules.map((item, index) => ({
@@ -88,7 +142,19 @@ const RulesPage = () => {
             ref={virtuosoRef}
             count={filteredRules.length}
             estimateSize={40}
-            renderItem={(i) => <RuleItem value={filteredRules[i]} />}
+            renderItem={(i) => {
+              const rule = filteredRules[i]
+              return (
+                <RuleItem
+                  value={rule}
+                  extra={ruleExtras.get(rule.index)}
+                  pending={pendingRuleIndexes.has(rule.index)}
+                  onToggleDisabled={(disabled) =>
+                    void handleToggleRule(rule.index, disabled)
+                  }
+                />
+              )
+            }}
             style={{ flex: 1 }}
             onScroll={handleScroll}
           />

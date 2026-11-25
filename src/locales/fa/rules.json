@@ -8,7 +8,11 @@
         "update": "به‌روزرسانی"
       }
     },
-    "title": "قوانین"
+    "title": "قوانین",
+    "rule": {
+      "toggle": "فعال یا غیرفعال کردن این قانون",
+      "hits": "برخورد: {{count}}"
+    }
   },
   "feedback": {
     "notifications": {

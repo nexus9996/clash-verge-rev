@@ -188,7 +188,6 @@ function useProxyRenderState(
   return {
     verge,
     renderList,
-    proxyView,
     onProxies,
     onHeadState,
     handleCheckAll,
@@ -381,7 +380,6 @@ function NormalProxyGroups(props: { mode: string }) {
   const {
     verge,
     renderList,
-    proxyView,
     onProxies,
     onHeadState,
     handleCheckAll,
@@ -532,29 +530,6 @@ function NormalProxyGroups(props: { mode: string }) {
     return Array.from(new Set(names))
   }, [renderList])
 
-  const nodeGroupsMap = useMemo(() => {
-    const visibleGroups = new Set(proxyGroupNames)
-    const map = new Map<string, string[]>()
-    for (const group of proxyView?.groups ?? []) {
-      if (!visibleGroups.has(group.name)) continue
-      for (const member of group.members) {
-        if (member.kind !== 'node') continue
-        const groups = map.get(member.name)
-        if (!groups) {
-          map.set(member.name, [group.name])
-        } else if (!groups.includes(group.name)) {
-          groups.push(group.name)
-        }
-      }
-    }
-    return map
-  }, [proxyGroupNames, proxyView?.groups])
-
-  const getGroupsContainingNode = useCallback(
-    (nodeName: string) => nodeGroupsMap.get(nodeName) ?? [],
-    [nodeGroupsMap],
-  )
-
   const handleGroupToggle = useCallback(
     async (group: ProxyGroupView) => {
       const index = renderList.findIndex(
@@ -592,8 +567,6 @@ function NormalProxyGroups(props: { mode: string }) {
         }}
         onChangeProxy={handleChangeProxy}
         onGroupToggle={handleGroupToggle}
-        getGroupsContainingNode={getGroupsContainingNode}
-        onGroupLocation={handleGroupLocationByName}
       />
     ),
     [
@@ -603,7 +576,6 @@ function NormalProxyGroups(props: { mode: string }) {
       handleLocation,
       handleGroupToggle,
       handleGroupLocationByName,
-      getGroupsContainingNode,
     ],
   )
 
@@ -616,18 +588,9 @@ function NormalProxyGroups(props: { mode: string }) {
         onCheckAll={handleCheckAll}
         onHeadState={onHeadState}
         onChangeProxy={handleChangeProxy}
-        getGroupsContainingNode={getGroupsContainingNode}
-        onGroupLocation={handleGroupLocationByName}
       />
     ),
-    [
-      handleChangeProxy,
-      handleCheckAll,
-      onHeadState,
-      handleLocation,
-      handleGroupLocationByName,
-      getGroupsContainingNode,
-    ],
+    [handleChangeProxy, handleCheckAll, onHeadState, handleLocation],
   )
 
   if (!hasRenderableItems(renderList)) return emptyList

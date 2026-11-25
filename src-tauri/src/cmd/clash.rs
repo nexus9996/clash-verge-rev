@@ -7,7 +7,8 @@ use crate::{
     config::{ClashInfo, Config, profiles::profiles_save_file_safe},
     constants,
     core::{
-        CoreManager, handle,
+        CoreManager,
+        handle::{self, Handle},
         validate::{CoreConfigValidator, ValidationOutcome},
     },
 };
@@ -122,6 +123,95 @@ pub async fn test_delay(url: std::string::String) -> CmdResult<u32> {
         }
     };
     Ok(result)
+}
+
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct RuleExtraInfo {
+    pub index: i64,
+    pub disabled: bool,
+    pub hit_count: u64,
+    pub hit_at: std::string::String,
+    pub miss_count: u64,
+    pub miss_at: std::string::String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct RuleDisableRequest {
+    pub index: i64,
+    pub disabled: bool,
+}
+
+#[derive(serde::Deserialize)]
+struct RawRulesResponse {
+    rules: Vec<RawRule>,
+}
+
+#[derive(serde::Deserialize)]
+struct RawRule {
+    index: i64,
+    extra: Option<RawRuleExtra>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RawRuleExtra {
+    disabled: bool,
+    hit_count: u64,
+    hit_at: std::string::String,
+    miss_count: u64,
+    miss_at: std::string::String,
+}
+
+/// Rule disabling is runtime state in mihomo and resets when the core reloads.
+#[tauri::command]
+#[specta::specta]
+pub async fn update_rules_disable(requests: Vec<RuleDisableRequest>) -> CmdResult {
+    let disabled: std::collections::BTreeMap<i64, bool> = requests
+        .into_iter()
+        .map(|request| (request.index, request.disabled))
+        .collect();
+
+    let request = {
+        let ctx = Handle::mihomo().load_ctx();
+        ctx.build_request(reqwest::Method::PATCH, "rules/disable")
+            .stringify_err()?
+    };
+    let response = request.json(&disabled).send().await.stringify_err()?;
+    response.error_for_status().stringify_err()?;
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_rules_extra() -> CmdResult<Vec<RuleExtraInfo>> {
+    let request = {
+        let ctx = Handle::mihomo().load_ctx();
+        ctx.build_request(reqwest::Method::GET, "rules").stringify_err()?
+    };
+    let response = request.send().await.stringify_err()?;
+    let payload: RawRulesResponse = response
+        .error_for_status()
+        .stringify_err()?
+        .json()
+        .await
+        .stringify_err()?;
+
+    Ok(payload
+        .rules
+        .into_iter()
+        .filter_map(|rule| {
+            rule.extra.map(|extra| RuleExtraInfo {
+                index: rule.index,
+                disabled: extra.disabled,
+                hit_count: extra.hit_count,
+                hit_at: extra.hit_at,
+                miss_count: extra.miss_count,
+                miss_at: extra.miss_at,
+            })
+        })
+        .collect())
 }
 
 #[tauri::command]
