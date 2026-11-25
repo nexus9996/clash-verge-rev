@@ -368,6 +368,7 @@ fn create_backup_sync() -> Result<(String, TempBackupFile), Error> {
         obj.remove("webdav_username");
         obj.remove("webdav_password");
         obj.remove("webdav_url");
+        obj.remove("startup_script");
     }
     zip.start_file(dirs::VERGE_CONFIG, options)?;
     zip.write_all(serde_yaml_ng::to_string(&verge_config)?.as_bytes())?;

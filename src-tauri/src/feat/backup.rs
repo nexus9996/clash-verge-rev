@@ -69,6 +69,7 @@ fn strip_untrusted_startup_script(verge: &mut IVerge) -> bool {
     verge.startup_script.take().is_some()
 }
 
+<<<<<<< HEAD
 =======
 /// Accepts only a bare backup file name so it cannot escape its containing directory.
 fn sanitize_backup_filename(filename: &str) -> Result<&str> {
@@ -131,6 +132,9 @@ fn restore_temp_path() -> Result<PathBuf> {
 }
 
 >>>>>>> de2a2013f (fix(backup): restore WebDAV archives through a private temp file)
+||||||| parent of f7445cf18 (fix(backup): drop startup_script from backups and restored config)
+=======
+>>>>>>> f7445cf18 (fix(backup): drop startup_script from backups and restored config)
 /// Reloads restored configs into memory while preserving WebDAV credentials.
 async fn finalize_restored_verge_config(
     webdav_url: Option<String>,
@@ -139,6 +143,13 @@ async fn finalize_restored_verge_config(
 ) -> Result<()> {
     // A broken restored `verge.yaml` is a restore failure, not a reason to load defaults.
     let mut restored = help::read_yaml::<IVerge>(&verge_path()?).await?;
+    if strip_untrusted_startup_script(&mut restored) {
+        logging!(
+            warn,
+            Type::Backup,
+            "Ignored startup_script from the restored backup; enable it explicitly to run it again"
+        );
+    }
     restored.webdav_url = webdav_url;
     restored.webdav_username = webdav_username;
     restored.webdav_password = webdav_password;
@@ -540,6 +551,7 @@ pub async fn export_local_backup(filename: String, destination: String) -> Resul
 
 #[cfg(test)]
 mod tests {
+<<<<<<< HEAD
     use super::{
 <<<<<<< HEAD
         ArchiveLimits, resolve_within, sanitize_backup_filename, strip_untrusted_startup_script, validate_zip_archive,
@@ -636,6 +648,12 @@ mod tests {
         assert!(err.to_string().contains("expands"), "{err}");
 >>>>>>> 99dc3f627 (fix(backup): reject zip archives that exceed extraction limits)
     }
+||||||| parent of f7445cf18 (fix(backup): drop startup_script from backups and restored config)
+    use super::{resolve_within, sanitize_backup_filename};
+=======
+    use super::{resolve_within, sanitize_backup_filename, strip_untrusted_startup_script};
+    use crate::config::IVerge;
+>>>>>>> f7445cf18 (fix(backup): drop startup_script from backups and restored config)
 
     #[test]
     fn restoring_a_backup_never_enables_the_startup_script() {
