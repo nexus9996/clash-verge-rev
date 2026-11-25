@@ -17,9 +17,9 @@ pub struct IRuntime {
     pub exists_keys: HashSet<String>,
     // TODO 或许可以用 FixMap 来存储以提升效率
     pub chain_logs: HashMap<String, Vec<(String, String)>>,
-    /// 记录当前由链式代理 UI 设置过 dialer-proxy 的代理节点名称，
-    /// 用于在断开链式代理时精确清理，避免误删扩展脚本 / merge 设置的 dialer-proxy
-    pub chain_dialer_proxies: HashSet<String>,
+    /// 记录当前由链式代理 UI 覆盖过 dialer-proxy 的代理节点，以及被覆盖前的原值（None 表示原本没有）。
+    /// 断开或重设链式代理时恢复原值，避免误删扩展脚本 / merge 设置的 dialer-proxy。
+    pub chain_dialer_proxies: HashMap<String, Option<Value>>,
     /// Last serialization of `config`, invalidated by every config mutation.
     pub(crate) yaml: Option<Arc<str>>,
     pub(crate) revision: u64,
@@ -79,6 +79,7 @@ impl IRuntime {
         };
 
 <<<<<<< HEAD
+<<<<<<< HEAD
         // 仅清理由链式代理 UI 上一次设置的 dialer-proxy，保留扩展脚本 / merge 等外部来源。
 ||||||| parent of 23ed0a475 (fix(runtime): clear chain tracking without a proxies sequence)
         // 只还原链式代理 UI 上一次覆盖的 dialer-proxy，恢复扩展脚本 / merge 等外部来源的原值。
@@ -87,7 +88,13 @@ impl IRuntime {
         // 即使当前配置没有 proxies 段也要清空记录，避免旧值落到下一份配置里。
         let previous_chain = std::mem::take(&mut self.chain_dialer_proxies);
 >>>>>>> 23ed0a475 (fix(runtime): clear chain tracking without a proxies sequence)
+||||||| parent of 7718f5186 (fix(runtime): restore external dialer-proxy values when a chain disconnects)
+        // 仅清理由链式代理 UI 上一次设置的 dialer-proxy，保留扩展脚本 / merge 等外部来源。
+=======
+        // 只还原链式代理 UI 上一次覆盖的 dialer-proxy，恢复扩展脚本 / merge 等外部来源的原值。
+>>>>>>> 7718f5186 (fix(runtime): restore external dialer-proxy values when a chain disconnects)
         if let Some(Value::Sequence(proxies)) = config.get_mut("proxies") {
+<<<<<<< HEAD
 <<<<<<< HEAD
             for proxy in proxies.iter_mut() {
                 if let Some(proxy_map) = proxy.as_mapping_mut()
@@ -130,11 +137,34 @@ impl IRuntime {
                         proxy_map.remove("dialer-proxy");
                     }
 >>>>>>> 23ed0a475 (fix(runtime): clear chain tracking without a proxies sequence)
+||||||| parent of 7718f5186 (fix(runtime): restore external dialer-proxy values when a chain disconnects)
+            for proxy in proxies.iter_mut() {
+                if let Some(proxy_map) = proxy.as_mapping_mut()
+                    && let Some(name) = proxy_map.get("name").and_then(Value::as_str)
+                    && self.chain_dialer_proxies.contains(name)
+                {
+                    proxy_map.remove("dialer-proxy");
+=======
+            for (name, original) in std::mem::take(&mut self.chain_dialer_proxies) {
+                let Some(proxy_map) = proxies
+                    .iter_mut()
+                    .find(|proxy| proxy.get("name").and_then(Value::as_str) == Some(name.as_str()))
+                    .and_then(Value::as_mapping_mut)
+                else {
+                    continue;
+                };
+
+                match original {
+                    Some(original) => {
+                        proxy_map.insert("dialer-proxy".into(), original);
+                    }
+                    None => {
+                        proxy_map.remove("dialer-proxy");
+                    }
+>>>>>>> 7718f5186 (fix(runtime): restore external dialer-proxy values when a chain disconnects)
                 }
             }
         }
-
-        self.chain_dialer_proxies.clear();
 
         if let Some(Value::Sequence(dialer_proxies)) = proxy_chain_config
             && let Some(Value::Sequence(proxies)) = config.get_mut("proxies")
@@ -145,10 +175,12 @@ impl IRuntime {
                     && i != 0
                     && let Some(dialer_proxy) = dialer_proxies.get(i - 1)
                 {
+                    let Some(name) = proxy.get("name").and_then(Value::as_str).map(String::from) else {
+                        continue;
+                    };
+                    let original = proxy.get("dialer-proxy").cloned();
                     proxy.insert("dialer-proxy".into(), dialer_proxy.to_owned());
-                    if let Some(name) = proxy.get("name").and_then(Value::as_str) {
-                        self.chain_dialer_proxies.insert(String::from(name));
-                    }
+                    self.chain_dialer_proxies.entry(name).or_insert(original);
                 }
             }
         }
@@ -199,7 +231,7 @@ proxies:
         runtime.update_proxy_chain_config(Some(
             serde_yaml_ng::from_str(r#"["exit", "entry"]"#).expect("valid chain"),
         ));
-        assert!(runtime.chain_dialer_proxies.contains("entry"));
+        assert!(runtime.chain_dialer_proxies.contains_key("entry"));
 
         runtime.update_proxy_chain_config(None);
 
@@ -225,6 +257,7 @@ proxies:
         );
         assert!(runtime.chain_dialer_proxies.is_empty());
     }
+<<<<<<< HEAD
 <<<<<<< HEAD
 ||||||| parent of 23ed0a475 (fix(runtime): clear chain tracking without a proxies sequence)
 
@@ -337,4 +370,53 @@ proxies:
         assert!(runtime.chain_dialer_proxies.is_empty());
     }
 >>>>>>> 23ed0a475 (fix(runtime): clear chain tracking without a proxies sequence)
+||||||| parent of 7718f5186 (fix(runtime): restore external dialer-proxy values when a chain disconnects)
+=======
+
+    #[test]
+    #[allow(clippy::expect_used)]
+    fn disconnecting_chain_restores_an_external_dialer_proxy_on_a_non_first_node() {
+        let mut runtime = IRuntime {
+            config: Some(
+                serde_yaml_ng::from_str(
+                    r"
+proxies:
+  - name: entry
+    type: ss
+    dialer-proxy: external
+  - name: exit
+    type: ss
+",
+                )
+                .expect("valid runtime config"),
+            ),
+            ..IRuntime::default()
+        };
+
+        runtime.update_proxy_chain_config(Some(
+            serde_yaml_ng::from_str(r#"["exit", "entry"]"#).expect("valid chain"),
+        ));
+        assert!(runtime.chain_dialer_proxies.contains_key("entry"));
+
+        runtime.update_proxy_chain_config(None);
+
+        let proxies = runtime
+            .config
+            .as_ref()
+            .and_then(|config| config.get("proxies"))
+            .and_then(serde_yaml_ng::Value::as_sequence)
+            .expect("proxies remain");
+        let entry = proxies
+            .iter()
+            .find(|proxy| proxy.get("name") == Some(&serde_yaml_ng::Value::from("entry")))
+            .expect("entry remains");
+
+        assert_eq!(
+            entry.get("dialer-proxy").and_then(serde_yaml_ng::Value::as_str),
+            Some("external"),
+            "the value set by the profile pipeline must come back on disconnect"
+        );
+        assert!(runtime.chain_dialer_proxies.is_empty());
+    }
+>>>>>>> 7718f5186 (fix(runtime): restore external dialer-proxy values when a chain disconnects)
 }
