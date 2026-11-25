@@ -105,6 +105,7 @@ bun perf:frontend-baseline && bun check:bundle-budget
 ## 4. 选点流程（用数据挑，不用直觉挑）
 
 1. **跑一遍度量基线**，记录 §3.2 中可用的数字。
+<<<<<<< HEAD
 2. 从下列候选池里按"收益/风险"打分（1–5），分高者先做。**候选池会随实测结论修正**，已被证伪的项保留结论并标注：
    - A. ~~流量链路三份采样器合并~~ **已证伪，不做**。实测两个并发消费者只开 1 个 socket：`sharedSubscriptions` 按 key 引用计数共享，`activeOwner` 单属主转发。真实浪费仅是「首页 vs 布局栏」并发时多一份 **worker 内**的 sampler（环形缓冲 + 200ms 快照流），要省掉需合并两路 `throttleMs`（200 vs 无），牵动 bus 事件归属，且无白盒度量可验证。
    - B. `useTrafficMonitorEnhanced` 订阅稳定性（收益 4 / 风险 2）——**已完成**（`wantsSnapshots`）。同类检查：`use-mihomo-ws-subscription` 的 `refresh` 已依赖稳定的 `fallbackData`（日志 hook 显式复用 `EMPTY_LOGS`），不是问题。
@@ -114,6 +115,17 @@ bun perf:frontend-baseline && bun check:bundle-budget
    - G. 首页 `EnhancedTrafficStats` 流订阅（收益由 4 **下调为 2** / 风险 2）——**实测后不做**。`CompactStatCard` 带 `memo`，`statCards` 的卡片 props 只含流量值，因此**内存 tick 不会让流量卡片重渲染**；真实成本只是每次 tick 重跑父组件、重算 5 次 `parseTraffic` 与 5 个 `<Grid>` 元素（实测每 tick 增加 10 次 Grid 渲染）。拆成「流量卡片 / 内存卡片」两个 owner 属等价组合重构，栅格结构需重排，收益微薄，不划算。
    - H. **错误路由无尺寸兜底**（收益 2 / 风险 1，正确性）——**待办**：`main.tsx` 的 `unhandledrejection` 只打日志，未 `preventDefault()`；部分 WebView2 构建下未处理 rejection 会把顶层的多层嵌套替换成默认 frameset，表现为整窗空白。已核对代码状态，**未做运行时复现**（需 Windows WebView2，本机为 macOS arm64）。
 3. 选中的项写进 PR 描述，写明**未选中项的原因**（如"已证伪：实测 socket 数为 1"）。
+||||||| parent of 45df130d6 (perf(traffic): keep sampler subscription stable across re-renders)
+=======
+2. 从下列候选池里按"收益/风险"打分（1–5），分高者先做：
+   - A. 流量链路三份采样器合并为一份单例（收益 5 / 风险 3）
+   - B. `useTrafficMonitorEnhanced` / `useMihomoWsSubscription` 回调稳定性（收益 4 / 风险 2）
+   - C. `LayoutTrafficMetrics` 抽成叶子 + 稳定返回对象（收益 3 / 风险 1）
+   - D. 后端事件按事件名合并 + "refresh-clash-config" 的 8 个 query 收敛为 1 次 revalidate（收益 3 / 风险 2）
+   - E. canvas 图表加脏检查（收益 3 / 风险 1）
+   - F. 超大组件拆分（收益 2 / 风险 3）——**本任务不做**，另立 RFC
+3. 选中的项写进 PR 描述，写明**未选中项的原因**（如"风险 3 但无白盒度量，暂缓"）。
+>>>>>>> 45df130d6 (perf(traffic): keep sampler subscription stable across re-renders)
 
 ---
 
