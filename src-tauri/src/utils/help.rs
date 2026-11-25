@@ -227,11 +227,6 @@ fn existing_permissions_to_preserve(metadata: &std::fs::Metadata) -> Option<std:
 
 /// Atomic replace with pre-serialized content; the payload must not need the encryption scope.
 pub async fn save_yaml_str(path: &Path, yaml_str: &str) -> Result<()> {
-    save_bytes_atomic(path, yaml_str.as_bytes()).await
-}
-
-/// Atomically replaces `path` with `bytes` via a temporary file and rename.
-pub async fn save_bytes_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
     let (temporary, file) = loop {
         let temporary = path.with_extension(format!("tmp-{}-{}", std::process::id(), nanoid!()));
         let mut options = std::fs::OpenOptions::new();
@@ -260,7 +255,7 @@ pub async fn save_bytes_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
         let _ = std::fs::remove_file(path);
     });
     let mut file = tokio::fs::File::from_std(file);
-    file.write_all(bytes)
+    file.write_all(yaml_str.as_bytes())
         .await
         .with_context(|| format!("failed to write temporary file for \"{}\"", path.display()))?;
     file.flush()

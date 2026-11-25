@@ -94,22 +94,21 @@ impl WebDavClient {
                 (*cfg_arc).clone()
             } else {
                 let verge = Config::verge().await.data_arc();
-                let webdav_url = verge.webdav_url.clone();
-                let webdav_username = verge.webdav_username.clone();
-                // Keychain first; the encrypted config field is a legacy fallback
-                // for installs without a secret service.
-                let webdav_password =
-                    crate::utils::keychain::get_webdav_password().or_else(|| verge.webdav_password.clone());
-                if webdav_url.is_none() || webdav_username.is_none() || webdav_password.is_none() {
+                if verge.webdav_url.is_none() || verge.webdav_username.is_none() || verge.webdav_password.is_none() {
                     let msg: String =
                         "Unable to create web dav client, please make sure the webdav config is correct".into();
                     return Err(anyhow::Error::msg(msg));
                 }
 
                 let config = WebDavConfig {
-                    url: webdav_url.unwrap_or_default().trim_end_matches('/').into(),
-                    username: webdav_username.unwrap_or_default(),
-                    password: webdav_password.unwrap_or_default(),
+                    url: verge
+                        .webdav_url
+                        .clone()
+                        .unwrap_or_default()
+                        .trim_end_matches('/')
+                        .into(),
+                    username: verge.webdav_username.clone().unwrap_or_default(),
+                    password: verge.webdav_password.clone().unwrap_or_default(),
                 };
 
                 self.config.store(Some(Arc::new(config.clone())));

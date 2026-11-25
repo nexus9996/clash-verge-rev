@@ -12,17 +12,20 @@ use chrono::Utc;
 use clash_verge_logging::{Type, logging};
 use reqwest_dav::list_cmd::ListFile;
 use serde::Serialize;
+use smartstring::alias::String;
 use std::{
     ffi::OsStr,
     path::{Path, PathBuf},
 };
 use tokio::fs;
-use tristr::alias::String;
 
 #[derive(Debug, Serialize, specta::Type)]
 pub struct LocalBackupFile {
+    #[specta(type = std::string::String)]
     pub filename: String,
+    #[specta(type = std::string::String)]
     pub path: String,
+    #[specta(type = std::string::String)]
     pub last_modified: String,
     pub content_length: u64,
 }
@@ -70,7 +73,6 @@ fn strip_untrusted_startup_script(verge: &mut IVerge) -> bool {
 /// A remote listing name must never choose the local download path: a hostile or odd WebDAV
 /// entry named `verge.yaml` would otherwise overwrite (and the cleanup guard would delete) a
 /// live app file. Always restore through a fresh private temp archive.
-#[cfg_attr(not(test), allow(dead_code))]
 fn restore_temp_path() -> Result<PathBuf> {
     let path = std::env::temp_dir().join(format!(
         "clash-verge-restore-{}-{}.zip",
@@ -192,8 +194,8 @@ pub async fn list_wevdav_backup() -> Result<Vec<ListFile>> {
 }
 
 pub async fn delete_webdav_backup(filename: String) -> Result<()> {
+    let name = filename.to_string();
     let filename = String::from(sanitize_backup_filename(&filename)?);
-    let name = filename.clone();
     backup::WebDavClient::global().delete(filename).await.map_err(|err| {
         logging!(
             error,
@@ -225,10 +227,8 @@ async fn restore_backup_archive(path: PathBuf) -> Result<()> {
 #[tracing::instrument(skip_all, level = "info", fields(filename = %filename))]
 pub async fn restore_webdav_backup(filename: String) -> Result<()> {
     let filename = String::from(sanitize_backup_filename(&filename)?);
-    let name = filename.clone();
-    let backup_storage_path = app_home_dir()
-        .map_err(|e| anyhow::anyhow!("Failed to get app home dir: {e}"))?
-        .join(filename.as_str());
+    let backup_storage_path = restore_temp_path()?;
+    let name = filename.to_string();
     backup::WebDavClient::global()
         .download(filename, backup_storage_path.clone())
         .await
@@ -242,7 +242,7 @@ pub async fn restore_webdav_backup(filename: String) -> Result<()> {
         })?;
 
     // Remove the downloaded archive on every path, including extraction or restore failures.
-    let _cleanup = std::mem::DropGuard::new(backup_storage_path.clone(), |path: PathBuf| {
+    let _cleanup = scopeguard::guard(backup_storage_path.clone(), |path: PathBuf| {
         let _ = std::fs::remove_file(path);
     });
 
@@ -356,7 +356,8 @@ pub async fn import_local_backup(source: String) -> Result<String> {
     let ext = source_path
         .extension()
         .and_then(|ext| ext.to_str())
-        .map_or_default(|ext| ext.to_ascii_lowercase());
+        .map(|ext| ext.to_ascii_lowercase())
+        .unwrap_or_default();
     if ext != "zip" {
         return Err(anyhow!("Only .zip backup files are supported"));
     }
@@ -434,7 +435,8 @@ pub async fn list_local_backup() -> Result<Vec<LocalBackupFile>> {
         };
         let last_modified = metadata
             .modified()
-            .map_or_default(|time| chrono::DateTime::<Utc>::from(time).to_rfc3339());
+            .map(|time| chrono::DateTime::<Utc>::from(time).to_rfc3339())
+            .unwrap_or_default();
         backups.push(LocalBackupFile {
             filename: file_name.into(),
             path: path.to_string_lossy().into(),

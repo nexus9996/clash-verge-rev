@@ -2,7 +2,6 @@ import { Channel } from '@tauri-apps/api/core'
 import dayjs from 'dayjs'
 
 import { showNotice } from '@/services/notice-service'
-import { debugLog } from '@/utils/debug'
 
 import { commands } from './bindings'
 import type {
@@ -10,7 +9,6 @@ import type {
   ExternalControllerSettings,
   JsonValue,
   ListenerProbe,
-  LogBatch,
   ProxyPortSettings,
   UnlockItem,
   ProxyViewV1_Serialize as ProxyViewV1,
@@ -199,15 +197,13 @@ export async function getProxyView(): Promise<ProxyViewV1> {
   return view
 }
 
-// getClashLogs matches both patterns against every log line.
-const CLASH_LOG_REGEX = /time="(.+?)"\s+level=(.+?)\s+msg="(.+?)"/
-const CLASH_LOG_NEW_REGEX = /(.+?)\s+(.+?)\s+(.+)/
-
 export async function getClashLogs() {
+  const regex = /time="(.+?)"\s+level=(.+?)\s+msg="(.+?)"/
+  const newRegex = /(.+?)\s+(.+?)\s+(.+)/
   const logs = await commands.getClashLogs()
 
   return logs.reduce<ILogItem[]>((acc, log) => {
-    const result = log.match(CLASH_LOG_REGEX)
+    const result = log.match(regex)
     if (result) {
       const [_, _time, type, payload] = result
       const time = dayjs(_time).format('MM-DD HH:mm:ss')
@@ -215,7 +211,7 @@ export async function getClashLogs() {
       return acc
     }
 
-    const result2 = log.match(CLASH_LOG_NEW_REGEX)
+    const result2 = log.match(newRegex)
     if (result2) {
       const [_, time, type, payload] = result2
       acc.push({ time, type, payload })
@@ -542,82 +538,4 @@ export async function checkMediaUnlock(onComplete: Channel<UnlockItem>) {
 
 export async function checkMediaUnlockItem(name: string) {
   return commands.checkMediaUnlockItem(name)
-}
-
-/** A stream pushed from Rust over a Tauri channel. */
-export interface BackendStream<T> {
-  addListener: (listener: (message: T) => void) => () => void
-  close: () => Promise<void>
-}
-
-/** Message shape of the plugin's websocket API, kept for shared consumers. */
-export interface TextSocket {
-  addListener: (
-    listener: (message: { type: 'Text'; data: string }) => void,
-  ) => () => void
-  close: () => Promise<void>
-}
-
-const openBackendStream = async <T>(
-  open: (channel: Channel<T>) => Promise<number>,
-  close: (id: number) => Promise<unknown>,
-): Promise<BackendStream<T>> => {
-  const channel = new Channel<T>()
-  const listeners = new Set<(message: T) => void>()
-  channel.onmessage = (message) => {
-    for (const listener of listeners) {
-      listener(message)
-    }
-  }
-  const id = await open(channel)
-
-  return {
-    addListener: (listener) => {
-      listeners.add(listener)
-      return () => listeners.delete(listener)
-    },
-    close: async () => {
-      listeners.clear()
-      await close(id).catch(() => {})
-    },
-  }
-}
-
-/** Coalesced mihomo connection snapshots, shared with the count stream. */
-export const subscribeConnections = (): Promise<BackendStream<string>> =>
-  openBackendStream(
-    commands.subscribeConnections,
-    commands.unsubscribeConnections,
-  )
-
-/** Active-connection count, derived from the same mihomo socket. */
-export const subscribeConnectionsCount = (): Promise<BackendStream<string>> =>
-  openBackendStream(
-    commands.subscribeConnectionsCount,
-    commands.unsubscribeConnections,
-  )
-
-/** Batched mihomo log lines; `dropped` counts lines shed under backpressure. */
-export const subscribeLogs = async (level: string): Promise<TextSocket> => {
-  const listeners = new Set<(message: { type: 'Text'; data: string }) => void>()
-  const batches = await openBackendStream<LogBatch>(
-    (onMessage) => commands.subscribeLogs(level, onMessage),
-    commands.unsubscribeLogs,
-  )
-  batches.addListener((batch) => {
-    if (batch.dropped > 0) {
-      debugLog(`[Logs] dropped ${batch.dropped} lines`)
-    }
-    for (const line of batch.lines) {
-      for (const listener of listeners) listener({ type: 'Text', data: line })
-    }
-  })
-
-  return {
-    addListener: (listener) => {
-      listeners.add(listener)
-      return () => listeners.delete(listener)
-    },
-    close: batches.close,
-  }
 }
