@@ -78,14 +78,58 @@ impl IRuntime {
             return;
         };
 
+<<<<<<< HEAD
         // 仅清理由链式代理 UI 上一次设置的 dialer-proxy，保留扩展脚本 / merge 等外部来源。
+||||||| parent of 23ed0a475 (fix(runtime): clear chain tracking without a proxies sequence)
+        // 只还原链式代理 UI 上一次覆盖的 dialer-proxy，恢复扩展脚本 / merge 等外部来源的原值。
+=======
+        // 只还原链式代理 UI 上一次覆盖的 dialer-proxy，恢复扩展脚本 / merge 等外部来源的原值。
+        // 即使当前配置没有 proxies 段也要清空记录，避免旧值落到下一份配置里。
+        let previous_chain = std::mem::take(&mut self.chain_dialer_proxies);
+>>>>>>> 23ed0a475 (fix(runtime): clear chain tracking without a proxies sequence)
         if let Some(Value::Sequence(proxies)) = config.get_mut("proxies") {
+<<<<<<< HEAD
             for proxy in proxies.iter_mut() {
                 if let Some(proxy_map) = proxy.as_mapping_mut()
                     && let Some(name) = proxy_map.get("name").and_then(Value::as_str)
                     && self.chain_dialer_proxies.contains(name)
                 {
                     proxy_map.remove("dialer-proxy");
+||||||| parent of 23ed0a475 (fix(runtime): clear chain tracking without a proxies sequence)
+            for (name, original) in std::mem::take(&mut self.chain_dialer_proxies) {
+                let Some(proxy_map) = proxies
+                    .iter_mut()
+                    .find(|proxy| proxy.get("name").and_then(Value::as_str) == Some(name.as_str()))
+                    .and_then(Value::as_mapping_mut)
+                else {
+                    continue;
+                };
+
+                match original {
+                    Some(original) => {
+                        proxy_map.insert("dialer-proxy".into(), original);
+                    }
+                    None => {
+                        proxy_map.remove("dialer-proxy");
+                    }
+=======
+            for (name, original) in previous_chain {
+                let Some(proxy_map) = proxies
+                    .iter_mut()
+                    .find(|proxy| proxy.get("name").and_then(Value::as_str) == Some(name.as_str()))
+                    .and_then(Value::as_mapping_mut)
+                else {
+                    continue;
+                };
+
+                match original {
+                    Some(original) => {
+                        proxy_map.insert("dialer-proxy".into(), original);
+                    }
+                    None => {
+                        proxy_map.remove("dialer-proxy");
+                    }
+>>>>>>> 23ed0a475 (fix(runtime): clear chain tracking without a proxies sequence)
                 }
             }
         }
@@ -181,4 +225,116 @@ proxies:
         );
         assert!(runtime.chain_dialer_proxies.is_empty());
     }
+<<<<<<< HEAD
+||||||| parent of 23ed0a475 (fix(runtime): clear chain tracking without a proxies sequence)
+
+    #[test]
+    #[allow(clippy::expect_used)]
+    fn disconnecting_chain_restores_an_external_dialer_proxy_on_a_non_first_node() {
+        let mut runtime = IRuntime {
+            config: Some(
+                serde_yaml_ng::from_str(
+                    r"
+proxies:
+  - name: entry
+    type: ss
+    dialer-proxy: external
+  - name: exit
+    type: ss
+",
+                )
+                .expect("valid runtime config"),
+            ),
+            ..IRuntime::default()
+        };
+
+        runtime.update_proxy_chain_config(Some(
+            serde_yaml_ng::from_str(r#"["exit", "entry"]"#).expect("valid chain"),
+        ));
+        assert!(runtime.chain_dialer_proxies.contains_key("entry"));
+
+        runtime.update_proxy_chain_config(None);
+
+        let proxies = runtime
+            .config
+            .as_ref()
+            .and_then(|config| config.get("proxies"))
+            .and_then(serde_yaml_ng::Value::as_sequence)
+            .expect("proxies remain");
+        let entry = proxies
+            .iter()
+            .find(|proxy| proxy.get("name") == Some(&serde_yaml_ng::Value::from("entry")))
+            .expect("entry remains");
+
+        assert_eq!(
+            entry.get("dialer-proxy").and_then(serde_yaml_ng::Value::as_str),
+            Some("external"),
+            "the value set by the profile pipeline must come back on disconnect"
+        );
+        assert!(runtime.chain_dialer_proxies.is_empty());
+    }
+=======
+
+    #[test]
+    #[allow(clippy::expect_used)]
+    fn disconnecting_chain_restores_an_external_dialer_proxy_on_a_non_first_node() {
+        let mut runtime = IRuntime {
+            config: Some(
+                serde_yaml_ng::from_str(
+                    r"
+proxies:
+  - name: entry
+    type: ss
+    dialer-proxy: external
+  - name: exit
+    type: ss
+",
+                )
+                .expect("valid runtime config"),
+            ),
+            ..IRuntime::default()
+        };
+
+        runtime.update_proxy_chain_config(Some(
+            serde_yaml_ng::from_str(r#"["exit", "entry"]"#).expect("valid chain"),
+        ));
+        assert!(runtime.chain_dialer_proxies.contains_key("entry"));
+
+        runtime.update_proxy_chain_config(None);
+
+        let proxies = runtime
+            .config
+            .as_ref()
+            .and_then(|config| config.get("proxies"))
+            .and_then(serde_yaml_ng::Value::as_sequence)
+            .expect("proxies remain");
+        let entry = proxies
+            .iter()
+            .find(|proxy| proxy.get("name") == Some(&serde_yaml_ng::Value::from("entry")))
+            .expect("entry remains");
+
+        assert_eq!(
+            entry.get("dialer-proxy").and_then(serde_yaml_ng::Value::as_str),
+            Some("external"),
+            "the value set by the profile pipeline must come back on disconnect"
+        );
+        assert!(runtime.chain_dialer_proxies.is_empty());
+    }
+
+    #[test]
+    #[allow(clippy::expect_used)]
+    fn chain_tracking_is_cleared_even_without_a_proxies_sequence() {
+        let mut runtime = IRuntime {
+            config: Some(serde_yaml_ng::from_str("mode: rule").expect("valid runtime config")),
+            ..IRuntime::default()
+        };
+        runtime
+            .chain_dialer_proxies
+            .insert("entry".into(), Some(serde_yaml_ng::Value::from("external")));
+
+        runtime.update_proxy_chain_config(None);
+
+        assert!(runtime.chain_dialer_proxies.is_empty());
+    }
+>>>>>>> 23ed0a475 (fix(runtime): clear chain tracking without a proxies sequence)
 }
