@@ -27,7 +27,14 @@ export const BasePage: React.FC<Props> = (props) => {
           onMouseDown={startWindowDragging}
           style={{ userSelect: 'none' }}
         >
-          <Typography sx={{ fontSize: '20px', fontWeight: '700 ' }}>
+          <Typography
+            sx={{
+              fontSize: '20px',
+              fontWeight: 700,
+              letterSpacing: '-0.01em',
+              lineHeight: 1.3,
+            }}
+          >
             {title}
           </Typography>
 

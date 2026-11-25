@@ -33,30 +33,31 @@ export const AppStoreProvider = ({ children }: { children?: ReactNode }) => {
   )
 
   useEffect(() => {
-    const readRunState = () => {
-      void reads.readRunState().catch(() => {})
-    }
-    const { readPendingFailures } = reads
-
-    readRunState()
-    readPendingFailures()
-
-    // Transitions normally arrive by event; the visible poll is the run-state
-    // safety net, and regaining focus re-reads both snapshots.
+    // No initial read: the event bus re-reads both snapshots in `onSubscribed`
+    // right after subscribing, which is what closes the race with the events.
     const pollRunState = () => {
       if (document.visibilityState !== 'visible') return
-      readRunState()
+      void reads.readRunState().catch(() => {})
     }
+
+    // Regaining focus fires `focus` and `visibilitychange` together; coalesce
+    // them into one re-read per frame instead of two IPC round-trips each.
+    let frame: number | undefined
     const readWhenFocused = () => {
-      if (document.visibilityState !== 'visible') return
-      readRunState()
-      readPendingFailures()
+      if (frame !== undefined) return
+      frame = requestAnimationFrame(() => {
+        frame = undefined
+        if (document.visibilityState !== 'visible') return
+        void reads.readRunState().catch(() => {})
+        reads.readPendingFailures()
+      })
     }
     window.addEventListener('focus', readWhenFocused)
     document.addEventListener('visibilitychange', readWhenFocused)
     const timer = window.setInterval(pollRunState, 30000)
 
     return () => {
+      if (frame !== undefined) cancelAnimationFrame(frame)
       window.removeEventListener('focus', readWhenFocused)
       document.removeEventListener('visibilitychange', readWhenFocused)
       window.clearInterval(timer)

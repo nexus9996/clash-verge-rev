@@ -178,6 +178,7 @@ type IVergeTestItem = import('@/services/bindings').IVergeTestItem
 type IAddress = import('@/services/bindings').InterfaceAddress
 
 interface ISeqProfileConfig {
+  groups?: Record<string, string[]>
   prepend: []
   append: []
   delete: []

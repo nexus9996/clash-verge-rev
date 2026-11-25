@@ -1,25 +1,20 @@
-import { useLocalStorage } from 'foxact/use-local-storage'
-import { useCallback, useEffect, useRef } from 'react'
-import { type Message, type MihomoWebSocket } from 'tauri-plugin-mihomo-api'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
-import {
-  removeCacheData,
-  setCacheData,
-  useQuery,
-} from '@/services/query-client'
+import type { TextSocket } from '@/services/cmds'
+import { setCacheData, useQuery } from '@/services/query-client'
 
 const RECONNECT_DELAY_MS = 1000
 
 interface SharedSubscriptionOwner {
   handleMessage: (data: string) => void
-  onConnected?: (ws: MihomoWebSocket) => Promise<void> | void
+  onConnected?: (ws: TextSocket) => Promise<void> | void
   cleanup?: () => void
   isMounted: () => boolean
 }
 
 interface SharedSubscriptionEntry {
   refs: number
-  ws: MihomoWebSocket | null
+  ws: TextSocket | null
   reconnectTimer: ReturnType<typeof setTimeout> | null
   connecting: boolean
   owners: Set<SharedSubscriptionOwner>
@@ -31,7 +26,6 @@ interface SharedSubscriptionEntry {
 
 const sharedSubscriptions = new Map<string, SharedSubscriptionEntry>()
 const subscriptionSnapshots = new Map<string, unknown>()
-const initialSubscriptionDate = Date.now()
 
 const getSubscriptionSnapshot = <T>(key: string) =>
   subscriptionSnapshots.get(key) as T | undefined
@@ -70,7 +64,7 @@ const closeSharedSocket = async (entry: SharedSubscriptionEntry) => {
  */
 const notifyOwnerConnected = (
   owner: SharedSubscriptionOwner | null,
-  ws: MihomoWebSocket,
+  ws: TextSocket,
 ) => {
   try {
     void Promise.resolve(owner?.onConnected?.(ws)).catch(() => {})
@@ -81,7 +75,7 @@ const notifyOwnerConnected = (
 
 /** Shared socket lifecycle; exported so the reconnect/teardown paths can be tested. */
 export const createSharedSubscriptionEntry = (
-  connect: () => Promise<MihomoWebSocket>,
+  connect: () => Promise<TextSocket>,
 ): SharedSubscriptionEntry => {
   const entry: SharedSubscriptionEntry = {
     refs: 0,
@@ -106,7 +100,7 @@ export const createSharedSubscriptionEntry = (
     if (entry.closed || entry.connecting || entry.ws) return
 
     entry.connecting = true
-    let ws: MihomoWebSocket | null = null
+    let ws: TextSocket | null = null
     let adopted = false
     try {
       ws = await connect()
@@ -122,8 +116,7 @@ export const createSharedSubscriptionEntry = (
       }
       if (entry.closed) return
 
-      ws.addListener((msg: Message) => {
-        if (msg.type !== 'Text') return
+      ws.addListener((msg) => {
         const activeOwner = pickActiveOwner(entry)
         if (!activeOwner) return
 
@@ -161,15 +154,13 @@ export const createSharedSubscriptionEntry = (
   return entry
 }
 
+type Updater<T> = (current?: T) => T
+
 /**
- * Mirrors SWR's MutatorCallback: consumers can pass either a plain value or a
- * functional updater `(current?: T) => T`.  The functional form is resolved
- * against the current subscription snapshot before updating SWR.
+ * Pass either a plain value or a functional updater; the updater is resolved
+ * against the current subscription snapshot before the cache is written.
  */
-type NextFn<T> = (
-  error?: any,
-  data?: T | ((current?: T) => T | undefined),
-) => void
+type NextFn<T> = (data: T | Updater<T>) => void
 
 interface HandlerContext<T> {
   next: NextFn<T>
@@ -179,15 +170,14 @@ interface HandlerContext<T> {
 
 interface HandlerResult {
   handleMessage: (data: string) => void
-  onConnected?: (ws: MihomoWebSocket) => Promise<void> | void
+  onConnected?: (ws: TextSocket) => Promise<void> | void
   cleanup?: () => void
 }
 
 interface UseMihomoWsSubscriptionOptions<T> {
-  storageKey: string
-  buildSubscriptKey: (date: number) => string | null
+  subscriptionKey: string | null
   fallbackData: T
-  connect: () => Promise<MihomoWebSocket>
+  connect: () => Promise<TextSocket>
   /**
    * When > 0, coalesce rapid WebSocket messages by wrapping the `next`
    * function passed to `setupHandlers`.  Only the most recent value is
@@ -203,18 +193,12 @@ interface UseMihomoWsSubscriptionOptions<T> {
 export const useMihomoWsSubscription = <T>(
   options: UseMihomoWsSubscriptionOptions<T>,
 ) => {
-  const {
-    storageKey,
-    buildSubscriptKey,
-    fallbackData,
-    connect,
-    throttleMs,
-    setupHandlers,
-  } = options
+  const { subscriptionKey, fallbackData, connect, throttleMs, setupHandlers } =
+    options
 
-  const [date, setDate] = useLocalStorage(storageKey, initialSubscriptionDate)
-  const subscriptKey = buildSubscriptKey(date)
-  const subscriptionCacheKey = subscriptKey ? `$sub$${subscriptKey}` : null
+  const subscriptionCacheKey = subscriptionKey
+    ? `$sub$${subscriptionKey}`
+    : null
   const lastSubscriptionCacheKeyRef = useRef<string | null>(null)
   if (subscriptionCacheKey) {
     lastSubscriptionCacheKeyRef.current = subscriptionCacheKey
@@ -222,20 +206,9 @@ export const useMihomoWsSubscription = <T>(
   const responseCacheKey =
     subscriptionCacheKey ?? lastSubscriptionCacheKeyRef.current
 
-  const resolveNextData = useCallback(
-    (
-      data: T | ((current?: T) => T | undefined) | undefined,
-      cacheKey: string,
-    ): T => {
-      if (typeof data === 'function') {
-        const updater = data as (current?: T) => T | undefined
-        const current = getSubscriptionSnapshot<T>(cacheKey)
-        return updater(current) ?? fallbackData
-      }
-      return data ?? fallbackData
-    },
-    [fallbackData],
-  )
+  // Bumping the epoch re-runs the subscription effect, rebuilding the shared
+  // entry (and its captured `connect`/handler closures) under the same key.
+  const [refreshEpoch, setRefreshEpoch] = useState(0)
 
   const response = useQuery<T>({
     queryKey: responseCacheKey ? [responseCacheKey] : ['$sub$__disabled__'],
@@ -263,44 +236,35 @@ export const useMihomoWsSubscription = <T>(
     let throttleCleanup: (() => void) | undefined
     let wrappedNext: NextFn<T>
 
-    const baseNext: NextFn<T> = (error, data) => {
-      if (error !== undefined && error !== null) {
-        return
-      }
-      if (data === undefined) return
-      const resolved = resolveNextData(data, subscriptionCacheKey)
+    const baseNext: NextFn<T> = (data) => {
+      const resolved =
+        typeof data === 'function'
+          ? (data as Updater<T>)(
+              getSubscriptionSnapshot<T>(subscriptionCacheKey),
+            )
+          : (data as T)
       writeSubscriptionSnapshot(subscriptionCacheKey, resolved)
     }
 
     if (throttleMs && throttleMs > 0) {
-      let pendingData: T | ((current?: T) => T | undefined) | undefined
-      let hasPending = false
+      let pendingData: T | Updater<T> | undefined
       let timerId: ReturnType<typeof setTimeout> | null = null
 
       const flush = () => {
         timerId = null
-        if (hasPending) {
+        if (pendingData !== undefined) {
           const data = pendingData
           pendingData = undefined
-          hasPending = false
-          baseNext(undefined, data)
+          baseNext(data)
         }
       }
 
-      wrappedNext = (
-        error?: any,
-        data?: T | ((current?: T) => T | undefined),
-      ) => {
-        if (error !== undefined && error !== null) {
-          baseNext(error, data)
-          return
-        }
+      wrappedNext = (data) => {
         if (!timerId) {
-          baseNext(undefined, data)
+          baseNext(data)
           timerId = setTimeout(flush, throttleMs)
         } else {
           pendingData = data
-          hasPending = true
         }
       }
 
@@ -365,15 +329,14 @@ export const useMihomoWsSubscription = <T>(
       }
     }
     // eslint-disable-next-line react/exhaustive-deps
-  }, [subscriptionCacheKey])
+  }, [subscriptionCacheKey, refreshEpoch])
 
   const refresh = useCallback(() => {
     if (subscriptionCacheKey) {
-      subscriptionSnapshots.delete(subscriptionCacheKey)
-      void removeCacheData([subscriptionCacheKey])
+      writeSubscriptionSnapshot(subscriptionCacheKey, fallbackData)
     }
-    setDate(Date.now())
-  }, [subscriptionCacheKey, setDate])
+    setRefreshEpoch((epoch) => epoch + 1)
+  }, [subscriptionCacheKey, fallbackData])
 
   const setData = useCallback(
     (data: T) => {

@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["src/polyfills/*.js!"],
+  "entry": ["src/polyfills/*.js!", "scripts/check-contract-changes.mjs!"],
   "project": ["src/**/*.{js,jsx,ts,tsx,sass,scss}!", "scripts/**/*.{js,mjs}!"],
   "include": [
     "files",
@@ -14,7 +14,7 @@
     "duplicates",
     "cycles"
   ],
-  "ignoreBinaries": ["rustc", "cc"],
+  "ignoreBinaries": ["diff", "rustc"],
   "ignoreDependencies": ["lint-staged"],
   "ignoreIssues": {
     "src/types/generated/**": ["exports", "types"],

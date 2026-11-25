@@ -462,6 +462,7 @@
         "appLogMaxSize": "Uygulama Günlüğü En Büyük Boyutu",
         "appLogMaxCount": "Uygulama Günlüğü En Fazla Dosya Sayısı",
         "autoCloseConnections": "Bağlantıları Otomatik Kapat",
+        "autoSwitchSelectorGroup": "Select Grubunu Otomatik Değiştir",
         "autoCheckUpdate": "Otomatik Güncelleme Kontrolü",
         "enableBuiltinEnhanced": "Yerleşik Geliştirilmiş Modu Etkinleştir",
         "proxyLayoutColumns": "Vekil Düzeni Sütunları",
@@ -474,6 +475,7 @@
       },
       "tooltips": {
         "autoCloseConnections": "Vekil grup seçimi veya vekil modu değiştiğinde kurulan bağlantıları sonlandır",
+        "autoSwitchSelectorGroup": "Kural modunda, kural trafiğinin ulaşmadığı bir grupta düğüm seçildiğinde, bu grubu içeren ilk select grubu da o gruba geçer",
         "enableBuiltinEnhanced": "Yapılandırma dosyası için uyumluluk işleme",
         "autoDelayDetection": "Arka planda mevcut düğümün gecikmesini periyodik olarak test eder",
         "defaultLatencyTest": "Yalnızca HTTP istemci isteği testi için kullanılır ve yapılandırma dosyasında bir fark yaratmaz",
@@ -760,7 +762,8 @@
         "permissionRejectedReason": "Hizmet, çekirdek dosya ve klasörlerinin yükseltilmiş yetkilerle güvenle çalıştırılabileceğini doğrulayamadı.",
         "permissionRepairGuide": "Düzeltme adımlarını görüntüle",
         "sidecarFallback": "Hizmet çekirdeği başlatamadı. Sidecar moduna geçildi; hizmet hâlâ kullanılamıyor.",
-        "uninstallSuccess": "Hizmet Başarıyla Kaldırıldı"
+        "uninstallSuccess": "Hizmet Başarıyla Kaldırıldı",
+        "coreVersionDrift": "Servis modu {{running}} çekirdeğini çalıştırıyor, ancak paketlenmiş çekirdek {{bundled}}. {{bundled}} sürümünü kurmak için Ayarlar → Mihomo Sürümleri'ni açın veya servisi yeniden kurun/onarın ve çekirdeği yeniden başlatın."
       },
       "updater": {
         "withClashProxySuccess": "Clash vekil ile güncelleme başarılı",
@@ -777,5 +780,12 @@
       "installing": "Hizmet Kuruluyor...",
       "uninstalling": "Hizmet Kaldırılıyor..."
     }
+  },
+  "search": {
+    "placeholder": "Ayarları ara",
+    "clear": "Aramayı temizle",
+    "back": "Sonuçlara dön",
+    "results": "Arama sonuçları",
+    "empty": "Ayar bulunamadı"
   }
 }

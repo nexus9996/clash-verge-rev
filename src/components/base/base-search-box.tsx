@@ -15,14 +15,13 @@ import { useTranslation } from 'react-i18next'
 import matchCaseIcon from '@/assets/image/component/match_case.svg?react'
 import matchWholeWordIcon from '@/assets/image/component/match_whole_word.svg?react'
 import UseRegularExpressionIcon from '@/assets/image/component/use_regular_expression.svg?react'
-import { buildRegex, compileStringMatcher } from '@/utils/search-matcher'
+import {
+  buildRegex,
+  compileStringMatcher,
+  type SearchState,
+} from '@/utils/search-matcher'
 
-export type SearchState = {
-  text: string
-  matchCase: boolean
-  matchWholeWord: boolean
-  useRegularExpression: boolean
-}
+export type { SearchState }
 
 type SearchOptionState = Omit<SearchState, 'text'>
 
@@ -55,6 +54,15 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
     fill: theme.palette.text.disabled,
   },
 }))
+
+const iconStyle = {
+  style: {
+    height: '24px',
+    width: '24px',
+    cursor: 'pointer',
+  } as React.CSSProperties,
+  inheritViewBox: true,
+}
 
 const useControllableState = <T,>(options: {
   controlled: T | undefined
@@ -121,15 +129,6 @@ export const BaseSearchBox = ({
       controlled: searchState?.useRegularExpression,
       defaultValue: defaultUseRegularExpression,
     })
-
-  const iconStyle = {
-    style: {
-      height: '24px',
-      width: '24px',
-      cursor: 'pointer',
-    } as React.CSSProperties,
-    inheritViewBox: true,
-  }
 
   useEffect(() => {
     onSearchRef.current = onSearch

@@ -40,6 +40,14 @@ export const SHADOW = {
   lg: '0 12px 32px rgba(0, 0, 0, 0.18)',
 } as const
 
+export const MOTION = {
+  fast: '120ms',
+  base: '180ms',
+  slow: '260ms',
+  standard: 'cubic-bezier(0.4, 0, 0.2, 1)',
+  decelerate: 'cubic-bezier(0, 0, 0.2, 1)',
+} as const
+
 const OVERLAY = {
   subtle: 0.04,
   soft: 0.08,
@@ -241,6 +249,9 @@ export const createThemeCssVariables = ({
   }
   for (const [key, value] of Object.entries(Z_INDEX)) {
     variables[`--z-${key}`] = String(value)
+  }
+  for (const [key, value] of Object.entries(MOTION)) {
+    variables[`--motion-${key}`] = value
   }
   for (const [key, value] of Object.entries(OVERLAY)) {
     variables[`--overlay-${key}`] = String(value)

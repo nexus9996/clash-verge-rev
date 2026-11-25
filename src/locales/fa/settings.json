@@ -462,6 +462,7 @@
         "appLogMaxSize": "App Log Max Size",
         "appLogMaxCount": "App Log Max Count",
         "autoCloseConnections": "بستن خودکار اتصالات",
+        "autoSwitchSelectorGroup": "تغییر خودکار گروه select",
         "autoCheckUpdate": "بررسی خودکار به‌روزرسانی",
         "enableBuiltinEnhanced": "فعال کردن تقویت داخلی",
         "proxyLayoutColumns": "ستون چیدمان پراکسی",
@@ -474,6 +475,7 @@
       },
       "tooltips": {
         "autoCloseConnections": "اتصالات برقرار شده را هنگام تغییر انتخاب گروه پروکسی یا حالت پروکسی خاتمه دهید",
+        "autoSwitchSelectorGroup": "در حالت قانون، با انتخاب یک گره در گروهی که ترافیک قوانین از آن عبور نمی‌کند، اولین گروه select شامل آن نیز به همان گروه تغییر می‌کند",
         "enableBuiltinEnhanced": "مدیریت سازگاری برای فایل پیکربندی",
         "autoDelayDetection": "به‌صورت دوره‌ای تأخیر گره فعلی را در پس‌زمینه آزمایش می‌کند",
         "defaultLatencyTest": "فقط برای تست درخواست‌های کلاینت HTTP استفاده می‌شود و بر فایل پیکربندی تأثیری نخواهد داشت",
@@ -760,7 +762,8 @@
         "permissionRejectedReason": "سرویس نتوانست ایمن بودن فایل‌ها و پوشه‌های هسته را برای اجرا با دسترسی بالا تأیید کند.",
         "permissionRepairGuide": "مشاهدهٔ راهنمای رفع مشکل",
         "sidecarFallback": "سرویس نتوانست هسته را اجرا کند. اجرا در حالت Sidecar ادامه می‌یابد؛ سرویس همچنان در دسترس نیست.",
-        "uninstallSuccess": "سرویس با موفقیت حذف نصب شد"
+        "uninstallSuccess": "سرویس با موفقیت حذف نصب شد",
+        "coreVersionDrift": "حالت سرویس با هسته {{running}} اجرا می‌شود در حالی که هسته همراه {{bundled}} است. برای نصب {{bundled}} به تنظیمات → نسخه‌های Mihomo بروید، یا سرویس را دوباره نصب/تعمیر کنید و هسته را دوباره راه‌اندازی کنید."
       },
       "updater": {
         "withClashProxySuccess": "با موفقیت با پروکسی کلش به‌روزرسانی شد",
@@ -777,5 +780,12 @@
       "installing": "در حال نصب سرویس...",
       "uninstalling": "در حال حذف سرویس..."
     }
+  },
+  "search": {
+    "placeholder": "جستجوی تنظیمات",
+    "clear": "پاک کردن جستجو",
+    "back": "بازگشت به نتایج",
+    "results": "نتایج جستجو",
+    "empty": "تنظیماتی یافت نشد"
   }
 }

@@ -9,7 +9,6 @@
     "dialog:default",
     "dialog:allow-ask",
     "dialog:allow-message",
-    "updater:default",
     "updater:allow-check",
     "updater:allow-download-and-install",
     "deep-link:default",
@@ -17,6 +16,8 @@
     "autostart:allow-disable",
     "autostart:allow-is-enabled",
     "core:window:allow-set-theme",
+    "core:window:allow-set-background-color",
+    "core:webview:allow-set-webview-background-color",
     "notification:default",
     "mihomo:default"
   ]

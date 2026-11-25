@@ -1,7 +1,6 @@
 import { useLockFn } from 'ahooks'
 import { useCallback, useEffect, useReducer } from 'react'
 
-import { useVerge } from '@/hooks/use-verge'
 import delayManager, { type DelayUpdate } from '@/services/delay'
 import {
   isInteractableMember,
@@ -17,9 +16,11 @@ const PRESET_PROXY_NAMES = [
   'COMPATIBLE',
 ]
 
-const reuseEqual = (current: DelayUpdate, next: DelayUpdate): DelayUpdate =>
-  current.delay === next.delay && current.updatedAt === next.updatedAt
-    ? current
+const identity = (previous: DelayUpdate, next: DelayUpdate): DelayUpdate =>
+  previous.delay === next.delay &&
+  previous.elapsed === next.elapsed &&
+  previous.updatedAt === next.updatedAt
+    ? previous
     : next
 
 const INITIAL_DELAY: DelayUpdate = { delay: -1, updatedAt: 0 }
@@ -35,14 +36,14 @@ export interface UseProxyDelayState {
 export function useProxyDelayState(
   member: ResolvedProxyMember,
   groupName: string,
+  /** Owned by the parent renderer so every mounted row need not read all of verge. */
+  timeout: number,
 ): UseProxyDelayState {
   const name = member.ref.name
   const details = memberDetails(member)
   const unresolved = member.kind === 'unresolved'
   const isPreset = unresolved || PRESET_PROXY_NAMES.includes(name)
-  const [delayState, setDelayState] = useReducer(reuseEqual, INITIAL_DELAY)
-  const { verge } = useVerge()
-  const timeout = verge?.default_latency_timeout || 10000
+  const [delayState, setDelayState] = useReducer(identity, INITIAL_DELAY)
 
   useEffect(() => {
     if (isPreset) return
@@ -59,7 +60,7 @@ export function useProxyDelayState(
     }
     const cachedUpdate = delayManager.getDelayUpdate(name, groupName)
     if (cachedUpdate) {
-      setDelayState({ ...cachedUpdate })
+      setDelayState(cachedUpdate)
       return
     }
 

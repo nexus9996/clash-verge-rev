@@ -56,7 +56,7 @@ export const TestItem = ({ itemData, onEdit, onDelete: removeTest }: Props) => {
     setAnchorEl(null)
     try {
       removeTest(uid!)
-    } catch (err: any) {
+    } catch (err) {
       showNotice.error(err)
     }
   })

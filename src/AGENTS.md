@@ -21,22 +21,27 @@ These rules supplement the repository's root `AGENTS.md`.
 - **Command ownership.** `services` owns backend command invocation and transport
   wrappers. Components and hooks use those boundaries; plugin mutations follow
   the same intent ownership as backend commands.
-- **Navigation ownership.** `config/navigation.ts` is the single source for
-  navigation ids, paths and labels; `app/route-pages.ts` maps each id to its
-  page component (or lazy import). Components consume the catalog instead of
-  hardcoding paths, and backend-provided paths are resolved through
-  `resolveNavigationPath`.
-- **Layer ownership.** The app composition root wires the router over pages;
-  pages compose components; components, hooks, services and config never import
-  pages or app upward. `scripts/check-architecture.mjs` enforces the direction
-  and the `arch:check` gate surfaces violations.
-
-- **Domain data ownership.** Ordinary reads live in `hooks/data/*` domain hooks
-  over the shared query client. There is no app-wide data provider/context:
-  components call the domain hook they need and refreshers are cache
-  revalidations against the same keys.
-
-- **Theme ownership.** `config/theme/tokens.ts` is the single source for
-  semantic color/scale tokens and the generated CSS variables. Components
-  consume `theme.palette` or the `--color-*`/`--space-*` variables; raw
-  mode-dependent colors belong in the token file, not in components or hooks.
+- **State liveness.** Every `useState`/`useRef` member has a reachable write
+  that differs from its initial value and a read that observes the difference.
+  A value that can only ever hold its initial value is a constant: declare the
+  constant and delete the state. A ref nothing reads is deleted, not kept.
+- **Surface liveness.** Anything a module exposes — props, parameters, context
+  members, imperative-handle methods — ships with at least one external caller
+  in the same change. "Reserved for future use" fields, `_`-prefixed params
+  that callers still pass, and error or callback channels that every receiver
+  ignores are removed, not maintained.
+- **Path liveness.** A fallback or branch names the concrete runtime condition
+  that reaches it. If no supported runtime can reach it, the branch is not
+  added — or it replaces the primary path. Constant subexpressions and cleanup
+  of resources that cannot exist yet are simplified away.
+- **Effect economy.** One user interaction produces one state write and one
+  command. A handler does not re-apply a value its wrapper already applied,
+  and an effect does not re-run a refresh another branch of the same effect
+  just ran.
+- **Mount economy.** Components that issue commands or subscriptions on mount
+  are mounted only where their UI is reachable. A dialog no rendered control
+  can open stays unmounted, not mounted-and-idle.
+- **Resource bounds.** Every cache key, timer and subscription a feature
+  allocates is reused or released on refresh; refresh never allocates an
+  unbounded sequence of new keys. Retries re-create per-attempt resources so
+  a retry can actually succeed.

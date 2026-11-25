@@ -462,6 +462,7 @@
         "appLogMaxSize": "Tamanho Máximo do Log do Aplicativo",
         "appLogMaxCount": "Quantidade Máxima de Logs do Aplicativo",
         "autoCloseConnections": "Fechar Conexões Automaticamente",
+        "autoSwitchSelectorGroup": "Alternar Grupo Select Automaticamente",
         "autoCheckUpdate": "Verificar Atualizações Automaticamente",
         "enableBuiltinEnhanced": "Ativar Aprimoramento Integrado",
         "proxyLayoutColumns": "Colunas do Layout de Proxy",
@@ -474,6 +475,7 @@
       },
       "tooltips": {
         "autoCloseConnections": "Encerra as conexões estabelecidas quando a seleção do grupo de proxy ou o modo de proxy muda",
+        "autoSwitchSelectorGroup": "No modo de regras, ao escolher um nó em um grupo que o tráfego das regras não alcança, o primeiro grupo select que o contém também muda para esse grupo",
         "enableBuiltinEnhanced": "Tratamento de compatibilidade para o arquivo de configuração",
         "autoDelayDetection": "Testa periodicamente a latência do nó atual em segundo plano",
         "defaultLatencyTest": "Usado apenas para testes de requisição do cliente HTTP e não afeta o arquivo de configuração",
@@ -760,7 +762,8 @@
         "permissionRejectedReason": "O serviço não conseguiu confirmar que os arquivos e pastas do núcleo são seguros para execução com privilégios elevados.",
         "permissionRepairGuide": "Ver instruções de reparo",
         "sidecarFallback": "O serviço não conseguiu iniciar o núcleo. Mudou para o modo Sidecar; o serviço continua indisponível.",
-        "uninstallSuccess": "Serviço Desinstalado com Sucesso"
+        "uninstallSuccess": "Serviço Desinstalado com Sucesso",
+        "coreVersionDrift": "O modo serviço está executando o núcleo {{running}}, mas o núcleo incluído é {{bundled}}. Abra Configurações → Versões do Mihomo para instalar {{bundled}}, ou reinstale/repare o serviço e reinicie o núcleo."
       },
       "updater": {
         "withClashProxySuccess": "Atualização com o proxy do Clash concluída com sucesso",
@@ -777,5 +780,12 @@
       "installing": "Instalando o Serviço...",
       "uninstalling": "Desinstalando o Serviço..."
     }
+  },
+  "search": {
+    "placeholder": "Pesquisar configurações",
+    "clear": "Limpar pesquisa",
+    "back": "Voltar aos resultados",
+    "results": "Resultados da pesquisa",
+    "empty": "Nenhuma configuração encontrada"
   }
 }

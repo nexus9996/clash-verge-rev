@@ -47,6 +47,11 @@ export const resolveErrorRetryCount = (
   return retry === false ? 0 : retry
 }
 
+const resolveDedupingInterval = (
+  staleTime: number | undefined,
+  fallback: number,
+) => staleTime ?? fallback
+
 export const swrConfig: SWRConfiguration = {
   dedupingInterval: 2000,
   errorRetryCount: DEFAULT_ERROR_RETRY_COUNT,
@@ -106,8 +111,12 @@ export function useQuery<T>(options: QueryOptions<T>): QueryResult<T> {
     retry,
     DEFAULT_ERROR_RETRY_COUNT,
   )
+  const dedupingInterval = resolveDedupingInterval(
+    staleTime,
+    swrConfig.dedupingInterval ?? 2000,
+  )
   const swr = useSWR<T>(enabled ? queryKey : null, queryFn, {
-    dedupingInterval: staleTime,
+    dedupingInterval,
     errorRetryCount,
     errorRetryInterval:
       typeof retryDelay === 'number'
@@ -129,7 +138,7 @@ export function useQuery<T>(options: QueryOptions<T>): QueryResult<T> {
     },
     revalidateOnFocus: refetchOnWindowFocus,
     revalidateOnMount,
-    revalidateOnReconnect: refetchOnReconnect,
+    revalidateOnReconnect: refetchOnReconnect ?? true,
     refreshInterval: refetchInterval || 0,
     refreshWhenHidden: refetchIntervalInBackground ?? false,
   })

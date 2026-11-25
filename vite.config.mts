@@ -14,11 +14,9 @@ export default defineConfig({
     legacy({
       modernTargets: ['edge>=109', 'safari>=14'],
       renderLegacyChunks: false,
-      modernPolyfills: [
-        'es.object.has-own',
-        'es.array.at',
-        'web.structured-clone',
-      ],
+      // Auto-detected from the emitted bundle, dependencies included,
+      // so post-Safari-14 APIs never depend on extending a manual list.
+      modernPolyfills: true,
       additionalModernPolyfills: [
         path.resolve('./src/polyfills/matchMedia.js'),
         path.resolve('./src/polyfills/WeakRef.js'),
@@ -29,10 +27,15 @@ export default defineConfig({
   build: {
     outDir: '../dist',
     emptyOutDir: true,
-    // Keep the default 500 kB warning meaningful: lazy Monaco chunks are
-    // isolated already, so a chunk over ~1 MB signals an accidental import.
-    chunkSizeWarningLimit: 1000,
+    // The lazy Monaco editor chunk is ~2.7 MB minified: splitting it further
+    // cuts Monaco's module graph into mutually dependent chunks, so the
+    // threshold sits just above it. An accidental eager import still fails
+    // `check:bundle-budget`, which is the regression this guard protects.
+    chunkSizeWarningLimit: 2800,
     rollupOptions: {
+      input: {
+        main: path.resolve('src/index.html'),
+      },
       output: {
         // Vendor groups are intentionally narrow: only libraries that every
         // route shares are pinned so route-level code splitting stays intact.
@@ -40,9 +43,9 @@ export default defineConfig({
           groups: [
             {
               name: 'vendor-react',
-              test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/,
+              test: /node_modules[/](react|react-dom|scheduler)[/]/,
             },
-            { name: 'vendor-mui', test: /node_modules[\\/]@mui[\\/]/ },
+            { name: 'vendor-mui', test: /node_modules[/]@mui[/]/ },
           ],
         },
       },
@@ -54,6 +57,16 @@ export default defineConfig({
       '@root': path.resolve('.'),
       'monaco-editor/esm/vs/editor/editor.worker.js':
         'monaco-editor/editor/editor.worker',
+      // Monaco's export map only forwards `.js` entries, so its codicon
+      // stylesheets need explicit paths. They style the editor's icons.
+      'monaco-editor/base/browser/ui/codicons/codicon/codicon.css':
+        path.resolve(
+          'node_modules/monaco-editor/esm/vs/base/browser/ui/codicons/codicon/codicon.css',
+        ),
+      'monaco-editor/base/browser/ui/codicons/codicon/codicon-modifiers.css':
+        path.resolve(
+          'node_modules/monaco-editor/esm/vs/base/browser/ui/codicons/codicon/codicon-modifiers.css',
+        ),
     },
   },
   define: {

@@ -2,7 +2,7 @@
 
 - 状态：**Accepted**（D1 于 2026-10-22 修订：保留 react-router，撤销 TanStack Router 迁移）
 - 日期：2026-10-19（初版）· 2026-10-22（D1 修订）
-- 关联：[目标架构](../frontend-architecture.md) · [ADR-0002](0002-design-tokens.md)（设计 token）· [ADR-0003](0003-state-boundary.md)（状态边界）· [bundle 基线](../perf/frontend-baseline-2026-10-19.md)
+- 关联：[目标架构](../frontend-architecture.md) · [ADR-0002](0002-design-tokens.md)（设计 token）· [ADR-0003](0003-state-boundary.md)（状态边界）· [ADR-0004](0004-frontend-toolchain-bun-oxc.md)（工具链迁移）· [bundle 基线](../perf/frontend-baseline-2026-10-19.md)
 - 代码：`src/app/{router,route-pages,route-fallbacks,layout}.tsx`、`src/config/navigation.ts`、`src/components/layout/layout{,-item,-sidebar}.tsx`
 
 ## 1. 背景
