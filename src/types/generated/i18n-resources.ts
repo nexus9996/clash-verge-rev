@@ -17,15 +17,25 @@ export interface TranslationResources {
         fields: {
           chains: string
           destination: string
+          destinationIp: string
           destinationPort: string
           dlSpeed: string
           host: string
+          network: string
           process: string
           rule: string
           source: string
+          sourceIp: string
+          sourcePort: string
           time: string
           type: string
           ulSpeed: string
+        }
+        filters: {
+          clear: string
+          noOptions: string
+          placeholder: string
+          searchValue: string
         }
         order: {
           default: string
@@ -564,6 +574,7 @@ export interface TranslationResources {
         }
         labels: {
           delayCheckReset: string
+          groupBadge: string
           nodeCount: string
           proxyCount: string
         }
@@ -597,6 +608,7 @@ export interface TranslationResources {
           delayCheck: string
           delayCheckUrl: string
           filter: string
+          jumpToGroup: string
           locate: string
           showBasic: string
           showDetail: string
@@ -684,6 +696,10 @@ export interface TranslationResources {
           }
           dialogTitle: string
           trigger: string
+        }
+        rule: {
+          hits: string
+          toggle: string
         }
         title: string
       }
@@ -795,17 +811,35 @@ export interface TranslationResources {
             dialogs: {
               editCssTitle: string
             }
+            editModes: {
+              dark: string
+              light: string
+              title: string
+            }
             fields: {
+              background: string
               cssInjection: string
               errorColor: string
               fontFamily: string
               infoColor: string
+              paperBackground: string
               primaryColor: string
               primaryText: string
               secondaryColor: string
               secondaryText: string
               successColor: string
               warningColor: string
+            }
+            presets: {
+              names: {
+                default: string
+                indigo: string
+                lavender: string
+                monochrome: string
+                ocean: string
+                sunset: string
+              }
+              title: string
             }
             title: string
           }
@@ -944,9 +978,29 @@ export interface TranslationResources {
           }
         }
         clashCore: {
+          actions: {
+            manageVersions: string
+          }
           variants: {
             alpha: string
             release: string
+          }
+          versions: {
+            channel: string
+            description: string
+            empty: string
+            install: string
+            installed: string
+            installedAction: string
+            latest: string
+            loading: string
+            messages: {
+              alreadyInstalled: string
+              alreadyLatest: string
+              installed: string
+            }
+            title: string
+            upgradeLatest: string
           }
         }
         clashPort: {
@@ -1126,6 +1180,7 @@ export interface TranslationResources {
             defaultLatencyTimeout: string
             enableBuiltinEnhanced: string
             proxyLayoutColumns: string
+            updateChannel: string
           }
           options: {
             autoLogClean: {
@@ -1135,6 +1190,10 @@ export interface TranslationResources {
             proxyLayoutColumns: {
               auto: string
             }
+            updateChannel: {
+              alpha: string
+              stable: string
+            }
           }
           title: string
           tooltips: {
@@ -1142,6 +1201,7 @@ export interface TranslationResources {
             autoDelayDetection: string
             defaultLatencyTest: string
             enableBuiltinEnhanced: string
+            updateChannel: string
           }
         }
         networkInterface: {
@@ -1220,6 +1280,12 @@ export interface TranslationResources {
           messages: {
             available: string
             breakChangeError: string
+          }
+          restart: {
+            body: string
+            restartLater: string
+            restartNow: string
+            title: string
           }
           title: string
         }
@@ -1521,11 +1587,21 @@ export interface TranslationResources {
         resetInput: string
         useRegex: string
       }
+      search: {
+        action: string
+        cidr: string
+        cidrPlaceholder: string
+        content: string
+        contentPlaceholder: string
+        domain: string
+        domainPlaceholder: string
+      }
       statuses: {
         disabled: string
         empty: string
         enabled: string
         loading: string
+        pageNotFound: string
         saving: string
       }
       units: {

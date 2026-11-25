@@ -22,7 +22,7 @@ import {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { useProxiesData } from '@/providers/app-data-context'
+import { useProxiesData } from '@/hooks/data'
 import { updateProxyChainConfigInRuntime } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import {
@@ -251,7 +251,9 @@ function ProxyVirtualList({
 }) {
   const theme = useTheme()
   const stickyBackground =
-    theme.palette.mode === 'dark' ? '#1e1f27' : 'var(--background-color)'
+    theme.palette.mode === 'dark'
+      ? 'var(--surface-page)'
+      : 'var(--background-color)'
 
   return (
     <div ref={parentRef} style={{ height, overflow: 'auto' }}>

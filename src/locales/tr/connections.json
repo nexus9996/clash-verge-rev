@@ -12,9 +12,13 @@
       "process": "İşlem",
       "time": "Zaman",
       "source": "Kaynak",
+      "sourceIp": "Kaynak IP",
+      "sourcePort": "Kaynak Port",
       "destination": "Hedef",
+      "destinationIp": "Hedef IP",
       "destinationPort": "Hedef Port",
-      "type": "Tip"
+      "type": "Tip",
+      "network": "Ağ"
     },
     "order": {
       "default": "Varsayılan",
@@ -29,6 +33,12 @@
     "columnManager": {
       "title": "Sütunlar",
       "dragHandle": "Sürükleme tutamacı"
+    },
+    "filters": {
+      "placeholder": "Bağlantıları filtrele",
+      "noOptions": "Eşleşen seçenek yok",
+      "searchValue": "Değer ara",
+      "clear": "Filtreleri temizle"
     }
   }
 }

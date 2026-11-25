@@ -209,6 +209,22 @@
       },
       "theme": {
         "title": "Theme Setting",
+        "presets": {
+          "title": "Presets",
+          "names": {
+            "default": "Default",
+            "ocean": "Ocean",
+            "indigo": "Indigo",
+            "sunset": "Sunset",
+            "lavender": "Lavender",
+            "monochrome": "Monochrome"
+          }
+        },
+        "editModes": {
+          "title": "Edit Theme",
+          "light": "Light",
+          "dark": "Dark"
+        },
         "fields": {
           "primaryColor": "Primary Color",
           "secondaryColor": "Secondary Color",
@@ -218,6 +234,8 @@
           "warningColor": "Warning Color",
           "errorColor": "Error Color",
           "successColor": "Success Color",
+          "background": "Background Color",
+          "paperBackground": "Paper Color",
           "fontFamily": "Font Family",
           "cssInjection": "CSS Injection"
         },
@@ -306,6 +324,26 @@
       "variants": {
         "release": "Release Version",
         "alpha": "Alpha Version"
+      },
+      "actions": {
+        "manageVersions": "Manage Versions"
+      },
+      "versions": {
+        "title": "Mihomo Versions",
+        "description": "Install a specific Mihomo version. If the new core fails to start, the app restores the previous one automatically.",
+        "channel": "Channel: {{channel}}",
+        "loading": "Loading versions...",
+        "empty": "No versions available",
+        "latest": "Latest",
+        "installed": "Installed",
+        "installedAction": "Installed",
+        "install": "Install",
+        "upgradeLatest": "Upgrade to Latest",
+        "messages": {
+          "installed": "Updated to {{version}}",
+          "alreadyInstalled": "Already at {{version}}",
+          "alreadyLatest": "Already at the latest version"
+        }
       }
     },
     "liteMode": {
@@ -419,13 +457,15 @@
         "autoDelayDetection": "Auto Delay Detection",
         "autoDelayDetectionInterval": "Auto Delay Detection Interval",
         "defaultLatencyTest": "Default Latency Test",
-        "defaultLatencyTimeout": "Default Latency Timeout"
+        "defaultLatencyTimeout": "Default Latency Timeout",
+        "updateChannel": "Update Channel"
       },
       "tooltips": {
         "autoCloseConnections": "Terminate established connections when the proxy group selection or proxy mode changes",
         "enableBuiltinEnhanced": "Compatibility handling for the configuration file",
         "autoDelayDetection": "Periodically test the current node latency in the background",
-        "defaultLatencyTest": "Used for HTTP client request testing only and won't make a difference to the configuration file"
+        "defaultLatencyTest": "Used for HTTP client request testing only and won't make a difference to the configuration file",
+        "updateChannel": "Alpha follows prerelease builds and may be unstable"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -434,6 +474,10 @@
         "autoLogClean": {
           "never": "Never Clean",
           "retainDays": "Retain {{n}} Days"
+        },
+        "updateChannel": {
+          "stable": "Stable",
+          "alpha": "Alpha"
         }
       }
     },
@@ -453,6 +497,12 @@
         "important": "Important",
         "warning": "Warning",
         "caution": "Caution"
+      },
+      "restart": {
+        "title": "Update Installed",
+        "body": "Restart the app to apply the new version.",
+        "restartNow": "Restart Now",
+        "restartLater": "Later"
       }
     },
     "sysproxy": {

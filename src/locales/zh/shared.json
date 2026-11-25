@@ -46,7 +46,8 @@
     "disabled": "未启用",
     "saving": "保存中...",
     "empty": "空空如也",
-    "loading": "加载中..."
+    "loading": "加载中...",
+    "pageNotFound": "页面不存在"
   },
   "units": {
     "milliseconds": "毫秒",
@@ -135,5 +136,14 @@
       "warn": "WARN",
       "error": "ERROR"
     }
+  },
+  "search": {
+    "content": "内容",
+    "domain": "域名",
+    "cidr": "CIDR",
+    "contentPlaceholder": "搜索规则",
+    "domainPlaceholder": "搜索域名、URL 或关键词",
+    "cidrPlaceholder": "搜索 IP 或 CIDR",
+    "action": "搜索"
   }
 }

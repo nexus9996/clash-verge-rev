@@ -1,8 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router'
-
-import ProfilePage from '@/pages/profiles'
+import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/profile')({
-  component: ProfilePage,
+  component: lazyRouteComponent(() => import('@/pages/profiles')),
   staticData: { navId: 'profiles' },
 })

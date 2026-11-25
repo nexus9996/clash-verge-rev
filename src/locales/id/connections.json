@@ -12,9 +12,13 @@
       "process": "Proses",
       "time": "Waktu",
       "source": "Sumber",
+      "sourceIp": "IP Sumber",
+      "sourcePort": "Port Sumber",
       "destination": "IP Tujuan",
+      "destinationIp": "IP Tujuan",
       "destinationPort": "Port Tujuan",
-      "type": "Jenis"
+      "type": "Jenis",
+      "network": "Jaringan"
     },
     "order": {
       "default": "Default",
@@ -29,6 +33,12 @@
     "columnManager": {
       "title": "Kolom",
       "dragHandle": "Drag handle"
+    },
+    "filters": {
+      "placeholder": "Filter koneksi",
+      "noOptions": "Tidak ada opsi yang cocok",
+      "searchValue": "Cari nilai",
+      "clear": "Hapus filter"
     }
   }
 }

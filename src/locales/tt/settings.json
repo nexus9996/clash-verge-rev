@@ -209,6 +209,22 @@
       },
       "theme": {
         "title": "Тема көйләүләре",
+        "presets": {
+          "title": "Көйләүләр",
+          "names": {
+            "default": "Килешү",
+            "ocean": "Океан",
+            "indigo": "Индиго",
+            "sunset": "Кояш батуы",
+            "lavender": "Лаванда",
+            "monochrome": "Бер төсле"
+          }
+        },
+        "editModes": {
+          "title": "Теманы үзгәртү",
+          "light": "Якты",
+          "dark": "Караңгы"
+        },
         "fields": {
           "primaryColor": "Төп төс",
           "secondaryColor": "Икенче төс",
@@ -218,6 +234,8 @@
           "warningColor": "Кисәтү төсе",
           "errorColor": "Хата төсе",
           "successColor": "Уңыш төсе",
+          "background": "Фон төсе",
+          "paperBackground": "Карточка төсе",
           "fontFamily": "Шрифтлар гаиләсе",
           "cssInjection": "CSS кертү"
         },
@@ -306,6 +324,26 @@
       "variants": {
         "release": "Рәсми версия",
         "alpha": "Альфа-версия"
+      },
+      "actions": {
+        "manageVersions": "Версияләрне идарә итү"
+      },
+      "versions": {
+        "title": "Mihomo версияләре",
+        "description": "Билгеләнгән Mihomo версиясен урнаштырырга мөмкин. Яңа төш урнаштырылмаса, кушымта автоматик рәвештә алдагы версияны кайтара.",
+        "channel": "Канал: {{channel}}",
+        "loading": "Версияләр йөкләнә...",
+        "empty": "Урнаштыру өчен версия юк",
+        "latest": "Иң соңгы",
+        "installed": "Урнаштырылган",
+        "installedAction": "Урнаштырылган",
+        "install": "Урнаштыру",
+        "upgradeLatest": "Иң соңгыга яңарту",
+        "messages": {
+          "installed": "{{version}} версиясенә яңартылды",
+          "alreadyInstalled": "Хәзер {{version}}",
+          "alreadyLatest": "Хәзер иң соңгы версия"
+        }
       }
     },
     "liteMode": {
@@ -419,13 +457,15 @@
         "autoDelayDetection": "Автоматик тоткарлык ачыклау",
         "autoDelayDetectionInterval": "Автоматик тоткарлык ачыклау интервалы",
         "defaultLatencyTest": "Тоткарлануны тикшерү сылтамасы (defaults)",
-        "defaultLatencyTimeout": "Тоткарлануның стандарт таймауты"
+        "defaultLatencyTimeout": "Тоткарлануның стандарт таймауты",
+        "updateChannel": "Яңарту каналы"
       },
       "tooltips": {
         "autoCloseConnections": "Прокси төркеме яисә режимын үзгәрткәндә актив тоташуларны өзү",
         "enableBuiltinEnhanced": "Конфигурация файлы белән туры килә торган өстәмә оптимизация",
         "autoDelayDetection": "Фон режимында хәзерге төен тоткарлыгын периодик тикшерә",
-        "defaultLatencyTest": "Бу фәкать клиентның HTTP сораулары тесты өчен кулланыла, конфигурация файлына йогынты ясамый"
+        "defaultLatencyTest": "Бу фәкать клиентның HTTP сораулары тесты өчен кулланыла, конфигурация файлына йогынты ясамый",
+        "updateChannel": "Альфа алдан карау җыюларыннан бара, тотрыксыз булырга мөмкин"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -434,6 +474,10 @@
         "autoLogClean": {
           "never": "Беркайчан чистартмаска",
           "retainDays": "{{n}} көн саклау"
+        },
+        "updateChannel": {
+          "stable": "Тотрыклы",
+          "alpha": "Альфа"
         }
       }
     },
@@ -453,6 +497,12 @@
         "important": "Мөһим",
         "warning": "Кисәтү",
         "caution": "Игътибар"
+      },
+      "restart": {
+        "title": "Яңарту урнаштырылды",
+        "body": "Яңа версияне куллану өчен кушымтаны яңадан эшләтегез.",
+        "restartNow": "Хәзер яңадан эшләтү",
+        "restartLater": "Соңрак"
       }
     },
     "sysproxy": {

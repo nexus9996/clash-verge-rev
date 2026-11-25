@@ -108,6 +108,7 @@ function printUsage() {
 Options:
   --apply            Write locale files with unused keys removed (default: report only)
   --align            Align locale structure/order using the baseline locale
+  --check            Exit non-zero when any locale has unused/missing/extra keys (CI gate)
   --baseline <lang>  Baseline locale file name for frontend/backend (default: ${DEFAULT_BASELINE_LANG})
   --keep-extra       Preserve keys that exist only in non-baseline locales when aligning
   --no-backup        Skip creating \`.bak\` backups when applying changes
@@ -124,6 +125,7 @@ function parseArgs(argv) {
     reportPath: null,
     extraSources: [],
     align: false,
+    check: false,
     baseline: DEFAULT_BASELINE_LANG,
     keepExtra: false,
   }
@@ -136,6 +138,9 @@ function parseArgs(argv) {
         break
       case '--align':
         options.align = true
+        break
+      case '--check':
+        options.check = true
         break
       case '--keep-extra':
         options.keepExtra = true
@@ -181,6 +186,10 @@ function parseArgs(argv) {
         }
         throw new Error(`Unexpected positional argument: ${arg}`)
     }
+  }
+
+  if (options.check && (options.apply || options.align)) {
+    throw new Error('--check cannot be combined with --apply/--align')
   }
 
   return options
@@ -1388,6 +1397,49 @@ function main() {
   if (allResults.length === 0) {
     return
   }
+
+  if (options.check) {
+    const violations = allResults.flatMap((result) => [
+      ...(result.unusedKeys.length
+        ? [{ locale: result.locale, kind: 'unused', keys: result.unusedKeys }]
+        : []),
+      ...(result.missingKeys.length
+        ? [{ locale: result.locale, kind: 'missing', keys: result.missingKeys }]
+        : []),
+      ...(result.extraKeys.length
+        ? [{ locale: result.locale, kind: 'extra', keys: result.extraKeys }]
+        : []),
+    ])
+
+    if (violations.length > 0) {
+      console.error(
+        '\n[i18n] check failed: locale keys drifted from source usage.',
+      )
+      for (const violation of violations) {
+        console.error(
+          `  [${violation.locale}] ${violation.kind}: ${violation.keys.length} (${violation.keys
+            .slice(0, 5)
+            .join(', ')}${violation.keys.length > 5 ? ', …' : ''})`,
+        )
+      }
+      console.error(
+        '\nRun `pnpm i18n:format` (align + apply) or fix the keys above, then re-run `pnpm i18n:verify`.',
+      )
+      process.exitCode = 1
+      return
+    }
+
+    const totals = summarizeResults(allResults)
+    console.log(
+      `\n[i18n] check passed (unused/missing/extra = 0${
+        totals.totalSourceMissing > 0
+          ? `; ${totals.totalSourceMissing} key(s) reported as missing-source, not gated`
+          : ''
+      }).`,
+    )
+    return
+  }
+
   if (options.apply) {
     console.log(
       'Files were updated in-place; review diffs before committing changes.',

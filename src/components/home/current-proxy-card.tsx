@@ -37,16 +37,16 @@ import { useTranslation } from 'react-i18next'
 
 import { EnhancedCard } from '@/components/home/enhanced-card'
 import type { ProxySortType } from '@/components/proxy/use-filter-sort'
-import { useGroupDelays } from '@/hooks/use-group-delays'
-import { useProfiles } from '@/hooks/use-profiles'
-import { useProxySelection } from '@/hooks/use-proxy-selection'
-import { useVerge } from '@/hooks/use-verge'
 import {
   useAppRefreshers,
   useClashConfigData,
   useCoreDataStatus,
   useProxiesData,
-} from '@/providers/app-data-context'
+} from '@/hooks/data'
+import { useGroupDelays } from '@/hooks/use-group-delays'
+import { useProfiles } from '@/hooks/use-profiles'
+import { useProxySelection } from '@/hooks/use-proxy-selection'
+import { useVerge } from '@/hooks/use-verge'
 import { syncTrayProxySelection } from '@/services/cmds'
 import delayManager from '@/services/delay'
 import { mutate } from '@/services/mutate'

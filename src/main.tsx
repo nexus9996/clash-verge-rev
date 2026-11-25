@@ -9,9 +9,9 @@ import { SWRConfig } from 'swr'
 import { MihomoWebSocket } from 'tauri-plugin-mihomo-api'
 
 import { router } from './app/router'
+import { installRouteTiming } from './app/router-timing'
 import { BaseErrorBoundary } from './components/base'
 import { preloadHomePageCards } from './pages/home'
-import { AppDataProvider } from './providers/app-data-provider'
 import { FALLBACK_LANGUAGE, initializeLanguage } from './services/i18n'
 import {
   preloadAppData,
@@ -36,6 +36,10 @@ if (!container) {
 
 disableWebViewShortcuts()
 
+if (import.meta.env.DEV) {
+  installRouteTiming(router)
+}
+
 const initializeApp = (initialThemeMode: 'light' | 'dark') => {
   const contexts = [
     <ThemeModeProvider key="theme" initialState={initialThemeMode} />,
@@ -49,9 +53,7 @@ const initializeApp = (initialThemeMode: 'light' | 'dark') => {
       <ComposeContextProvider contexts={contexts}>
         <BaseErrorBoundary>
           <SWRConfig value={swrConfig}>
-            <AppDataProvider>
-              <RouterProvider router={router} />
-            </AppDataProvider>
+            <RouterProvider router={router} />
           </SWRConfig>
         </BaseErrorBoundary>
       </ComposeContextProvider>

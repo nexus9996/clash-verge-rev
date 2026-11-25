@@ -1,7 +1,5 @@
 import type { AnyRouter } from '@tanstack/react-router'
 
-import { clearDiagnostics, getDiagnostics } from '@/utils/diagnostics'
-
 /**
  * Opt-in route navigation timing for the manual protocol in
  * docs/perf/navigation-timing.md. Enabled in dev builds by setting
@@ -32,7 +30,6 @@ interface RouteTimingExport {
   report: RouteTimingReport
   userAgent: string
   location: string
-  diagnostics: ReturnType<typeof getDiagnostics>
 }
 
 const STORAGE_KEY = 'verge.routeTiming'
@@ -40,7 +37,6 @@ const MAX_SAMPLES = 500
 
 const samples: RouteTimingSample[] = []
 const visited = new Set<string>()
-let active = false
 
 const round = (value: number) => Math.round(value * 10) / 10
 
@@ -71,31 +67,26 @@ export const summarizeRouteTimings = (
   ),
 })
 
-export const getRouteTimingSamples = () => samples.slice()
+const getRouteTimingSamples = () => samples.slice()
 
 const exportRouteTimings = (): RouteTimingExport => ({
   samples: samples.slice(),
   report: summarizeRouteTimings(samples),
   userAgent: typeof navigator === 'undefined' ? 'unknown' : navigator.userAgent,
   location: typeof window === 'undefined' ? 'unknown' : window.location.href,
-  diagnostics: getDiagnostics(),
 })
 
-export const clearRouteTimings = () => {
+const clearRouteTimings = () => {
   samples.length = 0
   visited.clear()
-  clearDiagnostics()
 }
 
 const record = (sample: RouteTimingSample) => {
-  if (!active) return
-  visited.add(sample.to)
   samples.push(sample)
   if (samples.length > MAX_SAMPLES) samples.shift()
 }
 
-/** Optional fallback for reload-based workflows; no longer required. */
-const autoStartRequested = () => {
+const isEnabled = () => {
   if (typeof window === 'undefined') return false
   try {
     return window.localStorage.getItem(STORAGE_KEY) === '1'
@@ -104,54 +95,34 @@ const autoStartRequested = () => {
   }
 }
 
-export const installRouteTiming = (
-  router: AnyRouter,
-  options: { autoStart?: boolean } = {},
-) => {
-  active = false
+export const installRouteTiming = (router: AnyRouter) => {
+  if (!isEnabled()) return
+
   const pending = new Map<string, { from: string; startedAt: number }>()
-
-  const start = () => {
-    samples.length = 0
-    visited.clear()
-    pending.clear()
-    active = true
-    console.info('[nav-timing] recording started')
-  }
-
-  const stop = () => {
-    active = false
-    pending.clear()
-    console.info(
-      '[nav-timing] recording stopped; inspect with __vergeNavTiming.getReport()',
-    )
-  }
 
   router.subscribe('onBeforeNavigate', (event) => {
     if (!event.pathChanged) return
-    // A navigation without a source is the initial bootstrap render, not a
-    // user navigation; it would otherwise pollute the cold bucket with startup.
-    if (!event.fromLocation?.pathname) return
     pending.set(event.toLocation.href, {
-      from: event.fromLocation.pathname,
+      from: event.fromLocation?.pathname ?? '',
       startedAt: performance.now(),
     })
   })
 
   router.subscribe('onRendered', (event) => {
-    const entry = pending.get(event.toLocation.href)
-    if (!entry) return
+    const start = pending.get(event.toLocation.href)
+    if (!start) return
     pending.delete(event.toLocation.href)
 
     const to = event.toLocation.pathname
     const cold = !visited.has(to)
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
+        visited.add(to)
         record({
-          from: entry.from,
+          from: start.from,
           to,
-          startedAt: entry.startedAt,
-          durationMs: performance.now() - entry.startedAt,
+          startedAt: start.startedAt,
+          durationMs: performance.now() - start.startedAt,
           cold,
         })
       })
@@ -159,26 +130,20 @@ export const installRouteTiming = (
   })
 
   window.__vergeNavTiming = {
-    start,
-    stop,
     getSamples: getRouteTimingSamples,
     getReport: () => summarizeRouteTimings(),
     export: exportRouteTimings,
     clear: clearRouteTimings,
   }
 
-  if (options.autoStart || autoStartRequested()) start()
-  else
-    console.info(
-      '[nav-timing] ready; call __vergeNavTiming.start() before navigating (no reload needed)',
-    )
+  console.info(
+    `[nav-timing] enabled; inspect with __vergeNavTiming.getReport() or copy(__vergeNavTiming.export()). Remove localStorage key '${STORAGE_KEY}' to disable.`,
+  )
 }
 
 declare global {
   interface Window {
     __vergeNavTiming?: {
-      start: () => void
-      stop: () => void
       getSamples: typeof getRouteTimingSamples
       getReport: () => RouteTimingReport
       export: typeof exportRouteTimings

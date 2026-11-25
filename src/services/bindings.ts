@@ -23,6 +23,14 @@ export const commands = {
     __TAURI_INVOKE<string[]>('get_network_interfaces'),
   getSystemHostname: () => __TAURI_INVOKE<string>('get_system_hostname'),
   restartApp: () => __TAURI_INVOKE<null>('restart_app'),
+  checkUpdateAvailable: () =>
+    __TAURI_INVOKE<{
+      currentVersion: string
+      version: string
+      date: string | null
+      body: string | null
+      rawJson: JsonValue
+    } | null>('check_update_available'),
   installUpdate: (version: string, onEvent: Channel<DownloadEvent>) =>
     __TAURI_INVOKE<boolean>('install_update', { version, onEvent }),
   cancelUpdateDownload: () => __TAURI_INVOKE<void>('cancel_update_download'),
@@ -30,6 +38,12 @@ export const commands = {
   /**  Replaces the managed core binary atomically instead of letting mihomo overwrite itself. */
   upgradeClashCore: (force: boolean) =>
     __TAURI_INVOKE<CoreUpgradeReport>('upgrade_clash_core', { force }),
+  /**  Lists the core versions installable for the managed core's release channel. */
+  getCoreVersions: () =>
+    __TAURI_INVOKE<CoreVersionCatalog>('get_core_versions'),
+  /**  Installs an explicit core version through the same stage/publish/rollback path as an upgrade. */
+  installCoreVersion: (version: string) =>
+    __TAURI_INVOKE<CoreUpgradeReport>('install_core_version', { version }),
   /**  Returns one coherent core/service snapshot instead of independently refreshed state. */
   getRuntimeState: () => __TAURI_INVOKE<RunStateView>('get_runtime_state'),
   getPendingFailures: () =>
@@ -129,6 +143,10 @@ export const commands = {
   patchVergeConfig: (payload: IVerge_Deserialize) =>
     __TAURI_INVOKE<null>('patch_verge_config', { payload }),
   testDelay: (url: string) => __TAURI_INVOKE<number>('test_delay', { url }),
+  getRulesExtra: () => __TAURI_INVOKE<RuleExtraInfo[]>('get_rules_extra'),
+  /**  Rule disabling is runtime state in mihomo and resets when the core reloads. */
+  updateRulesDisable: (requests: RuleDisableRequest[]) =>
+    __TAURI_INVOKE<null>('update_rules_disable', { requests }),
   getAppDir: () => __TAURI_INVOKE<string>('get_app_dir'),
   copyIconFile: (path: string, iconInfo: IconInfo) =>
     __TAURI_INVOKE<string>('copy_icon_file', { path, iconInfo }),
@@ -280,6 +298,18 @@ export type CoreUpgradeReport = {
   upgraded: boolean
 }
 
+export type CoreVersionCatalog = {
+  /**  Release channel of the managed core: `stable` or `alpha`. */
+  channel: string
+  installed: string | null
+  versions: CoreVersionInfo[]
+}
+
+export type CoreVersionInfo = {
+  version: string
+  publishedAt: string | null
+}
+
 export type DelayHistory = {
   time: string
   delay: number
@@ -346,6 +376,8 @@ export type IVergeTheme = {
   error_color?: string | null
   warning_color?: string | null
   success_color?: string | null
+  background_color?: string | null
+  paper_background_color?: string | null
   font_family?: string | null
   css_injection?: string | null
 }
@@ -394,6 +426,10 @@ export type IVerge_Deserialize = {
   pac_file_content?: string | null
   proxy_host?: string | null
   theme_setting?: IVergeTheme | null
+  /**  Theme overrides for light mode; falls back to `theme_setting` when unset. */
+  light_theme_setting?: IVergeTheme | null
+  /**  Theme overrides for dark mode; falls back to `theme_setting` when unset. */
+  dark_theme_setting?: IVergeTheme | null
   web_ui_list?: string[] | null
   clash_core?: string | null
   /**  format: {func},{key} */
@@ -402,6 +438,8 @@ export type IVerge_Deserialize = {
   home_cards?: JsonValue | null
   auto_close_connection?: boolean | null
   auto_check_update?: boolean | null
+  /**  Update channel: `stable` or `alpha`. */
+  update_channel?: string | null
   default_latency_test?: string | null
   default_latency_timeout?: number | null
   enable_auto_delay_detection?: boolean | null
@@ -485,6 +523,10 @@ export type IVerge_Serialize = {
   pac_file_content: string | null
   proxy_host: string | null
   theme_setting: IVergeTheme | null
+  /**  Theme overrides for light mode; falls back to `theme_setting` when unset. */
+  light_theme_setting: IVergeTheme | null
+  /**  Theme overrides for dark mode; falls back to `theme_setting` when unset. */
+  dark_theme_setting: IVergeTheme | null
   web_ui_list: string[] | null
   clash_core?: string | null
   /**  format: {func},{key} */
@@ -493,6 +535,8 @@ export type IVerge_Serialize = {
   home_cards: JsonValue | null
   auto_close_connection: boolean | null
   auto_check_update: boolean | null
+  /**  Update channel: `stable` or `alpha`. */
+  update_channel: string | null
   default_latency_test: string | null
   default_latency_timeout: number | null
   enable_auto_delay_detection: boolean | null
@@ -950,6 +994,20 @@ export type ProxyViewV1_Serialize = {
   providers: ProxyProviderView_Serialize[]
 }
 
+export type RuleDisableRequest = {
+  index: number
+  disabled: boolean
+}
+
+export type RuleExtraInfo = {
+  index: number
+  disabled: boolean
+  hitCount: number
+  hitAt: string
+  missCount: number
+  missAt: string
+}
+
 export type RunStateView = {
   mode: RunningMode
   service: ServiceHealthKind
@@ -1015,6 +1073,14 @@ export type UnlockItem = {
   status: string
   region: string | null
   check_time: string | null
+}
+
+export type UpdateInfo = {
+  currentVersion: string
+  version: string
+  date: string | null
+  body: string | null
+  rawJson: JsonValue
 }
 
 export type ValidationErrorKind =

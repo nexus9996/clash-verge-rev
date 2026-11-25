@@ -5,7 +5,7 @@ import {
   ListItemIcon,
   ListItemText,
 } from '@mui/material'
-import { useMatchRoute, useNavigate } from '@tanstack/react-router'
+import { useMatchRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 
 import type { SortableItemRenderProps } from '@/components/base/sortable-item'
@@ -26,6 +26,12 @@ export const LayoutItem = (props: Props) => {
   const matchRoute = useMatchRoute()
   const match = Boolean(matchRoute({ to }))
   const navigate = useNavigate()
+  const router = useRouter()
+
+  // Preload the route chunk on intent so split pages do not flash loaders.
+  const preload = () => {
+    void router.preloadRoute({ to }).catch(() => {})
+  }
 
   const effectiveMenuIcon =
     navCollapsed && menu_icon === 'disable' ? 'monochrome' : menu_icon
@@ -52,12 +58,12 @@ export const LayoutItem = (props: Props) => {
               fontWeight: '700',
             },
           },
-          ({ palette: { mode, primary } }) => {
+          ({ palette: { mode, primary, text, common } }) => {
             const bgcolor =
               mode === 'light'
                 ? alpha(primary.main, 0.15)
                 : alpha(primary.main, 0.35)
-            const color = mode === 'light' ? '#1f1f1f' : '#ffffff'
+            const color = mode === 'light' ? text.primary : common.white
             return {
               '&.Mui-selected': { bgcolor },
               '&.Mui-selected:hover': { bgcolor },
@@ -68,6 +74,8 @@ export const LayoutItem = (props: Props) => {
         title={navCollapsed ? children : undefined}
         aria-label={navCollapsed ? children : undefined}
         onClick={() => void navigate({ to })}
+        onMouseEnter={preload}
+        onFocus={preload}
       >
         {(effectiveMenuIcon === 'monochrome' || !effectiveMenuIcon) && (
           <ListItemIcon

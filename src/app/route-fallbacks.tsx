@@ -1,17 +1,18 @@
 import { Button, Stack, Typography } from '@mui/material'
+import type { ErrorComponentProps } from '@tanstack/react-router'
+import { useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { useNavigate, useRevalidator, useRouteError } from 'react-router'
 
-import { BaseEmpty } from '@/components/base/base-empty'
+import { BaseEmpty } from '@/components/base'
 import { formatRouteError } from '@/utils/format-route-error'
 
 /**
- * Not-found view for unmatched routes. Renders inside the app shell so the
- * sidebar/window chrome keeps working instead of blanking the webview.
+ * Default not-found view for unmatched routes. Renders inside the app shell so
+ * the sidebar/window chrome keeps working instead of blanking the webview.
  */
 export const RouteNotFound = () => {
   const { t } = useTranslation()
-  const navigate = useNavigate()
+  const router = useRouter()
 
   return (
     <BaseEmpty
@@ -21,7 +22,7 @@ export const RouteNotFound = () => {
           size="small"
           variant="contained"
           sx={{ mt: 2 }}
-          onClick={() => navigate('/')}
+          onClick={() => void router.navigate({ to: '/' })}
         >
           {t('layout.components.navigation.tabs.home')}
         </Button>
@@ -31,14 +32,12 @@ export const RouteNotFound = () => {
 }
 
 /**
- * Error view for route render failures: keep the shell alive, show the message
- * and offer retry / back-home instead of a white screen.
+ * Default error view for route render failures: keep the shell alive, show the
+ * message and offer retry / back-home instead of a white screen.
  */
-export const RouteError = () => {
+export const RouteError = ({ error, reset }: ErrorComponentProps) => {
   const { t } = useTranslation()
-  const navigate = useNavigate()
-  const revalidator = useRevalidator()
-  const error = useRouteError()
+  const router = useRouter()
 
   return (
     <Stack
@@ -62,14 +61,14 @@ export const RouteError = () => {
         {formatRouteError(error)}
       </Typography>
       <Stack direction="row" spacing={1}>
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={() => revalidator.revalidate()}
-        >
+        <Button variant="outlined" size="small" onClick={() => reset()}>
           {t('shared.actions.retry')}
         </Button>
-        <Button variant="contained" size="small" onClick={() => navigate('/')}>
+        <Button
+          variant="contained"
+          size="small"
+          onClick={() => void router.navigate({ to: '/' })}
+        >
           {t('layout.components.navigation.tabs.home')}
         </Button>
       </Stack>

@@ -12,9 +12,13 @@
       "process": "Процесс",
       "time": "Время подключения",
       "source": "Исходный адрес",
+      "sourceIp": "Исходный IP",
+      "sourcePort": "Исходный порт",
       "destination": "IP-адрес назначения",
+      "destinationIp": "IP назначения",
       "destinationPort": "Порт назначения",
-      "type": "Тип"
+      "type": "Тип",
+      "network": "Сеть"
     },
     "order": {
       "default": "По умолчанию",
@@ -29,6 +33,12 @@
     "columnManager": {
       "title": "Столбцы",
       "dragHandle": "Маркер перетаскивания"
+    },
+    "filters": {
+      "placeholder": "Фильтр соединений",
+      "noOptions": "Нет подходящих вариантов",
+      "searchValue": "Поиск значения",
+      "clear": "Сбросить фильтры"
     }
   }
 }

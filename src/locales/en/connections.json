@@ -12,9 +12,13 @@
       "process": "Process",
       "time": "Time",
       "source": "Source",
+      "sourceIp": "Source IP",
+      "sourcePort": "Source Port",
       "destination": "Destination",
+      "destinationIp": "Destination IP",
       "destinationPort": "Destination Port",
-      "type": "Type"
+      "type": "Type",
+      "network": "Network"
     },
     "order": {
       "default": "Default",
@@ -29,6 +33,12 @@
     "columnManager": {
       "title": "Columns",
       "dragHandle": "Drag handle"
+    },
+    "filters": {
+      "placeholder": "Filter connections",
+      "noOptions": "No matching options",
+      "searchValue": "Search value",
+      "clear": "Clear filters"
     }
   }
 }

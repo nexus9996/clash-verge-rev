@@ -1,8 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router'
-
-import ConnectionsPage from '@/pages/connections'
+import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/connections')({
-  component: ConnectionsPage,
+  component: lazyRouteComponent(() => import('@/pages/connections')),
   staticData: { navId: 'connections' },
 })

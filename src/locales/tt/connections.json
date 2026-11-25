@@ -12,9 +12,13 @@
       "process": "Процесс",
       "time": "Тоташу вакыты",
       "source": "Чыганак адресы",
+      "sourceIp": "Чыганак IP",
+      "sourcePort": "Чыганак порты",
       "destination": "Максат IP-адресы",
+      "destinationIp": "Максат IP",
       "destinationPort": "Барасы порты",
-      "type": "Төр"
+      "type": "Төр",
+      "network": "Челтәр"
     },
     "order": {
       "default": "Default",
@@ -29,6 +33,12 @@
     "columnManager": {
       "title": "Баганалар",
       "dragHandle": "Drag handle"
+    },
+    "filters": {
+      "placeholder": "Тоташуларны фильтрлау",
+      "noOptions": "Туры килгән вариант юк",
+      "searchValue": "Кыйммәт эзләү",
+      "clear": "Фильтрларны чистарту"
     }
   }
 }

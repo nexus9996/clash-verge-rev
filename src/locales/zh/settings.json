@@ -209,6 +209,22 @@
       },
       "theme": {
         "title": "主题设置",
+        "presets": {
+          "title": "预设",
+          "names": {
+            "default": "默认",
+            "ocean": "海洋",
+            "indigo": "靛蓝",
+            "sunset": "日落",
+            "lavender": "薰衣草",
+            "monochrome": "黑白"
+          }
+        },
+        "editModes": {
+          "title": "编辑主题",
+          "light": "浅色",
+          "dark": "深色"
+        },
         "fields": {
           "primaryColor": "主要颜色",
           "secondaryColor": "次要颜色",
@@ -218,6 +234,8 @@
           "warningColor": "警告颜色",
           "errorColor": "错误颜色",
           "successColor": "成功颜色",
+          "background": "背景颜色",
+          "paperBackground": "卡片颜色",
           "fontFamily": "字体系列",
           "cssInjection": "CSS 注入"
         },
@@ -306,6 +324,26 @@
       "variants": {
         "release": "正式版",
         "alpha": "预览版"
+      },
+      "actions": {
+        "manageVersions": "版本管理"
+      },
+      "versions": {
+        "title": "Mihomo 版本",
+        "description": "可安装指定的 Mihomo 版本；新内核启动失败时会自动回滚到原版本。",
+        "channel": "渠道：{{channel}}",
+        "loading": "正在加载版本...",
+        "empty": "暂无可安装版本",
+        "latest": "最新",
+        "installed": "已安装",
+        "installedAction": "已安装",
+        "install": "安装",
+        "upgradeLatest": "升级到最新",
+        "messages": {
+          "installed": "已更新到 {{version}}",
+          "alreadyInstalled": "当前已是 {{version}}",
+          "alreadyLatest": "当前已是最新版本"
+        }
       }
     },
     "liteMode": {
@@ -419,13 +457,15 @@
         "autoDelayDetection": "自动延迟检测",
         "autoDelayDetectionInterval": "自动延迟检测间隔",
         "defaultLatencyTest": "默认测试链接",
-        "defaultLatencyTimeout": "测试超时时间"
+        "defaultLatencyTimeout": "测试超时时间",
+        "updateChannel": "更新渠道"
       },
       "tooltips": {
         "autoCloseConnections": "当代理组选中节点或代理模式变动时，关闭已建立的连接",
         "enableBuiltinEnhanced": "配置文件的兼容性处理",
         "autoDelayDetection": "后台定时检测当前节点延迟",
-        "defaultLatencyTest": "仅用于 HTTP 客户端请求测试，不会对配置文件产生影响"
+        "defaultLatencyTest": "仅用于 HTTP 客户端请求测试，不会对配置文件产生影响",
+        "updateChannel": "内测版跟随预览构建，可能不稳定"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -434,6 +474,10 @@
         "autoLogClean": {
           "never": "不清理",
           "retainDays": "保留 {{n}} 天"
+        },
+        "updateChannel": {
+          "stable": "稳定版",
+          "alpha": "内测版"
         }
       }
     },
@@ -453,6 +497,12 @@
         "important": "重要",
         "warning": "警告",
         "caution": "注意"
+      },
+      "restart": {
+        "title": "更新已安装",
+        "body": "重启应用以应用新版本。",
+        "restartNow": "立即重启",
+        "restartLater": "稍后"
       }
     },
     "sysproxy": {
