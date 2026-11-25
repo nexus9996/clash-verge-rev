@@ -2,6 +2,9 @@ name: Cargo Audit
 
 on:
   workflow_dispatch:
+  schedule:
+    # Weekly sweep so unmaintained/vulnerable dependencies surface without a manual trigger.
+    - cron: '0 3 * * 1'
 
 permissions:
   contents: read

@@ -36,6 +36,10 @@ pub async fn open_logs_dir() -> CmdResult<()> {
 #[tauri::command]
 #[specta::specta]
 pub fn open_devtools(app_handle: AppHandle) {
+    // `tauri::WebviewWindow::open_devtools` only exists in debug builds or when
+    // the `devtools` feature is enabled (pulled in by `tauri-dev`), so release
+    // builds compile this command down to a no-op instead of failing.
+    #[cfg(any(debug_assertions, feature = "tauri-dev"))]
     if let Some(window) = app_handle.get_webview_window("main") {
         if !window.is_devtools_open() {
             window.open_devtools();
@@ -43,6 +47,9 @@ pub fn open_devtools(app_handle: AppHandle) {
             window.close_devtools();
         }
     }
+
+    #[cfg(not(any(debug_assertions, feature = "tauri-dev")))]
+    let _ = app_handle;
 }
 
 #[tauri::command]

@@ -1,7 +1,14 @@
 import { alpha, Box, Button, LinearProgress, Typography } from '@mui/material'
 import { useLockFn } from 'ahooks'
 import type { Ref } from 'react'
-import { lazy, Suspense, useImperativeHandle, useMemo, useState } from 'react'
+import {
+  lazy,
+  Suspense,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Options as ReactMarkdownOptions } from 'react-markdown'
 
@@ -16,7 +23,6 @@ import {
 import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'
 import { useSetUpdateState, useUpdateState } from '@/services/states'
-import type { Update } from '@/services/update'
 import { openExternalUrl } from '@/utils/open-external-url'
 
 type MarkdownNode = {
@@ -66,10 +72,12 @@ const LazyReactMarkdown = lazy(async () => {
     { default: ReactMarkdown },
     { default: rehypeRaw },
     { default: rehypeSanitize, defaultSchema },
+    { default: remarkGfm },
   ] = await Promise.all([
     import('react-markdown'),
     import('rehype-raw'),
     import('rehype-sanitize'),
+    import('remark-gfm'),
   ])
 
   const sanitizeSchema = {
@@ -96,6 +104,7 @@ const LazyReactMarkdown = lazy(async () => {
     default: (props: ReactMarkdownOptions) => (
       <ReactMarkdown
         {...props}
+        remarkPlugins={[remarkGfm, ...(props.remarkPlugins ?? [])]}
         rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}
       />
     ),
@@ -112,84 +121,6 @@ const getAlertTypeFromClassName = (
       : ''
   const match = value.match(GITHUB_ALERT_CLASS_PATTERN)
   return match?.[1] as GitHubAlertType | null
-}
-
-const openUrlWithNotice = (url: string) => {
-  void openExternalUrl(url).catch(showNotice.error)
-}
-
-// Renderer map is static; a per-render identity would remount every link and
-// blockquote subtree while download progress re-renders the dialog.
-const MARKDOWN_COMPONENTS: ReactMarkdownOptions['components'] = {
-  a: ({ href, children, ...props }) => {
-    const isFragment = href?.startsWith('#') ?? false
-    const renderedHref = isFragment
-      ? `#${UPDATE_MARKDOWN_ID_PREFIX}${href?.slice(1)}`
-      : href
-        ? '#'
-        : undefined
-
-    return (
-      <a
-        {...props}
-        href={renderedHref}
-        target={undefined}
-        rel={undefined}
-        onClick={(event) => {
-          if (isFragment) return
-          event.preventDefault()
-          if (!href) return
-          openUrlWithNotice(href)
-        }}
-        onAuxClick={(event) => {
-          if (isFragment) return
-          event.preventDefault()
-          if (event.button === 1 && href) {
-            openUrlWithNotice(href)
-          }
-        }}
-      >
-        {children}
-      </a>
-    )
-  },
-  blockquote: ({ className, children }) => {
-    const alertType = getAlertTypeFromClassName(className)
-
-    if (!alertType) {
-      return <blockquote className={className}>{children}</blockquote>
-    }
-
-    return (
-      <Box
-        component="blockquote"
-        className={className}
-        sx={(theme) => {
-          const color = theme.palette[GITHUB_ALERTS[alertType].palette].main
-          return {
-            m: '12px 0 18px',
-            px: 2,
-            py: 1,
-            borderLeft: `4px solid ${color}`,
-            borderRadius: 1,
-            bgcolor: alpha(color, theme.palette.mode === 'dark' ? 0.16 : 0.08),
-            '& p': {
-              my: 0.75,
-            },
-            '& .markdown-alert-title': {
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.75,
-              fontWeight: 700,
-              lineHeight: 1.4,
-            },
-          }
-        }}
-      >
-        {children}
-      </Box>
-    )
-  },
 }
 
 const findFirstTextNode = (node: MarkdownNode): MarkdownNode | null => {
@@ -245,36 +176,32 @@ const remarkGitHubAlerts = (labels: Record<GitHubAlertType, string>) => {
   return visit
 }
 
-export interface UpdateViewerRef extends DialogRef {
-  open: (update?: Update | null) => void
-}
-
-export function UpdateViewer({ ref }: { ref?: Ref<UpdateViewerRef> }) {
+export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
   const { t, i18n } = useTranslation()
 
   const [open, setOpen] = useState(false)
   const updateState = useUpdateState()
   const setUpdateState = useSetUpdateState()
 
-  const { updateInfo: detectedUpdate, checkUpdate } = useUpdate()
-  const [refreshedUpdate, setRefreshedUpdate] = useState<Update | null>()
-  const updateInfo =
-    refreshedUpdate === undefined ? detectedUpdate : refreshedUpdate
+  const { updateInfo } = useUpdate()
 
-  const [download, setDownload] = useState({
-    downloaded: 0,
-    total: 0,
-  })
-  const { downloaded, total } = download
+  const [downloaded, setDownloaded] = useState(0)
+  const [total, setTotal] = useState(0)
   const [restartPrompt, setRestartPrompt] = useState(false)
+  const downloadedRef = useRef(0)
+  const totalRef = useRef(0)
 
-  const progress = total <= 0 ? 0 : Math.min((downloaded / total) * 100, 100)
+  const openUrlWithNotice = (url: string) => {
+    void openExternalUrl(url).catch(showNotice.error)
+  }
+
+  const progress = useMemo(() => {
+    if (total <= 0) return 0
+    return Math.min((downloaded / total) * 100, 100)
+  }, [downloaded, total])
 
   useImperativeHandle(ref, () => ({
-    open: (update) => {
-      setRefreshedUpdate(update)
-      setOpen(true)
-    },
+    open: () => setOpen(true),
     close: () => setOpen(false),
   }))
 
@@ -288,8 +215,8 @@ export function UpdateViewer({ ref }: { ref?: Ref<UpdateViewerRef> }) {
       ) as Record<GitHubAlertType, string>,
     [t],
   )
-  const remarkPlugins = useMemo(
-    () => [() => remarkGitHubAlerts(githubAlertLabels)],
+  const remarkGitHubAlertsPlugin = useMemo(
+    () => () => remarkGitHubAlerts(githubAlertLabels),
     [githubAlertLabels],
   )
 
@@ -319,21 +246,32 @@ export function UpdateViewer({ ref }: { ref?: Ref<UpdateViewerRef> }) {
     }
     if (updateState) return
     setUpdateState(true)
-    setDownload({ downloaded: 0, total: 0 })
+    setDownloaded(0)
+    setTotal(0)
+    downloadedRef.current = 0
+    totalRef.current = 0
 
     const onDownloadEvent = (event: DownloadEvent) => {
       if (event.event === 'Started') {
-        setDownload({ downloaded: 0, total: event.data.contentLength ?? 0 })
-      } else if (event.event === 'Progress') {
-        setDownload((prev) => ({
-          ...prev,
-          downloaded: prev.downloaded + event.data.chunkLength,
-        }))
-      } else if (event.event === 'Finished') {
-        setDownload((prev) => ({
-          ...prev,
-          total: prev.total || prev.downloaded,
-        }))
+        const contentLength = event.data.contentLength ?? 0
+        totalRef.current = contentLength
+        setTotal(contentLength)
+        setDownloaded(0)
+        downloadedRef.current = 0
+        return
+      }
+
+      if (event.event === 'Progress') {
+        setDownloaded((prev) => {
+          const next = prev + event.data.chunkLength
+          downloadedRef.current = next
+          return next
+        })
+      }
+
+      if (event.event === 'Finished' && totalRef.current === 0) {
+        totalRef.current = downloadedRef.current
+        setTotal(downloadedRef.current)
       }
     }
 
@@ -345,25 +283,17 @@ export function UpdateViewer({ ref }: { ref?: Ref<UpdateViewerRef> }) {
           errorNotice: false,
         },
       )
-      if (result.ok && result.value === 'update_changed') {
-        const { data } = await checkUpdate()
-        setRefreshedUpdate(data)
-        if (data) {
-          showNotice.info('settings.modals.update.messages.available')
-        } else {
-          setOpen(false)
-          showNotice.info(
-            'settings.components.verge.advanced.notifications.latestVersion',
-          )
-        }
-      } else if (result.ok && result.value === 'installed') {
+      if (result.ok && result.value) {
         setRestartPrompt(true)
       }
-    } catch (err) {
+    } catch (err: any) {
       showNotice.error(err)
     } finally {
       setUpdateState(false)
-      setDownload({ downloaded: 0, total: 0 })
+      setDownloaded(0)
+      setTotal(0)
+      downloadedRef.current = 0
+      totalRef.current = 0
     }
   })
 
@@ -560,8 +490,84 @@ export function UpdateViewer({ ref }: { ref?: Ref<UpdateViewerRef> }) {
         {open && (
           <Suspense fallback={<LinearProgress />}>
             <LazyReactMarkdown
-              remarkPlugins={remarkPlugins}
-              components={MARKDOWN_COMPONENTS}
+              remarkPlugins={[remarkGitHubAlertsPlugin]}
+              components={{
+                a: ({ href, children, ...props }) => {
+                  const isFragment = href?.startsWith('#') ?? false
+                  const renderedHref = isFragment
+                    ? `#${UPDATE_MARKDOWN_ID_PREFIX}${href?.slice(1)}`
+                    : href
+                      ? '#'
+                      : undefined
+
+                  return (
+                    <a
+                      {...props}
+                      href={renderedHref}
+                      target={undefined}
+                      rel={undefined}
+                      onClick={(event) => {
+                        if (isFragment) return
+                        event.preventDefault()
+                        if (!href) return
+                        openUrlWithNotice(href)
+                      }}
+                      onAuxClick={(event) => {
+                        if (isFragment) return
+                        event.preventDefault()
+                        if (event.button === 1 && href) {
+                          openUrlWithNotice(href)
+                        }
+                      }}
+                    >
+                      {children}
+                    </a>
+                  )
+                },
+                blockquote: ({ className, children }) => {
+                  const alertType = getAlertTypeFromClassName(className)
+
+                  if (!alertType) {
+                    return (
+                      <blockquote className={className}>{children}</blockquote>
+                    )
+                  }
+
+                  return (
+                    <Box
+                      component="blockquote"
+                      className={className}
+                      sx={(theme) => {
+                        const color =
+                          theme.palette[GITHUB_ALERTS[alertType].palette].main
+                        return {
+                          m: '12px 0 18px',
+                          px: 2,
+                          py: 1,
+                          borderLeft: `4px solid ${color}`,
+                          borderRadius: 1,
+                          bgcolor: alpha(
+                            color,
+                            theme.palette.mode === 'dark' ? 0.16 : 0.08,
+                          ),
+                          '& p': {
+                            my: 0.75,
+                          },
+                          '& .markdown-alert-title': {
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.75,
+                            fontWeight: 700,
+                            lineHeight: 1.4,
+                          },
+                        }
+                      }}
+                    >
+                      {children}
+                    </Box>
+                  )
+                },
+              }}
             >
               {markdownContent}
             </LazyReactMarkdown>

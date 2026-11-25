@@ -1,8 +1,8 @@
-# clash-verge-rev 前端目标架构（融合 self 骨架后的形态）
+# clash-verge-rev 前端架构
 
-> 状态：**已实现并合入 `local`**（Phase 0–4 的 M0/R1–R4/S1–S3/T1–T5 已完成；收口与降级项见[迁移计划 §12.16](frontend-architecture-migration-plan.md)）
-> 日期：2026-10-19
-> 上位文档：[迁移计划](frontend-architecture-migration-plan.md) · [ADR-0001](adr/0001-router-choice.md) · [Phase 0 基线](perf/frontend-baseline-2026-10-19.md)
+> 状态：**已实现并合入 `local`**（设计 token、领域查询 hooks、bundle/hex 预算与测试已落地；路由层保持 react-router）
+> 日期：2026-10-19 · 2026-10-22 修订（路由层回滚到 dev 的 react-router）
+> 上位文档：[ADR-0001](adr/0001-router-choice.md) · [ADR-0002](adr/0002-design-tokens.md) · [ADR-0003](adr/0003-state-boundary.md) · [bundle 基线](perf/frontend-baseline-2026-10-19.md)
 > 约束来源：`src/AGENTS.md`（contract/event/state/intent/command ownership）、`.oxlintrc.json`（静态 import 边界）与 `scripts/check-architecture.mjs`（动态 import/分层）、`scripts/check-architecture.mjs`、`src-tauri/config/verge.rs`（配置契约）
 
 本文描述当前已实现的前端结构；实现过程中若与本文件冲突，先改本文件并说明原因，再改代码。
@@ -11,9 +11,7 @@
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│ app/            组合根：router / layout / fallbacks（入口 main.tsx）│
-├─────────────────────────────────────────────────────────────┤
-│ routes/         文件式路由薄壳（声明 + staticData + 错误边界）│
+│ app/            组合根：router / route table / layout / fallbacks（入口 main.tsx）│
 ├─────────────────────────────────────────────────────────────┤
 │ pages/          页面级组合组件（可含页面私有 hooks/sections） │
 ├─────────────────────────────────────────────────────────────┤
@@ -28,11 +26,10 @@
 
 | 层 | 可以依赖 | 明确禁止 |
 | --- | --- | --- |
-| `routes/` | `pages/`、`config/`、`components/base` | `services/`、`store/`（路由层保持纯声明） |
-| `pages/` | `components/`、`hooks/`、`services/`、`config/`、`store/` | `routes/` |
-| `components/` | `components/`、`hooks/`、`utils/`、`services/`、`config/` | `pages/`、`routes/`、`app/` |
-| `services/` | `services/`、`types/`、`utils/` | `components/`、`pages/`、`routes/`、`app/` |
-| `hooks/` | `services/`、`utils/`、`store/`、`config/` | `components/`、`pages/`、`routes/` |
+| `pages/` | `components/`、`hooks/`、`services/`、`config/`、`store/` | `app/` |
+| `components/` | `components/`、`hooks/`、`utils/`、`services/`、`config/` | `pages/`、`app/` |
+| `services/` | `services/`、`types/`、`utils/` | `components/`、`pages/`、`app/` |
+| `hooks/` | `services/`、`utils/`、`store/`、`config/` | `components/`、`pages/` |
 | `app/` | 全部 | —（唯一允许跨层的组合根） |
 
 > 已由 `scripts/check-architecture.mjs` 的层向规则与 `arch:check` 强制（T2）；违反方向会在 lint/CI 阶段失败。
@@ -43,60 +40,56 @@
 
 ```text
 src/
-├── main.tsx           # bootstrap：preloadAppData → createRoot → RouterProvider（SWR/AppStore/Theme/Update 组合在 render 树内）
+├── main.tsx            # bootstrap：preloadAppData → createRoot → RouterProvider（SWR/AppStore/Theme/Update 组合在 render 树内）
 ├── app/
-│   ├── router.tsx     # createRouter(routeTree, ROUTER_DEFAULTS) + 路由级兜底
-│   ├── router-options.ts  # intent 预加载 / pending 门槛（ROUTER_DEFAULTS）
+│   ├── router.tsx      # createBrowserRouter：从 NAV_ITEMS 生成路由表 + errorElement
+│   ├── route-pages.ts  # NavigationId → 页面组件 / lazy import 的唯一映射
 │   ├── route-fallbacks.tsx # RouteNotFound / RouteError（保留 app shell）
-│   └── layout.tsx     # 应用壳：主题/窗口/通知/侧边栏/Outlet
-├── routes/
-│   ├── __root.tsx     # createRootRoute：Layout
-│   ├── index.tsx      # /
-│   ├── proxies.tsx
-│   ├── profile.tsx    # /profile（保留现有路径）
-│   ├── connections.tsx
-│   ├── rules.tsx
-│   ├── logs.tsx
-│   ├── unlock.tsx
-│   └── settings.tsx
-└── routeTree.gen.ts   # 生成物：提交入库，oxlint/oxfmt/knip 豁免
+│   └── layout.tsx      # 应用壳：主题/窗口/通知/侧边栏/Outlet
+├── pages/              # 8 个业务页面（页面级组合组件）
+└── config/navigation.ts # 导航单一事实源（id/path/labelKey）
 ```
 
-**route 薄壳规则**：
+**路由约定**：
 
-1. 只包含 `component`、`staticData`（以及未来确需的 `validateSearch`）。路由级兜底由 `app/router.tsx` 的 `defaultErrorComponent` / `defaultNotFoundComponent` 统一提供，薄壳通常不重复声明。
-2. 不写业务逻辑、不发请求、不做 `invoke`；页面数据仍由 `pages/` + hooks + SWR/WS 获取。
-3. **重页面显式分包，其余交给插件**：`profile` / `settings` / `connections` 用 `lazyRouteComponent(() => import('@/pages/...'))`（C6 落地）；其余页面静态 import，由插件 `autoCodeSplitting` 拆包。`/`（home）内部的卡片级 lazy 保留。
-4. 页面对外默认导出组件，route 文件负责 import；页面不感知路由实例。
+1. 路由表由 `config/navigation.ts` 的 `NAV_ITEMS` 生成；`app/route-pages.ts` 的 `PAGE_ROUTES: Record<NavigationId, PageRoute>` 穷举类型保证每个导航 id 都有落点，不需要生成物或 catalog 测试。
+2. 路由层是组合根的一部分，不写业务逻辑、不发请求；页面数据仍由 `pages/` + hooks + SWR/WS 获取，**不使用 route loader**（避免第二数据源，见 ADR-0003）。
+3. **重页面显式分包，其余 eager**（C6）：`profiles` / `connections` / `settings` 用 react-router 的 route-level `lazy`；其余页面静态 import 保持切页零 loading。`/`（home）内部的卡片级 lazy 保留。
+4. 路由级兜底：每条页面路由带 `errorElement: <RouteError />`，未匹配路径由 `path: '*' → RouteNotFound` 承载，均渲染在 app shell（侧边栏/窗口 chrome）内。
 
 示例：
 
 ```tsx
-// src/routes/settings.tsx
-import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
+// src/app/router.tsx（节选）
+const pageRoutes: RouteObject[] = NAV_ITEMS.map((item) => {
+  const page = PAGE_ROUTES[item.id]
 
-export const Route = createFileRoute('/settings')({
-  component: lazyRouteComponent(() => import('@/pages/settings')),
-  staticData: { navId: 'settings' },
+  return {
+    path: item.path,
+    ...(page.lazy ? { lazy: page.lazy } : { Component: page.Component }),
+    errorElement: <RouteError />,
+  }
 })
+
+export const router = createBrowserRouter([
+  {
+    path: '/',
+    Component: Layout,
+    children: [...pageRoutes, { path: '*', Component: RouteNotFound }],
+  },
+])
 ```
 
-### 2.2 Router 配置
+### 2.2 分包与预加载（C6）
 
-```ts
-// src/app/router-options.ts（实际值；router.tsx 展开到 createRouter）
-export const ROUTER_DEFAULTS = {
-  defaultPreload: 'intent',      // hover/focus 时预取，不 idle 全量预载
-  defaultPreloadDelay: 0,
-  defaultPendingMs: 200,         // 200ms 内完成的导航不显示 pending，避免闪烁
-  defaultPendingMinMs: 300,
-} as const
-```
+| 页面 | 加载方式 | 预取时机 |
+| --- | --- | --- |
+| `profiles` / `connections` / `settings` | route-level `lazy: () => import('@/pages/…')` | 侧边栏 hover / focus 时 `preloadPage(id)` |
+| `home` / `proxies` / `rules` / `logs` / `unlock` | 静态 import（eager） | 无（随首包） |
 
-- 保留 rev 的"无导航 loading"体验目标（`e63b8e6e` 的教训）作为 G1 验收项；G1 定性 smoke 已通过，冷/热 p95 尚未采集（见迁移计划 §12.16 的后续项）。
-- 导航项在 hover/focus 时通过 `router.preloadRoute({ to })` 预取目标页面 chunk（`layout-item.tsx`）。
-- 首屏后 idle 预热：`app/warmup.ts` 在首屏渲染后顺序 `router.preloadRoute` 全部路由 chunk，随后预热常用查询（best-effort、3 s 超时、失败仅 warn）。2026-10-19 决策，用于追平 eager 路由的首次切页体验（见迁移计划 §12.18）。
-- 不加 route `loader`：数据仍由 SWR/WS 获取，避免第二数据源（`src/AGENTS.md` query ownership）。
+- 目标仍是 rev 的"无导航 loading"体验（上游 `e63b8e6e` 的教训）：拆包页面在 hover/focus 预取 chunk，正常操作下首跳不等 chunk。
+- 不做 idle 全量预热、不做路由 pending 门槛：react-router data router 在模块就绪前不会渲染目标路由，避免闪烁由预取保证。
+- 首包体积由 `bun run check:bundle-budget` 门禁继续把关（T4，见 §5）。
 
 ### 2.3 导航单一事实源
 
@@ -110,18 +103,18 @@ const NAV_META = {
 export const NAV_ITEMS: NavigationItem[] = NAV_IDS.map((id) => ({ id, ...NAV_META[id] }))
 ```
 
-- `routes/*.tsx` 通过 `staticData.navId` 与 `NAV_ITEMS` 关联。
+- 侧边栏（`components/layout/layout-sidebar.tsx`）与路由表（`app/router.tsx`）都消费 `NAV_ITEMS`，图标映射在 `components/layout/navigation-icons.tsx`。
 - `verge.menu_order` 继续以 `path` 为 key，存量用户配置零迁移。
-- 后端导航（`navigate_to_route`、notice、托盘）统一走 `resolveNavigationPath(path)` 映射；未知值 fallback 首页并 `console.warn`。
-- **route catalog 测试**（T3）断言：routeTree 叶子路径集合 == `NAV_ITEMS.path` 集合，且每个 `staticData.navId` 都存在（`src/routes/__route-catalog.test.ts`）。
+- 后端导航（notice、托盘、深链）统一走 `resolveNavigationPath(path)` 映射；未知值 fallback 首页并 `console.warn`。
+- 防漂移由类型系统承担：`PAGE_ROUTES` 必须是 `Record<NavigationId, …>`，缺 id / 多 id 都会编译失败；`config/navigation.test.ts` 继续校验 id/path 唯一性与后端路径解析。
 
 ### 2.4 新增页面步骤（3 步）
 
-1. `src/pages/<name>.tsx` 写页面组件（子组件放 `src/components/<domain>/`）。
-2. `src/routes/<name>.tsx` 加路由薄壳：`createFileRoute('/<path>')({ component, staticData: { navId } })`；按需 `bun run generate-routes`（dev/build 也会生成）。
+1. `src/pages/<name>.tsx` 写页面组件（子组件放 `src/components/<domain>/`），默认导出。
+2. `src/app/route-pages.ts` 增加映射：`<id>: { Component: MyPage }`；重页面用 `{ lazy: lazyPage(() => import('@/pages/my-page')) }`。
 3. 导航与文案：`src/config/navigation.ts` 的 `NAV_META` 加 id/path/labelKey；`src/components/layout/navigation-icons.tsx` 的 `NAV_ICONS` 补图标；14 个 `src/locales/*/layout.json` 补 `tabs.<name>` → `bun run i18n:types`。
 
-> `src/routes/__route-catalog.test.ts` 会校验 route 路径、`staticData.navId` 与 catalog 一致；完整操作见 `CONTRIBUTING.md` 的 “Adding a Frontend Page”。
+最后跑 `bun run typecheck && bun run test && bun run lint`。完整操作见 `CONTRIBUTING.md` 的 "Adding a Frontend Page"。
 
 ## 3. 状态与数据层
 
@@ -174,15 +167,13 @@ src/config/theme/
 | 门禁 | 命令/实现 | 现状 |
 | --- | --- | --- |
 | 类型/格式/lint | `bun run typecheck`、`bun run format:check`、`bun run lint` | 已有（Phase 0 全绿） |
-| 单测 | `bun run test`（vitest；jsdom 按文件 docblock 启用） | 已有；T3 起含路由/主题/导航测试 |
+| 单测 | `bun run test`（vitest；jsdom 按文件 docblock 启用） | 已有；含路由兜底/导航/主题测试 |
 | 死代码/循环 | `bun run knip:check` | 已有 |
 | IPC 边界 | `bun scripts/check-architecture.mjs listen emit invoke` | 已有 |
 | i18n | `bun run i18n:types && bun run i18n:verify` | 已接入 CI（生成物 diff + `--check`；missing-source 仅报告） |
 | 分层边界 | `scripts/check-architecture.mjs` + `arch:check` | 已接入（T2） |
-| 路由一致性 | `src/routes/__route-catalog.test.ts` | 已接入（T3） |
-| bundle 预算 | `scripts/check-bundle-budget.mjs` 对比 `docs/perf/frontend-baseline.json`（T4） | 已接入 CI |
+| bundle 预算 | `scripts/check-bundle-budget.mjs` 对比 `docs/perf/frontend-baseline.json`（T4/C6） | 已接入 CI |
 | hex 预算 | `scripts/check-hex-budget.mjs`（预算 0，S3） | 已接入 CI |
-| 导航性能 | 打包 release 实例 + DevTools/临时探针（验收后已移除） | 本机验收完成：cold p95 159 ms / hot p95 113 ms；记录见迁移计划 §12.19 |
 
 ## 附录 A：base 组件差异清单（Phase 0 实测）
 
@@ -221,8 +212,7 @@ src/config/theme/
 
 ## 参考
 
-- [迁移计划](frontend-architecture-migration-plan.md)（Phase/卡片/门禁）
-- [ADR-0001](adr/0001-router-choice.md)（路由/样式/状态选型）
+- [ADR-0001](adr/0001-router-choice.md)（路由/样式/状态/契约选型）
 - [ADR-0002](adr/0002-design-tokens.md)（设计 token 与主题体系）
 - [ADR-0003](adr/0003-state-boundary.md)（状态与数据边界）
 - [Phase 0 基线](perf/frontend-baseline-2026-10-19.md)（门禁、bundle、测量口径）

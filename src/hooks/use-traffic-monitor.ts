@@ -347,17 +347,6 @@ export const useTrafficMonitorEnhanced = (options?: {
   const currentRangeRef = useRef<number>(WORKER_CONFIG.defaultRangeMinutes)
   const isVisibleRef = useRef(isVisible)
   isVisibleRef.current = isVisible
-<<<<<<< HEAD
-||||||| parent of 45df130d6 (perf(traffic): keep sampler subscription stable across re-renders)
-  const onSnapshotRef = useRef(onSnapshot)
-  onSnapshotRef.current = onSnapshot
-=======
-  const onSnapshotRef = useRef(onSnapshot)
-  onSnapshotRef.current = onSnapshot
-  // Only the presence of the callback matters to the subscription lifetime;
-  // its identity drives nothing but the ref write above.
-  const wantsSnapshots = subscribeToSnapshots || onSnapshot !== undefined
->>>>>>> 45df130d6 (perf(traffic): keep sampler subscription stable across re-renders)
 
   // 注册引用计数与Worker生命周期
   useEffect(() => {
@@ -369,27 +358,9 @@ export const useTrafficMonitorEnhanced = (options?: {
     client.start(currentRangeRef.current)
 
     let unsubscribe: (() => void) | undefined
-<<<<<<< HEAD
     if (subscribeToSnapshots) {
-||||||| parent of 45df130d6 (perf(traffic): keep sampler subscription stable across re-renders)
-    if (subscribeToSnapshots || onSnapshot) {
-=======
-    if (wantsSnapshots) {
->>>>>>> 45df130d6 (perf(traffic): keep sampler subscription stable across re-renders)
       unsubscribe = client.onSnapshot((message) => {
-<<<<<<< HEAD
         if (!isVisibleRef.current) return
-||||||| parent of 45df130d6 (perf(traffic): keep sampler subscription stable across re-renders)
-        // onSnapshot is the always-live channel (ignores visibility); the
-        // state mirror below keeps its original always-latest contract.
-        onSnapshotRef.current?.(message)
-        if (!subscribeToSnapshots || !isVisibleRef.current) return
-=======
-        // onSnapshot is the always-live channel (ignores visibility); the
-        // state mirror below keeps its original always-latest contract.
-        onSnapshotRef.current?.(message)
-        if (!wantsSnapshots || !isVisibleRef.current) return
->>>>>>> 45df130d6 (perf(traffic): keep sampler subscription stable across re-renders)
         setLatestSnapshot({
           dataPoints: message.dataPoints,
           samplerStats: message.samplerStats,
@@ -404,32 +375,14 @@ export const useTrafficMonitorEnhanced = (options?: {
       // recorded traffic history. The transport is stopped separately and
       // `disposeTrafficMonitor` runs on app teardown.
     }
-<<<<<<< HEAD
   }, [enabled, subscribeToSnapshots])
-||||||| parent of 45df130d6 (perf(traffic): keep sampler subscription stable across re-renders)
-  }, [enabled, subscribeToSnapshots, onSnapshot])
-=======
-  }, [enabled, wantsSnapshots])
->>>>>>> 45df130d6 (perf(traffic): keep sampler subscription stable across re-renders)
 
   // Re-prime snapshot ingestion after every visible transition
   useEffect(() => {
-<<<<<<< HEAD
     if (enabled && subscribeToSnapshots && isVisible) {
-||||||| parent of 45df130d6 (perf(traffic): keep sampler subscription stable across re-renders)
-    if (enabled && isVisible && (subscribeToSnapshots || onSnapshot)) {
-=======
-    if (enabled && isVisible && wantsSnapshots) {
->>>>>>> 45df130d6 (perf(traffic): keep sampler subscription stable across re-renders)
       clientRef.current?.requestSnapshot()
     }
-<<<<<<< HEAD
   }, [enabled, subscribeToSnapshots, isVisible])
-||||||| parent of 45df130d6 (perf(traffic): keep sampler subscription stable across re-renders)
-  }, [enabled, subscribeToSnapshots, onSnapshot, isVisible])
-=======
-  }, [enabled, wantsSnapshots, isVisible])
->>>>>>> 45df130d6 (perf(traffic): keep sampler subscription stable across re-renders)
 
   // 添加流量数据
   const appendData = useCallback(

@@ -150,15 +150,23 @@ pub async fn quit() {
         handle::Handle::global().clear_is_exiting();
         // A failed stop may still have marked the core stopped, and exit cleanup skipped the DNS restore.
         // A core that kept running keeps its DNS, whatever an unapplied config draft says.
-        #[cfg(target_os = "macos")]
-        {
-            let manager = CoreManager::global();
-            let _lifecycle = manager.lifecycle_lock.lock().await;
-            if matches!(
-                *manager.get_running_mode(),
-                crate::core::manager::RunningMode::NotRunning
-            ) {
-                crate::utils::resolve::dns::sync_public_dns().await;
+        let manager = CoreManager::global();
+        let _lifecycle = manager.lifecycle_lock.lock().await;
+        if matches!(
+            *manager.get_running_mode(),
+            crate::core::manager::RunningMode::NotRunning
+        ) {
+            #[cfg(target_os = "macos")]
+            crate::utils::resolve::dns::sync_public_dns().await;
+        } else {
+            // The stop transition clears the OS proxy before stopping the core. When the stop
+            // fails and we cancel the quit, the live core must keep serving the proxy.
+            if let Err(error) = manager.apply_proxy_after_start().await {
+                logging!(
+                    warn,
+                    Type::Window,
+                    "Failed to restore the system proxy after a cancelled quit: {error:#}"
+                );
             }
         }
         handle::Handle::notice(

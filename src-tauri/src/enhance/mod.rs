@@ -1980,3 +1980,62 @@ proxy-groups:
         assert_eq!(proxies[0].as_str(), Some("DIRECT"));
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, reason = "tests assert by panicking")]
+mod gui_tun_field_tests {
+    use super::{Mapping, Value, enforce_tun, gui_tun_keys, snapshot_tun};
+
+    fn mapping(yaml: &str) -> Mapping {
+        serde_yaml_ng::from_str(yaml).expect("test config should be valid")
+    }
+
+    fn tun_mapping(config: &Mapping) -> &Mapping {
+        config
+            .get(Value::from("tun"))
+            .and_then(Value::as_mapping)
+            .expect("tun should be a mapping")
+    }
+
+    fn capture_gui_tun(config: &Mapping) -> Mapping {
+        snapshot_tun(config, &gui_tun_keys(config))
+    }
+
+    #[test]
+    fn dns_mode_is_one_of_the_saved_gui_tun_keys() {
+        assert!(crate::constants::tun::GUI_KEYS.contains(&"dns-mode"));
+    }
+
+    #[test]
+    fn only_saved_gui_tun_keys_are_captured() {
+        let gui_config = mapping("tun: {'dns-mode': native, mtu: 1400, gso: false}");
+
+        let keys = gui_tun_keys(&gui_config);
+        let names = keys.iter().filter_map(Value::as_str).collect::<Vec<_>>();
+
+        assert_eq!(names, vec!["enable", "dns-mode", "mtu"]);
+    }
+
+    #[test]
+    fn saved_dns_mode_overrides_the_profile_value() {
+        let gui_config = mapping("tun: {'dns-mode': native}");
+        let merged = mapping("tun: {'dns-mode': hijack, stack: gvisor}");
+
+        let enforced = enforce_tun(merged, capture_gui_tun(&gui_config));
+        let tun = tun_mapping(&enforced);
+
+        assert_eq!(tun.get(Value::from("dns-mode")), Some(&Value::from("native")));
+        assert_eq!(tun.get(Value::from("stack")), Some(&Value::from("gvisor")));
+    }
+
+    #[test]
+    fn profile_dns_mode_survives_when_the_gui_has_not_saved_one() {
+        let gui_config = mapping("tun: {'auto-route': true}");
+        let merged = mapping("tun: {'dns-mode': hijack}");
+
+        let enforced = enforce_tun(merged, capture_gui_tun(&gui_config));
+        let tun = tun_mapping(&enforced);
+
+        assert_eq!(tun.get(Value::from("dns-mode")), Some(&Value::from("hijack")));
+    }
+}

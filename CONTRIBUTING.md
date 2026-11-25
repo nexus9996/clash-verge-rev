@@ -108,29 +108,29 @@ Fast build for testing:
 bun run build:fast
 ```
 
-### Adding a Frontend Page (TanStack Router)
+### Adding a Frontend Page
 
-The router is file-based and the sidebar catalog is centralized, so a page takes three edits:
+The route table and the sidebar both derive from `config/navigation.ts`, so a page takes three edits:
 
 1. **Page component** — add `src/pages/<name>.tsx` and export the component as default. Domain-specific components belong under `src/components/<domain>/`.
-2. **Route shell** — add `src/routes/<name>.tsx`:
+2. **Route mapping** — add the page to `PAGE_ROUTES` in `src/app/route-pages.ts`:
 
    ```tsx
-   import { createFileRoute } from '@tanstack/react-router'
-
    import MyPage from '@/pages/my-page'
 
-   export const Route = createFileRoute('/my-page')({
-     component: MyPage,
-     staticData: { navId: 'myPage' },
-   })
+   export const PAGE_ROUTES: Record<NavigationId, PageRoute> = {
+     // ...
+     myPage: { Component: MyPage },
+   }
    ```
 
-   Then run `bun run generate-routes` to refresh `src/routeTree.gen.ts` (the Vite plugin also regenerates it during dev/build).
+   Heavy pages should use `{ lazy: lazyPage(() => import('@/pages/my-page')) }` instead: the router keeps them out of the initial bundle and preloads the chunk when the sidebar entry is hovered or focused.
 
 3. **Navigation and copy** — add the entry to `NAV_META` in `src/config/navigation.ts` (id, path, i18n label key), add its icon pair to `NAV_ICONS` in `src/components/layout/navigation-icons.tsx`, add `tabs.<id>` to all 14 `src/locales/*/layout.json` files, then run `bun run i18n:types`.
 
-Finally run `bun run typecheck && bun run test && bun run lint`. `src/routes/__route-catalog.test.ts` fails when the route tree, `staticData.navId` and the navigation catalog drift apart. The architecture contract is documented in [`docs/frontend-architecture.md`](docs/frontend-architecture.md).
+`PAGE_ROUTES` is typed as `Record<NavigationId, PageRoute>`, so a navigation entry without a page (or a page without an entry) fails `bun run typecheck`.
+
+Finally run `bun run typecheck && bun run test && bun run lint`. The architecture contract is documented in [`docs/frontend-architecture.md`](docs/frontend-architecture.md).
 
 ## Contributing Your Changes
 

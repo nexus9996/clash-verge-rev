@@ -17,7 +17,7 @@ import {
   TextSnippetOutlined,
 } from '@mui/icons-material'
 import { Box, Button, Divider, Grid, IconButton, Stack } from '@mui/material'
-import { useRouterState } from '@tanstack/react-router'
+import { useLocation } from 'react-router'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { readText } from '@tauri-apps/plugin-clipboard-manager'
 import { readTextFile } from '@tauri-apps/plugin-fs'
@@ -81,7 +81,7 @@ const debugProfileSwitch = (action: string, profile: string, extra?: any) => {
 
 const ProfilePage = () => {
   const { t } = useTranslation()
-  const location = useRouterState({ select: (state) => state.location })
+  const location = useLocation()
   const [url, setUrl] = useState('')
   const [disabled, setDisabled] = useState(false)
   const [profileDndRevision, setProfileDndRevision] = useState(0)

@@ -49,3 +49,38 @@ it('applies and records independent group selections while another group is pend
   )
   expect(firstSuccess).toHaveBeenCalledOnce()
 })
+
+it('executes every requested group once from a single hook instance', async () => {
+  let finishFirst!: () => void
+  vi.mocked(selectNodeForGroup)
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishFirst = resolve
+        }),
+    )
+    .mockResolvedValueOnce(undefined)
+    .mockResolvedValueOnce(undefined)
+  const success = vi.fn()
+  const selection = useProxySelection({ onSuccess: success })
+
+  selection.changeProxy('Group A', 'Node A')
+  selection.changeProxy('Group B', 'Node B')
+  selection.changeProxy('Group C', 'Node C')
+
+  await vi.waitFor(() => expect(selectNodeForGroup).toHaveBeenCalledTimes(1))
+  finishFirst()
+  await vi.waitFor(() => expect(selectNodeForGroup).toHaveBeenCalledTimes(3))
+
+  expect(vi.mocked(selectNodeForGroup).mock.calls).toEqual([
+    ['Group A', 'Node A'],
+    ['Group B', 'Node B'],
+    ['Group C', 'Node C'],
+  ])
+  await vi.waitFor(() =>
+    expect(record).toHaveBeenCalledWith('Group C', 'Node C'),
+  )
+  expect(record).toHaveBeenCalledWith('Group A', 'Node A')
+  expect(record).toHaveBeenCalledWith('Group B', 'Node B')
+  expect(success).toHaveBeenCalledTimes(3)
+})

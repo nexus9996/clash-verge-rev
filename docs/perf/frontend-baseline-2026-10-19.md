@@ -1,7 +1,7 @@
 # Phase 0 前端基线报告（migrate/self-frontend-architecture）
 
 > 日期：2026-10-19
-> 分支：`migrate/self-frontend-architecture`（基线代码 = `local` @ `ed909350`；采集时 HEAD = `904f2709`）
+> 历史记录：本基线由 2026-10-19 的前端架构评估采集（该评估的路由迁移部分已于 2026-10-22 回滚，见 [ADR-0001](../adr/0001-router-choice.md)）；`frontend-baseline.json` 仍作为 bundle 预算基线使用
 > 机器：Apple M1 / macOS 27.2.0（arm64）/ Node v24.22.0 / pnpm 12.14.0
 > 机器可读基线：[`frontend-baseline.json`](frontend-baseline.json)（由 `scripts/perf/frontend-baseline.mjs` 生成）
 > 协议：本报告只记录**静态构建产物与门禁**；运行时路由计时见 §6（G1 PoC 执行），当前基线给出"eager 路由"的对照口径。
@@ -142,10 +142,11 @@ node scripts/perf/frontend-baseline.mjs --dist dist --label rev-local-ed909350-e
 - Phase 0（8 路由 eager）：初始 JS **508.5 kB gzip**、入口 312.7 kB gzip（见上文 §3）。
 - R1/R2/T2 合入后：初始 JS **393.1 kB gzip**（1,196.0 kB raw），入口 **159.0 kB gzip**；7 个非首屏页面拆为异步 chunk。
 - `docs/perf/frontend-baseline.json` 已更新为该基线（label `integration-router-r2-t2`，基线代码 commit `f9dd397e`），供预算门禁消费。
-- 预算命令：`pnpm web:build && pnpm check:bundle-budget`（默认容差 +2%，即 400.9 kB gzip）；CI 的 `frontend-check.yml` 在 tests 之后执行 build + budget。
-- 有意调整包体时用 `node scripts/check-bundle-budget.mjs --dist dist --record` 更新基线，并在 PR 中说明原因。
+- 预算命令：`bun run web:build && bun run check:bundle-budget`（默认容差 +2%）；CI 的 `frontend-check.yml` 在 tests 之后执行 build + budget。
+- 有意调整包体时用 `bun scripts/check-bundle-budget.mjs --dist dist --record` 更新基线，并在 PR 中说明原因。
+- **2026-10-22 路由回滚（react-router 8 + C6 三页 lazy）**：initial JS **415.4 kB gzip**，重新记录为该架构的基线（label `react-router-c6-2026-10-22`，预算 423.8 kB）。TanStack 时代的 393.1 kB 与当前架构不可比（其 `autoCodeSplitting` 把 8 个页面全部拆为异步 chunk + idle 预热），回滚后 5 个页面恢复 eager、3 个重页面（profiles/connections/settings）保持 route-level `lazy`；相对 Phase 0 eager 基线（508.5 kB）仍 −18%。
 
 ## 10. 导航性能采样（2026-10-19 补齐入口）
 
-- 2026-10-19/20 在打包 release 实例上完成本机导航验收：cold p95 159 ms、hot p95 113 ms（hot 目标 100 ms 未完全达到），详见[迁移计划 §12.19](../frontend-architecture-migration-plan.md)。
+- 2026-10-19/20 曾在 TanStack Router 方案下做本机导航验收（cold p95 159 ms / hot p95 113 ms）；该方案已于 2026-10-22 回滚到 react-router，这组数据仅作历史记录。
 - 采样探针、校验脚本与协议文档为临时验收工具，验收完成后已从代码中移除；`frontend-baseline.json` 仍只用于 bundle 预算。

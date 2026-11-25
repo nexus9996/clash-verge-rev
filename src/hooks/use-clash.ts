@@ -120,6 +120,7 @@ export const useClash = () => {
   return {
     clash,
     version,
+    coreVersion: versionData?.version,
     mutateClash,
     mutateVersion,
     patchClash,
