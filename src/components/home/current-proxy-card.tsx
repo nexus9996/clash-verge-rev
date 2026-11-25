@@ -29,7 +29,6 @@ import {
   alpha,
   useTheme,
 } from '@mui/material'
-import { useNavigate } from 'react-router'
 import { useLockFn } from 'ahooks'
 import {
   useCallback,
@@ -41,20 +40,20 @@ import {
   useState,
 } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router'
 
 import { EnhancedCard } from '@/components/home/enhanced-card'
 import type { ProxySortType } from '@/components/proxy/use-filter-sort'
-import {
-  HOME_PROXY_VIEW_REFETCH_MS,
-  useAppRefreshers,
-  useClashConfigData,
-  useCoreDataStatus,
-  useProxiesData,
-} from '@/hooks/data'
 import { useGroupDelays } from '@/hooks/use-group-delays'
 import { useProfiles } from '@/hooks/use-profiles'
 import { useProxySelection } from '@/hooks/use-proxy-selection'
 import { useVerge } from '@/hooks/use-verge'
+import {
+  useAppRefreshers,
+  useClashConfigData,
+  useCoreDataStatus,
+  useProxiesData,
+} from '@/providers/app-data-context'
 import delayManager from '@/services/delay'
 import {
   findCurrentGroupMember,
@@ -423,10 +422,8 @@ const PersistentSelect = ({
   )
 }
 
-interface PersistentProxySelectProps extends Omit<
-  PersistentSelectProps,
-  'displayValue' | 'renderOptions'
-> {
+interface PersistentProxySelectProps
+  extends Omit<PersistentSelectProps, 'displayValue' | 'renderOptions'> {
   value: string
   selectedName: string
   groupName: string
@@ -547,7 +544,7 @@ export const CurrentProxyCard = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const theme = useTheme()
-  const { proxyView } = useProxiesData(HOME_PROXY_VIEW_REFETCH_MS)
+  const { proxyView } = useProxiesData()
   const { clashConfig } = useClashConfigData()
   const { refreshProxy } = useAppRefreshers()
   const { isCoreDataPending } = useCoreDataStatus()
@@ -609,6 +606,9 @@ export const CurrentProxyCard = () => {
   )
 
   const { select } = useProxySelection({
+    onSuccess: () => {
+      refreshProxy()
+    },
     onError: (error) => {
       console.error('代理切换失败', error)
       refreshProxy()
@@ -755,15 +755,16 @@ export const CurrentProxyCard = () => {
       if (!selectedGroup || !option || !isInteractableMember(option.member)) {
         return
       }
+      const previousProxy = selectedGroup.now
       const nextName = option.member.ref.name
       // The profile selection is the durable source across core restarts and run modes.
-      select(selectedGroup.name, nextName, selectedGroup.fixed!)
+      select(selectedGroup.name, nextName, previousProxy!, selectedGroup.fixed!)
     },
     [isDirectMode, select, selectedGroup, unsortedProxyOptions],
   )
 
   const goToProxies = useCallback(() => {
-    void navigate('/proxies')
+    navigate('/proxies')
   }, [navigate])
 
   const currentMember = currentOption?.member
@@ -817,6 +818,7 @@ export const CurrentProxyCard = () => {
       )
     } finally {
       autoCheckInProgressRef.current = false
+      refreshProxy()
     }
   })
 

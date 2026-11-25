@@ -35,8 +35,7 @@ import {
 import { Controller, useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
-import { BaseSearchBox, Switch } from '@/components/base'
-import { MonacoEditor } from '@/components/base/monaco-editor'
+import { BaseSearchBox, MonacoEditor, Switch } from '@/components/base'
 import { GroupItem } from '@/components/profile/group-item'
 import {
   getNetworkInterfaces,

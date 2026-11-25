@@ -1,7 +1,4 @@
-import type { monaco as MonacoApi } from '@/services/monaco-editor'
-
-type MonacoModule = typeof MonacoApi
-type MonacoFullModule = typeof import('monaco-editor')
+type MonacoModule = typeof import('monaco-editor')
 type MonacoEditorPackage = typeof import('@monaco-editor/react')
 
 type MonacoEditorBundle = {
@@ -52,11 +49,10 @@ const patchCreateWebWorker = (monaco: MonacoModule) => {
 export const loadMonacoEditor = () => {
   loadPromise ??= Promise.all([
     import('@monaco-editor/react'),
-    import('@/services/monaco-editor'),
+    import('monaco-editor'),
     import('monaco-editor/editor/editor.worker?worker'),
     import('monaco-editor/language/css/css.worker?worker'),
     import('monaco-editor/language/typescript/ts.worker?worker'),
-    import('monaco-editor/languages/features/json/json.worker?worker'),
     import('monaco-yaml'),
     import('meta-json-schema/schemas/meta-json-schema.json'),
     import('types-pac/pac.d.ts?raw'),
@@ -64,25 +60,21 @@ export const loadMonacoEditor = () => {
   ]).then(
     ([
       editorModule,
-      slimMonaco,
+      monaco,
       { default: EditorWorker },
       { default: CssWorker },
       { default: TsWorker },
-      { default: JsonWorker },
       { configureMonacoYaml },
       { default: metaSchema },
       { default: pac },
       { default: YamlWorker },
     ]) => {
-      const { monaco } = slimMonaco
       const workers = {
         css: CssWorker,
         less: CssWorker,
         scss: CssWorker,
         typescript: TsWorker,
         javascript: TsWorker,
-        json: JsonWorker,
-        jsonc: JsonWorker,
         yaml: YamlWorker,
       }
 
@@ -92,9 +84,7 @@ export const loadMonacoEditor = () => {
         },
       }
 
-      editorModule.loader.config({
-        monaco: monaco as unknown as MonacoFullModule,
-      })
+      editorModule.loader.config({ monaco })
 
       return {
         Editor: editorModule.default,
@@ -102,9 +92,9 @@ export const loadMonacoEditor = () => {
           if (monacoConfigured) return
 
           patchCreateWebWorker(monaco)
-          slimMonaco.typescript.javascriptDefaults.addExtraLib(pac, 'pac.d.ts')
+          monaco.typescript.javascriptDefaults.addExtraLib(pac, 'pac.d.ts')
 
-          configureMonacoYaml(monaco as unknown as MonacoFullModule, {
+          configureMonacoYaml(monaco, {
             validate: true,
             enableSchemaRequest: true,
             completion: true,

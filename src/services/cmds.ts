@@ -2,18 +2,16 @@ import { Channel } from '@tauri-apps/api/core'
 import dayjs from 'dayjs'
 
 import { showNotice } from '@/services/notice-service'
+import { debugLog } from '@/utils/debug'
 
 import { commands } from './bindings'
 import type {
   DownloadEvent,
-  ExternalControllerSettings,
   JsonValue,
   ListenerProbe,
   ProxyPortSettings,
   UnlockItem,
   ProxyViewV1_Serialize as ProxyViewV1,
-  RuleDisableRequest,
-  UpdateInfo,
   ProfileSelection,
   ProfilePatch,
   ProfileCreate,
@@ -21,8 +19,7 @@ import type {
 
 export type {
   RunningMode,
-  ExternalControllerSettings,
-  RunStateView as RunState,
+  RunStateView_Serialize as RunState,
   FailedOperation,
   PendingFailure,
   SidecarFailureSnapshot,
@@ -30,19 +27,8 @@ export type {
   ProxyPortSettings,
   ListenerTransport,
   ListenerProbe,
-  RuleExtraInfo,
-  UpdateInfo,
-  CoreVersionCatalog,
   UnlockItem,
 } from './bindings'
-
-export async function httpGetText(
-  url: string,
-  timeoutSecs: number | null,
-  userAgent: string | null,
-) {
-  return commands.httpGetText(url, timeoutSecs, userAgent)
-}
 
 export async function copyClashEnv() {
   return commands.copyClashEnv()
@@ -124,16 +110,6 @@ export async function getClashInfo() {
   return commands.getClashInfo()
 }
 
-export async function getExternalController() {
-  return commands.getExternalController()
-}
-
-export async function saveExternalController(
-  settings: ExternalControllerSettings,
-) {
-  return commands.saveExternalController(settings)
-}
-
 // Fallback mode read independent of strict mihomo `/configs` deserialization.
 export async function getClashMode() {
   return commands.getClashMode()
@@ -176,17 +152,17 @@ export async function patchClashMode(payload: string) {
   return commands.patchClashMode(payload)
 }
 
+export async function syncTrayProxySelection() {
+  return commands.syncTrayProxySelection()
+}
+
 /** Sends one selection pair so the backend can merge against current profile state. */
 export async function recordSelectedNode(groupName: string, node: string) {
   return commands.recordSelectedNode(groupName, node)
 }
 
-export async function switchProxyNode(
-  groupName: string,
-  proxyName: string,
-  unfix: boolean,
-) {
-  return commands.switchProxyNode(groupName, proxyName, unfix)
+export async function forgetSelectedNode(groupName: string) {
+  return commands.forgetSelectedNode(groupName)
 }
 
 export async function getProxyView(): Promise<ProxyViewV1> {
@@ -276,8 +252,23 @@ export async function takeDiscardedKeysNotice() {
   return commands.takeDiscardedKeysNotice()
 }
 
-export async function getSystemProxyState() {
-  return commands.getSystemProxyState()
+export async function getSystemProxy() {
+  return commands.getSysProxy()
+}
+
+export async function getAutoProxy() {
+  try {
+    debugLog('[API] 开始调用 get_auto_proxy')
+    const result = await commands.getAutoProxy()
+    debugLog('[API] get_auto_proxy 调用成功:', result)
+    return result
+  } catch (error) {
+    console.error('[API] get_auto_proxy 调用失败:', error)
+    return {
+      enable: false,
+      url: '',
+    }
+  }
 }
 
 export async function getEmbeddedServerPort() {
@@ -294,19 +285,6 @@ export async function restartCore() {
 
 export async function upgradeClashCore(force = false) {
   return commands.upgradeClashCore(force)
-}
-
-export async function getCoreVersions() {
-  return commands.getCoreVersions()
-}
-
-export async function installCoreVersion(version: string) {
-  return commands.installCoreVersion(version)
-}
-
-/** Version of the core bundled next to the app; Service mode may still run an older approved copy. */
-export async function getBundledCoreVersion() {
-  return commands.getBundledCoreVersion()
 }
 
 export async function restartApp() {
@@ -352,18 +330,6 @@ export async function cmdTestDelay(url: string) {
   return commands.testDelay(url)
 }
 
-export async function getRulesExtra() {
-  return commands.getRulesExtra()
-}
-
-export async function updateRulesDisable(requests: RuleDisableRequest[]) {
-  return commands.updateRulesDisable(requests)
-}
-
-export async function checkUpdateAvailable(): Promise<UpdateInfo | null> {
-  return commands.checkUpdateAvailable()
-}
-
 export async function invoke_uwp_tool() {
   return commands.invokeUwpTool().catch((err) => showNotice.error(err, 1500))
 }
@@ -374,10 +340,6 @@ export async function openDevTools() {
 
 export async function exitApp() {
   return commands.exitApp()
-}
-
-export const setNativeWindowTheme = async (theme: string) => {
-  return commands.setNativeWindowTheme(theme)
 }
 
 export async function exportDiagnosticInfo() {

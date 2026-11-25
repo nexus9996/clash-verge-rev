@@ -17,7 +17,7 @@ codegen-units = 1
 lto = "thin"
 opt-level = 3
 debug = 1
-strip = "debuginfo"
+strip = "none"
 overflow-checks = false
 split-debuginfo = "unpacked"
 rpath = false
@@ -49,15 +49,7 @@ split-debuginfo = "unpacked"
 [patch.crates-io]
 # Backport Windows menu command ID recycling on the muda 0.20 compatibility branch.
 muda = { git = "https://github.com/wonfen/muda.git", rev = "547de49352791653fbdfa785f20f3c7ece8468e2" }
-# tauri-specta has no tauri 3 release yet; ride the tauri team's port and the
-# unpublished specta rc.26 line it pins. Drop all six entries once both ship
-# on crates.io.
-tauri-specta = { git = "https://github.com/tauri-apps/tauri-specta", branch = "tauri-v3" }
-specta = { git = "https://github.com/specta-rs/specta.git", rev = "2757fa8899926dce7da999780c7edf2dc08a732a" }
-specta-macros = { git = "https://github.com/specta-rs/specta.git", rev = "2757fa8899926dce7da999780c7edf2dc08a732a" }
-specta-serde = { git = "https://github.com/specta-rs/specta.git", rev = "2757fa8899926dce7da999780c7edf2dc08a732a" }
-specta-typescript = { git = "https://github.com/specta-rs/specta.git", rev = "2757fa8899926dce7da999780c7edf2dc08a732a" }
-specta-util = { git = "https://github.com/specta-rs/specta.git", rev = "2757fa8899926dce7da999780c7edf2dc08a732a" }
+
 [workspace.dependencies]
 clash-verge-draft = { path = "crates/clash-verge-draft" }
 clash-verge-media-unlock = { path = "crates/clash-verge-media-unlock" }
@@ -69,22 +61,20 @@ tracing-estuary = { git = "https://github.com/Tunglies/tracing-estuary.git", bra
 tauri-plugin-clash-verge-sysinfo = { path = "crates/tauri-plugin-clash-verge-sysinfo" }
 tracing = "0.1.44"
 
-tauri = { version = "3.0.0-alpha.4" }
-tauri-runtime-wry = "3.0.0-alpha.4"
-tauri-plugin-clipboard-manager = "3.0.0-alpha.2"
-parking_lot = { version = "0.12.5", features = ["hardware-lock-elision"] }
+tauri = { version = "2.12.5" }
+tauri-plugin-clipboard-manager = "2.5.0"
+parking_lot = "0.13.0"
 anyhow = "1.0.104"
 chrono = "0.4.45"
 criterion = { version = "0.8.2", features = ["async_tokio"] }
-tokio = { version = "1.53.3", features = [
+tokio = { version = "1.54.1", features = [
   "rt-multi-thread",
   "macros",
   "time",
   "sync",
 ] }
 flexi_logger = "0.31.10"
-log = "0.4.34"
-encoding_rs = "0.8.35"
+log = "0.4.35"
 reqwest = { version = "0.13.5", features = [
   "json",
   "cookies",
@@ -94,7 +84,7 @@ reqwest = { version = "0.13.5", features = [
 ] }
 rust_iso3166 = "0.2.0"
 
-smartstring = { version = "2.0.0" }
+smartstring = { version = "1.0.1" }
 
 serde = { version = "1.0.229" }
 serde_json = { version = "1.0.154" }

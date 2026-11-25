@@ -40,21 +40,18 @@ import {
 } from 'tauri-plugin-mihomo-api'
 
 import { TooltipIcon } from '@/components/base'
-import { useAppRefreshers, useProxiesData } from '@/hooks/data'
 import { useRuntimeConfig } from '@/hooks/use-clash'
-import { useGroupDelays } from '@/hooks/use-group-delays'
 import { useRecordSelection } from '@/hooks/use-record-selection'
+import { useAppRefreshers, useProxiesData } from '@/providers/app-data-context'
 import { updateProxyChainConfigInRuntime } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import {
   selectGlobalChainNodes,
   selectRuleChainMembers,
-  type ProxyNodeView,
 } from '@/types/proxy-view'
 import { debugLog } from '@/utils/debug'
 
 import { rebindProxyChainItems, type ProxyChainItem } from './proxy-chain-model'
-import { CHAIN_DELAY_GROUP } from './use-render-list'
 
 const chainPointerSensor = PointerSensor.configure({
   activationConstraints: () => undefined,
@@ -166,7 +163,7 @@ const ChainCard = ({
           sx={{
             mr: 1,
             fontWeight: 700,
-            color: 'common.white',
+            color: '#fff',
             backgroundColor: roleColor,
           }}
         />
@@ -337,31 +334,16 @@ export const ProxyChain = ({
     return selectGlobalChainNodes(proxyView, runtimeProxies)
   }, [mode, proxyView, runtimeConfig, selectedGroup])
 
-  const chainDelayGroup =
-    mode === 'rule' && selectedGroup ? selectedGroup : CHAIN_DELAY_GROUP
-  const chainDelaySnapshot = useGroupDelays(chainDelayGroup)
-  const chainDelayOf = useCallback(
-    (node: ProxyNodeView) => {
-      const delay = chainDelaySnapshot.of({
-        kind: 'node',
-        ref: { kind: 'node', name: node.name, recordId: node.recordId },
-        node,
-      })
-      return delay < 0 || delay >= 1e5 ? undefined : delay
-    },
-    [chainDelaySnapshot],
-  )
-
   const currentProxyChain = useMemo(
     () =>
       proxyView
-        ? rebindProxyChainItems(proxyChain, candidates, proxyView, chainDelayOf)
+        ? rebindProxyChainItems(proxyChain, candidates, proxyView)
         : proxyChain.map((item) => ({
             ...item,
             recordId: undefined,
             delay: undefined,
           })),
-    [candidates, chainDelayOf, proxyChain, proxyView],
+    [candidates, proxyChain, proxyView],
   )
 
   const isConnected = useMemo(() => {
@@ -481,12 +463,15 @@ export const ProxyChain = ({
 
         localStorage.removeItem('proxy-chain-group')
         localStorage.removeItem('proxy-chain-exit-node')
+        localStorage.removeItem('proxy-chain-items')
 
         await mutate(() => closeAllConnections(), {
           id: 'close-all-connections',
           errorNotice: false,
         })
         await refreshProxy()
+
+        onUpdateChain([])
       } catch (error) {
         console.error('Failed to disconnect from proxy chain:', error)
         alert(t('proxies.page.chain.disconnectFailed'))
@@ -565,6 +550,7 @@ export const ProxyChain = ({
     mode,
     proxyView,
     selectedGroup,
+    onUpdateChain,
     recordSelection,
   ])
 

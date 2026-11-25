@@ -5,7 +5,6 @@ use clash_verge_logging::{Type, logging};
 use std::{
     fs,
     path::{Path, PathBuf},
-    sync::{Mutex, OnceLock},
 };
 use tauri::Manager as _;
 
@@ -25,18 +24,11 @@ pub static PROFILE_YAML: &str = "profiles.yaml";
 /// Marks that the one-shot raise of too-short auto-update intervals has already run.
 pub static UPDATE_INTERVAL_MIGRATED: &str = ".update-interval-migrated";
 
-static APP_HOME_DIR: OnceLock<PathBuf> = OnceLock::new();
-
 /// Uses the same platform data resolver as Tauri, including before its handle exists.
 pub fn app_home_dir() -> Result<PathBuf> {
-    if let Some(path) = APP_HOME_DIR.get() {
-        return Ok(path.clone());
-    }
-    let path = ::dirs::data_dir()
+    ::dirs::data_dir()
         .map(|root| root.join(APP_ID))
-        .ok_or_else(|| anyhow::anyhow!("Failed to get the app home directory"))?;
-    let _ = APP_HOME_DIR.set(path.clone());
-    Ok(path)
+        .ok_or_else(|| anyhow::anyhow!("Failed to get the app home directory"))
 }
 
 pub fn preinit_app_data_dir() -> Result<PathBuf> {
@@ -160,26 +152,12 @@ pub fn path_to_str(path: &Path) -> Result<&str> {
         .ok_or_else(|| anyhow::anyhow!("failed to get path from {:?}", path))
 }
 
-static ENCRYPTION_KEY: OnceLock<Vec<u8>> = OnceLock::new();
-static ENCRYPTION_KEY_INIT: Mutex<()> = Mutex::new(());
-
 pub fn get_encryption_key() -> Result<Vec<u8>> {
-    if let Some(key) = ENCRYPTION_KEY.get() {
-        return Ok(key.clone());
-    }
-
-    // Serialize the read-or-create path so two first-time callers cannot generate different keys.
-    let _init = ENCRYPTION_KEY_INIT
-        .lock()
-        .map_err(|_| anyhow::anyhow!("Encryption key initialization lock is poisoned"))?;
-    if let Some(key) = ENCRYPTION_KEY.get() {
-        return Ok(key.clone());
-    }
-
     let app_dir = app_home_dir()?;
     let key_path = app_dir.join(".encryption_key");
-    let key = if key_path.exists() {
-        fs::read(&key_path).map_err(|e| anyhow::anyhow!("Failed to read encryption key: {}", e))?
+
+    if key_path.exists() {
+        fs::read(&key_path).map_err(|e| anyhow::anyhow!("Failed to read encryption key: {}", e))
     } else {
         let mut key = vec![0u8; 32];
         getrandom::fill(&mut key)?;
@@ -188,11 +166,8 @@ pub fn get_encryption_key() -> Result<Vec<u8>> {
             fs::create_dir_all(parent).map_err(|e| anyhow::anyhow!("Failed to create key directory: {}", e))?;
         }
         fs::write(&key_path, &key).map_err(|e| anyhow::anyhow!("Failed to save encryption key: {}", e))?;
-        key
-    };
-
-    let _ = ENCRYPTION_KEY.set(key.clone());
-    Ok(key)
+        Ok(key)
+    }
 }
 
 pub fn ipc_path() -> Result<PathBuf> {

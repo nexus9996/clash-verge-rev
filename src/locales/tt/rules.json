@@ -8,11 +8,7 @@
         "update": "Яңарту"
       }
     },
-    "title": "Кагыйдәләр",
-    "rule": {
-      "toggle": "Бу кагыйдәне кушу яки сүндерү",
-      "hits": "Эләгү: {{count}}"
-    }
+    "title": "Кагыйдәләр"
   },
   "feedback": {
     "notifications": {

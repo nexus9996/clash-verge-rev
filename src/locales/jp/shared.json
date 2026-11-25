@@ -46,8 +46,7 @@
     "disabled": "無効",
     "saving": "Saving...",
     "empty": "空っぽ",
-    "loading": "読み込み中...",
-    "pageNotFound": "ページが見つかりません"
+    "loading": "読み込み中..."
   },
   "units": {
     "milliseconds": "ミリ秒",
@@ -136,14 +135,5 @@
       "warn": "WARN",
       "error": "ERROR"
     }
-  },
-  "search": {
-    "content": "内容",
-    "domain": "ドメイン",
-    "cidr": "CIDR",
-    "contentPlaceholder": "ルールを検索",
-    "domainPlaceholder": "ドメイン、URL、キーワードを検索",
-    "cidrPlaceholder": "IP または CIDR を検索",
-    "action": "検索"
   }
 }

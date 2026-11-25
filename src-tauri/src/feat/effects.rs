@@ -6,18 +6,11 @@ use std::collections::BTreeSet;
 pub(super) enum Effect {
     RestartCore,
     ClashConfig,
-    /// Applies scalars mihomo accepts in `PATCH /configs` without regenerating the runtime.
-    /// Ordered after `ClashConfig`; classification removes it whenever the same patch also
-    /// needs a full reload, so the two never run together.
-    LiveClashPatch,
     Autostart,
     Language,
     SystemProxy,
     Hotkey,
     TrayMenu,
-    /// Refreshes only the menu's in-place state items (checks and text) and never fetches
-    /// `/proxies`; a full `TrayMenu` update supersedes it.
-    TrayMenuState,
     TrayIcon,
     TrayTooltip,
     TrayClick,
@@ -34,7 +27,7 @@ macro_rules! select_field {
         if $field.is_some() { $effects.extend([$(Effect::$effect),*]); }
     };
     ($effects:ident, $field:ident, Tun) => {
-        select_field!($effects, $field, [ClashConfig, TrayMenuState, TrayTooltip, TrayIcon]);
+        select_field!($effects, $field, [ClashConfig, TrayMenu, TrayTooltip, TrayIcon]);
         #[cfg(target_os = "linux")]
         if *$field == Some(true) { $effects.insert(Effect::RestartCore); }
     };
@@ -74,16 +67,14 @@ verge_registry! {
     proxy_group_tools_position => NoEffect;
     notice_position => NoEffect;
     collapse_navbar => NoEffect;
-    enable_system_titlebar => NoEffect;
     sysproxy_tray_icon => [TrayIcon];
     tun_tray_icon => [TrayIcon];
     enable_tun_mode => Tun;
     enable_auto_launch => [Autostart];
     enable_silent_start => NoEffect;
-    enable_system_proxy => [SystemProxy, TrayMenuState, TrayTooltip, TrayIcon];
+    enable_system_proxy => [SystemProxy, TrayMenu, TrayTooltip, TrayIcon];
     enable_proxy_guard => [SystemProxy];
     enable_bypass_check => NoEffect;
-    ipv6_mode => [ClashConfig];
     enable_dns_settings => NoEffect;
     profile_dns_settings => NoEffect;
     use_default_bypass => [SystemProxy];
@@ -93,8 +84,6 @@ verge_registry! {
     pac_file_content => [SystemProxy];
     proxy_host => [SystemProxy];
     theme_setting => NoEffect;
-    light_theme_setting => NoEffect;
-    dark_theme_setting => NoEffect;
     web_ui_list => NoEffect;
     clash_core => NoEffect;
     hotkeys => [Hotkey, TrayMenu];
@@ -102,7 +91,6 @@ verge_registry! {
     home_cards => NoEffect;
     auto_close_connection => NoEffect;
     auto_check_update => NoEffect;
-    update_channel => NoEffect;
     default_latency_test => NoEffect;
     default_latency_timeout => NoEffect;
     enable_auto_delay_detection => NoEffect;
@@ -147,42 +135,23 @@ pub(super) fn clash_effects(patch: &serde_yaml_ng::Mapping) -> Effects {
     for key in patch.keys() {
         effects.extend(match key.as_str() {
             Some("secret" | "external-controller") => &[Effect::RestartCore][..],
-            // mihomo's `PATCH /configs` applies these scalars live; the executor still falls back
-            // to a full reload whenever the payload is not entirely live-applicable.
-            Some("allow-lan" | "log-level" | "port" | "socks-port" | "mixed-port" | "redir-port" | "tproxy-port") => {
-                &[Effect::LiveClashPatch][..]
-            }
+            Some("allow-lan") => &[Effect::ClashConfig][..],
             Some("mode") => &[Effect::ClashConfig, Effect::TrayMenu, Effect::TrayIcon][..],
-            other => {
-                // Known keys that cannot be patched live (nested shapes or absent from mihomo's
-                // patch struct) still reload the whole configuration; they are never dropped.
-                let known = matches!(
-                    other,
-                    Some("tun" | "tunnels" | "unified-delay" | "external-controller-cors")
+            _ => {
+                logging!(
+                    warn,
+                    Type::Config,
+                    "Unregistered Clash configuration key {key:?}; reloading configuration"
                 );
-                if known {
-                    logging!(
-                        debug,
-                        Type::Config,
-                        "Clash configuration key {other:?} is not live-applicable; reloading configuration"
-                    );
-                } else {
-                    logging!(
-                        warn,
-                        Type::Config,
-                        "Unregistered Clash configuration key {other:?}; reloading configuration"
-                    );
-                }
                 &[Effect::ClashConfig][..]
             }
         });
     }
-    // A restart rebuilds everything and a reload regenerates everything, so either supersedes a
-    // live patch that would only cover part of the same patch.
+    // These branches were exclusive: restart supersedes reload, and allow-lan precedes mode.
     if effects.contains(&Effect::RestartCore) {
         effects.retain(|effect| *effect == Effect::RestartCore);
-    } else if effects.contains(&Effect::ClashConfig) {
-        effects.remove(&Effect::LiveClashPatch);
+    } else if patch.contains_key("allow-lan") {
+        effects.retain(|effect| *effect == Effect::ClashConfig);
     }
     if patch.is_empty() {
         effects.insert(Effect::ClashConfig);
@@ -204,7 +173,7 @@ mod tests {
     fn representative_verge_patches_map_to_frozen_effects() {
         assert_eq!(verge_effects(&IVerge::default()), Effects::new());
 
-        let cases: Vec<(IVerge, &[Effect])> = vec![
+        let cases: [(IVerge, &[Effect]); 9] = [
             (
                 verge_patch(|p| p.verge_mixed_port = Some(27899)),
                 &[Effect::RestartCore],
@@ -222,7 +191,7 @@ mod tests {
                 &[
                     Effect::SystemProxy,
                     Effect::TrayIcon,
-                    Effect::TrayMenuState,
+                    Effect::TrayMenu,
                     Effect::TrayTooltip,
                 ],
             ),
@@ -260,7 +229,7 @@ mod tests {
                 Effect::RestartCore,
                 Effect::ClashConfig,
                 Effect::TrayIcon,
-                Effect::TrayMenuState,
+                Effect::TrayMenu,
                 Effect::TrayTooltip,
             ]
             .into_iter()
@@ -272,60 +241,12 @@ mod tests {
             [
                 Effect::ClashConfig,
                 Effect::TrayIcon,
-                Effect::TrayMenuState,
+                Effect::TrayMenu,
                 Effect::TrayTooltip,
             ]
             .into_iter()
             .collect::<Effects>()
         );
-    }
-
-    #[test]
-    fn toggle_fields_only_refresh_menu_state_in_place() {
-        for patch in [
-            verge_patch(|p| p.enable_system_proxy = Some(true)),
-            verge_patch(|p| p.enable_tun_mode = Some(true)),
-        ] {
-            let effects = verge_effects(&patch);
-            assert!(
-                effects.contains(&Effect::TrayMenuState),
-                "the state item must still refresh"
-            );
-            assert!(
-                !effects.contains(&Effect::TrayMenu),
-                "a toggle must not ask for a full menu update"
-            );
-        }
-    }
-
-    #[test]
-    fn a_full_menu_update_covers_the_state_items() {
-        // The executor skips the in-place pass when a full update runs in the same patch.
-        let patch = verge_patch(|p| {
-            p.language = Some("zh".into());
-            p.enable_system_proxy = Some(true);
-        });
-        let effects = verge_effects(&patch);
-        assert!(effects.contains(&Effect::TrayMenu));
-        assert!(effects.contains(&Effect::TrayMenuState));
-    }
-
-    #[test]
-    fn menu_structure_fields_still_request_a_full_menu_update() {
-        for patch in [
-            verge_patch(|p| p.language = Some("zh".into())),
-            verge_patch(|p| p.tray_proxy_groups_display_mode = Some("default".into())),
-            verge_patch(|p| p.tray_inline_outbound_modes = Some(true)),
-            verge_patch(|p| p.hotkeys = Some(vec!["CmdOrCtrl+K".into()])),
-        ] {
-            let effects = verge_effects(&patch);
-            assert!(effects.contains(&Effect::TrayMenu), "the menu structure changed");
-            assert!(!effects.contains(&Effect::TrayMenuState));
-        }
-
-        let mode = clash_effects(&clash_mapping(&[("mode", "rule")]));
-        assert!(mode.contains(&Effect::TrayMenu));
-        assert!(!mode.contains(&Effect::TrayMenuState));
     }
 
     fn clash_mapping(pairs: &[(&str, &str)]) -> serde_yaml_ng::Mapping {
@@ -338,39 +259,23 @@ mod tests {
 
     #[test]
     fn clash_keys_map_to_frozen_effects() {
-        let cases: [(serde_yaml_ng::Mapping, &[Effect]); 14] = [
+        let cases: [(serde_yaml_ng::Mapping, &[Effect]); 7] = [
             (clash_mapping(&[]), &[Effect::ClashConfig]),
             (clash_mapping(&[("secret", "s")]), &[Effect::RestartCore]),
             (
                 clash_mapping(&[("mode", "rule")]),
                 &[Effect::ClashConfig, Effect::TrayIcon, Effect::TrayMenu],
             ),
-            (clash_mapping(&[("allow-lan", "true")]), &[Effect::LiveClashPatch]),
-            (clash_mapping(&[("log-level", "info")]), &[Effect::LiveClashPatch]),
-            (clash_mapping(&[("mixed-port", "7897")]), &[Effect::LiveClashPatch]),
-            (
-                clash_mapping(&[("allow-lan", "true"), ("log-level", "info")]),
-                &[Effect::LiveClashPatch],
-            ),
-            (
-                clash_mapping(&[("allow-lan", "true"), ("unified-delay", "true")]),
-                &[Effect::ClashConfig],
-            ),
-            (
-                clash_mapping(&[("allow-lan", "true"), ("mode", "rule")]),
-                &[Effect::ClashConfig, Effect::TrayIcon, Effect::TrayMenu],
-            ),
-            (
-                clash_mapping(&[("secret", "s"), ("log-level", "info")]),
-                &[Effect::RestartCore],
-            ),
-            (clash_mapping(&[("tun", "x")]), &[Effect::ClashConfig]),
-            (clash_mapping(&[("tunnels", "x")]), &[Effect::ClashConfig]),
+            (clash_mapping(&[("allow-lan", "true")]), &[Effect::ClashConfig]),
             (clash_mapping(&[("not-a-known-key", "1")]), &[Effect::ClashConfig]),
-            // Restart supersedes reload, and reload supersedes the live patch.
+            // Restart supersedes reload; allow-lan precedes mode.
             (
                 clash_mapping(&[("secret", "s"), ("mode", "rule")]),
                 &[Effect::RestartCore],
+            ),
+            (
+                clash_mapping(&[("allow-lan", "true"), ("mode", "rule")]),
+                &[Effect::ClashConfig],
             ),
         ];
         for (patch, expected) in cases {

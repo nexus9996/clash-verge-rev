@@ -5,20 +5,11 @@
 //! (clash-verge-rev#6834). Verge downloads the release itself instead, stages a verified
 //! copy beside the managed core and renames it into place: `rename` never touches the inode
 //! the running core is executing from, so no page validation can fail.
-//!
-//! Package installs break that assumption: distribution packages put the core beside the app in
-//! a root-owned directory such as `/usr/bin`, which the desktop user cannot write. Those stage in
-//! user data and publish through the elevated helper, which keeps the same copy-then-rename shape.
 
-#[cfg(target_os = "linux")]
-use crate::core::service::{SERVICE_MANAGER, ServiceStatus};
 use crate::{
     config::Config,
     core::{CoreManager, manager::RunningMode},
-    utils::{
-        dirs,
-        network::{NetworkManager, ProxyType},
-    },
+    utils::network::{NetworkManager, ProxyType},
 };
 use anyhow::{Context as _, Result, anyhow, bail};
 use clash_verge_logging::{Type, logging};
@@ -28,11 +19,7 @@ use std::{
     fs::File,
     path::{Path, PathBuf},
     process::Command,
-    sync::{
-        Mutex,
-        atomic::{AtomicU64, Ordering},
-    },
-    time::{Duration, Instant},
+    sync::atomic::{AtomicU64, Ordering},
 };
 
 const RELEASE_VERSION_URL: &str = "https://github.com/MetaCubeX/mihomo/releases/latest/download/version.txt";
@@ -42,45 +29,6 @@ const VERSION_TIMEOUT_SECS: u64 = 20;
 const PACKAGE_TIMEOUT_SECS: u64 = 300;
 /// Well above any real core package, low enough that a wrong response cannot exhaust memory.
 const MAX_PACKAGE_BYTES: usize = 64 * 1024 * 1024;
-/// A compressed package can expand far beyond its download; cap the unpacked core as well.
-const MAX_UNPACKED_CORE_BYTES: u64 = 256 * 1024 * 1024;
-/// User data root for the staging and rollback copies of a core the app cannot write in place.
-const CORE_STAGING_DIR: &str = "core-upgrade";
-
-/// Fails instead of writing past `limit`, so a decompression bomb cannot fill the disk.
-struct BoundedWriter<W> {
-    inner: W,
-    written: u64,
-    limit: u64,
-}
-
-impl<W> BoundedWriter<W> {
-    const fn new(inner: W, limit: u64) -> Self {
-        Self {
-            inner,
-            written: 0,
-            limit,
-        }
-    }
-}
-
-impl<W: std::io::Write> std::io::Write for BoundedWriter<W> {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        if self.written.saturating_add(buf.len() as u64) > self.limit {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                format!("unpacked core exceeds the {}-byte limit", self.limit),
-            ));
-        }
-        let written = self.inner.write(buf)?;
-        self.written = self.written.saturating_add(written as u64);
-        Ok(written)
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        self.inner.flush()
-    }
-}
 
 static STAGING_GENERATION: AtomicU64 = AtomicU64::new(0);
 /// `.rollback` and `.old` are fixed paths, so two upgrades must not overlap.
@@ -92,249 +40,6 @@ pub struct CoreUpgradeReport {
     pub upgraded: bool,
 }
 
-const RELEASE_INDEX_URL: &str = "https://api.github.com/repos/MetaCubeX/mihomo/releases?per_page=10";
-const INDEX_TIMEOUT_SECS: u64 = 20;
-/// Every release entry carries ~127 asset objects: 10 releases measured ~2.6 MiB in 2026-10
-/// (30 releases would be ~7.3 MiB). Keep the guard above the plausible payload while still
-/// rejecting a wrong or runaway response.
-const MAX_INDEX_BYTES: usize = 8 * 1024 * 1024;
-const MAX_INDEX_VERSIONS: usize = 30;
-/// The unauthenticated index is multi-MiB and GitHub rate-limits unauthenticated clients, so one
-/// fetch serves every version-picker open for a while.
-const INDEX_CACHE_TTL: Duration = Duration::from_secs(300);
-/// Unauthenticated GitHub API requests are rejected without a user agent.
-const RELEASE_INDEX_USER_AGENT: &str = "clash-verge-rev";
-
-static RELEASE_INDEX_CACHE: Mutex<Option<(Instant, Vec<GithubRelease>)>> = Mutex::new(None);
-
-/// Guard for the release index body; kept as a helper so the size policy is unit tested.
-const fn index_body_within_limit(len: usize) -> bool {
-    len <= MAX_INDEX_BYTES
-}
-
-/// Returns the cached release list while it is younger than the TTL.
-fn cached_release_index() -> Option<Vec<GithubRelease>> {
-    let fresh = {
-        let cache = RELEASE_INDEX_CACHE.lock().ok()?;
-        cache
-            .as_ref()
-            .is_some_and(|(fetched_at, _)| fetched_at.elapsed() < INDEX_CACHE_TTL)
-    };
-    if !fresh {
-        return None;
-    }
-
-    let releases = {
-        let cache = RELEASE_INDEX_CACHE.lock().ok()?;
-        cache.as_ref()?.1.clone()
-    };
-    Some(releases)
-}
-
-fn store_release_index(releases: &[GithubRelease]) {
-    if let Ok(mut cache) = RELEASE_INDEX_CACHE.lock() {
-        *cache = Some((Instant::now(), releases.to_vec()));
-    }
-}
-
-#[derive(Debug, Clone, serde::Serialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct CoreVersionInfo {
-    pub version: std::string::String,
-    pub published_at: Option<std::string::String>,
-}
-
-#[derive(Debug, serde::Serialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct CoreVersionCatalog {
-    /// Release channel of the managed core: `stable` or `alpha`.
-    pub channel: std::string::String,
-    pub installed: Option<std::string::String>,
-    pub versions: Vec<CoreVersionInfo>,
-}
-
-#[derive(Debug, Clone, serde::Deserialize)]
-struct GithubRelease {
-    tag_name: std::string::String,
-    prerelease: bool,
-    published_at: Option<std::string::String>,
-    assets: Vec<GithubAsset>,
-}
-
-#[derive(Debug, Clone, serde::Deserialize)]
-struct GithubAsset {
-    name: std::string::String,
-}
-
-/// Lists the versions installable for the managed core's channel, newest first.
-pub async fn get_core_versions() -> Result<CoreVersionCatalog> {
-    let core = Config::verge().await.latest_arc().get_valid_clash_core();
-    let alpha = core.ends_with("-alpha");
-    let target = managed_core_path(&core)?;
-    let installed = read_core_version_async(&target).await.ok();
-
-    let versions = if alpha {
-        let (_, latest) = resolve_latest_version(true).await?;
-        vec![CoreVersionInfo {
-            version: latest,
-            published_at: None,
-        }]
-    } else {
-        let releases = fetch_release_index().await?;
-        installable_release_versions(&releases)?
-    };
-
-    if versions.is_empty() {
-        bail!("no installable mihomo versions were found for this platform");
-    }
-
-    Ok(CoreVersionCatalog {
-        channel: if alpha { "alpha".to_owned() } else { "stable".to_owned() },
-        installed,
-        versions,
-    })
-}
-
-/// Installs an explicit core version through the same stage/publish/rollback path as an upgrade.
-pub async fn install_core_version(version: std::string::String) -> Result<CoreUpgradeReport> {
-    let _serialized = UPGRADE_LOCK.lock().await;
-    let core = Config::verge().await.latest_arc().get_valid_clash_core();
-    tracing::Span::current().record("core", tracing::field::display(&core));
-    let alpha = core.ends_with("-alpha");
-    if !usable_channel_version(alpha, &version) {
-        bail!("version {version:?} is not installable for the selected core channel");
-    }
-
-    let target = managed_core_path(&core)?;
-    let installed = read_core_version_async(&target).await.unwrap_or_default();
-    tracing::Span::current().record("from", tracing::field::display(&installed));
-
-    if installed == version {
-        return Ok(CoreUpgradeReport { upgraded: false });
-    }
-
-    let (proxy, package) = download_package_from_any_proxy(alpha, &version).await?;
-    logging!(
-        info,
-        Type::Core,
-        "core install: package for {version} downloaded via {proxy:?}"
-    );
-    install_managed_core(&target, package, &version, &installed).await
-}
-
-/// The core variant decides the channel: releasing a stable tag onto an alpha core would
-/// break the next alpha upgrade, and an alpha build cannot pass the stable package URL.
-fn usable_channel_version(alpha: bool, version: &str) -> bool {
-    is_usable_version(version) && version.starts_with("alpha-") == alpha
-}
-
-fn expected_asset_name(alpha: bool, version: &str) -> Result<std::string::String> {
-    let asset = asset_base_name(alpha)?;
-    let extension = if cfg!(windows) { "zip" } else { "gz" };
-    Ok(format!("{asset}-{version}.{extension}"))
-}
-
-fn installable_release_versions(releases: &[GithubRelease]) -> Result<Vec<CoreVersionInfo>> {
-    let mut versions = Vec::new();
-    for release in releases {
-        if release.prerelease || !is_usable_version(&release.tag_name) {
-            continue;
-        }
-        let expected = expected_asset_name(false, &release.tag_name)?;
-        if !release.assets.iter().any(|asset| asset.name == expected) {
-            continue;
-        }
-        versions.push(CoreVersionInfo {
-            version: release.tag_name.clone(),
-            published_at: release.published_at.clone(),
-        });
-        if versions.len() >= MAX_INDEX_VERSIONS {
-            break;
-        }
-    }
-    Ok(versions)
-}
-
-async fn fetch_release_index() -> Result<Vec<GithubRelease>> {
-    if let Some(releases) = cached_release_index() {
-        return Ok(releases);
-    }
-
-    let mut last_error = None;
-
-    for proxy in [ProxyType::Localhost, ProxyType::System, ProxyType::None] {
-        let attempt = NetworkManager::new()
-            .get(
-                RELEASE_INDEX_URL,
-                proxy,
-                Some(INDEX_TIMEOUT_SECS),
-                Some(RELEASE_INDEX_USER_AGENT.into()),
-                false,
-            )
-            .await;
-
-        match attempt {
-            Ok(response) if response.status().is_success() => {
-                let body = response.text();
-                if !index_body_within_limit(body.len()) {
-                    last_error = Some(anyhow!(
-                        "{RELEASE_INDEX_URL} returned an oversized release index ({} bytes)",
-                        body.len()
-                    ));
-                    continue;
-                }
-                match serde_json::from_str::<Vec<GithubRelease>>(body) {
-                    Ok(releases) => {
-                        store_release_index(&releases);
-                        return Ok(releases);
-                    }
-                    Err(error) => {
-                        last_error =
-                            Some(anyhow::Error::from(error).context("failed to parse the mihomo release index"));
-                    }
-                }
-            }
-            Ok(response) => {
-                last_error = Some(anyhow!("{RELEASE_INDEX_URL} returned status {}", response.status()));
-            }
-            Err(error) => {
-                logging!(
-                    debug,
-                    Type::Core,
-                    "core install: release index probe via {proxy:?} failed: {error:#}"
-                );
-                last_error = Some(error.context(format!("{proxy:?} could not reach {RELEASE_INDEX_URL}")));
-            }
-        }
-    }
-
-    Err(last_error.unwrap_or_else(|| anyhow!("failed to fetch the mihomo release index")))
-}
-
-async fn download_package_from_any_proxy(alpha: bool, version: &str) -> Result<(ProxyType, Vec<u8>)> {
-    let url = package_url(alpha, version)?;
-    let mut last_error = None;
-
-    for proxy in [ProxyType::Localhost, ProxyType::System, ProxyType::None] {
-        match NetworkManager::new()
-            .get_bytes(&url, proxy, Some(PACKAGE_TIMEOUT_SECS), MAX_PACKAGE_BYTES)
-            .await
-        {
-            Ok(bytes) => return Ok((proxy, bytes)),
-            Err(error) => {
-                logging!(
-                    debug,
-                    Type::Core,
-                    "core install: package download via {proxy:?} failed: {error:#}"
-                );
-                last_error = Some(error.context(format!("failed to download {url}")));
-            }
-        }
-    }
-
-    Err(last_error.unwrap_or_else(|| anyhow!("failed to download {url}")))
-}
-
 pub async fn upgrade_core(force: bool) -> Result<CoreUpgradeReport> {
     let _serialized = UPGRADE_LOCK.lock().await;
     let core = Config::verge().await.latest_arc().get_valid_clash_core();
@@ -343,7 +48,7 @@ pub async fn upgrade_core(force: bool) -> Result<CoreUpgradeReport> {
     let target = managed_core_path(&core)?;
 
     // A core already broken by the in-place updater cannot report a version; upgrading is the repair.
-    let installed = read_core_version_async(&target).await.unwrap_or_else(|error| {
+    let installed = read_core_version(&target).unwrap_or_else(|error| {
         logging!(warn, Type::Core, "core upgrade: unreadable installed core: {error:#}");
         std::string::String::new()
     });
@@ -359,50 +64,35 @@ pub async fn upgrade_core(force: bool) -> Result<CoreUpgradeReport> {
     }
 
     let package = download_package(proxy, alpha, &latest).await?;
-    install_managed_core(&target, package, &latest, &installed).await
-}
-
-/// Stages, publishes and restarts the managed core; restores the previous core when the new one
-/// cannot be accepted or started. Shared by the upgrade and explicit-version install paths.
-async fn install_managed_core(
-    target: &Path,
-    package: Vec<u8>,
-    version: &str,
-    installed: &str,
-) -> Result<CoreUpgradeReport> {
-    let stage_target = target.to_path_buf();
-    let stage_version = version.to_owned();
-    let staged =
-        crate::process::AsyncHandler::spawn_blocking(move || stage_core(&stage_target, &package, &stage_version))
-            .await
-            .map_err(|join| anyhow!("core staging task failed: {join}"))??;
-
-    let elevated = staged.elevated;
+    let staged = stage_core(&target, &package, &latest)?;
 
     // A hard link keeps the previous core reachable without touching the inode the running
-    // core executes from, so publishing below stays one atomic rename. A root-owned target
-    // cannot take a link beside it, so those installs keep the copy in user data instead.
-    let rollback = rollback_path(target, elevated)?;
+    // core executes from, so publishing below stays one atomic rename.
+    let rollback = target.with_file_name(format!(".{core}.rollback"));
     let _ = std::fs::remove_file(&rollback);
     // Nothing to roll back to when the core we are replacing could not report a version.
-    let restorable = !installed.is_empty() && stage_rollback(target, &rollback, elevated);
+    let restorable = !installed.is_empty() && std::fs::hard_link(&target, &rollback).is_ok();
 
     // Decided before anything can crash: after a failed restart the mode reads NotRunning, which
     // says nothing about whether this upgrade went through the Service.
     let service_mode = matches!(*CoreManager::global().get_running_mode(), RunningMode::Service);
-    // Linux package installs put the core in a directory the desktop user cannot write, so a
-    // sidecar session still owes the Service its copy when one is installed: otherwise a later
-    // switch would keep running the core this upgrade replaced while the app reports the new
-    // version. Windows and macOS keep their previous behaviour — refreshing there would add an
-    // elevation prompt to an upgrade that never asked for one.
-    #[cfg(not(target_os = "linux"))]
-    let service_present = service_mode;
-    #[cfg(target_os = "linux")]
-    let service_present = service_mode || service_installed().await;
 
+    let mut result = staged.publish(&target);
     // The Service executes its own administrator-approved copy, never this file; hand the new
-    // bytes over before the restart below asks for them.
-    let (mut result, service_staging) = publish_core(&staged, target, service_present);
+    // bytes over before the restart below asks for them, or a service-mode restart would keep
+    // running the previous core while the app reports the new version. Sidecar mode runs the
+    // file directly and gets no elevation prompt.
+    let service_staging = if result.is_ok() && service_mode {
+        result =
+            crate::core::service::stage_approved_core(&target).context("core replaced but not accepted by the service");
+        if result.is_ok() {
+            ServiceStaging::Succeeded
+        } else {
+            ServiceStaging::Refused
+        }
+    } else {
+        ServiceStaging::NotAttempted
+    };
     if result.is_ok() {
         result = CoreManager::global()
             .restart_core()
@@ -416,20 +106,19 @@ async fn install_managed_core(
         // new core also restores: leaving the new file would make a retry read the new version
         // and report nothing to do while the service keeps running the old core.
         let core_is_down = matches!(*CoreManager::global().get_running_mode(), RunningMode::NotRunning);
-        let restore_service = matches!(service_staging, ServiceStaging::Succeeded);
         if restorable
             && (matches!(service_staging, ServiceStaging::Refused) || core_is_down || !target.exists())
-            && restore_core(&rollback, target, elevated, restore_service)
+            && std::fs::rename(&rollback, &target).is_ok()
         {
             logging!(warn, Type::Core, "core upgrade: rolled back to {installed:?}");
-            // The elevated restore already wrote the Service copy in the same run; a local one
-            // only touched the file beside the app, and re-staging would raise an elevation
-            // prompt for a no-op when nothing was published. This is deliberately not gated on
-            // the current running mode, which reads NotRunning after the very crash being
-            // rolled back.
-            if !elevated
-                && restore_service
-                && let Err(stage_error) = crate::core::service::stage_approved_core(target)
+            // Only a staging that SUCCEEDED left the failing bytes in the approved copy, and only
+            // then must the restore reach it too — otherwise the restart below would spawn the
+            // very core that just failed. Refused or never-attempted staging left the approved
+            // copy untouched, and re-staging would raise an elevation prompt for a no-op. This is
+            // deliberately not gated on the current running mode, which reads NotRunning after
+            // the very crash being rolled back.
+            if matches!(service_staging, ServiceStaging::Succeeded)
+                && let Err(stage_error) = crate::core::service::stage_approved_core(&target)
             {
                 logging!(
                     warn,
@@ -460,30 +149,16 @@ async fn install_managed_core(
 
 /// Whether this upgrade handed bytes to the Service's approved core directory.
 ///
-/// Three states matter, not two: a staging that never ran (publish failed, or the Service was
-/// left alone) left the approved copy alone just like a refused one, but only a SUCCEEDED
-/// staging obliges the rollback path to restore that copy as well. On macOS and Windows a
-/// sidecar upgrade leaves the approved copy untouched, so a later switch to service mode runs
-/// the previously approved core until the next elevated (re)install or upgrade; the Service logs
-/// that drift on every spawn. Linux package installs refresh it even from a sidecar session.
+/// Three states matter, not two: a staging that never ran (publish failed, or sidecar mode) left
+/// the approved copy alone just like a refused one, but only a SUCCEEDED staging obliges the
+/// rollback path to restore that copy as well. A user who upgrades in sidecar mode and later
+/// switches to service mode runs the previously approved core until the next elevated
+/// (re)install or upgrade; the Service logs that drift on every spawn.
 #[derive(Clone, Copy)]
 enum ServiceStaging {
     NotAttempted,
     Succeeded,
     Refused,
-}
-
-/// True when a Service is registered, whatever its current health: its approved copy outlives
-/// this session, so on Linux an upgrade in sidecar mode still has to refresh it.
-#[cfg(target_os = "linux")]
-async fn service_installed() -> bool {
-    !matches!(
-        SERVICE_MANAGER.current().await,
-        ServiceStatus::Checking
-            | ServiceStatus::NotInstalled
-            | ServiceStatus::InstallRequired
-            | ServiceStatus::SidecarAllowed
-    )
 }
 
 /// The sidecar next to the app executable. On macOS development builds the Service runs a
@@ -616,8 +291,6 @@ async fn download_package(proxy: ProxyType, alpha: bool, version: &str) -> Resul
 /// A staged core that is removed unless publishing renamed it away.
 struct StagedCore {
     path: PathBuf,
-    /// The target directory is root-owned, so publishing has to go through the elevated helper.
-    elevated: bool,
 }
 
 impl Drop for StagedCore {
@@ -638,14 +311,15 @@ impl Drop for StagedCore {
 /// Unpacks, permits, signs and runs the new core before it is allowed anywhere near the
 /// live path, so a bad download can never replace a working core.
 fn stage_core(target: &Path, package: &[u8], version: &str) -> Result<StagedCore> {
-    let elevated = publish_requires_elevation(target);
-    let directory = staging_directory(target, elevated)?;
+    let directory = target
+        .parent()
+        .with_context(|| format!("the managed core has no parent directory: {}", target.display()))?;
     let core_name = target
         .file_name()
         .with_context(|| format!("the managed core has no file name: {}", target.display()))?;
 
-    let (path, mut file) = create_staging_file(&directory, core_name)?;
-    let staged = StagedCore { path, elevated };
+    let (path, mut file) = create_staging_file(directory, core_name)?;
+    let staged = StagedCore { path };
 
     unpack(package, &mut file).with_context(|| format!("failed to unpack the core package for {version}"))?;
 
@@ -702,39 +376,30 @@ fn create_staging_file(directory: &Path, core_name: &OsStr) -> Result<(PathBuf, 
     )
 }
 
+#[cfg(windows)]
 fn unpack(package: &[u8], out: &mut File) -> Result<()> {
-    unpack_with_limit(package, out, MAX_UNPACKED_CORE_BYTES)
+    let mut archive = zip::ZipArchive::new(std::io::Cursor::new(package)).context("invalid core archive")?;
+    let mut entry = archive.by_index(0).context("the core archive is empty")?;
+    std::io::copy(&mut entry, out).context("failed to extract the core")?;
+    Ok(())
 }
 
-fn unpack_with_limit(package: &[u8], out: &mut File, limit: u64) -> Result<()> {
-    let mut out = BoundedWriter::new(out, limit);
-
-    #[cfg(windows)]
-    {
-        let mut archive = zip::ZipArchive::new(std::io::Cursor::new(package)).context("invalid core archive")?;
-        let mut entry = archive.by_index(0).context("the core archive is empty")?;
-        std::io::copy(&mut entry, &mut out).context("failed to extract the core")?;
-    }
-
-    #[cfg(not(windows))]
-    {
-        let mut decoder = flate2::read::GzDecoder::new(package);
-        std::io::copy(&mut decoder, &mut out).context("failed to decompress the core")?;
-    }
-
+#[cfg(not(windows))]
+fn unpack(package: &[u8], out: &mut File) -> Result<()> {
+    let mut decoder = flate2::read::GzDecoder::new(package);
+    std::io::copy(&mut decoder, out).context("failed to decompress the core")?;
     Ok(())
 }
 
 impl StagedCore {
     #[cfg(not(windows))]
-    fn publish(&self, target: &Path) -> Result<()> {
+    fn publish(self, target: &Path) -> Result<()> {
         std::fs::rename(&self.path, target)
             .with_context(|| format!("failed to publish the core to {}", target.display()))
     }
 
     #[cfg(windows)]
-    fn publish(&self, target: &Path) -> Result<()> {
-        debug_assert!(!self.elevated);
+    fn publish(self, target: &Path) -> Result<()> {
         if std::fs::rename(&self.path, target).is_ok() {
             return Ok(());
         }
@@ -764,189 +429,6 @@ impl StagedCore {
     }
 }
 
-/// Publishing next to the target needs write access to its directory. Distribution packages
-/// install the core in a root-owned directory such as `/usr/bin`, so those publish through the
-/// elevated helper.
-#[cfg(target_os = "linux")]
-fn publish_requires_elevation(target: &Path) -> bool {
-    target
-        .parent()
-        .is_some_and(|directory| !directory_is_writable(directory))
-}
-
-/// Only Linux installs the core into a directory the desktop user cannot write.
-#[cfg(not(target_os = "linux"))]
-const fn publish_requires_elevation(_target: &Path) -> bool {
-    false
-}
-
-#[cfg(target_os = "linux")]
-fn directory_is_writable(path: &Path) -> bool {
-    use std::os::unix::ffi::OsStrExt as _;
-
-    let Ok(path) = std::ffi::CString::new(path.as_os_str().as_bytes()) else {
-        return false;
-    };
-    // SAFETY: a valid NUL-terminated path is readable for the duration of the call.
-    unsafe { libc::access(path.as_ptr(), libc::W_OK) == 0 }
-}
-
-/// True when this process runs from the read-only AppImage mount. No elevation can publish a
-/// core into that mount, so the upgrade reports the limitation instead of asking for a password
-/// that cannot succeed.
-#[cfg(target_os = "linux")]
-fn read_only_appimage() -> bool {
-    std::env::var_os("APPIMAGE").is_some_and(|path| !path.is_empty())
-}
-
-fn staging_directory(target: &Path, elevated: bool) -> Result<PathBuf> {
-    if !elevated {
-        return target
-            .parent()
-            .map(Path::to_path_buf)
-            .with_context(|| format!("the managed core has no parent directory: {}", target.display()));
-    }
-
-    #[cfg(target_os = "linux")]
-    if read_only_appimage() {
-        bail!(
-            "in-app core replacement is unavailable in the AppImage build because its payload is mounted read-only; update the AppImage to change the core"
-        );
-    }
-
-    let directory = dirs::app_home_dir()?.join(CORE_STAGING_DIR);
-    std::fs::create_dir_all(&directory)
-        .with_context(|| format!("failed to create the core staging directory {}", directory.display()))?;
-    Ok(directory)
-}
-
-fn rollback_path(target: &Path, elevated: bool) -> Result<PathBuf> {
-    let name = target
-        .file_name()
-        .with_context(|| format!("the managed core has no file name: {}", target.display()))?;
-    let name = format!(".{}.rollback", name.to_string_lossy());
-
-    if elevated {
-        Ok(dirs::app_home_dir()?.join(CORE_STAGING_DIR).join(name))
-    } else {
-        Ok(target.with_file_name(name))
-    }
-}
-
-/// Keeps the previous bytes reachable for the rollback. A hard link cannot be created beside a
-/// root-owned target, so those copies are read into user data instead.
-fn stage_rollback(target: &Path, rollback: &Path, elevated: bool) -> bool {
-    if elevated {
-        std::fs::copy(target, rollback).is_ok()
-    } else {
-        std::fs::hard_link(target, rollback).is_ok()
-    }
-}
-
-/// Publishes the verified core, then the Service's approved copy when one is installed.
-///
-/// A refused Service copy leaves the new core on disk, so it is reported apart from a replacement
-/// that never happened: only the former restores the Service copy during rollback.
-fn publish_core(staged: &StagedCore, target: &Path, service_present: bool) -> (Result<()>, ServiceStaging) {
-    if staged.elevated {
-        return match publish_elevated(&staged.path, target, service_present) {
-            Ok(ElevatedOutcome::Published) => (
-                Ok(()),
-                if service_present {
-                    ServiceStaging::Succeeded
-                } else {
-                    ServiceStaging::NotAttempted
-                },
-            ),
-            Ok(ElevatedOutcome::ServiceFailed(error)) => (
-                Err(error.context("core replaced but not accepted by the service")),
-                ServiceStaging::Refused,
-            ),
-            Err(error) => (Err(error), ServiceStaging::NotAttempted),
-        };
-    }
-
-    if let Err(error) = staged.publish(target) {
-        return (Err(error), ServiceStaging::NotAttempted);
-    }
-    if !service_present {
-        return (Ok(()), ServiceStaging::NotAttempted);
-    }
-
-    match crate::core::service::stage_approved_core(target) {
-        Ok(()) => (Ok(()), ServiceStaging::Succeeded),
-        Err(error) => (
-            Err(error.context("core replaced but not accepted by the service")),
-            ServiceStaging::Refused,
-        ),
-    }
-}
-
-/// How far an elevated replacement got, without tying the upgrade to the platform's module.
-///
-/// Only Linux reaches this path: elsewhere the core never lands in a directory the user cannot
-/// write, so neither variant is ever constructed.
-#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
-enum ElevatedOutcome {
-    Published,
-    ServiceFailed(anyhow::Error),
-}
-
-#[cfg(target_os = "linux")]
-fn publish_elevated(staged: &Path, target: &Path, publish_service: bool) -> Result<ElevatedOutcome> {
-    logging!(
-        info,
-        Type::Core,
-        "core upgrade: requesting elevation to replace {}",
-        target.display()
-    );
-    Ok(
-        match crate::utils::elevated::replace_root_owned_file(staged, target, publish_service)? {
-            crate::utils::elevated::Outcome::Published => ElevatedOutcome::Published,
-            crate::utils::elevated::Outcome::ServiceFailed(error) => ElevatedOutcome::ServiceFailed(error),
-        },
-    )
-}
-
-#[cfg(not(target_os = "linux"))]
-fn publish_elevated(staged: &Path, target: &Path, _publish_service: bool) -> Result<ElevatedOutcome> {
-    bail!(
-        "replacing the root-owned core {} is not supported on this platform (staged at {})",
-        target.display(),
-        staged.display()
-    )
-}
-
-fn restore_core(rollback: &Path, target: &Path, elevated: bool, publish_service: bool) -> bool {
-    if !elevated {
-        return std::fs::rename(rollback, target).is_ok();
-    }
-
-    match publish_elevated(rollback, target, publish_service) {
-        Ok(ElevatedOutcome::Published) => true,
-        // The previous core is back in place; only the Service copy is stale, and the next
-        // successful publish repairs it.
-        Ok(ElevatedOutcome::ServiceFailed(error)) => {
-            logging!(
-                warn,
-                Type::Core,
-                "core upgrade: restored {} but not the service copy: {error:#}",
-                target.display()
-            );
-            true
-        }
-        Err(error) => {
-            logging!(
-                warn,
-                Type::Core,
-                "core upgrade: failed to restore {}: {error:#}",
-                target.display()
-            );
-            false
-        }
-    }
-}
-
 /// Keeps the `-v` probe and codesign from flashing a console window.
 #[cfg(windows)]
 fn new_command(program: impl AsRef<OsStr>) -> Command {
@@ -963,17 +445,8 @@ fn new_command(program: impl AsRef<OsStr>) -> Command {
     Command::new(program)
 }
 
-/// `read_core_version` spawns the core binary and waits for it, so the async
-/// callers (version listing, install, upgrade) run it off the runtime worker.
-pub(crate) async fn read_core_version_async(path: &Path) -> Result<std::string::String> {
-    let path = path.to_path_buf();
-    crate::process::AsyncHandler::spawn_blocking(move || read_core_version(&path))
-        .await
-        .unwrap_or_else(|join| Err(anyhow!("core version task failed: {join}")))
-}
-
 /// Parses the version out of `Mihomo Meta v1.19.30 darwin arm64 with go1.22.12 ...`.
-pub(crate) fn read_core_version(path: &Path) -> Result<std::string::String> {
+fn read_core_version(path: &Path) -> Result<std::string::String> {
     let output = new_command(path)
         .arg("-v")
         .output()
@@ -992,64 +465,8 @@ pub(crate) fn read_core_version(path: &Path) -> Result<std::string::String> {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, reason = "tests assert by panicking")]
 mod tests {
-    use super::{
-        BoundedWriter, GithubAsset, GithubRelease, MAX_INDEX_BYTES, expected_asset_name, index_body_within_limit,
-        installable_release_versions, is_usable_version, package_url, unpack_with_limit, usable_channel_version,
-    };
-    use std::fs::File;
-
-    #[test]
-    fn bounded_writer_rejects_output_past_the_limit() {
-        use std::io::{ErrorKind, Write as _};
-
-        let mut sink = Vec::new();
-        let mut writer = BoundedWriter::new(&mut sink, 4);
-
-        assert_eq!(writer.write(b"abc").expect("within the limit"), 3);
-        let error = writer.write(b"de").expect_err("output past the limit must fail");
-        assert_eq!(error.kind(), ErrorKind::InvalidData);
-        assert!(error.to_string().contains("limit"), "{error}");
-    }
-
-    #[cfg(not(windows))]
-    #[test]
-    fn oversized_gz_output_is_rejected() -> anyhow::Result<()> {
-        use std::io::Write as _;
-
-        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
-        encoder.write_all(&[b'a'; 4096])?;
-        let package = encoder.finish()?;
-
-        let path = std::env::temp_dir().join(format!("clash-verge-unpack-limit-{}.tmp", std::process::id()));
-        let mut out = File::create(&path)?;
-        let error = unpack_with_limit(&package, &mut out, 1024).expect_err("oversized unpacked output must fail");
-        assert!(format!("{error:#}").contains("limit"), "{error:#}");
-        drop(out);
-        let _ = std::fs::remove_file(&path);
-        Ok(())
-    }
-
-    #[cfg(windows)]
-    #[test]
-    fn oversized_zip_output_is_rejected() -> anyhow::Result<()> {
-        use std::io::Write as _;
-        use zip::write::SimpleFileOptions;
-
-        let mut archive = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
-        archive.start_file("mihomo.exe", SimpleFileOptions::default())?;
-        archive.write_all(&[b'a'; 4096])?;
-        let package = archive.finish()?.into_inner();
-
-        let path = std::env::temp_dir().join(format!("clash-verge-unpack-limit-{}.tmp", std::process::id()));
-        let mut out = File::create(&path)?;
-        let error = unpack_with_limit(&package, &mut out, 1024).expect_err("oversized unpacked output must fail");
-        assert!(format!("{error:#}").contains("limit"), "{error:#}");
-        drop(out);
-        let _ = std::fs::remove_file(&path);
-        Ok(())
-    }
+    use super::{is_usable_version, package_url};
 
     #[test]
     fn only_plain_version_tokens_reach_the_package_url() {
@@ -1078,53 +495,5 @@ mod tests {
             "{release}"
         );
         assert!(alpha.contains("/Prerelease-Alpha/"), "{alpha}");
-    }
-
-    #[test]
-    fn explicit_versions_must_match_the_managed_core_channel() {
-        assert!(usable_channel_version(false, "v1.19.32"));
-        assert!(usable_channel_version(true, "alpha-94b13ae"));
-        assert!(!usable_channel_version(false, "alpha-94b13ae"));
-        assert!(!usable_channel_version(true, "v1.19.32"));
-        assert!(!usable_channel_version(false, "../v1.19.32"));
-    }
-
-    #[test]
-    fn a_real_github_release_index_fits_the_size_guard() {
-        // The unauthenticated index for 10 mihomo releases measured 2_685_191 bytes in 2026-10
-        // (~127 asset entries per release). The old 2 MiB guard rejected the real 30-release
-        // response (7_271_645 bytes); 10 releases stay well inside the current 8 MiB guard.
-        assert!(index_body_within_limit(2_685_191));
-        assert!(index_body_within_limit(7_271_645));
-        assert!(!index_body_within_limit(MAX_INDEX_BYTES + 1));
-    }
-
-    #[test]
-    fn only_releases_with_a_platform_asset_are_installable() {
-        let asset = expected_asset_name(false, "v1.19.32").unwrap_or_default();
-        let releases = vec![
-            GithubRelease {
-                tag_name: "v1.19.32".to_owned(),
-                prerelease: false,
-                published_at: None,
-                assets: vec![GithubAsset { name: asset.clone() }],
-            },
-            GithubRelease {
-                tag_name: "v1.19.31".to_owned(),
-                prerelease: false,
-                published_at: None,
-                assets: Vec::new(),
-            },
-            GithubRelease {
-                tag_name: "Prerelease-Alpha".to_owned(),
-                prerelease: true,
-                published_at: None,
-                assets: vec![GithubAsset { name: asset }],
-            },
-        ];
-
-        let versions = installable_release_versions(&releases).unwrap_or_default();
-        assert_eq!(versions.len(), 1);
-        assert_eq!(versions[0].version, "v1.19.32");
     }
 }

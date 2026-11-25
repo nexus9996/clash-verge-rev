@@ -15,7 +15,6 @@ import {
   Zoom,
 } from '@mui/material'
 import { useLockFn } from 'ahooks'
-import { useLocalStorage } from 'foxact/use-local-storage'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { closeAllConnections } from 'tauri-plugin-mihomo-api'
@@ -25,29 +24,25 @@ import {
   BasePage,
   BaseSearchBox,
   BaseStyledSelect,
+  type SearchState,
+  VirtualList,
 } from '@/components/base'
-import { VirtualList } from '@/components/base/virtual-list'
 import {
   ConnectionDetail,
   ConnectionDetailRef,
 } from '@/components/connection/connection-detail'
-import { ConnectionFilterBox } from '@/components/connection/connection-filter-box'
 import { ConnectionRowItem } from '@/components/connection/connection-row-item'
 import {
   getConnectionStartTime,
   useConnectionRowViews,
 } from '@/components/connection/connection-row-view'
 import { ConnectionTable } from '@/components/connection/connection-table'
-import { ConnectionsTrafficSummary } from '@/components/connection/connections-traffic-summary'
 import { useConnectionData } from '@/hooks/use-connection-data'
 import { useConnectionSetting } from '@/hooks/use-connection-setting'
-import { usePageSearch } from '@/hooks/use-page-search'
+import { useTrafficData } from '@/hooks/use-traffic-data'
 import { useVisibility } from '@/hooks/use-visibility'
 import { mutate } from '@/services/mutate'
-import {
-  type ConnectionFilter,
-  createConnectionFilterMatcher,
-} from '@/utils/connection-filter'
+import parseTraffic from '@/utils/parse-traffic'
 
 type OrderFunc = (list: IConnectionsItem[]) => IConnectionsItem[]
 
@@ -88,8 +83,10 @@ const EMPTY_CONNECTIONS: IConnectionsItem[] = []
 const ConnectionsPage = () => {
   const { t } = useTranslation()
   const pageVisible = useVisibility()
-  const { searchState, match, onSearch } = usePageSearch('connections')
-  const hasSearch = searchState.text.trim().length > 0
+  const [match, setMatch] = useState<(input: string) => boolean>(
+    () => () => true,
+  )
+  const [hasSearch, setHasSearch] = useState(false)
   const [curOrderOpt, setCurOrderOpt] = useState<OrderKey>('default')
   const [connectionsType, setConnectionsType] = useState<'active' | 'closed'>(
     'active',
@@ -99,6 +96,9 @@ const ConnectionsPage = () => {
     response: { data: connections },
     clearClosedConnections,
   } = useConnectionData({ enabled: pageVisible })
+  const {
+    response: { data: traffic },
+  } = useTrafficData({ enabled: pageVisible })
 
   const [setting, setSetting] = useConnectionSetting()
 
@@ -106,49 +106,18 @@ const ConnectionsPage = () => {
 
   const [isColumnManagerOpen, setIsColumnManagerOpen] = useState(false)
 
-  const [connectionFilters, setConnectionFilters] = useLocalStorage<
-    ConnectionFilter[]
-  >('connections-filters', [], {
-    serializer: JSON.stringify,
-    deserializer: (value) => {
-      try {
-        const parsed = JSON.parse(value)
-        if (Array.isArray(parsed)) {
-          return parsed.filter(
-            (item): item is ConnectionFilter =>
-              typeof item?.field === 'string' &&
-              typeof item?.value === 'string',
-          )
-        }
-      } catch (error) {
-        console.warn('Failed to parse connections-filters', error)
-      }
-      return []
-    },
-  })
-
   const selectedConnections =
     connectionsType === 'active'
       ? (connections?.activeConnections ?? EMPTY_CONNECTIONS)
       : (connections?.closedConnections ?? EMPTY_CONNECTIONS)
 
-  const connectionFilterMatcher = useMemo(
-    () => createConnectionFilterMatcher(connectionFilters),
-    [connectionFilters],
-  )
-
   const filterConn = useMemo(() => {
     const orderFunc = orderFunctionMap[curOrderOpt]
-    const hasFilters = connectionFilters.length > 0
 
-    if (!hasSearch && !hasFilters) {
-      if (isTableLayout) return selectedConnections
-      return orderFunc([...selectedConnections])
-    }
+    if (isTableLayout && !hasSearch) return selectedConnections
+    if (!hasSearch) return orderFunc([...selectedConnections])
 
     const matchConns = selectedConnections.filter((conn) => {
-      if (!connectionFilterMatcher(conn)) return false
-      if (!hasSearch) return true
       const { host, destinationIP, process } = conn.metadata
       return (
         match(host || '') || match(destinationIP || '') || match(process || '')
@@ -156,15 +125,7 @@ const ConnectionsPage = () => {
     })
 
     return orderFunc ? orderFunc(matchConns) : matchConns
-  }, [
-    selectedConnections,
-    isTableLayout,
-    hasSearch,
-    connectionFilters.length,
-    connectionFilterMatcher,
-    match,
-    curOrderOpt,
-  ])
+  }, [selectedConnections, isTableLayout, hasSearch, match, curOrderOpt])
 
   const displayRows = useConnectionRowViews(
     isTableLayout ? EMPTY_CONNECTIONS : filterConn,
@@ -199,6 +160,13 @@ const ConnectionsPage = () => {
     }),
   )
 
+  const handleSearch = useCallback(
+    (match: (content: string) => boolean, state: SearchState) => {
+      setMatch(() => match)
+      setHasSearch(state.text.length > 0)
+    },
+    [],
+  )
   const hasTableData = filterConn.length > 0
 
   return (
@@ -219,7 +187,13 @@ const ConnectionsPage = () => {
       }}
       header={
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <ConnectionsTrafficSummary enabled={pageVisible} />
+          <Box sx={{ mx: 1 }}>
+            {t('shared.labels.downloaded')}:{' '}
+            {parseTraffic(traffic?.downTotal || 0)}
+          </Box>
+          <Box sx={{ mx: 1 }}>
+            {t('shared.labels.uploaded')}: {parseTraffic(traffic?.upTotal || 0)}
+          </Box>
           <IconButton
             color="inherit"
             size="small"
@@ -295,22 +269,12 @@ const ConnectionsPage = () => {
             flex: 1,
             display: 'flex',
             alignItems: 'center',
-            gap: 1,
-            minWidth: 0,
+            '& > *': {
+              flex: 1,
+            },
           }}
         >
-          <ConnectionFilterBox
-            connections={selectedConnections}
-            filters={connectionFilters}
-            onChange={setConnectionFilters}
-          />
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <BaseSearchBox
-              defaultValue={searchState.text}
-              searchState={searchState}
-              onSearch={onSearch}
-            />
-          </Box>
+          <BaseSearchBox onSearch={handleSearch} />
         </Box>
         {isTableLayout && hasTableData && (
           <Tooltip title={t('connections.components.columnManager.title')}>

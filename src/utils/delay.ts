@@ -2,8 +2,6 @@
 
 export const DEFAULT_DELAY_TIMEOUT = 10000
 
-export const DEFAULT_LATENCY_TEST_URL = 'http://cp.cloudflare.com/generate_204'
-
 const TESTING = -2
 
 const IMPLAUSIBLE_DELAY = 1e5

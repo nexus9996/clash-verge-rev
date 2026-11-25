@@ -11,7 +11,10 @@ import {
   type ProxyChainItem,
 } from '@/components/proxy/proxy-chain-model'
 import { ProxyGroups } from '@/components/proxy/proxy-groups'
-import { useAppRefreshers, useClashConfigData } from '@/hooks/data'
+import {
+  useAppRefreshers,
+  useClashConfigData,
+} from '@/providers/app-data-context'
 import {
   getRuntimeProxyChainConfig,
   patchClashMode,
@@ -147,6 +150,7 @@ const ProxyPage = () => {
         isChainMode ? (
           <Box
             component="span"
+            data-tauri-drag-region="true"
             sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}
           >
             {t('proxies.page.title.chainMode')}

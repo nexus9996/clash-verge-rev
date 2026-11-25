@@ -11,11 +11,7 @@ import {
   type ResolvedProxyMember,
 } from '@/types/proxy-view'
 import { debugLog } from '@/utils/debug'
-import {
-  classifyDelay,
-  DEFAULT_DELAY_TIMEOUT,
-  DEFAULT_LATENCY_TEST_URL,
-} from '@/utils/delay'
+import { classifyDelay, DEFAULT_DELAY_TIMEOUT } from '@/utils/delay'
 import { isValidUrl } from '@/utils/network'
 
 export type DelaySnapshot = {
@@ -31,12 +27,6 @@ export interface DelayUpdate {
 }
 
 const CACHE_TTL = 30 * 60 * 1000
-
-// Proxy group names may contain spaces, so group sets are keyed by NUL.
-export const GROUP_KEY_SEPARATOR = '\u0000'
-
-export const groupDelayKey = (groups: readonly string[]) =>
-  groups.join(GROUP_KEY_SEPARATOR)
 
 class DelayManager {
   private cache = new Map<string, DelayUpdate>()
@@ -142,7 +132,7 @@ class DelayManager {
     const cached = this.groupSetSnapshots.get(groupKey)
     if (cached) return cached
 
-    const names = groupKey ? groupKey.split(GROUP_KEY_SEPARATOR) : []
+    const names = groupKey ? groupKey.split(' ') : []
     const snapshots = new Map(
       names.map((name) => [name, this.groupDelays(name)]),
     )
@@ -177,19 +167,7 @@ class DelayManager {
     debugLog(
       `[DelayManager] 获取测试URL，组: ${group}, URL: ${url || '未设置'}`,
     )
-    return url || DEFAULT_LATENCY_TEST_URL
-  }
-
-  /** Drops measurements that belong to the previously active profile. */
-  clear() {
-    this.cache.clear()
-    this.urlMap.clear()
-    this.pendingItemUpdates.clear()
-    const groups = new Set([
-      ...this.groupListenerMap.keys(),
-      ...this.groupSnapshots.keys(),
-    ])
-    for (const group of groups) this.queueGroupNotification(group)
+    return url || 'http://cp.cloudflare.com/generate_204'
   }
 
   setListener(
@@ -277,7 +255,7 @@ class DelayManager {
     }
 
     if (details?.history && details.history.length > 0) {
-      return details.history[details.history.length - 1].delay ?? 1e6
+      return details.history[details.history.length - 1].delay || 1e6
     }
     return -1
   }
@@ -323,14 +301,13 @@ class DelayManager {
     )
 
     const startTime = Date.now()
-    let timeoutId: Parameters<typeof clearTimeout>[0] | undefined
 
     try {
       const url = this.getUrl(group)
       debugLog(`[DelayManager] 调用API测试延迟，代理: ${name}, URL: ${url}`)
 
       const timeoutPromise = new Promise<ProxyDelay>((resolve) => {
-        timeoutId = globalThis.setTimeout(() => resolve({ delay: 0 }), timeout)
+        setTimeout(() => resolve({ delay: 0 }), timeout)
       })
 
       const result = await Promise.race([
@@ -338,19 +315,23 @@ class DelayManager {
         timeoutPromise,
       ])
 
+      const elapsedTime = Date.now() - startTime
+      if (elapsedTime < 500) {
+        await new Promise((resolve) => setTimeout(resolve, 500 - elapsedTime))
+      }
+
       const delay = result.delay
-      const elapsed = Date.now() - startTime
+      const elapsed = elapsedTime
       debugLog(`[DelayManager] 延迟测试完成，代理: ${name}, 结果: ${delay}ms`)
 
       return this.setDelay(name, group, delay, { elapsed })
     } catch (error) {
+      await new Promise((resolve) => setTimeout(resolve, 500))
       console.error(`[DelayManager] 延迟测试出错，代理: ${name}`, error)
       const delay = 1e6 // error
       const elapsed = Date.now() - startTime
 
       return this.setDelay(name, group, delay, { elapsed })
-    } finally {
-      clearTimeout(timeoutId)
     }
   }
 
@@ -358,39 +339,47 @@ class DelayManager {
     proxies: InteractableProxyMember[],
     group: string,
     timeout: number,
-    concurrency = 20,
-    signal?: AbortSignal,
+    concurrency = 36,
   ) {
     debugLog(
       `[DelayManager] 批量测试延迟开始，组: ${group}, 数量: ${proxies.length}, 并发数: ${concurrency}`,
     )
+    const names = proxies.map((member) => member.ref.name)
     this.activeBatches.set(group, (this.activeBatches.get(group) ?? 0) + 1)
-    proxies.forEach((member) => {
-      this.setDelay(member.ref.name, group, -2)
+    names.forEach((name) => {
+      this.setDelay(name, group, -2)
     })
 
     let index = 0
     const startTime = Date.now()
 
     const help = async (): Promise<void> => {
-      while (!signal?.aborted) {
-        const currMember = proxies[index++]
-        if (!currMember) return
-        const currName = currMember.ref.name
+      const currMember = proxies[index++]
+      if (!currMember) return
+      const currName = currMember.ref.name
 
-        try {
-          await this.measureDelay(currMember, group, timeout)
-        } catch (error) {
-          console.error(
-            `[DelayManager] 批量测试单个代理出错，代理: ${currName}`,
-            error,
+      try {
+        // Stagger requests so a batch does not hit the core at once.
+        if (index > 1) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, Math.random() * 200),
           )
-          this.setDelay(currName, group, 1e6)
         }
+
+        // Do not reorder a list around the pointer while batch results are arriving.
+        await this.measureDelay(currMember, group, timeout)
+      } catch (error) {
+        console.error(
+          `[DelayManager] 批量测试单个代理出错，代理: ${currName}`,
+          error,
+        )
+        this.setDelay(currName, group, 1e6)
       }
+
+      return help()
     }
 
-    const actualConcurrency = Math.min(concurrency, proxies.length)
+    const actualConcurrency = Math.min(concurrency, names.length, 10)
     debugLog(`[DelayManager] 实际并发数: ${actualConcurrency}`)
 
     const promiseList: Promise<void>[] = []
@@ -401,13 +390,6 @@ class DelayManager {
     try {
       await Promise.all(promiseList)
     } finally {
-      if (signal?.aborted) {
-        // Aborted batches leave pending markers behind; fall back to cached history.
-        for (const member of proxies) {
-          const key = hashKey(member.ref.name, group)
-          if (this.cache.get(key)?.delay === -2) this.cache.delete(key)
-        }
-      }
       // Always release the batch and notify; otherwise failures leave stale sort state.
       const remaining = (this.activeBatches.get(group) ?? 1) - 1
       if (remaining > 0) {

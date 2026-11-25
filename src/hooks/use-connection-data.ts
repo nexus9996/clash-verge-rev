@@ -334,9 +334,6 @@ const createSocketSupervisor = (options: {
       scheduleReconnect()
     } finally {
       connecting = false
-      // A subscriber may arrive while an unused connection is being closed above.
-      // Its start() sees `connecting` and returns, so make sure it gets another attempt.
-      if (hasSubscribers() && !socket) scheduleReconnect()
     }
   }
 

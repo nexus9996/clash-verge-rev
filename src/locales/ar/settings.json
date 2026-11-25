@@ -140,8 +140,7 @@
           "networkInterface": "واجهة الشبكة",
           "unifiedDelay": "عند تفعيل التأخير الموحد، سيتم إجراء اختبارين للتأخير لتقليل الفروقات الناتجة عن مفاوضات الاتصال",
           "logLevel": "This parameter is valid only for kernel log files in the log directory Service folder",
-          "openUwpTool": "منذ نظام ويندوز 8، يتم تقييد تطبيقات UWP من الوصول المباشر إلى المضيف المحلي. هذه الأداة تتيح تجاوز هذا التقييد",
-          "ipv6Auto": "Enable IPv6 only while the physical network provides it; re-checked automatically when the network changes"
+          "openUwpTool": "منذ نظام ويندوز 8، يتم تقييد تطبيقات UWP من الوصول المباشر إلى المضيف المحلي. هذه الأداة تتيح تجاوز هذا التقييد"
         },
         "options": {
           "logLevel": {
@@ -150,17 +149,6 @@
             "warning": "Warn",
             "error": "Error",
             "silent": "Silent"
-          },
-          "ipv6Mode": {
-            "off": "Off",
-            "on": "On",
-            "auto": "Auto"
-          }
-        },
-        "status": {
-          "ipv6Auto": {
-            "available": "IPv6 available",
-            "ipv4Only": "IPv4-only network"
           }
         }
       }
@@ -221,22 +209,6 @@
       },
       "theme": {
         "title": "إعدادات السمة",
-        "presets": {
-          "title": "إعدادات مسبقة",
-          "names": {
-            "default": "افتراضي",
-            "ocean": "محيطي",
-            "indigo": "نيلي",
-            "sunset": "الغروب",
-            "lavender": "الخزامى",
-            "monochrome": "أحادي اللون"
-          }
-        },
-        "editModes": {
-          "title": "تعديل السمة",
-          "light": "فاتح",
-          "dark": "داكن"
-        },
         "fields": {
           "primaryColor": "اللون الأساسي",
           "secondaryColor": "اللون الثانوي",
@@ -246,8 +218,6 @@
           "warningColor": "لون التحذير",
           "errorColor": "لون الخطأ",
           "successColor": "لون النجاح",
-          "background": "لون الخلفية",
-          "paperBackground": "لون البطاقات",
           "fontFamily": "عائلة الخط",
           "cssInjection": "حقن CSS"
         },
@@ -261,7 +231,7 @@
       "layout": {
         "title": "إعدادات التخطيط",
         "fields": {
-          "enableSystemTitlebar": "تفعيل شريط عنوان النظام",
+          "preferSystemTitlebar": "Prefer System Titlebar",
           "trafficGraph": "مخطط حركة المرور",
           "memoryUsage": "استهلاك الذاكرة",
           "proxyGroupIcon": "أيقونة مجموعة الوكلاء",
@@ -281,7 +251,6 @@
           "pauseRenderTrafficStatsOnBlur": "إيقاف عرض إحصاءات حركة المرور مؤقتًا عند فقدان التركيز"
         },
         "tooltips": {
-          "enableSystemTitlebar": "استخدام شريط عنوان النظام الأصلي بدلاً من شريط العنوان المخصص المدمج (يلزم إعادة التشغيل على Linux).",
           "hoverNavigator": "Automatically scroll to the corresponding proxy group when hovering over alphabet letters",
           "hoverNavigatorDelay": "Delay before auto scrolling when hovering, in milliseconds"
         },
@@ -336,26 +305,6 @@
       "variants": {
         "release": "الإصدار المستقر",
         "alpha": "الإصدار التجريبي"
-      },
-      "actions": {
-        "manageVersions": "إدارة الإصدارات"
-      },
-      "versions": {
-        "title": "إصدارات Mihomo",
-        "description": "ثبّت إصدارًا محددًا من Mihomo. إذا فشل تشغيل النواة الجديدة، سيستعيد التطبيق الإصدار السابق تلقائيًا.",
-        "channel": "القناة: {{channel}}",
-        "loading": "جارٍ تحميل الإصدارات...",
-        "empty": "لا توجد إصدارات متاحة",
-        "latest": "الأحدث",
-        "installed": "مثبّت",
-        "installedAction": "مثبّت",
-        "install": "تثبيت",
-        "upgradeLatest": "الترقية إلى الأحدث",
-        "messages": {
-          "installed": "تم التحديث إلى {{version}}",
-          "alreadyInstalled": "الإصدار الحالي {{version}}",
-          "alreadyLatest": "الإصدار الأحدث مثبّت بالفعل"
-        }
       }
     },
     "liteMode": {
@@ -469,15 +418,13 @@
         "autoDelayDetection": "اكتشاف التأخير التلقائي",
         "autoDelayDetectionInterval": "الفاصل الزمني لاكتشاف التأخير التلقائي",
         "defaultLatencyTest": "اختبار التأخير الافتراضي",
-        "defaultLatencyTimeout": "مهلة التأخير الافتراضية",
-        "updateChannel": "قناة التحديث"
+        "defaultLatencyTimeout": "مهلة التأخير الافتراضية"
       },
       "tooltips": {
         "autoCloseConnections": "إنهاء الاتصالات القائمة عند تغيير اختيار مجموعة الوكيل أو وضع الوكيل",
         "enableBuiltinEnhanced": "معالجة توافق ملف التكوين",
         "autoDelayDetection": "يختبر زمن استجابة العقدة الحالية على نحو دوري في الخلفية",
-        "defaultLatencyTest": "يُستخدم فقط لاختبار طلب HTTP العميل. لن يؤثر على ملف التكوين",
-        "updateChannel": "تتبع قناة ألفا الإصدارات التجريبية وقد تكون غير مستقرة"
+        "defaultLatencyTest": "يُستخدم فقط لاختبار طلب HTTP العميل. لن يؤثر على ملف التكوين"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -486,10 +433,6 @@
         "autoLogClean": {
           "never": "عدم التنظيف أبدًا",
           "retainDays": "الاحتفاظ لمدة {{n}} يومًا"
-        },
-        "updateChannel": {
-          "stable": "مستقر",
-          "alpha": "ألفا"
         }
       }
     },
@@ -509,12 +452,6 @@
         "important": "مهم",
         "warning": "تحذير",
         "caution": "تنبيه"
-      },
-      "restart": {
-        "title": "تم تثبيت التحديث",
-        "body": "أعد تشغيل التطبيق لتطبيق الإصدار الجديد.",
-        "restartNow": "إعادة التشغيل الآن",
-        "restartLater": "لاحقاً"
       }
     },
     "sysproxy": {
@@ -530,7 +467,7 @@
         "usePacMode": "استخدام وضع PAC",
         "proxyGuard": "حماية الوكيل",
         "guardDuration": "مدة الحماية",
-        "alwaysUseDefaultBypass": "تضمين قائمة التخطي الافتراضية",
+        "alwaysUseDefaultBypass": "استخدام التخطي الافتراضي دائمًا",
         "enableBypassCheck": "التحقق من تنسيق تجاوز الوكيل",
         "proxyBypass": "إعدادات تخطي الوكيل:",
         "bypass": "تخطي:",
@@ -760,8 +697,7 @@
         "permissionRejectedReason": "تعذّر على الخدمة التأكد من أن ملفات النواة ومجلداتها آمنة للتشغيل بصلاحيات مرتفعة.",
         "permissionRepairGuide": "عرض خطوات الإصلاح",
         "sidecarFallback": "تعذّر على الخدمة تشغيل النواة. تم التبديل إلى وضع Sidecar؛ ولا تزال الخدمة غير متاحة.",
-        "uninstallSuccess": "تم إلغاء تثبيت الخدمة بنجاح",
-        "coreVersionDrift": "يعمل وضع الخدمة بالنواة {{running}} بينما النواة المضمّنة هي {{bundled}}. افتح الإعدادات → إصدارات Mihomo لتثبيت {{bundled}}، أو أعد تثبيت الخدمة/أصلحها ثم أعد تشغيل النواة."
+        "uninstallSuccess": "تم إلغاء تثبيت الخدمة بنجاح"
       },
       "updater": {
         "withClashProxySuccess": "Update with Clash proxy successfully",
@@ -778,12 +714,5 @@
       "installing": "جاري تثبيت الخدمة...",
       "uninstalling": "Uninstalling Service..."
     }
-  },
-  "search": {
-    "placeholder": "البحث في الإعدادات",
-    "clear": "مسح البحث",
-    "back": "العودة إلى النتائج",
-    "results": "نتائج البحث",
-    "empty": "لم يتم العثور على إعدادات"
   }
 }

@@ -13,7 +13,7 @@ import {
   Typography,
 } from '@mui/material'
 import { useLockFn } from 'ahooks'
-import { forwardRef, useMemo, useState } from 'react'
+import { forwardRef, useImperativeHandle, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -25,10 +25,10 @@ import {
   TooltipIcon,
 } from '@/components/base'
 import { EditorViewer } from '@/components/profile/editor-viewer'
-import { useSystemData } from '@/hooks/data'
 import { useDisplayedMixedPort } from '@/hooks/use-displayed-mixed-port'
 import { useSystemProxyState } from '@/hooks/use-system-proxy-state'
 import { useVerge } from '@/hooks/use-verge'
+import { useSystemData } from '@/providers/app-data-context'
 import {
   getEmbeddedServerPort,
   getNetworkInterfacesInfo,
@@ -38,8 +38,6 @@ import { showNotice } from '@/services/notice-service'
 import { useQuery } from '@/services/query-client'
 import { debugLog } from '@/utils/debug'
 import getSystem from '@/utils/get-system'
-
-import { useSettingDialog } from '../settings-search-context'
 
 const DEFAULT_PAC = `function FindProxyForURL(url, host) {
   return "PROXY %proxy_host%:%mixed-port%; SOCKS5 %proxy_host%:%mixed-port%; DIRECT;";
@@ -185,7 +183,7 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
     setPacEditorSavedValue(nextPac)
   })
 
-  useSettingDialog(ref, 'sysproxy-viewer', open, () => ({
+  useImperativeHandle(ref, () => ({
     open: () => {
       setOpen(true)
       setValue(buildInitialValues(verge))
@@ -357,49 +355,41 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
       loading={saving}
       disableOk={saving}
     >
-      <span data-settings-dialog="sysproxy-viewer" />
       <List>
-        <Box data-setting-target="sysproxy-status" tabIndex={-1}>
-          <BaseFieldset
-            label={t('settings.modals.sysproxy.fieldsets.currentStatus')}
-            padding="15px 10px"
-          >
+        <BaseFieldset
+          label={t('settings.modals.sysproxy.fieldsets.currentStatus')}
+          padding="15px 10px"
+        >
+          <FlexBox>
+            <Typography className="label">
+              {t('settings.modals.sysproxy.fields.enableStatus')}
+            </Typography>
+            <Typography className="value">
+              {isProxyReallyEnabled
+                ? t('shared.statuses.enabled')
+                : t('shared.statuses.disabled')}
+            </Typography>
+          </FlexBox>
+          {!value.pac && (
             <FlexBox>
               <Typography className="label">
-                {t('settings.modals.sysproxy.fields.enableStatus')}
+                {t('settings.modals.sysproxy.fields.serverAddr')}
+              </Typography>
+              <Typography className="value">{getSystemProxyAddress}</Typography>
+            </FlexBox>
+          )}
+          {value.pac && (
+            <FlexBox>
+              <Typography className="label">
+                {t('settings.modals.sysproxy.fields.pacUrl')}
               </Typography>
               <Typography className="value">
-                {isProxyReallyEnabled
-                  ? t('shared.statuses.enabled')
-                  : t('shared.statuses.disabled')}
+                {getCurrentPacUrl || '-'}
               </Typography>
             </FlexBox>
-            {!value.pac && (
-              <FlexBox>
-                <Typography className="label">
-                  {t('settings.modals.sysproxy.fields.serverAddr')}
-                </Typography>
-                <Typography className="value">
-                  {getSystemProxyAddress}
-                </Typography>
-              </FlexBox>
-            )}
-            {value.pac && (
-              <FlexBox>
-                <Typography className="label">
-                  {t('settings.modals.sysproxy.fields.pacUrl')}
-                </Typography>
-                <Typography className="value">
-                  {getCurrentPacUrl || '-'}
-                </Typography>
-              </FlexBox>
-            )}
-          </BaseFieldset>
-        </Box>
-        <ListItem
-          data-setting-target="settings.modals.sysproxy.fields.proxyHost"
-          sx={{ padding: '5px 2px' }}
-        >
+          )}
+        </BaseFieldset>
+        <ListItem sx={{ padding: '5px 2px' }}>
           <ListItemText
             primary={t('settings.modals.sysproxy.fields.proxyHost')}
           />
@@ -426,10 +416,7 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
             }}
           />
         </ListItem>
-        <ListItem
-          data-setting-target="settings.modals.sysproxy.fields.usePacMode"
-          sx={{ padding: '5px 2px' }}
-        >
+        <ListItem sx={{ padding: '5px 2px' }}>
           <ListItemText
             primary={t('settings.modals.sysproxy.fields.usePacMode')}
           />
@@ -441,10 +428,7 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
           />
         </ListItem>
 
-        <ListItem
-          data-setting-target="settings.modals.sysproxy.fields.proxyGuard"
-          sx={{ padding: '5px 2px' }}
-        >
+        <ListItem sx={{ padding: '5px 2px' }}>
           <ListItemText
             primary={t('settings.modals.sysproxy.fields.proxyGuard')}
             sx={{ maxWidth: 'fit-content' }}
@@ -462,10 +446,7 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
           />
         </ListItem>
 
-        <ListItem
-          data-setting-target="settings.modals.sysproxy.fields.guardDuration"
-          sx={{ padding: '5px 2px' }}
-        >
+        <ListItem sx={{ padding: '5px 2px' }}>
           <ListItemText
             primary={t('settings.modals.sysproxy.fields.guardDuration')}
           />
@@ -488,10 +469,7 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
           />
         </ListItem>
         {!value.pac && (
-          <ListItem
-            data-setting-target="settings.modals.sysproxy.fields.alwaysUseDefaultBypass"
-            sx={{ padding: '5px 2px' }}
-          >
+          <ListItem sx={{ padding: '5px 2px' }}>
             <ListItemText
               primary={t(
                 'settings.modals.sysproxy.fields.alwaysUseDefaultBypass',
@@ -518,10 +496,7 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
         )}
 
         {!value.pac && (
-          <ListItem
-            data-setting-target="settings.modals.sysproxy.fields.enableBypassCheck"
-            sx={{ padding: '5px 2px' }}
-          >
+          <ListItem sx={{ padding: '5px 2px' }}>
             <ListItemText
               primary={t('settings.modals.sysproxy.fields.enableBypassCheck')}
             />
@@ -553,10 +528,7 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
               setValue((v) => ({ ...v, bypass: nextValue }))
             }}
             renderHeader={(modeToggle) => (
-              <ListItem
-                data-setting-target="settings.modals.sysproxy.fields.proxyBypass"
-                sx={{ padding: '5px 2px' }}
-              >
+              <ListItem sx={{ padding: '5px 2px' }}>
                 <ListItemText
                   primary={t('settings.modals.sysproxy.fields.proxyBypass')}
                 />
@@ -575,12 +547,7 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
             />
             <Box sx={{ padding: '0 2px 5px' }}>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {Array.from(
-                  new Set([
-                    ...splitBypass(defaultBypass()),
-                    ...splitBypass(value.bypass ?? ''),
-                  ]),
-                ).map((item) => (
+                {splitBypass(defaultBypass()).map((item) => (
                   <Chip key={item} label={item} size="small" />
                 ))}
               </Box>
@@ -589,16 +556,12 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
         )}
 
         {value.pac && (
-          <ListItem
-            data-setting-target="settings.modals.sysproxy.fields.pacScriptContent"
-            sx={{ padding: '5px 2px', alignItems: 'start' }}
-          >
+          <ListItem sx={{ padding: '5px 2px', alignItems: 'start' }}>
             <ListItemText
               primary={t('settings.modals.sysproxy.fields.pacScriptContent')}
               sx={{ padding: '3px 0' }}
             />
             <Button
-              data-setting-target="settings.modals.sysproxy.actions.editPac"
               startIcon={<EditRounded />}
               variant="outlined"
               onClick={openPacEditor}

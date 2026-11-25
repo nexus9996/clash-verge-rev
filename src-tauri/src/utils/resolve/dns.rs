@@ -35,12 +35,10 @@ fn needs_public_dns(config: &Mapping) -> bool {
     };
     enabled("tun")
         && enabled("dns")
-        && matches!(
-            section("dns")
-                .and_then(|dns| dns.get("enhanced-mode"))
-                .and_then(Value::as_str),
-            Some("fake-ip" | "redir-host")
-        )
+        && section("dns")
+            .and_then(|dns| dns.get("enhanced-mode"))
+            .and_then(Value::as_str)
+            == Some("fake-ip")
 }
 
 /// Sets the placeholder DNS while the running config needs it, and restores the system DNS otherwise.
@@ -143,26 +141,4 @@ async fn run_dns_script(script_name: &str, allow_deferred: bool) -> anyhow::Resu
     })
     .await
     .context("DNS script task failed")?
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    #[allow(clippy::expect_used)]
-    fn public_dns_follows_tun_and_dns_for_both_modes() {
-        for mode in ["fake-ip", "redir-host"] {
-            for (tun_enabled, dns_enabled) in [(true, true), (true, false), (false, true), (false, false)] {
-                let config: serde_yaml_ng::Mapping = serde_yaml_ng::from_str(&format!(
-                    "tun:\n  enable: {tun_enabled}\ndns:\n  enable: {dns_enabled}\n  enhanced-mode: {mode}\n"
-                ))
-                .expect("valid DNS configuration");
-
-                assert_eq!(
-                    super::needs_public_dns(&config),
-                    tun_enabled && dns_enabled,
-                    "TUN={tun_enabled}, DNS={dns_enabled}, mode={mode}"
-                );
-            }
-        }
-    }
 }

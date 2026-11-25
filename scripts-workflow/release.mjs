@@ -256,7 +256,7 @@ function prepare() {
   )
     throw new Error(`Tag ${tag} already exists or is reserved for publication.`)
   if (json('package.json').version !== tag.slice(1))
-    run('bun', ['scripts/release-version.mjs', tag])
+    run('node', ['scripts/release-version.mjs', tag])
   validateVersions(tag)
   const title = titleFor(tag)
   const branch = refresh
@@ -287,19 +287,11 @@ function releaseBody(tag, sha, tags, publishing) {
   }
   comparison += ` · **${git('rev-list', '--count', range)} commits**`
   const commits = git('log', '--format=%h %s', range)
-  const groups = {}
-  for (const line of commits ? commits.split('\n') : []) {
-    let type
-    if (/^\S+ chore\(deps\)!?: /i.test(line)) {
-      type = 'deps'
-    } else {
-      const match = line
-        .match(/^\S+ (\w+)(?:\([^)]*\))?!?: /)?.[1]
-        ?.toLowerCase()
-      type = match === 'doc' ? 'docs' : match || 'other'
-    }
-    ;(groups[type] ??= []).push(line)
-  }
+  const groups = Object.groupBy(commits ? commits.split('\n') : [], (line) => {
+    if (/^\S+ chore\(deps\)!?: /i.test(line)) return 'deps'
+    const type = line.match(/^\S+ (\w+)(?:\([^)]*\))?!?: /)?.[1]?.toLowerCase()
+    return type === 'doc' ? 'docs' : type || 'other'
+  })
   const labels = {
     fix: 'Fixes',
     feat: 'Features',
@@ -762,7 +754,7 @@ function nextDev() {
   const patchTag = `v${major}.${minorVersion}.${patch + 1n}`
   const minorTag = `v${major}.${minorVersion + 1n}.0`
   const nextTag = minor ? minorTag : patchTag
-  run('bun', ['scripts/release-version.mjs', nextTag])
+  run('pnpm', ['release-version', nextTag])
   run('bash', ['scripts-workflow/bump_changelog.sh'])
   const changelog = read('Changelog.md')
   if (!changelog.includes('## v(Version Goes Here)'))

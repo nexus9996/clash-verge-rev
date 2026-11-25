@@ -1,22 +1,10 @@
+import { KeyboardEvent } from 'react'
+
 import getSystem from './get-system'
 
 const OS = getSystem()
 
-type HotkeyKeyEvent = {
-  nativeEvent: { code: string; key?: string }
-}
-
-/** Keys that must keep their native behavior while the recorder is focused. */
-export const isPassthroughHotkey = (keyEvent: HotkeyKeyEvent) => {
-  const { code, key } = keyEvent.nativeEvent
-  return (
-    code === 'Tab' || key === 'Tab' || code === 'Escape' || key === 'Escape'
-  )
-}
-
-export const parseHotkey = (keyEvent: HotkeyKeyEvent) => {
-  if (isPassthroughHotkey(keyEvent)) return 'UNIDENTIFIED'
-
+export const parseHotkey = (keyEvent: KeyboardEvent) => {
   const nativeEvent = keyEvent.nativeEvent
   const key = nativeEvent.code
   let temp = key.toUpperCase()

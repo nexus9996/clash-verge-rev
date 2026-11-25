@@ -1,4 +1,3 @@
-import { Box } from '@mui/material'
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -30,24 +29,17 @@ const SettingSystem = ({ onError }: Props) => {
 
   return (
     <SettingList title={t('settings.sections.system.title')}>
-      <Box data-setting-target="settings.sections.system.toggles.tunMode">
-        <ProxyControlSwitches
-          label={t('settings.sections.system.toggles.tunMode')}
-          onError={onError}
-        />
-      </Box>
+      <ProxyControlSwitches
+        label={t('settings.sections.system.toggles.tunMode')}
+        onError={onError}
+      />
 
-      <Box data-setting-target="settings.sections.system.toggles.systemProxy">
-        <ProxyControlSwitches
-          label={t('settings.sections.system.toggles.systemProxy')}
-          onError={onError}
-        />
-      </Box>
+      <ProxyControlSwitches
+        label={t('settings.sections.system.toggles.systemProxy')}
+        onError={onError}
+      />
 
-      <SettingItem
-        data-setting-target="settings.sections.system.fields.autoLaunch"
-        label={t('settings.sections.system.fields.autoLaunch')}
-      >
+      <SettingItem label={t('settings.sections.system.fields.autoLaunch')}>
         <GuardState
           value={enable_auto_launch ?? false}
           valueProps="checked"
@@ -72,7 +64,6 @@ const SettingSystem = ({ onError }: Props) => {
       </SettingItem>
 
       <SettingItem
-        data-setting-target="settings.sections.system.fields.silentStart"
         label={t('settings.sections.system.fields.silentStart')}
         extra={
           <TooltipIcon

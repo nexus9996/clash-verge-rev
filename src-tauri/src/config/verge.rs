@@ -73,9 +73,6 @@ pub struct IVerge {
 
     pub collapse_navbar: Option<bool>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub enable_system_titlebar: Option<bool>,
-
     pub sysproxy_tray_icon: Option<bool>,
 
     pub tun_tray_icon: Option<bool>,
@@ -91,10 +88,6 @@ pub struct IVerge {
     pub enable_proxy_guard: Option<bool>,
 
     pub enable_bypass_check: Option<bool>,
-
-    /// off | on | auto; absent means the saved `ipv6` switch decides.
-    #[specta(type = Option<std::string::String>)]
-    pub ipv6_mode: Option<String>,
 
     /// Initial DNS override preference for profiles without a saved setting.
     pub enable_dns_settings: Option<bool>,
@@ -116,10 +109,6 @@ pub struct IVerge {
     pub proxy_host: Option<String>,
 
     pub theme_setting: Option<IVergeTheme>,
-    /// Theme overrides for light mode; falls back to `theme_setting` when unset.
-    pub light_theme_setting: Option<IVergeTheme>,
-    /// Theme overrides for dark mode; falls back to `theme_setting` when unset.
-    pub dark_theme_setting: Option<IVergeTheme>,
     #[specta(type = Option<Vec<std::string::String>>)]
     pub web_ui_list: Option<Vec<String>>,
 
@@ -140,9 +129,6 @@ pub struct IVerge {
     pub auto_close_connection: Option<bool>,
 
     pub auto_check_update: Option<bool>,
-    /// Update channel: `stable` or `alpha`.
-    #[specta(type = Option<std::string::String>)]
-    pub update_channel: Option<String>,
     #[specta(type = Option<std::string::String>)]
     pub default_latency_test: Option<String>,
 
@@ -273,10 +259,6 @@ pub struct IVergeTheme {
     #[specta(type = Option<std::string::String>)]
     pub success_color: Option<String>,
     #[specta(type = Option<std::string::String>)]
-    pub background_color: Option<String>,
-    #[specta(type = Option<std::string::String>)]
-    pub paper_background_color: Option<String>,
-    #[specta(type = Option<std::string::String>)]
     pub font_family: Option<String>,
     #[specta(type = Option<std::string::String>)]
     pub css_injection: Option<String>,
@@ -392,7 +374,6 @@ impl IVerge {
             menu_icon: Some("monochrome".into()),
             notice_position: Some("top-right".into()),
             collapse_navbar: Some(false),
-            enable_system_titlebar: Some(true),
             common_tray_icon: Some(false),
             sysproxy_tray_icon: Some(false),
             tun_tray_icon: Some(false),
@@ -472,7 +453,6 @@ impl IVerge {
         patch_opt_field!(self, patch, proxy_group_tools_position);
         patch_opt_field!(self, patch, notice_position);
         patch_opt_field!(self, patch, collapse_navbar);
-        patch_opt_field!(self, patch, enable_system_titlebar);
         patch_opt_field!(self, patch, common_tray_icon);
         patch_opt_field!(self, patch, sysproxy_tray_icon);
         patch_opt_field!(self, patch, tun_tray_icon);
@@ -498,7 +478,6 @@ impl IVerge {
         patch_opt_field!(self, patch, enable_system_proxy);
         patch_opt_field!(self, patch, enable_proxy_guard);
         patch_opt_field!(self, patch, enable_bypass_check);
-        patch_opt_field!(self, patch, ipv6_mode);
         patch_opt_field!(self, patch, use_default_bypass);
         patch_opt_field!(self, patch, system_proxy_bypass);
         patch_opt_field!(self, patch, proxy_guard_duration);
@@ -506,8 +485,6 @@ impl IVerge {
         patch_opt_field!(self, patch, pac_file_content);
         patch_opt_field!(self, patch, proxy_host);
         patch_opt_field!(self, patch, theme_setting);
-        patch_opt_field!(self, patch, light_theme_setting);
-        patch_opt_field!(self, patch, dark_theme_setting);
         patch_opt_field!(self, patch, web_ui_list);
         patch_opt_field!(self, patch, clash_core);
         patch_opt_field!(self, patch, hotkeys);
@@ -515,7 +492,6 @@ impl IVerge {
 
         patch_opt_field!(self, patch, auto_close_connection);
         patch_opt_field!(self, patch, auto_check_update);
-        patch_opt_field!(self, patch, update_channel);
         patch_opt_field!(self, patch, default_latency_test);
         patch_opt_field!(self, patch, default_latency_timeout);
         patch_opt_field!(self, patch, enable_auto_delay_detection);
@@ -556,29 +532,5 @@ impl IVerge {
         } else {
             LevelFilter::Info
         }
-    }
-}
-
-#[cfg(test)]
-#[allow(clippy::expect_used, reason = "tests assert by panicking")]
-mod tests {
-    use super::IVerge;
-
-    /// The shipped template is the complete default configuration, so patching a
-    /// default draft with it must reproduce it exactly: every field the template
-    /// sets has to travel through `patch_config`. A missing line here applies the
-    /// runtime effect of a patch (via the effect registry) while the draft and the
-    /// persisted file keep the old value, which the frontend then revalidates and
-    /// shows as an unchanged switch.
-    #[test]
-    fn template_round_trips_through_patch_config() {
-        let template = IVerge::template();
-        let mut patched = IVerge::default();
-        patched.patch_config(&template);
-
-        assert_eq!(
-            serde_yaml_ng::to_value(&patched).expect("patched config serializes"),
-            serde_yaml_ng::to_value(&template).expect("template config serializes"),
-        );
     }
 }

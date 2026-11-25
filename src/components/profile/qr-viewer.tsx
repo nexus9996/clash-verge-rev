@@ -22,7 +22,7 @@ export const QrViewer = (props: Props) => {
             display: 'flex',
             justifyContent: 'center',
             p: 2,
-            bgcolor: 'common.white',
+            bgcolor: '#fff',
             borderRadius: 1,
           }}
         >

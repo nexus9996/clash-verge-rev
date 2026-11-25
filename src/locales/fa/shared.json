@@ -46,8 +46,7 @@
     "disabled": "غیرفعال شد",
     "saving": "Saving...",
     "empty": "خالی خالی",
-    "loading": "در حال بارگذاری...",
-    "pageNotFound": "صفحه پیدا نشد"
+    "loading": "در حال بارگذاری..."
   },
   "units": {
     "milliseconds": "میلی‌ثانیه",
@@ -136,14 +135,5 @@
       "warn": "WARN",
       "error": "ERROR"
     }
-  },
-  "search": {
-    "content": "محتوا",
-    "domain": "دامنه",
-    "cidr": "CIDR",
-    "contentPlaceholder": "جستجوی قوانین",
-    "domainPlaceholder": "جستجوی دامنه، URL یا کلیدواژه",
-    "cidrPlaceholder": "جستجوی IP یا CIDR",
-    "action": "جستجو"
   }
 }

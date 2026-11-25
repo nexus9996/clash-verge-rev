@@ -26,8 +26,7 @@
     "labels": {
       "proxyCount": "Anzahl der Knoten",
       "delayCheckReset": "Latenztest durchführen, um Fixierung aufzuheben",
-      "nodeCount": "{{count}} Knoten",
-      "groupBadge": "Gruppe"
+      "nodeCount": "{{count}} Knoten"
     },
     "tooltips": {
       "locate": "Aktueller Knoten",
@@ -38,8 +37,7 @@
       "delayCheckUrl": "Latenztest-URL",
       "showBasic": "Knotendetails ausblenden",
       "showDetail": "Knotendetails anzeigen",
-      "filter": "Knoten filtern",
-      "jumpToGroup": "Zur Gruppe springen"
+      "filter": "Knoten filtern"
     },
     "placeholders": {
       "delayCheckUrl": "Latenztest-URL"

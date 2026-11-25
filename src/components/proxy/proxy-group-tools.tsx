@@ -18,7 +18,6 @@ import { useTranslation } from 'react-i18next'
 import { useVerge } from '@/hooks/use-verge'
 import delayManager from '@/services/delay'
 import { showNotice } from '@/services/notice-service'
-import { DEFAULT_LATENCY_TEST_URL } from '@/utils/delay'
 import { isValidUrl } from '@/utils/network'
 
 import { BaseSearchBox, type SearchState } from '../base'
@@ -64,7 +63,8 @@ export const ProxyGroupTools = memo(function ProxyGroupTools(props: Props) {
 
   const { verge } = useVerge()
   const defaultLatencyUrl =
-    verge?.default_latency_test?.trim() || DEFAULT_LATENCY_TEST_URL
+    verge?.default_latency_test?.trim() ||
+    'http://cp.cloudflare.com/generate_204'
 
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -153,7 +153,9 @@ export const ProxyGroupTools = memo(function ProxyGroupTools(props: Props) {
         onClick={(e) => {
           e.preventDefault()
           e.stopPropagation()
-          if (!headState.open) flushSync(() => onHeadState({ open: true }))
+          if (!headState.open)
+            // eslint-disable-next-line @eslint-react/dom-no-flush-sync
+            flushSync(() => onHeadState({ open: true }))
           onLocation()
         }}
       >
@@ -167,7 +169,9 @@ export const ProxyGroupTools = memo(function ProxyGroupTools(props: Props) {
         onClick={(e) => {
           e.preventDefault()
           e.stopPropagation()
-          if (!headState.open) flushSync(() => onHeadState({ open: true }))
+          if (!headState.open)
+            // eslint-disable-next-line @eslint-react/dom-no-flush-sync
+            flushSync(() => onHeadState({ open: true }))
           // Remind the user that it is custom test url
           if (testUrl?.trim() && textState !== 'filter') {
             onHeadState({ textState: 'url' })
@@ -195,7 +199,9 @@ export const ProxyGroupTools = memo(function ProxyGroupTools(props: Props) {
         onClick={(e) => {
           e.preventDefault()
           e.stopPropagation()
-          if (!headState.open) flushSync(() => onHeadState({ open: true }))
+          if (!headState.open)
+            // eslint-disable-next-line @eslint-react/dom-no-flush-sync
+            flushSync(() => onHeadState({ open: true }))
           onHeadState({
             sortType: ((sortType + 1) % 3) as ProxySortType,
           })
@@ -237,7 +243,9 @@ export const ProxyGroupTools = memo(function ProxyGroupTools(props: Props) {
         onClick={(e) => {
           e.preventDefault()
           e.stopPropagation()
-          if (!headState.open) flushSync(() => onHeadState({ open: true }))
+          if (!headState.open)
+            // eslint-disable-next-line @eslint-react/dom-no-flush-sync
+            flushSync(() => onHeadState({ open: true }))
           onHeadState({ showType: !showType })
         }}
       >
@@ -256,6 +264,7 @@ export const ProxyGroupTools = memo(function ProxyGroupTools(props: Props) {
           e.preventDefault()
           e.stopPropagation()
           if (!headState.open && textState !== 'filter')
+            // eslint-disable-next-line @eslint-react/dom-no-flush-sync
             flushSync(() => onHeadState({ open: true }))
           onHeadState({ textState: textState === 'filter' ? null : 'filter' })
           setTimeout(() => inputRef.current?.focus())

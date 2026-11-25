@@ -46,8 +46,7 @@
     "disabled": "Отключено",
     "saving": "Сохранение...",
     "empty": "Пусто",
-    "loading": "Загрузка...",
-    "pageNotFound": "Страница не найдена"
+    "loading": "Загрузка..."
   },
   "units": {
     "milliseconds": "миллисекунды",
@@ -136,14 +135,5 @@
       "warn": "WARN",
       "error": "ERROR"
     }
-  },
-  "search": {
-    "content": "Содержимое",
-    "domain": "Домен",
-    "cidr": "CIDR",
-    "contentPlaceholder": "Поиск правил",
-    "domainPlaceholder": "Поиск домена, URL или ключевого слова",
-    "cidrPlaceholder": "Поиск IP или CIDR",
-    "action": "Поиск"
   }
 }

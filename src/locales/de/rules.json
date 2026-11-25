@@ -8,11 +8,7 @@
         "update": "Aktualisieren"
       }
     },
-    "title": "Regeln",
-    "rule": {
-      "toggle": "Regel aktivieren oder deaktivieren",
-      "hits": "Treffer: {{count}}"
-    }
+    "title": "Regeln"
   },
   "feedback": {
     "notifications": {

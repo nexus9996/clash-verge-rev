@@ -7,7 +7,10 @@ import { useTranslation } from 'react-i18next'
 
 import { BaseDialog } from '@/components/base'
 import { useVerge } from '@/hooks/use-verge'
-import type { IVergeTestItem_Serialize } from '@/services/bindings'
+import type {
+  IVergeTestItem_Deserialize,
+  IVergeTestItem_Serialize,
+} from '@/services/bindings'
 import { showNotice } from '@/services/notice-service'
 
 interface Props {
@@ -28,7 +31,7 @@ export const TestViewer = forwardRef<TestViewerRef, Props>(
     const [loading, setLoading] = useState(false)
     const { verge, patchVerge } = useVerge()
     const testList = verge?.test_list ?? []
-    const { control, ...formIns } = useForm<IVergeTestItem>({
+    const { control, ...formIns } = useForm<IVergeTestItem_Deserialize>({
       defaultValues: {
         name: '',
         icon: '',
@@ -38,11 +41,16 @@ export const TestViewer = forwardRef<TestViewerRef, Props>(
 
     const patchTestList = async (
       uid: string,
-      patch: Partial<IVergeTestItem>,
+      patch: Partial<IVergeTestItem_Deserialize>,
     ) => {
       const newList = testList.map((x) => {
         if (x.uid === uid) {
-          return { ...x, ...patch }
+          return {
+            uid: x.uid,
+            name: patch.name === undefined ? x.name : patch.name,
+            icon: patch.icon === undefined ? x.icon : patch.icon,
+            url: patch.url === undefined ? x.url : patch.url,
+          }
         }
         return x
       })

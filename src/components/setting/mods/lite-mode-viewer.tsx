@@ -8,7 +8,7 @@ import {
 } from '@mui/material'
 import { useLockFn } from 'ahooks'
 import type { Ref } from 'react'
-import { useState } from 'react'
+import { useImperativeHandle, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BaseDialog, DialogRef, Switch, TooltipIcon } from '@/components/base'
@@ -16,8 +16,6 @@ import { useVerge } from '@/hooks/use-verge'
 import { entry_lightweight_mode } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'
-
-import { useSettingDialog } from '../settings-search-context'
 
 export function LiteModeViewer({ ref }: { ref?: Ref<DialogRef> }) {
   const { t } = useTranslation()
@@ -29,7 +27,7 @@ export function LiteModeViewer({ ref }: { ref?: Ref<DialogRef> }) {
     autoEnterLiteModeDelay: 10, // 默认10分钟
   })
 
-  useSettingDialog(ref, 'lite-mode-viewer', open, () => ({
+  useImperativeHandle(ref, () => ({
     open: () => {
       setOpen(true)
       setValues({
@@ -63,12 +61,8 @@ export function LiteModeViewer({ ref }: { ref?: Ref<DialogRef> }) {
       onCancel={() => setOpen(false)}
       onOk={onSave}
     >
-      <span data-settings-dialog="lite-mode-viewer" />
       <List>
-        <ListItem
-          data-setting-target="settings.modals.liteMode.actions.enterNow"
-          sx={{ padding: '5px 2px' }}
-        >
+        <ListItem sx={{ padding: '5px 2px' }}>
           <ListItemText
             primary={t('settings.modals.liteMode.actions.enterNow')}
           />
@@ -90,10 +84,7 @@ export function LiteModeViewer({ ref }: { ref?: Ref<DialogRef> }) {
           </Typography>
         </ListItem>
 
-        <ListItem
-          data-setting-target="settings.modals.liteMode.toggles.autoEnter"
-          sx={{ padding: '5px 2px' }}
-        >
+        <ListItem sx={{ padding: '5px 2px' }}>
           <ListItemText
             primary={t('settings.modals.liteMode.toggles.autoEnter')}
             sx={{ maxWidth: 'fit-content' }}
@@ -114,10 +105,7 @@ export function LiteModeViewer({ ref }: { ref?: Ref<DialogRef> }) {
 
         {values.autoEnterLiteMode && (
           <>
-            <ListItem
-              data-setting-target="settings.modals.liteMode.fields.delay"
-              sx={{ padding: '5px 2px' }}
-            >
+            <ListItem sx={{ padding: '5px 2px' }}>
               <ListItemText
                 primary={t('settings.modals.liteMode.fields.delay')}
               />

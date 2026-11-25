@@ -2,7 +2,6 @@ import { Paper, ThemeProvider } from '@mui/material'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import { useCallback, useEffect, useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
 import { Outlet, useNavigate } from 'react-router'
 
 import { BaseErrorBoundary } from '@/components/base'
@@ -16,7 +15,7 @@ import {
 } from '@/components/layout/window-controller'
 import { useI18n } from '@/hooks/use-i18n'
 import { useVerge } from '@/hooks/use-verge'
-import { useWindowMaximized } from '@/hooks/use-window-maximized'
+import { useWindowDecorations } from '@/hooks/use-window'
 import { useEventBus } from '@/services/bus'
 import { handleNoticeMessage } from '@/services/notice-handlers'
 import { useThemeMode } from '@/services/states'
@@ -34,10 +33,10 @@ import 'dayjs/locale/zh-cn'
 dayjs.extend(relativeTime)
 
 const OS = getSystem()
+
 const Layout = () => {
   const mode = useThemeMode()
   const isDark = mode !== 'light'
-  const { t } = useTranslation()
   const { theme } = useCustomTheme()
   const { verge } = useVerge()
   const { language } = verge ?? {}
@@ -45,17 +44,20 @@ const Layout = () => {
   const { switchLanguage } = useI18n()
   const navigate = useNavigate()
   const themeReady = useMemo(() => Boolean(theme), [theme])
-  const showCustomTitlebar = verge?.enable_system_titlebar === false
-  const { maximized, setMaximized } = useWindowMaximized(showCustomTitlebar)
+  const { decorated } = useWindowDecorations()
 
   const customTitlebar = useMemo(
     () =>
-      showCustomTitlebar ? (
+      decorated === false ? (
         <div className="the_titlebar">
-          <WindowControls maximized={maximized} setMaximized={setMaximized} />
+          <div
+            className="the_titlebar-drag-region"
+            data-tauri-drag-region="true"
+          />
+          <WindowControls />
         </div>
       ) : null,
-    [showCustomTitlebar, maximized, setMaximized],
+    [decorated],
   )
 
   useLoadingOverlay(themeReady)
@@ -64,12 +66,12 @@ const Layout = () => {
     (payload: [string, string]) => {
       const [status, msg] = payload
       try {
-        handleNoticeMessage(status, msg, t, navigate)
+        handleNoticeMessage(status, msg, navigate)
       } catch (error) {
         console.error('[通知处理] 失败:', error)
       }
     },
-    [t, navigate],
+    [navigate],
   )
 
   useEventBus(handleNotice)
@@ -105,24 +107,10 @@ const Layout = () => {
       <NoticeManager position={verge?.notice_position} />
       <ServiceMigrationDialog />
       <SysproxyPrivilegeDialog />
-      <div
-        style={{
-          animation: 'fadeIn 0.5s',
-          WebkitAnimation: 'fadeIn 0.5s',
-        }}
-      />
-      <style>
-        {`
-            @keyframes fadeIn {
-              from { opacity: 0; }
-              to { opacity: 1; }
-            }
-          `}
-      </style>
       <Paper
         square
         elevation={0}
-        className={`${OS} layout${showCustomTitlebar ? ' layout--custom-frame' : ' layout--native-frame'}${navCollapsed ? ' layout--nav-collapsed' : ''}`}
+        className={`${OS} layout${navCollapsed ? ' layout--nav-collapsed' : ''}`}
         style={{
           borderTopLeftRadius: '0px',
           borderTopRightRadius: '0px',
@@ -149,15 +137,16 @@ const Layout = () => {
             : {},
         ]}
       >
-        {showCustomTitlebar && <WindowResizeHandles maximized={maximized} />}
+        {decorated === false && <WindowResizeHandles />}
 
-        {/* Custom titlebar - rendered only when the system titlebar is not preferred, memoized for performance */}
+        {/* Custom titlebar - rendered only when decorated is false, memoized for performance */}
         {customTitlebar}
 
         <div className="layout-content">
           <LayoutSidebar isDark={isDark} isCollapsed={navCollapsed} />
 
           <div className="layout-content__right">
+            <div className="the-bar"></div>
             <div className="the-content">
               <BaseErrorBoundary>
                 <Outlet />

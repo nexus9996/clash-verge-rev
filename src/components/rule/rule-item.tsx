@@ -1,13 +1,8 @@
-import { Box, Switch, styled, Tooltip, Typography } from '@mui/material'
-import { memo } from 'react'
-import { useTranslation } from 'react-i18next'
+import { styled, Box, Typography } from '@mui/material'
 import { Rule } from 'tauri-plugin-mihomo-api'
-
-import type { RuleExtraInfo } from '@/services/cmds'
 
 const Item = styled(Box)(({ theme }) => ({
   display: 'flex',
-  alignItems: 'center',
   padding: '4px 16px',
   color: theme.palette.text.primary,
 }))
@@ -21,12 +16,7 @@ const COLOR = [
 ]
 
 interface Props {
-  value: Rule
-  /** 1-based position in the unfiltered rule list; the page derives it. */
-  lineNo: number
-  extra?: RuleExtraInfo
-  pending?: boolean
-  onToggleDisabled?: (index: number, disabled: boolean) => void
+  value: Rule & { lineNo: number }
 }
 
 const parseColor = (text: string) => {
@@ -41,26 +31,19 @@ const parseColor = (text: string) => {
 }
 
 const RuleItem = (props: Props) => {
-  const { value, lineNo, extra, pending, onToggleDisabled } = props
-  const { t } = useTranslation()
-  const disabled = extra?.disabled ?? false
+  const { value } = props
 
   return (
-    <Item
-      sx={{
-        borderBottom: '1px solid var(--divider-color)',
-        opacity: disabled ? 0.5 : 1,
-      }}
-    >
+    <Item sx={{ borderBottom: '1px solid var(--divider-color)' }}>
       <Typography
         color="text.secondary"
         variant="body2"
         sx={{ lineHeight: 2, minWidth: 30, mr: 2.25, textAlign: 'center' }}
       >
-        {lineNo}
+        {value.lineNo}
       </Typography>
 
-      <Box sx={{ userSelect: 'text', flex: 1, minWidth: 0 }}>
+      <Box sx={{ userSelect: 'text' }}>
         <Typography component="h6" variant="subtitle1" color="text.primary">
           {value.payload || '-'}
         </Typography>
@@ -82,29 +65,8 @@ const RuleItem = (props: Props) => {
           {value.proxy}
         </Typography>
       </Box>
-
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pl: 2 }}>
-        {extra && extra.hitCount > 0 && (
-          <Typography variant="caption" color="text.secondary" noWrap>
-            {t('rules.page.rule.hits', { count: extra.hitCount })}
-          </Typography>
-        )}
-        <Tooltip title={t('rules.page.rule.toggle')}>
-          <Switch
-            size="small"
-            checked={!disabled}
-            disabled={pending || !onToggleDisabled}
-            onChange={(_event, checked) =>
-              onToggleDisabled?.(value.index, !checked)
-            }
-            slotProps={{ input: { 'aria-label': t('rules.page.rule.toggle') } }}
-          />
-        </Tooltip>
-      </Box>
     </Item>
   )
 }
 
-// Memoized: the virtualized list re-renders on every search keystroke, but
-// unchanged rows keep their original rule object identity.
-export default memo(RuleItem)
+export default RuleItem

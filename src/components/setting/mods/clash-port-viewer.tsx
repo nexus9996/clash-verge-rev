@@ -9,7 +9,7 @@ import {
   TextField,
 } from '@mui/material'
 import { useLockFn, useRequest } from 'ahooks'
-import { forwardRef, useState } from 'react'
+import { forwardRef, useImperativeHandle, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BaseDialog, Switch } from '@/components/base'
@@ -21,8 +21,6 @@ import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'
 import type { TranslationKey } from '@/types/generated/i18n-keys'
 import getSystem from '@/utils/get-system'
-
-import { useSettingDialog } from '../settings-search-context'
 
 const OS = getSystem()
 
@@ -89,7 +87,6 @@ const readPortSettings = (
 })
 
 interface PortRowProps {
-  searchTarget: string
   label: string
   secondary?: string
   port: number
@@ -100,7 +97,6 @@ interface PortRowProps {
 }
 
 const PortRow = ({
-  searchTarget,
   label,
   secondary,
   port,
@@ -111,10 +107,7 @@ const PortRow = ({
   const { t } = useTranslation()
 
   return (
-    <ListItem
-      data-setting-target={searchTarget}
-      sx={{ padding: '4px 0', minHeight: 36 }}
-    >
+    <ListItem sx={{ padding: '4px 0', minHeight: 36 }}>
       <ListItemText
         primary={label}
         secondary={secondary}
@@ -136,7 +129,6 @@ const PortRow = ({
         />
         <IconButton
           size="small"
-          data-setting-target="port-random"
           onClick={() => onPortChange(generateRandomPort())}
           title={t('settings.modals.clashPort.actions.random')}
           disabled={!enabled}
@@ -200,7 +192,7 @@ export const ClashPortViewer = forwardRef<ClashPortViewerRef>((_, ref) => {
     },
   )
 
-  useSettingDialog(ref, 'clash-port-viewer', open, () => ({
+  useImperativeHandle(ref, () => ({
     open: () => {
       setPorts(readPortSettings(verge, configuredMixedPort))
       setOpen(true)
@@ -253,11 +245,9 @@ export const ClashPortViewer = forwardRef<ClashPortViewerRef>((_, ref) => {
       onCancel={() => setOpen(false)}
       onOk={onSave}
     >
-      <span data-settings-dialog="clash-port-viewer" />
       <List sx={{ width: '100%' }}>
         <PortRow
           label={t('settings.modals.clashPort.fields.mixed')}
-          searchTarget="settings.modals.clashPort.fields.mixed"
           secondary={
             displayedMixedPort !== configuredMixedPort
               ? t('settings.modals.clashPort.messages.runningPort', {
@@ -275,7 +265,6 @@ export const ClashPortViewer = forwardRef<ClashPortViewerRef>((_, ref) => {
           <PortRow
             key={key}
             label={t(label)}
-            searchTarget={label}
             port={ports[key].port}
             enabled={ports[key].enabled}
             onPortChange={(port) => updateListener(key, { port })}

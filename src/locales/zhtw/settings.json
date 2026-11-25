@@ -140,8 +140,7 @@
           "networkInterface": "網路介面",
           "unifiedDelay": "開啟統一延遲時，會進行兩次延遲測試，以消除連線握手等帶來的不同類型節點的延遲差異",
           "logLevel": "僅對日誌目錄 Service 資料夾下的內核日誌檔案生效",
-          "openUwpTool": "Windows 8 開始限制 UWP 應用程式（如Microsoft Store）直接存取本機主機的網路服務，使用此工具可繞過該限制",
-          "ipv6Auto": "僅在實體網路提供 IPv6 時啟用，網路變化時自動重新偵測"
+          "openUwpTool": "Windows 8 開始限制 UWP 應用程式（如Microsoft Store）直接存取本機主機的網路服務，使用此工具可繞過該限制"
         },
         "options": {
           "logLevel": {
@@ -150,17 +149,6 @@
             "warning": "Warn",
             "error": "Error",
             "silent": "Silent"
-          },
-          "ipv6Mode": {
-            "off": "關閉",
-            "on": "開啟",
-            "auto": "自動"
-          }
-        },
-        "status": {
-          "ipv6Auto": {
-            "available": "可用",
-            "ipv4Only": "僅 IPv4"
           }
         }
       }
@@ -221,22 +209,6 @@
       },
       "theme": {
         "title": "主題設定",
-        "presets": {
-          "title": "預設",
-          "names": {
-            "default": "預設",
-            "ocean": "海洋",
-            "indigo": "靛藍",
-            "sunset": "日落",
-            "lavender": "薰衣草",
-            "monochrome": "黑白"
-          }
-        },
-        "editModes": {
-          "title": "編輯主題",
-          "light": "淺色",
-          "dark": "深色"
-        },
         "fields": {
           "primaryColor": "主要顏色",
           "secondaryColor": "次要顏色",
@@ -246,8 +218,6 @@
           "warningColor": "警告顏色",
           "errorColor": "錯誤顏色",
           "successColor": "成功顏色",
-          "background": "背景顏色",
-          "paperBackground": "卡片顏色",
           "fontFamily": "字型系列",
           "cssInjection": "CSS 注入"
         },
@@ -261,7 +231,7 @@
       "layout": {
         "title": "介面設定",
         "fields": {
-          "enableSystemTitlebar": "啟用系統標題欄",
+          "preferSystemTitlebar": "優先使用系統標題欄",
           "trafficGraph": "流量圖表",
           "memoryUsage": "內核佔用",
           "proxyGroupIcon": "代理組圖示",
@@ -281,7 +251,6 @@
           "pauseRenderTrafficStatsOnBlur": "失去焦點時暫停渲染流量統計"
         },
         "tooltips": {
-          "enableSystemTitlebar": "使用系統原生標題欄取代內建的自訂標題欄（Linux 需重新啟動生效）",
           "hoverNavigator": "滑鼠懸停在字母上時自動捲動到對應代理組",
           "hoverNavigatorDelay": "滑鼠懸停後觸發自動跳轉前等待的毫秒數"
         },
@@ -336,26 +305,6 @@
       "variants": {
         "release": "正式版",
         "alpha": "預覽版"
-      },
-      "actions": {
-        "manageVersions": "版本管理"
-      },
-      "versions": {
-        "title": "Mihomo 版本",
-        "description": "可安裝指定的 Mihomo 版本；新核心啟動失敗時會自動回復到原版本。",
-        "channel": "管道：{{channel}}",
-        "loading": "正在載入版本...",
-        "empty": "暫無可安裝版本",
-        "latest": "最新",
-        "installed": "已安裝",
-        "installedAction": "已安裝",
-        "install": "安裝",
-        "upgradeLatest": "升級到最新",
-        "messages": {
-          "installed": "已更新到 {{version}}",
-          "alreadyInstalled": "目前已是 {{version}}",
-          "alreadyLatest": "目前已是最新版本"
-        }
       }
     },
     "liteMode": {
@@ -469,15 +418,13 @@
         "autoDelayDetection": "自動延遲偵測",
         "autoDelayDetectionInterval": "自動延遲偵測間隔",
         "defaultLatencyTest": "預設測試網址",
-        "defaultLatencyTimeout": "測試逾時",
-        "updateChannel": "更新管道"
+        "defaultLatencyTimeout": "測試逾時"
       },
       "tooltips": {
         "autoCloseConnections": "當代理組選中節點或代理模式變動時，關閉已建立的連線",
         "enableBuiltinEnhanced": "配置檔案的相容性處理",
         "autoDelayDetection": "在背景定時偵測目前節點延遲",
-        "defaultLatencyTest": "僅用於 HTTP 客戶端請求測試，不會對配置檔案產生影響",
-        "updateChannel": "內測版跟隨預覽建置，可能不穩定"
+        "defaultLatencyTest": "僅用於 HTTP 客戶端請求測試，不會對配置檔案產生影響"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -486,10 +433,6 @@
         "autoLogClean": {
           "never": "不清理",
           "retainDays": "保留 {{n}} 天"
-        },
-        "updateChannel": {
-          "stable": "穩定版",
-          "alpha": "內測版"
         }
       }
     },
@@ -509,12 +452,6 @@
         "important": "重要",
         "warning": "警告",
         "caution": "注意"
-      },
-      "restart": {
-        "title": "更新已安裝",
-        "body": "重新啟動應用程式以套用新版本。",
-        "restartNow": "立即重新啟動",
-        "restartLater": "稍後"
       }
     },
     "sysproxy": {
@@ -530,7 +467,7 @@
         "usePacMode": "使用 PAC 模式",
         "proxyGuard": "系統代理守護",
         "guardDuration": "代理守護間隔",
-        "alwaysUseDefaultBypass": "合併預設繞過清單",
+        "alwaysUseDefaultBypass": "始終使用預設繞過",
         "enableBypassCheck": "驗證代理繞過格式",
         "proxyBypass": "代理繞過設定：",
         "bypass": "目前繞過：",
@@ -760,8 +697,7 @@
         "permissionRejectedReason": "服務無法確認核心檔案及所在目錄是否安全，已拒絕以高權限執行。",
         "permissionRepairGuide": "查看修復方法",
         "sidecarFallback": "服務無法啟動核心，已降級為 Sidecar 模式執行，服務仍無法使用。",
-        "uninstallSuccess": "已成功解除安裝服務",
-        "coreVersionDrift": "服務模式正在執行的核心 {{running}} 與內建核心 {{bundled}} 不一致。請開啟「設定 → Mihomo 版本」安裝 {{bundled}}，或重新安裝/修復服務後重新啟動核心。"
+        "uninstallSuccess": "已成功解除安裝服務"
       },
       "updater": {
         "withClashProxySuccess": "使用 Clash 代理更新成功",
@@ -778,12 +714,5 @@
       "installing": "安裝服務中...",
       "uninstalling": "服務解除安裝中..."
     }
-  },
-  "search": {
-    "placeholder": "搜尋設定",
-    "clear": "清除搜尋",
-    "back": "返回結果",
-    "results": "搜尋結果",
-    "empty": "找不到設定"
   }
 }

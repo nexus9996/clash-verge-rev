@@ -33,8 +33,16 @@ const buildSettingsSha256 = hash(
     .join('\n'),
 )
 execFileSync(
-  'bun',
-  ['x', 'vite', 'build', '--mode', 'perf', '--config', 'scripts/perf/vite.mts'],
+  'pnpm',
+  [
+    'exec',
+    'vite',
+    'build',
+    '--mode',
+    'perf',
+    '--config',
+    'scripts/perf/vite.mts',
+  ],
   { stdio: 'inherit' },
 )
 const mode = 'release + perf-harness (build settings hash recorded)'
@@ -90,7 +98,7 @@ writeFileSync(
       ),
       buildCommand,
       binary,
-      toolchain: `${command('rustc', ['--version'])}; node ${process.version}; bun ${command('bun', ['--version'])}`,
+      toolchain: `${command('rustc', ['--version'])}; node ${process.version}; pnpm ${command('pnpm', ['--version'])}`,
     },
     null,
     2,

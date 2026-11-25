@@ -22,7 +22,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { updateProxyProvider } from 'tauri-plugin-mihomo-api'
 
-import { useAppRefreshers, useProxiesData } from '@/hooks/data'
+import { useAppRefreshers, useProxiesData } from '@/providers/app-data-context'
 import { syncRuntimeProviders } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'
@@ -30,7 +30,7 @@ import parseTraffic from '@/utils/parse-traffic'
 
 const TypeBox = styled(Box)<{ component?: React.ElementType }>(({ theme }) => ({
   display: 'inline-block',
-  border: '1px solid',
+  border: '1px solid #ccc',
   borderColor: alpha(theme.palette.secondary.main, 0.5),
   color: alpha(theme.palette.secondary.main, 0.8),
   borderRadius: 4,
@@ -219,7 +219,7 @@ export const ProviderButton = () => {
                       transition: 'all 0.2s',
                     },
                     ({ palette: { mode, primary } }) => {
-                      const bgcolor = 'var(--surface-raised)'
+                      const bgcolor = mode === 'light' ? '#ffffff' : '#24252f'
                       const hoverColor =
                         mode === 'light'
                           ? alpha(primary.main, 0.1)

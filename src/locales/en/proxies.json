@@ -26,8 +26,7 @@
     "labels": {
       "proxyCount": "Proxy Count",
       "delayCheckReset": "Delay check to cancel fixed",
-      "nodeCount": "{{count}} nodes",
-      "groupBadge": "Group"
+      "nodeCount": "{{count}} nodes"
     },
     "tooltips": {
       "locate": "locate",
@@ -38,8 +37,7 @@
       "delayCheckUrl": "Delay check URL",
       "showBasic": "Proxy basic",
       "showDetail": "Proxy detail",
-      "filter": "Filter",
-      "jumpToGroup": "Jump to group"
+      "filter": "Filter"
     },
     "placeholders": {
       "delayCheckUrl": "Delay check URL"

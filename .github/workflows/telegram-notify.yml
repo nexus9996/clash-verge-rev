@@ -31,13 +31,18 @@ jobs:
         run: bash ./scripts/extract_update_logs.sh
         shell: bash
 
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
+      - name: Install Node
+        uses: actions/setup-node@v7
         with:
-          bun-version: '1.4.3'
+          node-version: '26.13.0'
+
+      - uses: pnpm/action-setup@v6
+        name: Install pnpm
+        with:
+          run_install: false
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Get Version and Release Info
         run: |
@@ -91,7 +96,7 @@ jobs:
           EOF
 
       - name: Send Telegram Notification
-        run: bun scripts/telegram.mjs
+        run: node scripts/telegram.mjs
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           BUILD_TYPE: ${{ inputs.build_type }}

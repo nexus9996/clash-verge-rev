@@ -26,8 +26,7 @@
     "labels": {
       "proxyCount": "Vekil Sayısı",
       "delayCheckReset": "Sabit iptali için gecikme kontrolü",
-      "nodeCount": "{{count}} düğüm",
-      "groupBadge": "Grup"
+      "nodeCount": "{{count}} düğüm"
     },
     "tooltips": {
       "locate": "konum",
@@ -38,8 +37,7 @@
       "delayCheckUrl": "Gecikme kontrol URL'si",
       "showBasic": "Temel Vekil",
       "showDetail": "Vekil detayı",
-      "filter": "Filtre",
-      "jumpToGroup": "Gruba git"
+      "filter": "Filtre"
     },
     "placeholders": {
       "delayCheckUrl": "Gecikme kontrol URL'si"

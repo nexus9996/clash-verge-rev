@@ -74,16 +74,12 @@ impl<T: Clone> Draft<T> {
         result
     }
 
-    /// Commits and clears the draft, reporting whether one was staged.
+    /// Commits and clears the draft.
     #[inline]
-    pub fn apply(&self) -> bool {
+    pub fn apply(&self) {
         let mut guard = self.inner.data.lock();
-        match guard.1.take() {
-            Some(d) => {
-                guard.0 = d;
-                true
-            }
-            None => false,
+        if let Some(d) = guard.1.take() {
+            guard.0 = d;
         }
     }
 
@@ -260,24 +256,5 @@ impl Drop for DraftTransaction<'_> {
             }
             layer.release();
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::Draft;
-
-    #[test]
-    fn apply_reports_whether_a_draft_was_staged() {
-        let draft = Draft::new(vec![1]);
-
-        assert!(!draft.apply(), "nothing staged yet");
-        assert_eq!(**draft.data_arc(), vec![1]);
-
-        draft.edit_draft(|data| data.push(2));
-
-        assert!(draft.apply(), "a staged draft gets committed");
-        assert_eq!(**draft.data_arc(), vec![1, 2]);
-        assert!(!draft.apply(), "the draft is gone once committed");
     }
 }

@@ -26,8 +26,7 @@
     "labels": {
       "proxyCount": "Proxy Count",
       "delayCheckReset": "بررسی تأخیر برای لغو ثابت",
-      "nodeCount": "{{count}} نود",
-      "groupBadge": "گروه"
+      "nodeCount": "{{count}} نود"
     },
     "tooltips": {
       "locate": "موقعیت",
@@ -38,8 +37,7 @@
       "delayCheckUrl": "آدرس بررسی تأخیر",
       "showBasic": "پراکسی پایه",
       "showDetail": "جزئیات پراکسی",
-      "filter": "فیلتر",
-      "jumpToGroup": "پرش به گروه"
+      "filter": "فیلتر"
     },
     "placeholders": {
       "delayCheckUrl": "آدرس بررسی تأخیر"

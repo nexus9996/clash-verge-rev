@@ -1,10 +1,9 @@
 import { Close, CropSquare, FilterNone, Minimize } from '@mui/icons-material'
 import { Box, IconButton } from '@mui/material'
-import { getCurrentWindow } from '@tauri-apps/api/window'
-import { type PointerEvent, useCallback, useEffect } from 'react'
+import { type PointerEvent, useCallback } from 'react'
 
+import { useWindowControls } from '@/hooks/use-window'
 import getSystem from '@/utils/get-system'
-import { startWindowDragging } from '@/utils/window-drag'
 
 const RESIZE_HANDLES = [
   { direction: 'North', position: 'north' },
@@ -17,7 +16,9 @@ const RESIZE_HANDLES = [
   { direction: 'NorthWest', position: 'north-west' },
 ] as const
 
-export const WindowResizeHandles = ({ maximized }: { maximized: boolean }) => {
+export const WindowResizeHandles = () => {
+  const { currentWindow, maximized } = useWindowControls()
+
   const startResizeDragging = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
       if (event.button !== 0) return
@@ -27,20 +28,24 @@ export const WindowResizeHandles = ({ maximized }: { maximized: boolean }) => {
       const handle = RESIZE_HANDLES.find((item) => item.direction === direction)
 
       if (handle) {
-        void getCurrentWindow()
+        void currentWindow
           .startResizeDragging(handle.direction)
           .catch((error) =>
             console.warn('[WindowResizeHandles] 调整窗口大小失败:', error),
           )
       }
     },
-    [],
+    [currentWindow],
   )
 
   if (getSystem() !== 'linux' || maximized) return null
 
   return (
-    <div className="window-resize-handles" aria-hidden="true">
+    <div
+      className="window-resize-handles"
+      data-tauri-drag-region="false"
+      aria-hidden="true"
+    >
       {RESIZE_HANDLES.map(({ direction, position }) => (
         <div
           key={direction}
@@ -53,51 +58,17 @@ export const WindowResizeHandles = ({ maximized }: { maximized: boolean }) => {
   )
 }
 
-export const WindowControls = ({
-  maximized,
-  setMaximized,
-}: {
-  maximized: boolean
-  setMaximized: (value: boolean) => void
-}) => {
+export const WindowControls = () => {
   const OS = getSystem()
+  const { maximized, minimize, close, toggleMaximize } = useWindowControls()
 
-  const close = useCallback(async () => {
-    // Delay one frame so the UI can clear :hover before the window hides.
-    await new Promise((resolve) => setTimeout(resolve, 20))
-    await getCurrentWindow().close()
-  }, [])
-
-  const minimize = useCallback(async () => {
-    // Delay one frame so the UI can clear :hover before the window hides.
-    await new Promise((resolve) => setTimeout(resolve, 10))
-    await getCurrentWindow().minimize()
-  }, [])
-
-  const toggleMaximize = useCallback(async () => {
-    const currentWindow = getCurrentWindow()
-    if (await currentWindow.isMaximized()) {
-      await currentWindow.unmaximize()
-      setMaximized(false)
-    } else {
-      await currentWindow.maximize()
-      setMaximized(true)
-    }
-  }, [setMaximized])
-
-  useEffect(() => {
-    getCurrentWindow().setMinimizable(true)
-  }, [])
+  // 通过前端对 tauri 窗口进行翻转全屏时会短暂地与系统图标重叠渲染。
+  // 这可能是上游缺陷，保险起见跨平台以窗口的最大化翻转为准。
 
   return (
     <Box
-      onMouseDown={startWindowDragging}
       sx={{
         display: 'flex',
-        justifyContent: OS === 'macos' ? 'flex-start' : 'flex-end',
-        width: '100%',
-        height: '100%',
-        px: 1,
         gap: 1,
         alignItems: 'center',
         '> button': {

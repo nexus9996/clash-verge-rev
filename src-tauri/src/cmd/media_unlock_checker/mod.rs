@@ -3,8 +3,6 @@ use reqwest::{Client, Proxy};
 use std::time::Duration;
 use tauri::{command, ipc::Channel};
 
-use crate::cmd::CmdResult;
-
 #[command]
 #[specta::specta]
 pub fn get_unlock_items() -> Vec<UnlockItem> {
@@ -19,6 +17,8 @@ async fn create_client() -> Result<Client, String> {
         .use_rustls_tls()
         .http1_only()
         .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+        .danger_accept_invalid_certs(true)
+        .danger_accept_invalid_hostnames(true)
         .tcp_keepalive(Duration::from_secs(60))
         .cookie_store(true)
         .proxy(proxy)
@@ -28,7 +28,7 @@ async fn create_client() -> Result<Client, String> {
 
 #[command]
 #[specta::specta]
-pub async fn check_media_unlock(on_complete: Channel<UnlockItem>) -> CmdResult<Vec<UnlockItem>> {
+pub async fn check_media_unlock(on_complete: Channel<UnlockItem>) -> Result<Vec<UnlockItem>, String> {
     let client = create_client().await?;
     Ok(clash_verge_media_unlock::check_media_unlock(&client, |item| {
         let _ = on_complete.send(item.clone());
@@ -38,9 +38,7 @@ pub async fn check_media_unlock(on_complete: Channel<UnlockItem>) -> CmdResult<V
 
 #[command]
 #[specta::specta]
-pub async fn check_media_unlock_item(name: String) -> CmdResult<UnlockItem> {
+pub async fn check_media_unlock_item(name: String) -> Result<UnlockItem, String> {
     let client = create_client().await?;
-    clash_verge_media_unlock::check_media_unlock_item(&client, &name)
-        .await
-        .map_err(Into::into)
+    clash_verge_media_unlock::check_media_unlock_item(&client, &name).await
 }

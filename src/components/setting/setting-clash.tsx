@@ -37,7 +37,7 @@ const SettingClash = ({ onError }: Props) => {
   const { t } = useTranslation()
 
   const { clash, version, mutateClash, patchClash } = useClash()
-  const { verge, mutateVerge, patchVerge } = useVerge()
+  const { verge, mutateVerge } = useVerge()
   const { current: currentProfile } = useProfiles()
   const dnsEnabled = currentProfile
     ? (verge?.profile_dns_settings?.[currentProfile.uid!]?.enabled ??
@@ -53,11 +53,6 @@ const SettingClash = ({ onError }: Props) => {
     'log-level': logLevel,
     'unified-delay': unifiedDelay,
   } = clash ?? {}
-
-  const ipv6Mode = verge?.ipv6_mode ?? (ipv6 ? 'on' : 'off')
-  const autoSupported = !isWIN
-  const selectedIpv6Mode =
-    ipv6Mode === 'auto' && !autoSupported ? (ipv6 ? 'on' : 'off') : ipv6Mode
 
   const [dnsConfirmation, setDnsConfirmation] = useState<{
     profileUid: string
@@ -161,7 +156,6 @@ const SettingClash = ({ onError }: Props) => {
       <HeaderConfiguration ref={corsRef} />
       <TunnelsViewer ref={tunnelRef} />
       <SettingItem
-        data-setting-target="settings.sections.clash.form.fields.allowLan"
         label={t('settings.sections.clash.form.fields.allowLan')}
         extra={
           <TooltipIcon
@@ -187,7 +181,6 @@ const SettingClash = ({ onError }: Props) => {
       </SettingItem>
 
       <SettingItem
-        data-setting-target="settings.sections.clash.form.fields.dnsOverwrite"
         label={t('settings.sections.clash.form.fields.dnsOverwrite')}
         extra={
           <>
@@ -210,56 +203,20 @@ const SettingClash = ({ onError }: Props) => {
         />
       </SettingItem>
 
-      <SettingItem
-        data-setting-target="settings.sections.clash.form.fields.ipv6"
-        label={t('settings.sections.clash.form.fields.ipv6')}
-        secondary={
-          selectedIpv6Mode === 'auto'
-            ? ipv6
-              ? t('settings.sections.clash.form.status.ipv6Auto.available')
-              : t('settings.sections.clash.form.status.ipv6Auto.ipv4Only')
-            : undefined
-        }
-        extra={
-          selectedIpv6Mode === 'auto' ? (
-            <TooltipIcon
-              title={t('settings.sections.clash.form.tooltips.ipv6Auto')}
-              sx={{ opacity: '0.7' }}
-            />
-          ) : undefined
-        }
-      >
+      <SettingItem label={t('settings.sections.clash.form.fields.ipv6')}>
         <GuardState
-          value={selectedIpv6Mode}
+          value={ipv6 ?? false}
+          valueProps="checked"
           onCatch={onError}
-          onFormat={(e: any) => e.target.value}
-          onChange={() => {}}
-          onGuard={async (value) => {
-            try {
-              await patchVerge({ ipv6_mode: value })
-            } catch (error) {
-              onError(error as Error)
-            }
-          }}
+          onFormat={onSwitchFormat}
+          onChange={(e) => onChangeData({ ipv6: e })}
+          onGuard={(e) => patchClash({ ipv6: e })}
         >
-          <Select size="small" sx={{ width: 100, '> div': { py: '7.5px' } }}>
-            <MenuItem value="off">
-              {t('settings.sections.clash.form.options.ipv6Mode.off')}
-            </MenuItem>
-            <MenuItem value="on">
-              {t('settings.sections.clash.form.options.ipv6Mode.on')}
-            </MenuItem>
-            {autoSupported && (
-              <MenuItem value="auto">
-                {t('settings.sections.clash.form.options.ipv6Mode.auto')}
-              </MenuItem>
-            )}
-          </Select>
+          <Switch edge="end" />
         </GuardState>
       </SettingItem>
 
       <SettingItem
-        data-setting-target="settings.sections.clash.form.fields.unifiedDelay"
         label={t('settings.sections.clash.form.fields.unifiedDelay')}
         extra={
           <TooltipIcon
@@ -281,7 +238,6 @@ const SettingClash = ({ onError }: Props) => {
       </SettingItem>
 
       <SettingItem
-        data-setting-target="settings.sections.clash.form.fields.logLevel"
         label={t('settings.sections.clash.form.fields.logLevel')}
         extra={
           <TooltipIcon
@@ -323,10 +279,7 @@ const SettingClash = ({ onError }: Props) => {
         </GuardState>
       </SettingItem>
 
-      <SettingItem
-        data-setting-target="settings.sections.clash.form.fields.portConfig"
-        label={t('settings.sections.clash.form.fields.portConfig')}
-      >
+      <SettingItem label={t('settings.sections.clash.form.fields.portConfig')}>
         <TextField
           autoComplete="new-password"
           disabled={false}
@@ -341,7 +294,6 @@ const SettingClash = ({ onError }: Props) => {
       </SettingItem>
 
       <SettingItem
-        data-setting-target="settings.sections.clash.form.fields.external"
         label={t('settings.sections.clash.form.fields.external')}
         extra={
           <TooltipIcon
@@ -359,13 +311,11 @@ const SettingClash = ({ onError }: Props) => {
       />
 
       <SettingItem
-        data-setting-target="settings.sections.clash.form.fields.webUI"
         onClick={() => webRef.current?.open()}
         label={t('settings.sections.clash.form.fields.webUI')}
       />
 
       <SettingItem
-        data-setting-target="settings.sections.clash.form.fields.clashCore"
         label={t('settings.sections.clash.form.fields.clashCore')}
         extra={
           <TooltipIcon
@@ -379,7 +329,6 @@ const SettingClash = ({ onError }: Props) => {
 
       {isWIN && (
         <SettingItem
-          data-setting-target="settings.sections.clash.form.fields.openUwpTool"
           onClick={invoke_uwp_tool}
           label={t('settings.sections.clash.form.fields.openUwpTool')}
           extra={
@@ -392,13 +341,11 @@ const SettingClash = ({ onError }: Props) => {
       )}
 
       <SettingItem
-        data-setting-target="settings.sections.clash.form.fields.updateGeoData"
         onClick={onUpdateGeo}
         label={t('settings.sections.clash.form.fields.updateGeoData')}
       />
 
       <SettingItem
-        data-setting-target="settings.sections.clash.form.fields.tunnels.title"
         label={t('settings.sections.clash.form.fields.tunnels.title')}
         onClick={() => tunnelRef.current?.open()}
       />

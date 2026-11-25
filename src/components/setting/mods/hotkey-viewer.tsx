@@ -1,13 +1,11 @@
 import { styled, Typography } from '@mui/material'
 import { useLockFn } from 'ahooks'
-import { forwardRef, useState } from 'react'
+import { forwardRef, useImperativeHandle, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BaseDialog, DialogRef, Switch } from '@/components/base'
 import { useVerge } from '@/hooks/use-verge'
 import { showNotice } from '@/services/notice-service'
-
-import { useSettingDialog } from '../settings-search-context'
 
 import { HotkeyInput } from './hotkey-input'
 
@@ -53,7 +51,7 @@ export const HotkeyViewer = forwardRef<DialogRef>((props, ref) => {
     verge?.enable_global_hotkey ?? true,
   )
 
-  useSettingDialog(ref, 'hotkey-viewer', open, () => ({
+  useImperativeHandle(ref, () => ({
     open: () => {
       setOpen(true)
 
@@ -113,11 +111,7 @@ export const HotkeyViewer = forwardRef<DialogRef>((props, ref) => {
       onCancel={() => setOpen(false)}
       onOk={onSave}
     >
-      <span data-settings-dialog="hotkey-viewer" />
-      <ItemWrapper
-        data-setting-target="settings.modals.hotkey.toggles.enableGlobal"
-        style={{ marginBottom: 16 }}
-      >
+      <ItemWrapper style={{ marginBottom: 16 }}>
         <Typography>
           {t('settings.modals.hotkey.toggles.enableGlobal')}
         </Typography>
@@ -129,7 +123,7 @@ export const HotkeyViewer = forwardRef<DialogRef>((props, ref) => {
       </ItemWrapper>
 
       {HOTKEY_FUNC.map((func) => (
-        <ItemWrapper key={func} data-setting-target={HOTKEY_FUNC_LABELS[func]}>
+        <ItemWrapper key={func}>
           <Typography>{t(HOTKEY_FUNC_LABELS[func])}</Typography>
           <HotkeyInput
             value={hotkeyMap[func] ?? []}

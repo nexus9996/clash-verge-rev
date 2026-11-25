@@ -140,8 +140,7 @@
           "networkInterface": "Network Interface",
           "unifiedDelay": "When unified delay is turned on, two delay tests will be performed to eliminate the delay differences between different types of nodes caused by connection handshakes, etc",
           "logLevel": "This parameter is valid only for kernel log files in the log directory Service folder",
-          "openUwpTool": "Since Windows 8, UWP apps (such as Microsoft Store) are restricted from directly accessing local host network services, and this tool can be used to bypass this restriction",
-          "ipv6Auto": "Enable IPv6 only while the physical network provides it; re-checked automatically when the network changes"
+          "openUwpTool": "Since Windows 8, UWP apps (such as Microsoft Store) are restricted from directly accessing local host network services, and this tool can be used to bypass this restriction"
         },
         "options": {
           "logLevel": {
@@ -150,17 +149,6 @@
             "warning": "Warn",
             "error": "Error",
             "silent": "Silent"
-          },
-          "ipv6Mode": {
-            "off": "Off",
-            "on": "On",
-            "auto": "Auto"
-          }
-        },
-        "status": {
-          "ipv6Auto": {
-            "available": "IPv6 available",
-            "ipv4Only": "IPv4-only network"
           }
         }
       }
@@ -221,22 +209,6 @@
       },
       "theme": {
         "title": "Theme Setting",
-        "presets": {
-          "title": "Presets",
-          "names": {
-            "default": "Default",
-            "ocean": "Ocean",
-            "indigo": "Indigo",
-            "sunset": "Sunset",
-            "lavender": "Lavender",
-            "monochrome": "Monochrome"
-          }
-        },
-        "editModes": {
-          "title": "Edit Theme",
-          "light": "Light",
-          "dark": "Dark"
-        },
         "fields": {
           "primaryColor": "Primary Color",
           "secondaryColor": "Secondary Color",
@@ -246,8 +218,6 @@
           "warningColor": "Warning Color",
           "errorColor": "Error Color",
           "successColor": "Success Color",
-          "background": "Background Color",
-          "paperBackground": "Paper Color",
           "fontFamily": "Font Family",
           "cssInjection": "CSS Injection"
         },
@@ -261,7 +231,7 @@
       "layout": {
         "title": "Layout Setting",
         "fields": {
-          "enableSystemTitlebar": "Enable System Titlebar",
+          "preferSystemTitlebar": "Prefer System Titlebar",
           "trafficGraph": "Traffic Graph",
           "memoryUsage": "Core Usage",
           "proxyGroupIcon": "Proxy Group Icon",
@@ -281,7 +251,6 @@
           "pauseRenderTrafficStatsOnBlur": "Pause rendering traffic statistics when blurred"
         },
         "tooltips": {
-          "enableSystemTitlebar": "Use the system's native title bar instead of the built-in custom title bar (restart required on Linux).",
           "hoverNavigator": "Automatically scroll to the corresponding proxy group when hovering over alphabet letters",
           "hoverNavigatorDelay": "Delay before auto scrolling when hovering, in milliseconds"
         },
@@ -336,26 +305,6 @@
       "variants": {
         "release": "Release Version",
         "alpha": "Alpha Version"
-      },
-      "actions": {
-        "manageVersions": "Manage Versions"
-      },
-      "versions": {
-        "title": "Mihomo Versions",
-        "description": "Install a specific Mihomo version. If the new core fails to start, the app restores the previous one automatically.",
-        "channel": "Channel: {{channel}}",
-        "loading": "Loading versions...",
-        "empty": "No versions available",
-        "latest": "Latest",
-        "installed": "Installed",
-        "installedAction": "Installed",
-        "install": "Install",
-        "upgradeLatest": "Upgrade to Latest",
-        "messages": {
-          "installed": "Updated to {{version}}",
-          "alreadyInstalled": "Already at {{version}}",
-          "alreadyLatest": "Already at the latest version"
-        }
       }
     },
     "liteMode": {
@@ -469,15 +418,13 @@
         "autoDelayDetection": "Auto Delay Detection",
         "autoDelayDetectionInterval": "Auto Delay Detection Interval",
         "defaultLatencyTest": "Default Latency Test",
-        "defaultLatencyTimeout": "Default Latency Timeout",
-        "updateChannel": "Update Channel"
+        "defaultLatencyTimeout": "Default Latency Timeout"
       },
       "tooltips": {
         "autoCloseConnections": "Terminate established connections when the proxy group selection or proxy mode changes",
         "enableBuiltinEnhanced": "Compatibility handling for the configuration file",
         "autoDelayDetection": "Periodically test the current node latency in the background",
-        "defaultLatencyTest": "Used for HTTP client request testing only and won't make a difference to the configuration file",
-        "updateChannel": "Alpha follows prerelease builds and may be unstable"
+        "defaultLatencyTest": "Used for HTTP client request testing only and won't make a difference to the configuration file"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -486,10 +433,6 @@
         "autoLogClean": {
           "never": "Never Clean",
           "retainDays": "Retain {{n}} Days"
-        },
-        "updateChannel": {
-          "stable": "Stable",
-          "alpha": "Alpha"
         }
       }
     },
@@ -509,12 +452,6 @@
         "important": "Important",
         "warning": "Warning",
         "caution": "Caution"
-      },
-      "restart": {
-        "title": "Update Installed",
-        "body": "Restart the app to apply the new version.",
-        "restartNow": "Restart Now",
-        "restartLater": "Later"
       }
     },
     "sysproxy": {
@@ -530,7 +467,7 @@
         "usePacMode": "Use PAC Mode",
         "proxyGuard": "Proxy Guard",
         "guardDuration": "Guard Duration",
-        "alwaysUseDefaultBypass": "Include default bypass list",
+        "alwaysUseDefaultBypass": "Always use Default Bypass",
         "enableBypassCheck": "Validate Proxy Bypass Format",
         "proxyBypass": "Proxy Bypass Settings: ",
         "bypass": "Bypass: ",
@@ -760,8 +697,7 @@
         "permissionRejectedReason": "The service could not confirm that the core files and folders are safe to run with elevated privileges.",
         "permissionRepairGuide": "View repair instructions",
         "sidecarFallback": "The service could not start the core. Switched to Sidecar mode; the service remains unavailable.",
-        "uninstallSuccess": "Service Uninstalled Successfully",
-        "coreVersionDrift": "The service is running kernel {{running}} while the bundled kernel is {{bundled}}. Open Settings → Mihomo Versions to install {{bundled}}, or reinstall/repair the service and restart the core."
+        "uninstallSuccess": "Service Uninstalled Successfully"
       },
       "updater": {
         "withClashProxySuccess": "Update with Clash proxy successfully",
@@ -778,12 +714,5 @@
       "installing": "Installing Service...",
       "uninstalling": "Uninstalling Service..."
     }
-  },
-  "search": {
-    "placeholder": "Search settings",
-    "clear": "Clear search",
-    "back": "Back to results",
-    "results": "Search results",
-    "empty": "No settings found"
   }
 }
