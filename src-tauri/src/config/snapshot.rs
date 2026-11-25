@@ -25,9 +25,24 @@ async fn capture_files(paths: &[PathBuf]) -> Result<Vec<FileSnapshot>> {
     Ok(snapshots)
 }
 
-pub(crate) async fn capture_config_files() -> Result<Vec<FileSnapshot>> {
-    let runtime_path = dirs::app_home_dir()?.join(crate::constants::files::RUNTIME_CONFIG);
-    capture_files(&[dirs::clash_path()?, dirs::verge_path()?, runtime_path]).await
+/// Captures only the configuration layers a transaction can change.
+#[tracing::instrument(name = "capture_config_files", skip_all, level = "debug")]
+pub(crate) async fn capture_config_files(
+    include_clash: bool,
+    include_verge: bool,
+    include_runtime: bool,
+) -> Result<Vec<FileSnapshot>> {
+    let mut paths = Vec::with_capacity(3);
+    if include_clash {
+        paths.push(dirs::clash_path()?);
+    }
+    if include_verge {
+        paths.push(dirs::verge_path()?);
+    }
+    if include_runtime {
+        paths.push(dirs::app_home_dir()?.join(crate::constants::files::RUNTIME_CONFIG));
+    }
+    capture_files(&paths).await
 }
 
 pub(crate) async fn restore_files(snapshots: &[FileSnapshot]) -> Result<()> {

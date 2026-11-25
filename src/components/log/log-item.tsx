@@ -36,7 +36,7 @@ const Item = styled(Box)(({ theme: { palette, typography } }) => ({
     overflowWrap: 'anywhere',
   },
   '& .highlight': {
-    backgroundColor: palette.mode === 'dark' ? '#ffeb3b40' : '#ffeb3b90',
+    backgroundColor: 'var(--log-highlight)',
     borderRadius: 2,
     padding: '0 2px',
   },

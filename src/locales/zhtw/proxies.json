@@ -26,7 +26,8 @@
     "labels": {
       "proxyCount": "節點數量",
       "delayCheckReset": "測試延遲以取消固定",
-      "nodeCount": "{{count}} 個節點"
+      "nodeCount": "{{count}} 個節點",
+      "groupBadge": "組"
     },
     "tooltips": {
       "locate": "目前節點",
@@ -37,7 +38,8 @@
       "delayCheckUrl": "延遲測試網址",
       "showBasic": "隱藏節點細節",
       "showDetail": "展示節點細節",
-      "filter": "篩選節點"
+      "filter": "篩選節點",
+      "jumpToGroup": "跳轉到代理組"
     },
     "placeholders": {
       "delayCheckUrl": "延遲測試網址"

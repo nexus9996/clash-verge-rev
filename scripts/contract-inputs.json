@@ -11,13 +11,12 @@
     "src/services/bindings.ts",
     "scripts/gen-contract.mjs",
     "scripts/check-contract-changes.mjs",
-    "biome.json",
-    "biome.jsonc",
+    ".oxlintrc.json",
+    ".oxfmtrc.json",
     "package.json",
-    "pnpm-lock.yaml",
-    "pnpm-workspace.yaml",
+    "bun.lock",
     "scripts/contract-inputs.json",
-    ".github/workflows/contract-parity.yml",
+    ".github/workflows/frontend-check.yml",
     ".husky/pre-push"
   ]
 }

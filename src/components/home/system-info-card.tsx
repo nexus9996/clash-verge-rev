@@ -7,10 +7,10 @@ import {
   PauseCircleOutlined,
 } from '@mui/icons-material'
 import { Typography, Stack, Divider, Chip, IconButton } from '@mui/material'
+import { useNavigate } from 'react-router'
 import { useLockFn } from 'ahooks'
 import { useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router'
 
 import { useServiceInstaller } from '@/hooks/use-service-installer'
 import { useSystemState } from '@/hooks/use-system-state'
@@ -71,7 +71,7 @@ export const SystemInfoCard = () => {
   }, [verge?.auto_check_update, triggerCheckUpdate])
 
   const goToSettings = useCallback(() => {
-    navigate('/settings')
+    void navigate('/settings')
   }, [navigate])
 
   const toggleAutoLaunch = useCallback(async () => {
@@ -94,7 +94,7 @@ export const SystemInfoCard = () => {
     try {
       const result = await triggerCheckUpdate()
       const info = result.data
-      if (!info?.available) {
+      if (!info) {
         showNotice.success(
           'settings.components.verge.advanced.notifications.latestVersion',
         )

@@ -140,7 +140,8 @@
           "networkInterface": "Interface de Rede",
           "unifiedDelay": "Com o atraso unificado ativado, dois testes de atraso são realizados para eliminar as diferenças de atraso entre diferentes tipos de nós causadas por handshakes de conexão, etc.",
           "logLevel": "Este parâmetro é válido apenas para os arquivos de log do núcleo na pasta Service do diretório de logs",
-          "openUwpTool": "Desde o Windows 8, os aplicativos UWP (como a Microsoft Store) são impedidos de acessar diretamente os serviços de rede do host local, e esta ferramenta pode ser usada para contornar essa restrição"
+          "openUwpTool": "Desde o Windows 8, os aplicativos UWP (como a Microsoft Store) são impedidos de acessar diretamente os serviços de rede do host local, e esta ferramenta pode ser usada para contornar essa restrição",
+          "ipv6Auto": "Enable IPv6 only while the physical network provides it; re-checked automatically when the network changes"
         },
         "options": {
           "logLevel": {
@@ -149,6 +150,17 @@
             "warning": "Aviso",
             "error": "Erro",
             "silent": "Silencioso"
+          },
+          "ipv6Mode": {
+            "off": "Off",
+            "on": "On",
+            "auto": "Auto"
+          }
+        },
+        "status": {
+          "ipv6Auto": {
+            "available": "IPv6 available",
+            "ipv4Only": "IPv4-only network"
           }
         }
       }
@@ -209,6 +221,22 @@
       },
       "theme": {
         "title": "Configurações do Tema",
+        "presets": {
+          "title": "Predefinições",
+          "names": {
+            "default": "Padrão",
+            "ocean": "Oceano",
+            "indigo": "Índigo",
+            "sunset": "Pôr do sol",
+            "lavender": "Lavanda",
+            "monochrome": "Monocromático"
+          }
+        },
+        "editModes": {
+          "title": "Editar tema",
+          "light": "Claro",
+          "dark": "Escuro"
+        },
         "fields": {
           "primaryColor": "Cor Primária",
           "secondaryColor": "Cor Secundária",
@@ -218,6 +246,8 @@
           "warningColor": "Cor de Aviso",
           "errorColor": "Cor de Erro",
           "successColor": "Cor de Sucesso",
+          "background": "Cor de fundo",
+          "paperBackground": "Cor dos cartões",
           "fontFamily": "Família da Fonte",
           "cssInjection": "Injeção de CSS"
         },
@@ -231,7 +261,7 @@
       "layout": {
         "title": "Configurações de Layout",
         "fields": {
-          "preferSystemTitlebar": "Preferir Barra de Título do Sistema",
+          "enableSystemTitlebar": "Ativar barra de título do sistema",
           "trafficGraph": "Gráfico de Tráfego",
           "memoryUsage": "Uso do Núcleo",
           "proxyGroupIcon": "Ícone do Grupo de Proxy",
@@ -251,6 +281,7 @@
           "pauseRenderTrafficStatsOnBlur": "Pausar a renderização das estatísticas de tráfego quando sem foco"
         },
         "tooltips": {
+          "enableSystemTitlebar": "Usar a barra de título nativa do sistema em vez da barra de título personalizada integrada (é necessário reiniciar no Linux).",
           "hoverNavigator": "Rola automaticamente até o grupo de proxy correspondente ao passar o mouse sobre as letras do alfabeto",
           "hoverNavigatorDelay": "Atraso antes da rolagem automática ao passar o mouse, em milissegundos"
         },
@@ -305,6 +336,26 @@
       "variants": {
         "release": "Versão Release",
         "alpha": "Versão Alpha"
+      },
+      "actions": {
+        "manageVersions": "Gerenciar versões"
+      },
+      "versions": {
+        "title": "Versões do Mihomo",
+        "description": "Instale uma versão específica do Mihomo. Se o novo núcleo não iniciar, o app restaura automaticamente a versão anterior.",
+        "channel": "Canal: {{channel}}",
+        "loading": "Carregando versões...",
+        "empty": "Nenhuma versão disponível",
+        "latest": "Mais recente",
+        "installed": "Instalada",
+        "installedAction": "Instalada",
+        "install": "Instalar",
+        "upgradeLatest": "Atualizar para a mais recente",
+        "messages": {
+          "installed": "Atualizado para {{version}}",
+          "alreadyInstalled": "Já está em {{version}}",
+          "alreadyLatest": "Já é a versão mais recente"
+        }
       }
     },
     "liteMode": {
@@ -418,13 +469,15 @@
         "autoDelayDetection": "Detecção Automática de Atraso",
         "autoDelayDetectionInterval": "Intervalo da Detecção Automática de Atraso",
         "defaultLatencyTest": "Teste de Latência Padrão",
-        "defaultLatencyTimeout": "Tempo Limite de Latência Padrão"
+        "defaultLatencyTimeout": "Tempo Limite de Latência Padrão",
+        "updateChannel": "Canal de atualização"
       },
       "tooltips": {
         "autoCloseConnections": "Encerra as conexões estabelecidas quando a seleção do grupo de proxy ou o modo de proxy muda",
         "enableBuiltinEnhanced": "Tratamento de compatibilidade para o arquivo de configuração",
         "autoDelayDetection": "Testa periodicamente a latência do nó atual em segundo plano",
-        "defaultLatencyTest": "Usado apenas para testes de requisição do cliente HTTP e não afeta o arquivo de configuração"
+        "defaultLatencyTest": "Usado apenas para testes de requisição do cliente HTTP e não afeta o arquivo de configuração",
+        "updateChannel": "Alfa segue compilações de pré-visualização e pode ser instável"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -433,6 +486,10 @@
         "autoLogClean": {
           "never": "Nunca Limpar",
           "retainDays": "Manter {{n}} Dias"
+        },
+        "updateChannel": {
+          "stable": "Estável",
+          "alpha": "Alfa"
         }
       }
     },
@@ -452,6 +509,12 @@
         "important": "Importante",
         "warning": "Aviso",
         "caution": "Cuidado"
+      },
+      "restart": {
+        "title": "Atualização instalada",
+        "body": "Reinicie o aplicativo para aplicar a nova versão.",
+        "restartNow": "Reiniciar agora",
+        "restartLater": "Mais tarde"
       }
     },
     "sysproxy": {
@@ -697,7 +760,8 @@
         "permissionRejectedReason": "O serviço não conseguiu confirmar que os arquivos e pastas do núcleo são seguros para execução com privilégios elevados.",
         "permissionRepairGuide": "Ver instruções de reparo",
         "sidecarFallback": "O serviço não conseguiu iniciar o núcleo. Mudou para o modo Sidecar; o serviço continua indisponível.",
-        "uninstallSuccess": "Serviço Desinstalado com Sucesso"
+        "uninstallSuccess": "Serviço Desinstalado com Sucesso",
+        "coreVersionDrift": "O modo serviço está executando o núcleo {{running}}, mas o núcleo incluído é {{bundled}}. Abra Configurações → Versões do Mihomo para instalar {{bundled}}, ou reinstale/repare o serviço e reinicie o núcleo."
       },
       "updater": {
         "withClashProxySuccess": "Atualização com o proxy do Clash concluída com sucesso",
@@ -714,5 +778,12 @@
       "installing": "Instalando o Serviço...",
       "uninstalling": "Desinstalando o Serviço..."
     }
+  },
+  "search": {
+    "placeholder": "Pesquisar configurações",
+    "clear": "Limpar pesquisa",
+    "back": "Voltar aos resultados",
+    "results": "Resultados da pesquisa",
+    "empty": "Nenhuma configuração encontrada"
   }
 }

@@ -4,6 +4,7 @@ import {
   VerticalAlignTopRounded,
 } from '@mui/icons-material'
 import {
+  Autocomplete,
   Box,
   Button,
   Dialog,
@@ -27,7 +28,8 @@ import {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { BaseSearchBox, MonacoEditor } from '@/components/base'
+import { BaseSearchBox } from '@/components/base'
+import { MonacoEditor } from '@/components/base/monaco-editor'
 import { ProxyItem } from '@/components/profile/proxy-item'
 import { readProfileFile, saveProfileFile } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
@@ -81,6 +83,9 @@ export const ProxiesEditorViewer = (props: Props) => {
   const [match, setMatch] = useState(() => (_: string) => true)
   const [proxyUri, setProxyUri] = useState<string>('')
 
+  const [groupList, setGroupList] = useState<string[]>([])
+  const [targetGroups, setTargetGroups] = useState<string[]>([])
+  const [proxyGroups, setProxyGroups] = useState<Record<string, string[]>>({})
   const [proxyList, setProxyList] = useState<IProxyConfig[]>([])
   const [prependSeq, setPrependSeq] = useState<IProxyConfig[]>([])
   const [appendSeq, setAppendSeq] = useState<IProxyConfig[]>([])
@@ -228,9 +233,16 @@ export const ProxiesEditorViewer = (props: Props) => {
 
     const originProxiesObj = parseYamlSafe(data) as {
       proxies: IProxyConfig[]
+      'proxy-groups'?: IProxyGroupConfig[]
     } | null
 
     setProxyList(originProxiesObj?.proxies || [])
+    const groups = originProxiesObj?.['proxy-groups'] ?? []
+    setGroupList(groups.map((group) => group.name))
+    const firstSelector = groups.find((group) =>
+      ['select', 'selector'].includes(group.type.toLowerCase()),
+    )
+    setTargetGroups(firstSelector ? [firstSelector.name] : [])
   }, [profileUid])
 
   const fetchContent = useCallback(async () => {
@@ -249,6 +261,7 @@ export const ProxiesEditorViewer = (props: Props) => {
     setPrependSeq(obj?.prepend || [])
     setAppendSeq(obj?.append || [])
     setDeleteSeq(obj?.delete || [])
+    setProxyGroups(obj?.groups || {})
     hasLoadedSeqConfigRef.current = true
   }, [property])
 
@@ -269,6 +282,7 @@ export const ProxiesEditorViewer = (props: Props) => {
       setPrependSeq(obj?.prepend ?? [])
       setAppendSeq(obj?.append ?? [])
       setDeleteSeq(obj?.delete ?? [])
+      setProxyGroups(obj?.groups ?? {})
     })
     setVisualization(true)
   }
@@ -289,7 +303,16 @@ export const ProxiesEditorViewer = (props: Props) => {
       try {
         setCurrData(
           yaml.dump(
-            { prepend: prependSeq, append: appendSeq, delete: deleteSeq },
+            {
+              prepend: prependSeq,
+              append: appendSeq,
+              delete: deleteSeq,
+              groups: Object.fromEntries(
+                [...prependSeq, ...appendSeq]
+                  .filter((proxy) => Object.hasOwn(proxyGroups, proxy.name))
+                  .map((proxy) => [proxy.name, proxyGroups[proxy.name]]),
+              ),
+            },
             { forceQuotes: true },
           ),
         )
@@ -313,7 +336,7 @@ export const ProxiesEditorViewer = (props: Props) => {
         clearTimeout(timeoutId)
       }
     }
-  }, [prependSeq, appendSeq, deleteSeq])
+  }, [prependSeq, appendSeq, deleteSeq, proxyGroups])
 
   useEffect(() => {
     if (!open) return
@@ -404,6 +427,24 @@ export const ProxiesEditorViewer = (props: Props) => {
                     onChange={(e) => setProxyUri(e.target.value)}
                   />
                 </Item>
+                <Item>
+                  <Autocomplete
+                    multiple
+                    fullWidth
+                    options={groupList}
+                    value={targetGroups}
+                    onChange={(_, value) => setTargetGroups(value)}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label={t(
+                          'profiles.modals.proxiesEditor.fields.targetGroups',
+                        )}
+                        size="small"
+                      />
+                    )}
+                  />
+                </Item>
               </Box>
               <Item>
                 <Button
@@ -413,6 +454,12 @@ export const ProxiesEditorViewer = (props: Props) => {
                   onClick={() => {
                     handleParseAsync((proxies) => {
                       setPrependSeq((prev) => [...proxies, ...prev])
+                      setProxyGroups((prev) => ({
+                        ...prev,
+                        ...Object.fromEntries(
+                          proxies.map((proxy) => [proxy.name, targetGroups]),
+                        ),
+                      }))
                     })
                   }}
                 >
@@ -427,6 +474,12 @@ export const ProxiesEditorViewer = (props: Props) => {
                   onClick={() => {
                     handleParseAsync((proxies) => {
                       setAppendSeq((prev) => [...prev, ...proxies])
+                      setProxyGroups((prev) => ({
+                        ...prev,
+                        ...Object.fromEntries(
+                          proxies.map((proxy) => [proxy.name, targetGroups]),
+                        ),
+                      }))
                     })
                   }}
                 >

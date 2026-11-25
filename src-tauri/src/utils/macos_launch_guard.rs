@@ -19,14 +19,6 @@ pub enum LaunchRejectionReason {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MoveDecision {
-    SystemApplications,
-    UserApplications,
-    ConfirmReplacement,
-    ManualInstructions,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LaunchDisposition {
     Continue,
     Exit,
@@ -166,22 +158,6 @@ fn current_user_home() -> anyhow::Result<PathBuf> {
     )
 }
 
-pub const fn move_decision(
-    translocated: bool,
-    system_applications_writable: bool,
-    target_exists: bool,
-) -> MoveDecision {
-    if translocated {
-        MoveDecision::ManualInstructions
-    } else if target_exists {
-        MoveDecision::ConfirmReplacement
-    } else if system_applications_writable {
-        MoveDecision::SystemApplications
-    } else {
-        MoveDecision::UserApplications
-    }
-}
-
 pub fn enforce_before_initialization() -> LaunchDisposition {
     clash_verge_i18n::sync_locale(None);
 
@@ -225,14 +201,17 @@ pub fn enforce_before_initialization() -> LaunchDisposition {
     }
 }
 
-fn move_and_relaunch(bundle: &Path, home: &Path) -> LaunchDisposition {
-    let system_root = Path::new("/Applications");
-    let system_writable = path_is_writable(system_root);
-    let destination_root = if system_writable {
-        system_root.to_path_buf()
+fn move_destination_root(system_applications: &Path, home: &Path, system_writable: bool) -> PathBuf {
+    if system_writable {
+        system_applications.to_path_buf()
     } else {
         home.join("Applications")
-    };
+    }
+}
+
+fn move_and_relaunch(bundle: &Path, home: &Path) -> LaunchDisposition {
+    let system_root = Path::new("/Applications");
+    let destination_root = move_destination_root(system_root, home, path_is_writable(system_root));
     let Some(bundle_name) = bundle.file_name() else {
         show_message(&clash_verge_i18n::t!("launchGuard.bundleNameError"));
         return LaunchDisposition::Exit;
@@ -388,8 +367,8 @@ fn escape_osascript(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        LaunchLocation, MoveDecision, activate_staged_bundle, current_user_home, evaluate_install_location_with_roots,
-        move_decision,
+        LaunchLocation, activate_staged_bundle, current_user_home, evaluate_install_location_with_roots,
+        move_destination_root,
     };
     use std::{ffi::CStr, os::unix::ffi::OsStrExt as _};
 
@@ -536,10 +515,16 @@ mod tests {
     }
 
     #[test]
-    fn mover_decision_prefers_system_then_user_and_never_moves_translocation() {
-        assert_eq!(move_decision(false, true, false), MoveDecision::SystemApplications);
-        assert_eq!(move_decision(false, false, false), MoveDecision::UserApplications);
-        assert_eq!(move_decision(true, true, false), MoveDecision::ManualInstructions);
-        assert_eq!(move_decision(false, true, true), MoveDecision::ConfirmReplacement);
+    fn move_destination_root_prefers_system_applications_then_user_home() {
+        let system = std::path::Path::new("/Applications");
+        let home = std::path::Path::new("/Users/test");
+        assert_eq!(
+            move_destination_root(system, home, true),
+            std::path::Path::new("/Applications")
+        );
+        assert_eq!(
+            move_destination_root(system, home, false),
+            std::path::Path::new("/Users/test/Applications")
+        );
     }
 }

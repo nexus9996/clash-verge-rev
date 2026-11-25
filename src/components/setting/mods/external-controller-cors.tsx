@@ -1,7 +1,15 @@
 import { Delete as DeleteIcon } from '@mui/icons-material'
-import { Box, Button, Divider, List, ListItem, TextField } from '@mui/material'
+import {
+  Box,
+  Button,
+  Divider,
+  List,
+  ListItem,
+  TextField,
+  type Theme,
+} from '@mui/material'
 import { useLockFn, useRequest } from 'ahooks'
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BaseDialog, Switch } from '@/components/base'
@@ -9,6 +17,8 @@ import { useClash } from '@/hooks/use-clash'
 import { restartCore } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'
+
+import { useSettingDialog } from '../settings-search-context'
 
 // Development origins must never be persisted into production configuration.
 const DEV_URLS = [
@@ -41,23 +51,23 @@ const buttonStyle = {
   },
 }
 
-const addButtonStyle = {
+const addButtonStyle = (theme: Theme) => ({
   ...buttonStyle,
-  backgroundColor: '#4CAF50',
-  color: 'white',
+  backgroundColor: theme.palette.success.main,
+  color: theme.palette.success.contrastText,
   '&:hover': {
-    backgroundColor: '#388E3C',
+    backgroundColor: theme.palette.success.dark,
   },
-}
+})
 
-const deleteButtonStyle = {
+const deleteButtonStyle = (theme: Theme) => ({
   ...buttonStyle,
-  backgroundColor: '#FF5252',
-  color: 'white',
+  backgroundColor: theme.palette.error.main,
+  color: theme.palette.error.contrastText,
   '&:hover': {
-    backgroundColor: '#D32F2F',
+    backgroundColor: theme.palette.error.dark,
   },
-}
+})
 
 interface ClashHeaderConfigingRef {
   open: () => void
@@ -154,7 +164,7 @@ export const HeaderConfiguration = forwardRef<ClashHeaderConfigingRef>(
       },
     )
 
-    useImperativeHandle(ref, () => ({
+    useSettingDialog(ref, 'external-controller-cors', open, () => ({
       open: () => {
         const cors = clash?.['external-controller-cors']
         const origins = cors?.['allow-origins'] ?? []
@@ -186,8 +196,12 @@ export const HeaderConfiguration = forwardRef<ClashHeaderConfigingRef>(
         onCancel={() => setOpen(false)}
         onOk={handleSave}
       >
+        <span data-settings-dialog="external-controller-cors" />
         <List sx={{ width: '90%', padding: 2 }}>
-          <ListItem sx={{ padding: '8px 0' }}>
+          <ListItem
+            data-setting-target="settings.sections.externalCors.fields.allowPrivateNetwork"
+            sx={{ padding: '8px 0' }}
+          >
             <Box
               sx={{
                 display: 'flex',
@@ -214,7 +228,10 @@ export const HeaderConfiguration = forwardRef<ClashHeaderConfigingRef>(
 
           <Divider sx={{ my: 2 }} />
 
-          <ListItem sx={{ padding: '8px 0' }}>
+          <ListItem
+            data-setting-target="settings.sections.externalCors.fields.allowedOrigins"
+            sx={{ padding: '8px 0' }}
+          >
             <div style={{ width: '100%' }}>
               <div style={{ marginBottom: 8, fontWeight: 'bold' }}>
                 {t('settings.sections.externalCors.fields.allowedOrigins')}
@@ -252,6 +269,7 @@ export const HeaderConfiguration = forwardRef<ClashHeaderConfigingRef>(
                 </div>
               ))}
               <Button
+                data-setting-target="settings.sections.externalCors.actions.add"
                 variant="contained"
                 size="small"
                 onClick={handleAddOrigin}
@@ -260,22 +278,26 @@ export const HeaderConfiguration = forwardRef<ClashHeaderConfigingRef>(
                 {t('settings.sections.externalCors.actions.add')}
               </Button>
 
-              <div
-                style={{
-                  marginTop: 12,
-                  padding: 8,
-                  backgroundColor: '#f5f5f5',
-                  borderRadius: 4,
+              <Box
+                sx={{
+                  mt: 1.5,
+                  p: 1,
+                  bgcolor: 'action.hover',
+                  borderRadius: 1,
                 }}
               >
-                <div
-                  style={{ color: '#666', fontSize: 12, fontStyle: 'italic' }}
+                <Box
+                  sx={{
+                    color: 'text.secondary',
+                    fontSize: 12,
+                    fontStyle: 'italic',
+                  }}
                 >
                   {t('settings.sections.externalCors.messages.alwaysIncluded', {
                     urls: DEV_URLS.join(', '),
                   })}
-                </div>
-              </div>
+                </Box>
+              </Box>
             </div>
           </ListItem>
         </List>

@@ -13,6 +13,7 @@ pub struct ProxyViewInput {
 }
 
 /// The providers a group draws from (Mihomo order) and its `exclude-type` entries.
+#[derive(Clone)]
 pub struct GroupScope {
     pub providers: Vec<String>,
     pub exclude_types: Vec<String>,
@@ -55,6 +56,11 @@ pub struct ProxyCapabilities {
     pub tfo: bool,
     pub mptcp: bool,
     pub smux: bool,
+}
+
+/// Consumers only read the latest measurement; the wire carries just that entry.
+fn latest_history(history: Vec<DelayHistory>) -> Vec<DelayHistory> {
+    history.into_iter().next_back().into_iter().collect()
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, specta::Type)]
@@ -434,7 +440,7 @@ fn build_group(name: String, proxy: Proxy, resolver: &MemberResolver<'_>) -> Pro
         hidden,
         icon,
         test_url,
-        history,
+        history: latest_history(history),
         capabilities: ProxyCapabilities {
             udp,
             xudp,
@@ -466,7 +472,7 @@ fn build_node(record_id: String, name: String, proxy: Proxy, source: ProxyNodeSo
         record_id,
         name,
         proxy_type,
-        history,
+        history: latest_history(history),
         id,
         hidden,
         icon,
@@ -519,4 +525,42 @@ fn build_standalone(core_node_ids: &BTreeMap<String, String>) -> Vec<String> {
             .map(|(_, record_id)| record_id.clone()),
     );
     standalone
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn latency_history_is_trimmed_to_the_latest_entry() -> anyhow::Result<()> {
+        let view = ProxyViewBuilder::build(ProxyViewInput {
+            runtime_group_order: vec!["A".into()],
+            group_scopes: BTreeMap::new(),
+            proxies: serde_json::from_value(json!({"proxies": {
+                "A": {"all": ["node"], "type": "Selector", "history": [
+                    {"time": "2026-10-07T00:00:00Z", "delay": 11},
+                    {"time": "2026-10-08T00:00:00Z", "delay": 12}
+                ]},
+                "node": {
+                    "name": "node",
+                    "history": [
+                        {"time": "2026-10-07T00:00:00Z", "delay": 21},
+                        {"time": "2026-10-08T00:00:00Z", "delay": 22}
+                    ]
+                }
+            }}))?,
+            providers: None,
+        });
+        let group = &view.groups[0];
+        assert_eq!(group.history.len(), 1);
+        assert_eq!(group.history[0].delay, 12);
+        let ProxyMemberRef::Node { record_id, .. } = &group.members[0] else {
+            anyhow::bail!("Expected node")
+        };
+        let record = &view.records[record_id];
+        assert_eq!(record.history.len(), 1);
+        assert_eq!(record.history[0].delay, 22);
+        Ok(())
+    }
 }

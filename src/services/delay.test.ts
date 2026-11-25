@@ -6,8 +6,9 @@ vi.mock('tauri-plugin-mihomo-api', () => ({
 }))
 
 import type { ResolvedProxyMember } from '@/types/proxy-view'
+import { DEFAULT_LATENCY_TEST_URL } from '@/utils/delay'
 
-import delayManager from './delay'
+import delayManager, { groupDelayKey } from './delay'
 
 const node = (name: string) =>
   ({
@@ -43,6 +44,7 @@ describe('group delay completion', () => {
     await flush()
 
     expect(settles).toBe(1)
+    expect(delayManager.getDelayFix(proxies[0], 'g')).toBe(120)
   })
 
   test('notifies only listeners for the completed group', async () => {
@@ -56,6 +58,44 @@ describe('group delay completion', () => {
 
     expect(settles).toBe(1)
     expect(other).toBe(0)
+    expect(delayManager.getDelayFix(node('a'), 'g')).toBe(120)
     stop()
   })
+})
+
+test('unmeasured selectors show automatic history without replacing a cached result', () => {
+  const member = node('selector-member')
+  if (member.kind !== 'node') throw new Error('Expected node')
+  member.node.history = [
+    { time: new Date(Date.now() + 1000).toISOString(), delay: 126 },
+  ]
+  expect(delayManager.getDelayFix(member, 'selector')).toBe(126)
+  delayManager.setDelay('selector-member', 'selector', 50)
+  expect(delayManager.getDelayFix(member, 'selector')).toBe(50)
+})
+
+test('preserves a zero-millisecond delay from the node history', () => {
+  const member = node('zero-delay')
+  if (member.kind !== 'node') throw new Error('Expected node')
+  member.node.history = [{ time: new Date().toISOString(), delay: 0 }]
+
+  expect(delayManager.getDelayFix(member, 'zero')).toBe(0)
+})
+
+test('invalid latency URLs fall back to the shared default', () => {
+  delayManager.setUrl('url-validation', 'ftp://localhost')
+  expect(delayManager.getUrl('url-validation')).toBe(DEFAULT_LATENCY_TEST_URL)
+
+  delayManager.setUrl('url-validation', 'http://localhost:8080/')
+  expect(delayManager.getUrl('url-validation')).toBe('http://localhost:8080/')
+})
+
+test('group delay snapshots support group names containing spaces', () => {
+  const groups = ['🇭🇰 Hong Kong', 'Auto Select']
+  const snapshots = delayManager.groupsDelays(groupDelayKey(groups))
+
+  expect([...snapshots.keys()]).toEqual(groups)
+  expect(snapshots.get('🇭🇰 Hong Kong')).toBe(
+    delayManager.groupDelays('🇭🇰 Hong Kong'),
+  )
 })

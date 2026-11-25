@@ -8,7 +8,7 @@ use crate::{
         CoreManager, handle,
         validate::{CoreConfigValidator, ValidationOutcome},
     },
-    utils::dirs,
+    utils::{dirs, help},
 };
 use clash_verge_logging::{Type, logging};
 use smartstring::alias::String;
@@ -69,8 +69,8 @@ pub async fn save_profile_file(
         String::new()
     };
 
-    // 保存新的配置文件
-    fs::write(&file_path, &file_data).await.stringify_err()?;
+    // 保存新的配置文件（原子替换，避免中断留下半截文件）
+    help::save_yaml_str(&file_path, &file_data).await.stringify_err()?;
 
     let changes_applied = handle_saved_profile_file(
         &file_path_str,
@@ -98,7 +98,7 @@ async fn restore_original(
     original_existed: bool,
 ) -> CmdResult<()> {
     if original_existed {
-        fs::write(file_path, original_content).await.stringify_err()
+        help::save_yaml_str(file_path, original_content).await.stringify_err()
     } else {
         fs::remove_file(file_path).await.stringify_err()
     }
@@ -125,6 +125,14 @@ fn profile_affects_runtime(profiles: &IProfiles, index: &str) -> bool {
     .contains(&index)
 }
 
+/// Whether a saved file still needs its own core validation before the runtime apply.
+///
+/// Files that feed the running runtime are validated again through the generated runtime
+/// configuration, so the slow standalone core run would only duplicate that check.
+const fn needs_standalone_validation(affects_runtime: bool, is_merge_file: bool, is_script_file: bool) -> bool {
+    !affects_runtime || is_merge_file || is_script_file
+}
+
 async fn handle_saved_profile_file(
     file_path_str: &str,
     file_path: &std::path::Path,
@@ -142,19 +150,30 @@ async fn handle_saved_profile_file(
         (ValidationNoticeTarget::Runtime, "YAML配置文件")
     };
 
-    match CoreConfigValidator::validate_config_file_outcome(file_path_str, Some(is_merge_file)).await {
-        Ok(outcome) if outcome.is_valid() => {}
-        Ok(outcome) => {
-            logging!(warn, Type::Config, "[cmd配置save] 文件验证失败: {}", outcome);
-            restore_original(file_path, original_content, original_existed).await?;
-            handle_validation_notice(&outcome, target, file_type);
-            return Ok(outcome);
+    // A file that feeds the running runtime is validated again when the runtime configuration is
+    // generated and applied; the slow standalone core run would only duplicate that check. Merge
+    // and script files keep their cheap targeted validation.
+    if needs_standalone_validation(affects_runtime, is_merge_file, is_script_file) {
+        match CoreConfigValidator::validate_config_file_outcome(file_path_str, Some(is_merge_file)).await {
+            Ok(outcome) if outcome.is_valid() => {}
+            Ok(outcome) => {
+                logging!(warn, Type::Config, "[cmd配置save] 文件验证失败: {}", outcome);
+                restore_original(file_path, original_content, original_existed).await?;
+                handle_validation_notice(&outcome, target, file_type);
+                return Ok(outcome);
+            }
+            Err(e) => {
+                logging!(error, Type::Config, "[cmd配置save] 验证过程发生错误: {e:#}");
+                restore_original(file_path, original_content, original_existed).await?;
+                return Err(e.to_string().into());
+            }
         }
-        Err(e) => {
-            logging!(error, Type::Config, "[cmd配置save] 验证过程发生错误: {e:#}");
-            restore_original(file_path, original_content, original_existed).await?;
-            return Err(e.to_string().into());
-        }
+    } else {
+        logging!(
+            debug,
+            Type::Config,
+            "[cmd配置save] 文件随运行时配置统一校验，跳过独立内核检查"
+        );
     }
 
     if !affects_runtime {
@@ -182,5 +201,21 @@ async fn handle_saved_profile_file(
             restore_original(file_path, original_content, original_existed).await?;
             Err(err.to_string().into())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::needs_standalone_validation;
+
+    #[test]
+    fn runtime_feeding_yaml_files_skip_the_standalone_core_run() {
+        // The active profile and its chain files are validated again when the runtime is applied.
+        assert!(!needs_standalone_validation(true, false, false));
+        // Merge and script files keep their cheap targeted validation.
+        assert!(needs_standalone_validation(true, true, false));
+        assert!(needs_standalone_validation(true, false, true));
+        // Files that do not affect the runtime have no second validation to fall back to.
+        assert!(needs_standalone_validation(false, false, false));
     }
 }

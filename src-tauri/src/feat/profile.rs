@@ -4,10 +4,12 @@ use crate::{
     cmd,
     config::{Config, PrfItem, PrfOption, profiles::profiles_update_item_safe},
     core::{CoreManager, handle, tray, validate::ValidationOutcome},
+    process::AsyncHandler,
     utils::help::{mask_err, mask_url},
 };
 use anyhow::{Result, bail};
 use clash_verge_logging::{Type, logging};
+use futures::stream::{self, StreamExt as _};
 use smartstring::alias::String;
 
 /// Toggle proxy profile
@@ -21,37 +23,100 @@ pub async fn toggle_proxy_profile(profile_index: String) {
     }
 }
 
-/// Tell the profile which node this group is on now.
-///
-/// The core is already switched by the time this runs, so failing to record is not a reason to
-/// report the switch as failed — but it is worth a log line, because what the profile holds is
-/// what gets re-applied the next time a core starts.
-async fn record_switched_node(group_name: &str, proxy_name: &str) {
-    if let Err(error) = crate::config::profiles::record_selected_node(group_name, proxy_name).await {
+pub async fn switch_proxy_node(group_name: &str, proxy_name: &str, unfix: bool) -> Result<()> {
+    let mihomo = handle::Handle::mihomo();
+    let previous_proxy = if Config::verge().await.data_arc().auto_close_connection.unwrap_or(false) {
+        match mihomo.get_proxy_by_name(group_name).await {
+            Ok(group) => group.now.filter(|name| !name.is_empty()),
+            Err(err) => {
+                logging!(
+                    warn,
+                    Type::Core,
+                    "Failed to read previous proxy selection for {group_name}: {err}"
+                );
+                None
+            }
+        }
+    } else {
+        None
+    };
+    if unfix {
+        mihomo.unfixed_proxy(group_name).await?;
+    } else {
+        mihomo.select_node_for_group(group_name, proxy_name).await?;
+    }
+
+    let save_result = if unfix {
+        crate::config::profiles::forget_selected_node(group_name).await
+    } else {
+        crate::config::profiles::record_selected_node(group_name, proxy_name).await
+    };
+    // The core selection is already applied; persistence failure must not report it as failed.
+    if let Err(error) = save_result {
         logging!(
             warn,
             Type::Config,
-            "切换代理成功但未能记录到配置: {} -> {}, 错误: {error:#}",
-            group_name,
-            proxy_name
+            "Failed to persist proxy selection for {group_name}: {error:#}"
         );
     }
-}
+    announce(Refresh::Proxies);
 
-pub async fn switch_proxy_node(group_name: &str, proxy_name: &str) {
-    match handle::Handle::mihomo()
-        .select_node_for_group(group_name, proxy_name)
+    if let Some(previous_proxy) = previous_proxy {
+        AsyncHandler::spawn(move || async move {
+            let connections = match mihomo.get_connections().await {
+                Ok(connections) => connections,
+                Err(err) => {
+                    logging!(
+                        warn,
+                        Type::Core,
+                        "Failed to read connections after switching proxy: {err}"
+                    );
+                    return;
+                }
+            };
+            // One POST per affected connection; keep a small in-flight window so a
+            // busy session cannot queue hundreds of requests on mihomo's API.
+            stream::iter(
+                connections
+                    .connections
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter(|connection| connection.chains.contains(&previous_proxy))
+                    .map(|connection| async move {
+                        if let Err(err) = mihomo.close_connection(&connection.id).await {
+                            logging!(
+                                warn,
+                                Type::Core,
+                                "Failed to close connection {} after switching proxy: {err}",
+                                connection.id
+                            );
+                        }
+                    }),
+            )
+            .buffer_unordered(8)
+            .collect::<Vec<_>>()
+            .await;
+        });
+    }
+    // The tray only carries node checks while its proxy section is displayed; with
+    // it disabled there is nothing to rebuild after a selection.
+    let tray_shows_groups = Config::verge()
         .await
-    {
-        Ok(_) => {
-            record_switched_node(group_name, proxy_name).await;
-            announce(Refresh::Proxies);
-            let _ = tray::Tray::global().update_menu().await;
-        }
-        Err(err) => {
-            logging!(error, Type::Tray, "切换代理失败: {err:?}");
+        .latest_arc()
+        .tray_proxy_groups_display_mode
+        .as_deref()
+        != Some("disable");
+    if tray_shows_groups {
+        let tray_update = tray::Tray::global().update_menu().await;
+        if let Err(err) = tray_update {
+            logging!(
+                warn,
+                Type::Tray,
+                "Failed to refresh tray after switching proxy: {err:#}"
+            );
         }
     }
+    Ok(())
 }
 
 async fn should_update_profile(uid: &String, ignore_auto_update: bool) -> Result<Option<(String, Option<PrfOption>)>> {
@@ -93,7 +158,7 @@ async fn perform_profile_update(
     url: &String,
     opt: Option<&PrfOption>,
     option: Option<&PrfOption>,
-    is_mannual_trigger: bool,
+    is_manual_trigger: bool,
 ) -> Result<()> {
     let merged_opt = PrfOption::merge(opt, option);
     let profiles = Config::profiles().await;
@@ -175,7 +240,7 @@ async fn perform_profile_update(
     };
 
     let last_err = mask_err(&last_err.to_string());
-    if is_mannual_trigger {
+    if is_manual_trigger {
         handle::Handle::notice(
             NoticeStatus::UpdateFailedEvenWithClash,
             format!("{profile_name} - {last_err}"),
@@ -184,26 +249,26 @@ async fn perform_profile_update(
     bail!(last_err)
 }
 
-#[tracing::instrument(skip_all, level = "info", fields(uid = %uid, manual = is_mannual_trigger))]
-pub async fn update_profile(uid: &String, option: Option<&PrfOption>, is_mannual_trigger: bool) -> Result<()> {
-    let url_opt = should_update_profile(uid, is_mannual_trigger).await?;
+#[tracing::instrument(skip_all, level = "info", fields(uid = %uid, manual = is_manual_trigger))]
+pub async fn update_profile(uid: &String, option: Option<&PrfOption>, is_manual_trigger: bool) -> Result<()> {
+    let url_opt = should_update_profile(uid, is_manual_trigger).await?;
 
     let profile_persisted = match url_opt {
         Some((url, opt)) => {
-            perform_profile_update(uid, &url, opt.as_ref(), option, is_mannual_trigger).await?;
+            perform_profile_update(uid, &url, opt.as_ref(), option, is_manual_trigger).await?;
             true
         }
         None => false,
     };
     let profiles = Config::profiles().await;
     let is_current = profiles.latest_arc().current.as_ref() == Some(uid);
-    let should_refresh = is_current || (!profile_persisted && is_mannual_trigger);
+    let should_refresh = is_current || (!profile_persisted && is_manual_trigger);
 
     if should_refresh {
         logging!(debug, Type::Config, "[订阅更新] 更新内核配置");
-        match CoreManager::global().update_config_with_force(is_mannual_trigger).await {
+        match CoreManager::global().update_config_with_force(is_manual_trigger).await {
             Ok(outcome) if outcome.is_valid() => announce(Refresh::Clash),
-            Ok(outcome @ (ValidationOutcome::Skipped { .. } | ValidationOutcome::Busy)) if !is_mannual_trigger => {
+            Ok(outcome @ (ValidationOutcome::Skipped { .. } | ValidationOutcome::Busy)) if !is_manual_trigger => {
                 logging!(info, Type::Config, "[订阅更新] 本次配置刷新已跳过: {}", outcome);
             }
             result => {

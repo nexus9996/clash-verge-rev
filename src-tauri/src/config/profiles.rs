@@ -191,7 +191,7 @@ impl IProfiles {
                 .ok_or_else(|| anyhow::anyhow!("file field is required when file_data is provided"))?;
             let path = dirs::app_profiles_dir()?.join(file.as_str());
 
-            fs::write(&path, file_data.as_bytes())
+            help::save_bytes_atomic(&path, file_data.as_bytes())
                 .await
                 .with_context(|| format!("failed to write to file \"{file}\""))?;
         }
@@ -295,9 +295,12 @@ impl IProfiles {
 
                         let path = dirs::app_profiles_dir()?.join(file.as_str());
 
-                        fs::write(&path, file_data.as_bytes())
+                        if !write_profile_file_if_changed(&path, file_data.as_bytes())
                             .await
-                            .with_context(|| format!("failed to write to file \"{file}\""))?;
+                            .with_context(|| format!("failed to write to file \"{file}\""))?
+                        {
+                            logging!(debug, Type::Config, "profile content unchanged, skipping write: {file}");
+                        }
                     }
 
                     break;
@@ -370,6 +373,7 @@ impl IProfiles {
     }
 
     /// 获取current指向的订阅内容
+    #[tracing::instrument(name = "profile_current_mapping", skip_all, level = "debug")]
     pub async fn current_mapping(&self) -> Result<Mapping> {
         match (self.current.as_ref(), self.items.as_ref()) {
             (Some(current), Some(items)) => {
@@ -378,7 +382,9 @@ impl IProfiles {
                         Some(file) => dirs::app_profiles_dir()?.join(file.as_str()),
                         None => bail!("failed to get the file field"),
                     };
-                    return help::read_mapping(&file_path).await;
+                    return help::read_mapping_cached(&file_path)
+                        .await
+                        .map(|mapping| (*mapping).clone());
                 }
                 bail!("failed to find the current profile \"uid:{current}\"");
             }
@@ -1097,6 +1103,20 @@ fn activate_selected_nodes_with(repair: SelectionRepair) -> tokio::sync::oneshot
     first_pass_done
 }
 
+/// Writes profile bytes only when they differ from the file already on disk.
+///
+/// A subscription refresh that returns unchanged content must not rewrite a multi-megabyte
+/// profile or disturb its modification time.
+async fn write_profile_file_if_changed(path: &Path, bytes: &[u8]) -> Result<bool> {
+    if let Ok(existing) = fs::read(path).await
+        && existing == bytes
+    {
+        return Ok(false);
+    }
+    help::save_bytes_atomic(path, bytes).await?;
+    Ok(true)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1525,5 +1545,22 @@ mod tests {
                 ("first-group".into(), "replacement".into()),
             ]
         );
+    }
+
+    #[tokio::test]
+    async fn refreshed_profile_bytes_that_match_are_not_rewritten() -> anyhow::Result<()> {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or_default();
+        let path = std::env::temp_dir().join(format!("clash-verge-profile-write-{}-{unique}", std::process::id()));
+
+        assert!(write_profile_file_if_changed(&path, b"first").await?);
+        assert!(!write_profile_file_if_changed(&path, b"first").await?);
+        assert!(write_profile_file_if_changed(&path, b"second").await?);
+        assert_eq!(tokio::fs::read(&path).await?, b"second");
+
+        let _ = tokio::fs::remove_file(&path).await;
+        Ok(())
     }
 }

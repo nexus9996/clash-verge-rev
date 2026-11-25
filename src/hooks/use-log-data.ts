@@ -43,7 +43,13 @@ const appendLogs = (
   if (dropFromBase >= base.length) {
     return incoming.slice(incoming.length - MAX_LOG_NUM)
   }
-  return base.slice(dropFromBase).concat(incoming)
+  // Trim and append into one preallocated array: the page flushes up to 20
+  // times a second, so `slice().concat()` would copy the buffer twice per tick.
+  const keepBase = base.length - dropFromBase
+  const next = new Array<ILogItem>(MAX_LOG_NUM)
+  for (let i = 0; i < keepBase; i += 1) next[i] = base[dropFromBase + i]
+  for (let i = 0; i < incoming.length; i += 1) next[keepBase + i] = incoming[i]
+  return next
 }
 
 export const useLogData = () => {
@@ -112,15 +118,21 @@ export const useLogData = () => {
           if (hasLoadedInitialLogsRef.current) {
             return
           }
-          const logs = await getClashLogs()
-          hasLoadedInitialLogsRef.current = true
-          if (isMounted()) {
-            next((current) => {
-              if (!current || current.length === 0) {
-                return clampLogs(filterLogsByLevel(logs, allowedTypes))
-              }
-              return current
-            })
+          try {
+            const logs = await getClashLogs()
+            hasLoadedInitialLogsRef.current = true
+            if (isMounted()) {
+              next((current) => {
+                if (!current || current.length === 0) {
+                  return clampLogs(filterLogsByLevel(logs, allowedTypes))
+                }
+                return current
+              })
+            }
+          } catch (error) {
+            // Keep the live log socket open; a later connection can retry the
+            // history snapshot without restarting the stream.
+            console.warn('[Logs] failed to load the initial log history', error)
           }
         },
         cleanup: clearFlushTimer,

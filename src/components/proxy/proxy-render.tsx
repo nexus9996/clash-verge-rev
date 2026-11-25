@@ -13,12 +13,11 @@ import {
   Chip,
   Tooltip,
 } from '@mui/material'
-import { memo, useId, useMemo } from 'react'
+import { memo, useCallback, useId, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useIconCache } from '@/hooks/use-icon-cache'
 import { useVerge } from '@/hooks/use-verge'
-import { useThemeMode } from '@/services/states'
 import type { ResolvedProxyMember } from '@/types/proxy-view'
 
 import { ProxyGroupHeaderBlock } from './proxy-group-header-block'
@@ -41,6 +40,8 @@ interface RenderProps {
     member: ResolvedProxyMember,
   ) => void
   onGroupToggle?: (group: IRenderItem['group']) => void
+  getGroupsContainingNode?: (nodeName: string) => readonly string[]
+  onGroupLocation?: (groupName: string) => void
 }
 
 export const ProxyRender = memo(function ProxyRender(props: RenderProps) {
@@ -53,16 +54,19 @@ export const ProxyRender = memo(function ProxyRender(props: RenderProps) {
     onHeadState,
     onChangeProxy,
     onGroupToggle,
+    getGroupsContainingNode,
+    onGroupLocation,
     isChainMode: _ = false,
   } = props
   const { type, group, headState, member, memberCol } = item
   const { verge } = useVerge()
+  // One verge read per rendered row is enough: children receive the resolved
+  // number instead of mounting their own config subscription.
+  const latencyTimeout = verge?.default_latency_timeout || 10000
   const enable_group_icon = verge?.enable_group_icon ?? true
   const toolsOnLeft = verge?.proxy_group_tools_position === 'left'
   const headerId = useId()
-  const mode = useThemeMode()
-  const isDark = mode === 'dark'
-  const itembackgroundcolor = isDark ? '#282A36' : '#ffffff'
+  const itembackgroundcolor = 'var(--surface-card)'
   const iconCachePath = useIconCache({
     icon: group.icon,
     cacheKey: group.name.replaceAll(' ', ''),
@@ -70,6 +74,16 @@ export const ProxyRender = memo(function ProxyRender(props: RenderProps) {
   })
 
   const showType = headState?.showType
+  const groupsOfMember = useCallback(
+    (current: ResolvedProxyMember) =>
+      current.kind === 'node'
+        ? (getGroupsContainingNode?.(current.ref.name) ?? []).filter(
+            (groupName) => groupName !== group.name,
+          )
+        : [],
+    [getGroupsContainingNode, group.name],
+  )
+
   const memberColItemsMemo = useMemo(() => {
     if (type !== 4 || !memberCol) {
       return null
@@ -81,11 +95,24 @@ export const ProxyRender = memo(function ProxyRender(props: RenderProps) {
         group={group}
         member={occurrence.member}
         selected={group.now === occurrence.member.ref.name}
+        latencyTimeout={latencyTimeout}
         showType={showType}
+        groupNames={groupsOfMember(occurrence.member)}
+        onGroupLocation={onGroupLocation}
         onClick={(nextMember) => onChangeProxy(group, nextMember)}
       />
     ))
-  }, [type, memberCol, item.key, group, showType, onChangeProxy])
+  }, [
+    type,
+    memberCol,
+    item.key,
+    group,
+    latencyTimeout,
+    showType,
+    onChangeProxy,
+    groupsOfMember,
+    onGroupLocation,
+  ])
 
   if (type === 0) {
     const nameBlock = (
@@ -152,7 +179,7 @@ export const ProxyRender = memo(function ProxyRender(props: RenderProps) {
               sx: {
                 display: 'flex',
                 alignItems: 'center',
-                color: '#ccc',
+                color: 'text.disabled',
               },
             },
           }}
@@ -263,7 +290,10 @@ export const ProxyRender = memo(function ProxyRender(props: RenderProps) {
         group={group}
         member={member!.member}
         selected={group.now === member?.member.ref.name}
+        latencyTimeout={latencyTimeout}
         showType={headState?.showType}
+        groupNames={groupsOfMember(member!.member)}
+        onGroupLocation={onGroupLocation}
         sx={{ py: 0, pl: 2 }}
         onClick={(nextMember) => onChangeProxy(group, nextMember)}
       />
@@ -328,7 +358,7 @@ const StyledSubtitle = styled('span')`
 
 const StyledTypeBox = styled(Box)(({ theme }) => ({
   display: 'inline-block',
-  border: '1px solid #ccc',
+  border: '1px solid',
   borderColor: alpha(theme.palette.primary.main, 0.5),
   color: alpha(theme.palette.primary.main, 0.8),
   borderRadius: 4,

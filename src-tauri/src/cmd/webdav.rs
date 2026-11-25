@@ -4,6 +4,7 @@ use crate::{
     config::{Config, IVerge},
     core, feat,
 };
+use clash_verge_draft::DraftTransaction;
 use smartstring::alias::String;
 
 #[tauri::command]
@@ -13,6 +14,9 @@ pub async fn save_webdav_config(
     username: std::string::String,
     password: std::string::String,
 ) -> CmdResult<()> {
+    let _config_write = Config::lock_config_write().await;
+    let verge = Config::verge().await;
+    let transaction = DraftTransaction::begin(vec![&verge]).map_err(|error| error.to_string())?;
     let url: String = url.into();
     let username: String = username.into();
     let password: String = password.into();
@@ -22,11 +26,12 @@ pub async fn save_webdav_config(
         webdav_password: Some(password),
         ..IVerge::default()
     };
-    Config::verge().await.edit_draft(|e| e.patch_config(&patch));
-    Config::verge().await.apply();
-
-    let verge_data = Config::verge().await.data_arc();
-    verge_data.save_file().await.stringify_err()?;
+    verge.edit_draft(|e| e.patch_config(&patch));
+    if let Err(error) = verge.latest_arc().save_file().await {
+        transaction.rollback();
+        return Err(error.to_string().into());
+    }
+    transaction.commit();
     core::backup::WebDavClient::global().reset();
     Ok(())
 }

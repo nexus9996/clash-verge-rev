@@ -26,7 +26,8 @@
     "labels": {
       "proxyCount": "Proxy Count",
       "delayCheckReset": "فحص التأخير لإلغاء الثابت",
-      "nodeCount": "{{count}} عقدة"
+      "nodeCount": "{{count}} عقدة",
+      "groupBadge": "مجموعة"
     },
     "tooltips": {
       "locate": "الموقع",
@@ -37,7 +38,8 @@
       "delayCheckUrl": "رابط فحص التأخير",
       "showBasic": "إعدادات الوكيل الأساسية",
       "showDetail": "تفاصيل الوكيل",
-      "filter": "تصفية"
+      "filter": "تصفية",
+      "jumpToGroup": "الانتقال إلى المجموعة"
     },
     "placeholders": {
       "delayCheckUrl": "رابط فحص التأخير"

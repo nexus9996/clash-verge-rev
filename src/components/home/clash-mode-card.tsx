@@ -9,12 +9,12 @@ import { type ReactNode, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { BaseConfig } from 'tauri-plugin-mihomo-api'
 
-import { useClashMode, useRuntimeConfig } from '@/hooks/use-clash'
 import {
   useAppRefreshers,
   useClashConfigData,
   useCoreDataStatus,
-} from '@/providers/app-data-context'
+} from '@/hooks/data'
+import { useClashMode, useRuntimeConfig } from '@/hooks/use-clash'
 import { patchClashMode } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'

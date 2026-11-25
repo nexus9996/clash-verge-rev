@@ -26,7 +26,8 @@
     "labels": {
       "proxyCount": "ノード数",
       "delayCheckReset": "遅延テストを実行して固定を解除する",
-      "nodeCount": "{{count}} ノード"
+      "nodeCount": "{{count}} ノード",
+      "groupBadge": "グループ"
     },
     "tooltips": {
       "locate": "現在のノード",
@@ -37,7 +38,8 @@
       "delayCheckUrl": "遅延テストURL",
       "showBasic": "ノードの詳細を隠す",
       "showDetail": "ノードの詳細を表示する",
-      "filter": "ノードをフィルタリング"
+      "filter": "ノードをフィルタリング",
+      "jumpToGroup": "グループへ移動"
     },
     "placeholders": {
       "delayCheckUrl": "遅延テストURL"

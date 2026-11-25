@@ -7,7 +7,8 @@ use crate::{
     config::{ClashInfo, Config, profiles::profiles_save_file_safe},
     constants,
     core::{
-        CoreManager, handle,
+        CoreManager,
+        handle::{self, Handle},
         validate::{CoreConfigValidator, ValidationOutcome},
     },
 };
@@ -25,6 +26,20 @@ pub async fn copy_clash_env() -> CmdResult {
 #[specta::specta]
 pub async fn get_clash_info() -> CmdResult<ClashInfo> {
     Ok(Config::clash().await.data_arc().get_client_info())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_external_controller() -> CmdResult<feat::ExternalControllerSettings> {
+    Ok(feat::get_external_controller().await)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn save_external_controller(settings: feat::ExternalControllerSettings) -> CmdResult {
+    feat::save_external_controller(settings)
+        .await
+        .map_err(|error| proxy_aware_coded_error(&error, "EXTERNAL_CONTROLLER_SAVE_FAILED"))
 }
 
 #[tauri::command]
@@ -110,18 +125,154 @@ pub async fn upgrade_clash_core(force: bool) -> CmdResult<feat::CoreUpgradeRepor
     Ok(report)
 }
 
+/// Lists the core versions installable for the managed core's release channel.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_core_versions() -> CmdResult<feat::CoreVersionCatalog> {
+    feat::get_core_versions().await.with_error_code("CORE_VERSIONS_FAILED")
+}
+
+/// Installs an explicit core version through the same stage/publish/rollback path as an upgrade.
+#[tauri::command]
+#[specta::specta]
+pub async fn install_core_version(version: std::string::String) -> CmdResult<feat::CoreUpgradeReport> {
+    let report = feat::install_core_version(version)
+        .await
+        .with_error_code("CORE_INSTALL_FAILED")?;
+    if report.upgraded {
+        handle::Handle::refresh_clash();
+    }
+    Ok(report)
+}
+
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct HttpTextResponse {
+    pub status: u16,
+    pub body: std::string::String,
+}
+
+/// Reads a text response through the app's shared network stack. The frontend uses this for
+/// IP/geolocation probes so proxy, TLS, timeout and User-Agent policy stay identical to the
+/// backend instead of depending on a second HTTP client bundled by a plugin.
+#[tauri::command]
+#[specta::specta]
+pub async fn http_get_text(
+    url: std::string::String,
+    timeout_secs: Option<u64>,
+    user_agent: Option<std::string::String>,
+) -> CmdResult<HttpTextResponse> {
+    let url: String = url.into();
+    let response = crate::utils::network::NetworkManager::new()
+        .get(
+            url.as_str(),
+            crate::utils::network::ProxyType::Localhost,
+            timeout_secs,
+            user_agent.map(Into::into),
+            false,
+        )
+        .await
+        .stringify_err()?;
+    Ok(HttpTextResponse {
+        status: response.status().as_u16(),
+        body: response.text().to_owned(),
+    })
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn test_delay(url: std::string::String) -> CmdResult<u32> {
     let url: String = url.into();
-    let result = match feat::test_delay(url).await {
-        Ok(delay) => delay,
-        Err(e) => {
-            logging!(error, Type::Cmd, "get clash delay failed: {e:#}");
-            10000u32
-        }
+    feat::test_delay(url).await.with_error_code("LATENCY_TEST_FAILED")
+}
+
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct RuleExtraInfo {
+    pub index: i64,
+    pub disabled: bool,
+    pub hit_count: u64,
+    pub hit_at: std::string::String,
+    pub miss_count: u64,
+    pub miss_at: std::string::String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct RuleDisableRequest {
+    pub index: i64,
+    pub disabled: bool,
+}
+
+#[derive(serde::Deserialize)]
+struct RawRulesResponse {
+    rules: Vec<RawRule>,
+}
+
+#[derive(serde::Deserialize)]
+struct RawRule {
+    index: i64,
+    extra: Option<RawRuleExtra>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RawRuleExtra {
+    disabled: bool,
+    hit_count: u64,
+    hit_at: std::string::String,
+    miss_count: u64,
+    miss_at: std::string::String,
+}
+
+/// Rule disabling is runtime state in mihomo and resets when the core reloads.
+#[tauri::command]
+#[specta::specta]
+pub async fn update_rules_disable(requests: Vec<RuleDisableRequest>) -> CmdResult {
+    let disabled: std::collections::BTreeMap<i64, bool> = requests
+        .into_iter()
+        .map(|request| (request.index, request.disabled))
+        .collect();
+
+    let request = {
+        let ctx = Handle::mihomo().load_ctx();
+        ctx.build_request(reqwest::Method::PATCH, "rules/disable")
+            .stringify_err()?
     };
-    Ok(result)
+    let response = request.json(&disabled).send().await.stringify_err()?;
+    response.error_for_status().stringify_err()?;
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_rules_extra() -> CmdResult<Vec<RuleExtraInfo>> {
+    let request = {
+        let ctx = Handle::mihomo().load_ctx();
+        ctx.build_request(reqwest::Method::GET, "rules").stringify_err()?
+    };
+    let response = request.send().await.stringify_err()?;
+    let payload: RawRulesResponse = response
+        .error_for_status()
+        .stringify_err()?
+        .json()
+        .await
+        .stringify_err()?;
+
+    Ok(payload
+        .rules
+        .into_iter()
+        .filter_map(|rule| {
+            rule.extra.map(|extra| RuleExtraInfo {
+                index: rule.index,
+                disabled: extra.disabled,
+                hit_count: extra.hit_count,
+                hit_at: extra.hit_at,
+                miss_count: extra.miss_count,
+                miss_at: extra.miss_at,
+            })
+        })
+        .collect())
 }
 
 #[tauri::command]
@@ -244,6 +395,5 @@ pub async fn validate_dns_config() -> CmdResult<ValidationOutcome> {
 #[tauri::command]
 #[specta::specta]
 pub async fn get_clash_logs() -> CmdResult<Vec<std::string::String>> {
-    let logs = CoreManager::global().get_clash_logs().await.unwrap_or_default();
-    Ok(logs)
+    CoreManager::global().get_clash_logs().await.stringify_err()
 }

@@ -1,6 +1,10 @@
 import delayManager from '@/services/delay'
 import { memberDetails } from '@/types/proxy-view'
-import { compareByDelay, DEFAULT_DELAY_TIMEOUT } from '@/utils/delay'
+import {
+  classifyDelay,
+  compareByDelay,
+  DEFAULT_DELAY_TIMEOUT,
+} from '@/utils/delay'
 import { compileStringMatcher } from '@/utils/search-matcher'
 
 import type { ResolvedMemberOccurrence } from './use-render-list'
@@ -21,7 +25,13 @@ export function filterSort(
   latencyTimeout?: number,
   searchState?: ProxySearchState,
 ) {
-  const fp = filterProxies(proxies, groupName, filterText, searchState)
+  const fp = filterProxies(
+    proxies,
+    groupName,
+    filterText,
+    searchState,
+    latencyTimeout,
+  )
   const sp = sortProxies(fp, groupName, sortType, latencyTimeout)
   return sp
 }
@@ -34,6 +44,7 @@ function filterProxies(
   groupName: string,
   filterText: string,
   searchState?: ProxySearchState,
+  latencyTimeout?: number,
 ) {
   const query = filterText.trim()
   if (!query) return proxies
@@ -42,19 +53,31 @@ function filterProxies(
   if (res1) {
     const symbol = res1[1]
     const symbol2 = res1[2].toLowerCase()
-    const value =
-      symbol2 === 'error' ? 1e5 : symbol2 === 'timeout' ? 3000 : +symbol2
+    const timeout =
+      typeof latencyTimeout === 'number' && latencyTimeout > 0
+        ? latencyTimeout
+        : DEFAULT_DELAY_TIMEOUT
 
+    if (symbol === '=' && (symbol2 === 'timeout' || symbol2 === 'error')) {
+      return proxies.filter(
+        ({ member }) =>
+          classifyDelay(
+            delayManager.getDelayFix(member, groupName),
+            timeout,
+          ) === symbol2,
+      )
+    }
+
+    const value = +symbol2
     return proxies.filter(({ member }) => {
       const delay = delayManager.getDelayFix(member, groupName)
 
-      if (delay < 0) return false
-      if (symbol === '=' && symbol2 === 'error') return delay >= 1e5
-      if (symbol === '=' && symbol2 === 'timeout')
-        return delay < 1e5 && delay >= 3000
-      if (symbol === '=') return delay == value
-      if (symbol === '<') return delay <= value
-      if (symbol === '>') return delay >= value
+      // Numeric bounds compare real measurements only; sentinels such as the
+      // timeout (0) or error (>= 1e5) states are not fast nodes.
+      if (classifyDelay(delay, timeout) !== 'measured') return false
+      if (symbol === '=') return delay === value
+      if (symbol === '<') return delay < value
+      if (symbol === '>') return delay > value
       return false
     })
   }

@@ -59,16 +59,12 @@ jobs:
           ref: refs/heads/dev
           fetch-depth: 0
 
-      - uses: actions/setup-node@v7
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: '26.13.0'
+          bun-version: '1.4.3'
 
-      - uses: pnpm/action-setup@v6
-        if: github.event.action != 'closed'
-        with:
-          run_install: false
-
-      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: bun install --frozen-lockfile --ignore-scripts
         if: github.event.action != 'closed'
 
       - name: Create or refresh version or publication PR
@@ -76,4 +72,4 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag }}
           RELEASE_CHANNEL: ${{ inputs.channel }}
           RELEASE_COMMAND: ${{ github.event.action == 'closed' && 'publish-pr' || startsWith(github.event.pull_request.head.ref, 'next-dev/') && 'next-dev' || 'prepare' }}
-        run: node scripts-workflow/release.mjs "$RELEASE_COMMAND"
+        run: bun scripts-workflow/release.mjs "$RELEASE_COMMAND"
