@@ -20,7 +20,8 @@ use crate::{
 use anyhow::{Context as _, Result, anyhow, bail};
 use clash_verge_draft::{DraftTransaction, SharedDraft};
 use clash_verge_logging::{Type, logging};
-use std::{mem::DropGuard, sync::Arc};
+use std::mem::DropGuard;
+use std::sync::Arc;
 
 pub async fn probe_listener(request: ListenerProbe) -> Result<ListenerProbeOutcome> {
     AsyncHandler::spawn_blocking(move || probe_listener_sync(&request))
@@ -103,7 +104,8 @@ pub async fn save_proxy_ports(settings: ProxyPortSettings) -> Result<SaveProxyPo
                 .context("failed to activate the proxy port configuration"));
         }
 
-        let post_failure_assessment = probe_proxy_ports(current, candidate, was_running).await?;
+        let post_failure_assessment =
+            probe_proxy_ports(Arc::clone(&current), Arc::clone(&candidate), was_running).await?;
         if let Some(outcome) = rejected_save_outcome(post_failure_assessment)? {
             logging!(
                 warn,

@@ -1,4 +1,4 @@
-import type { VergeEventPayloads } from '@/services/contract'
+import type { Refresh, VergeEventPayloads } from '@/services/contract'
 import delayManager from '@/services/delay'
 import { forgetShownStartupError } from '@/services/notice-handlers'
 import type { AppStoreAction } from '@/store/app-state'
@@ -57,22 +57,27 @@ export const createEventBus = (deps: BusHandlerDeps) => {
     deps.revalidateKeys(['getProfiles'])
   }
 
+  const QUERY_KEYS: Record<Refresh, readonly string[]> = {
+    Clash: [
+      'getProxyView',
+      'getVersion',
+      'getClashConfig',
+      'getClashInfo',
+      'getClashMode',
+      'getRuntimeConfig',
+      'getRules',
+      'getRuleProviders',
+    ],
+    Verge: ['getVergeConfig', 'getSystemProxyState'],
+    Profiles: ['getProfiles'],
+    Proxies: ['getProxyView'],
+  }
+
   const handlers: BusHandlers = {
-    'verge://refresh-clash-config': () =>
-      deps.revalidateKeys([
-        'getProxyView',
-        'getVersion',
-        'getClashConfig',
-        'getClashInfo',
-        'getClashMode',
-        'getRuntimeConfig',
-        'getRules',
-        'getRuleProviders',
-      ]),
-    'verge://refresh-verge-config': () =>
-      deps.revalidateKeys(['getVergeConfig', 'getSystemProxyState']),
-    'verge://refresh-profiles': () => deps.revalidateKeys(['getProfiles']),
-    'verge://refresh-proxy-config': () => deps.revalidateKeys(['getProxyView']),
+    // The backend batches the kinds one operation announced, so a setting save
+    // reaches the windows as one message and is expanded here.
+    'verge://refresh-batch': (kinds) =>
+      deps.revalidateKeys(kinds.flatMap((kind) => QUERY_KEYS[kind])),
     'verge://notice-message': (payload) => deps.handleNotice(payload),
     'profile-changed': handleProfileChanged,
     'verge://timer-updated': (uid) =>

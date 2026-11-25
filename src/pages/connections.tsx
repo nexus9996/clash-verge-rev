@@ -37,6 +37,7 @@ import {
   getConnectionStartTime,
   useConnectionRowViews,
 } from '@/components/connection/connection-row-view'
+import type { ConnectionRuleKind } from '@/components/connection/connection-rule'
 import { ConnectionTable } from '@/components/connection/connection-table'
 import { ConnectionsTrafficSummary } from '@/components/connection/connections-traffic-summary'
 import { useConnectionData } from '@/hooks/use-connection-data'
@@ -193,10 +194,14 @@ const ConnectionsPage = () => {
   )
 
   const showDetailById = useCallback(
-    (id: string) => {
+    (id: string, preferredKind: ConnectionRuleKind = 'domain') => {
       const connection = filterConn.find((item) => item.id === id)
       if (connection) {
-        detailRef.current?.open(connection, connectionsType === 'closed')
+        detailRef.current?.open(
+          connection,
+          connectionsType === 'closed',
+          preferredKind,
+        )
       }
     },
     [connectionsType, filterConn],

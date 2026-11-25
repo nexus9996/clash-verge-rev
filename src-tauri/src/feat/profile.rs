@@ -10,6 +10,9 @@ use crate::{
 use anyhow::{Result, bail};
 use clash_verge_logging::{Type, logging};
 use futures::stream::{self, StreamExt as _};
+use std::collections::{HashMap, HashSet};
+use tauri_plugin_mihomo::models::{Proxy, ProxyType, Rule};
+use tristr::alias::String;
 
 /// Toggle proxy profile
 pub async fn toggle_proxy_profile(profile_index: &str) {
@@ -22,9 +25,93 @@ pub async fn toggle_proxy_profile(profile_index: &str) {
     }
 }
 
+/// First `select` group in config order that lists `group_name`.
+fn parent_selector<'a>(groups: &'a [serde_yaml_ng::Value], group_name: &str) -> Option<&'a str> {
+    let field = |group: &'a serde_yaml_ng::Value, key: &str| group.get(key)?.as_str();
+    groups
+        .iter()
+        .filter(|group| field(group, "type") == Some("select"))
+        .filter(|group| {
+            group
+                .get("proxies")
+                .and_then(|members| members.as_sequence())
+                .is_some_and(|members| members.iter().any(|member| member.as_str() == Some(group_name)))
+        })
+        .filter_map(|group| field(group, "name"))
+        .find(|name| *name != "GLOBAL")
+}
+
+/// Whether rule traffic passes through `group_name`, following each group's current selection.
+fn rules_reach(groups: &[Proxy], rules: &[Rule], group_name: &str) -> bool {
+    let by_name: HashMap<&str, &Proxy> = groups.iter().map(|group| (group.name.as_str(), group)).collect();
+    let mut seen = HashSet::new();
+    rules.iter().any(|rule| {
+        let mut hop = by_name.get(rule.proxy.as_str()).copied();
+        while let Some(group) = hop.filter(|group| seen.insert(group.name.as_str())) {
+            if group.name == group_name {
+                return true;
+            }
+            hop = group.now.as_deref().and_then(|now| by_name.get(now).copied());
+        }
+        false
+    })
+}
+
+/// A pick in a group no rule reaches only carries traffic once the first `select` group listing that group
+/// points at it. Returns that `select` group, whose connections are then stale.
+async fn follow_group_selection(group_name: &str) -> Option<std::string::String> {
+    if !Config::verge()
+        .await
+        .data_arc()
+        .auto_switch_selector_group
+        .unwrap_or(true)
+    {
+        return None;
+    }
+    if Config::clash()
+        .await
+        .data_arc()
+        .get_mode()
+        .is_some_and(|mode| mode != "rule")
+    {
+        return None;
+    }
+    let selector = {
+        let runtime = Config::runtime().await.latest_arc();
+        let groups = runtime.config.as_ref()?.get("proxy-groups")?.as_sequence()?;
+        parent_selector(groups, group_name)?.to_owned()
+    };
+
+    let mihomo = handle::Handle::mihomo();
+    let groups = mihomo.get_groups().await.ok()?.proxies;
+    let current = groups.iter().find(|group| group.name == selector)?;
+    // The runtime config can lag the core, which alone knows what this group is now.
+    if current.proxy_type != ProxyType::Selector {
+        return None;
+    }
+    if current.now.as_deref() == Some(group_name)
+        || rules_reach(&groups, &mihomo.get_rules().await.ok()?.rules, group_name)
+    {
+        return None;
+    }
+    if let Err(err) = mihomo.select_node_for_group(&selector, group_name).await {
+        logging!(warn, Type::Core, "Failed to point {selector} at {group_name}: {err:#}");
+        return None;
+    }
+    if let Err(error) = crate::config::profiles::record_selected_node(&selector, group_name).await {
+        logging!(
+            warn,
+            Type::Config,
+            "Failed to persist proxy selection for {selector}: {error:#}"
+        );
+    }
+    Some(selector)
+}
+
 pub async fn switch_proxy_node(group_name: &str, proxy_name: &str, unfix: bool) -> Result<()> {
     let mihomo = handle::Handle::mihomo();
-    let previous_proxy = if Config::verge().await.data_arc().auto_close_connection.unwrap_or(false) {
+    let auto_close = Config::verge().await.data_arc().auto_close_connection.unwrap_or(false);
+    let previous_proxy = if auto_close {
         match mihomo.get_proxy_by_name(group_name).await {
             Ok(group) => group.now.filter(|name| !name.is_empty()),
             Err(err) => {
@@ -58,9 +145,22 @@ pub async fn switch_proxy_node(group_name: &str, proxy_name: &str, unfix: bool) 
             "Failed to persist proxy selection for {group_name}: {error:#}"
         );
     }
+    let mut stale_proxies: Vec<_> = previous_proxy.into_iter().collect();
+    if !unfix
+        && let Some(followed) = follow_group_selection(group_name).await
+        && auto_close
+    {
+        stale_proxies.push(followed);
+    }
+    finish_proxy_switch(stale_proxies).await;
+    Ok(())
+}
+
+async fn finish_proxy_switch(stale_proxies: Vec<std::string::String>) {
+    let mihomo = handle::Handle::mihomo();
     announce(Refresh::Proxies);
 
-    if let Some(previous_proxy) = previous_proxy {
+    if !stale_proxies.is_empty() {
         AsyncHandler::spawn(move || async move {
             let connections = match mihomo.get_connections().await {
                 Ok(connections) => connections,
@@ -80,7 +180,7 @@ pub async fn switch_proxy_node(group_name: &str, proxy_name: &str, unfix: bool) 
                     .connections
                     .unwrap_or_default()
                     .into_iter()
-                    .filter(|connection| connection.chains.contains(&previous_proxy))
+                    .filter(|connection| stale_proxies.iter().any(|proxy| connection.chains.contains(proxy)))
                     .map(|connection| async move {
                         if let Err(err) = mihomo.close_connection(&connection.id).await {
                             logging!(
@@ -115,7 +215,6 @@ pub async fn switch_proxy_node(group_name: &str, proxy_name: &str, unfix: bool) 
             );
         }
     }
-    Ok(())
 }
 
 async fn should_update_profile(uid: &str, ignore_auto_update: bool) -> Result<Option<(String, Option<PrfOption>)>> {
@@ -297,4 +396,41 @@ pub async fn update_profile(uid: &str, option: Option<&PrfOption>, is_manual_tri
 /// 增强配置
 pub async fn enhance_profiles() -> Result<ValidationOutcome> {
     CoreManager::global().update_config_forced().await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_the_first_select_group_follows_a_group() -> Result<()> {
+        let groups: Vec<serde_yaml_ng::Value> = serde_yaml_ng::from_str(
+            "
+- { name: GLOBAL, type: select, proxies: [Auto, Proxy, Direct] }
+- { name: Auto, type: url-test, proxies: [Node] }
+- { name: Proxy, type: select, proxies: [Auto, Node] }
+- { name: Direct, type: select, proxies: [DIRECT, Auto] }
+",
+        )?;
+
+        assert_eq!(parent_selector(&groups, "Auto"), Some("Proxy"));
+        assert_eq!(parent_selector(&groups, "Proxy"), None);
+        Ok(())
+    }
+
+    #[test]
+    fn rules_reach_the_groups_on_their_current_path() -> Result<()> {
+        let groups: Vec<Proxy> = serde_yaml_ng::from_str(
+            "
+- { name: Proxy, type: Selector, now: Auto }
+- { name: Auto, type: URLTest, now: Node }
+- { name: Spare, type: Selector, now: Node }
+",
+        )?;
+        let rules: Vec<Rule> = serde_yaml_ng::from_str("[{ proxy: DIRECT }, { proxy: Proxy }]")?;
+
+        assert!(rules_reach(&groups, &rules, "Auto"));
+        assert!(!rules_reach(&groups, &rules, "Spare"));
+        Ok(())
+    }
 }

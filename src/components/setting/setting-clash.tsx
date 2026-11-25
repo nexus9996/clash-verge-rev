@@ -5,7 +5,13 @@ import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { updateGeo, type LogLevel } from 'tauri-plugin-mihomo-api'
 
-import { BaseDialog, DialogRef, Switch, TooltipIcon } from '@/components/base'
+import {
+  BaseDialog,
+  DialogRef,
+  Switch,
+  TooltipIcon,
+  switchChangeValue,
+} from '@/components/base'
 import { useClash } from '@/hooks/use-clash'
 import { useClashLog } from '@/hooks/use-clash-log'
 import { useDisplayedMixedPort } from '@/hooks/use-displayed-mixed-port'
@@ -74,7 +80,6 @@ const SettingClash = ({ onError }: Props) => {
   const corsRef = useRef<DialogRef>(null)
   const tunnelRef = useRef<DialogRef>(null)
 
-  const onSwitchFormat = (_e: any, value: boolean) => value
   const onChangeData = (patch: Partial<IConfigData>) => {
     mutateClash((old) => ({ ...old!, ...patch }), false)
   }
@@ -178,7 +183,7 @@ const SettingClash = ({ onError }: Props) => {
           value={allowLan ?? false}
           valueProps="checked"
           onCatch={onError}
-          onFormat={onSwitchFormat}
+          onFormat={switchChangeValue}
           onChange={(e) => onChangeData({ 'allow-lan': e })}
           onGuard={(e) => patchClash({ 'allow-lan': e })}
         >
@@ -272,7 +277,7 @@ const SettingClash = ({ onError }: Props) => {
           value={unifiedDelay ?? false}
           valueProps="checked"
           onCatch={onError}
-          onFormat={onSwitchFormat}
+          onFormat={switchChangeValue}
           onChange={(e) => onChangeData({ 'unified-delay': e })}
           onGuard={(e) => patchClash({ 'unified-delay': e })}
         >

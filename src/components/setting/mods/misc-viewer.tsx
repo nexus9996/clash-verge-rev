@@ -8,7 +8,7 @@ import {
   TextField,
 } from '@mui/material'
 import { useLockFn } from 'ahooks'
-import { forwardRef, useState } from 'react'
+import { forwardRef, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BaseDialog, DialogRef, Switch, TooltipIcon } from '@/components/base'
@@ -18,11 +18,26 @@ import { revalidateQueries } from '@/services/query-client'
 
 import { useSettingDialog } from '../settings-search-context'
 
+const APP_LOG_LEVEL_OPTIONS = [
+  'trace',
+  'debug',
+  'info',
+  'warn',
+  'error',
+  'silent',
+].map((level) => ({
+  value: level,
+  label: level[0].toUpperCase() + level.slice(1).toLowerCase(),
+}))
+
+const PROXY_LAYOUT_COLUMN_VALUES = [1, 2, 3, 4, 5]
+
 const buildInitialValues = (verge?: IVergeConfig | null) => ({
   appLogLevel: verge?.app_log_level ?? 'warn',
   appLogMaxSize: verge?.app_log_max_size ?? 128,
   appLogMaxCount: verge?.app_log_max_count ?? 8,
   autoCloseConnection: verge?.auto_close_connection ?? true,
+  autoSwitchSelectorGroup: verge?.auto_switch_selector_group ?? true,
   autoCheckUpdate: verge?.auto_check_update ?? true,
   updateChannel: verge?.update_channel ?? 'stable',
   enableBuiltinEnhanced: verge?.enable_builtin_enhanced ?? true,
@@ -38,6 +53,40 @@ const buildInitialValues = (verge?: IVergeConfig | null) => ({
 export const MiscViewer = forwardRef<DialogRef>((props, ref) => {
   const { t } = useTranslation()
   const { verge, patchVerge } = useVerge()
+
+  const autoLogCleanOptions = useMemo(
+    () => [
+      {
+        key: t('settings.modals.misc.options.autoLogClean.never'),
+        value: 0,
+      },
+      {
+        key: t('settings.modals.misc.options.autoLogClean.retainDays', {
+          n: 1,
+        }),
+        value: 1,
+      },
+      {
+        key: t('settings.modals.misc.options.autoLogClean.retainDays', {
+          n: 7,
+        }),
+        value: 2,
+      },
+      {
+        key: t('settings.modals.misc.options.autoLogClean.retainDays', {
+          n: 30,
+        }),
+        value: 3,
+      },
+      {
+        key: t('settings.modals.misc.options.autoLogClean.retainDays', {
+          n: 90,
+        }),
+        value: 4,
+      },
+    ],
+    [t],
+  )
 
   const [open, setOpen] = useState(false)
   const [values, setValues] = useState(() => buildInitialValues(null))
@@ -57,6 +106,7 @@ export const MiscViewer = forwardRef<DialogRef>((props, ref) => {
         app_log_max_size: values.appLogMaxSize,
         app_log_max_count: values.appLogMaxCount,
         auto_close_connection: values.autoCloseConnection,
+        auto_switch_selector_group: values.autoSwitchSelectorGroup,
         auto_check_update: values.autoCheckUpdate,
         update_channel: values.updateChannel,
         enable_builtin_enhanced: values.enableBuiltinEnhanced,
@@ -106,9 +156,9 @@ export const MiscViewer = forwardRef<DialogRef>((props, ref) => {
               }))
             }
           >
-            {['trace', 'debug', 'info', 'warn', 'error', 'silent'].map((i) => (
-              <MenuItem value={i} key={i}>
-                {i[0].toUpperCase() + i.slice(1).toLowerCase()}
+            {APP_LOG_LEVEL_OPTIONS.map(({ value, label }) => (
+              <MenuItem value={value} key={value}>
+                {label}
               </MenuItem>
             ))}
           </Select>
@@ -207,6 +257,28 @@ export const MiscViewer = forwardRef<DialogRef>((props, ref) => {
         </ListItem>
 
         <ListItem
+          data-setting-target="settings.modals.misc.fields.autoSwitchSelectorGroup"
+          sx={{ padding: '5px 2px' }}
+        >
+          <ListItemText
+            primary={t('settings.modals.misc.fields.autoSwitchSelectorGroup')}
+            sx={{ maxWidth: 'fit-content' }}
+          />
+          <TooltipIcon
+            title={t('settings.modals.misc.tooltips.autoSwitchSelectorGroup')}
+            sx={{ opacity: '0.7' }}
+          />
+          <Switch
+            edge="end"
+            checked={values.autoSwitchSelectorGroup}
+            onChange={(_, c) =>
+              setValues((v) => ({ ...v, autoSwitchSelectorGroup: c }))
+            }
+            sx={{ marginLeft: 'auto' }}
+          />
+        </ListItem>
+
+        <ListItem
           data-setting-target="settings.modals.misc.fields.autoCheckUpdate"
           sx={{ padding: '5px 2px' }}
         >
@@ -294,7 +366,7 @@ export const MiscViewer = forwardRef<DialogRef>((props, ref) => {
             <MenuItem value={6} key={6}>
               {t('settings.modals.misc.options.proxyLayoutColumns.auto')}
             </MenuItem>
-            {[1, 2, 3, 4, 5].map((i) => (
+            {PROXY_LAYOUT_COLUMN_VALUES.map((i) => (
               <MenuItem value={i} key={i}>
                 {i}
               </MenuItem>
@@ -321,36 +393,7 @@ export const MiscViewer = forwardRef<DialogRef>((props, ref) => {
             }
           >
             {/* 1: 1天, 2: 7天, 3: 30天, 4: 90天*/}
-            {[
-              {
-                key: t('settings.modals.misc.options.autoLogClean.never'),
-                value: 0,
-              },
-              {
-                key: t('settings.modals.misc.options.autoLogClean.retainDays', {
-                  n: 1,
-                }),
-                value: 1,
-              },
-              {
-                key: t('settings.modals.misc.options.autoLogClean.retainDays', {
-                  n: 7,
-                }),
-                value: 2,
-              },
-              {
-                key: t('settings.modals.misc.options.autoLogClean.retainDays', {
-                  n: 30,
-                }),
-                value: 3,
-              },
-              {
-                key: t('settings.modals.misc.options.autoLogClean.retainDays', {
-                  n: 90,
-                }),
-                value: 4,
-              },
-            ].map((i) => (
+            {autoLogCleanOptions.map((i) => (
               <MenuItem key={i.value} value={i.value}>
                 {i.key}
               </MenuItem>

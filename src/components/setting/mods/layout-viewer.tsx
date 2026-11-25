@@ -15,7 +15,7 @@ import { join } from '@tauri-apps/api/path'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { exists } from '@tauri-apps/plugin-fs'
-import { forwardRef, useEffect, useState } from 'react'
+import { forwardRef, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -65,9 +65,16 @@ export const LayoutViewer = forwardRef<DialogRef>((_, ref) => {
   const [sysproxyIcon, setSysproxyIcon] = useState('')
   const [tunIcon, setTunIcon] = useState('')
 
+  // Icon paths are only reachable from the open dialog; both settings sections
+  // mount this viewer, so an eager read would double ~11 IPC calls per visit.
+  // Loaded once per mount, deferred to the first open.
+  const iconsLoadedRef = useRef(false)
+
   useEffect(() => {
+    if (!open || iconsLoadedRef.current) return
+    iconsLoadedRef.current = true
     initIconPath()
-  }, [])
+  }, [open])
 
   async function initIconPath() {
     const appDir = await getAppDir()
@@ -112,7 +119,7 @@ export const LayoutViewer = forwardRef<DialogRef>((_, ref) => {
     showNotice.error(err)
   }
   const onChangeData = (patch: Partial<IVergeConfig>) => {
-    mutateVerge({ ...verge, ...patch })
+    mutateVerge((prev) => ({ ...prev, ...patch }))
   }
 
   return (

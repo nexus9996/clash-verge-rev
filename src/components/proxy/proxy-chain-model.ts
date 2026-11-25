@@ -3,6 +3,7 @@ import * as yaml from 'js-yaml'
 import {
   getRecord,
   rebindNode,
+  sameSource,
   type ProxyNodeView,
   type ProxyViewV1,
 } from '@/types/proxy-view'
@@ -21,24 +22,49 @@ export const rebindProxyChainItems = (
   candidates: readonly ProxyNodeView[],
   proxyView: ProxyViewV1,
   delayOf?: (node: ProxyNodeView) => number | undefined,
-): ProxyChainItem[] =>
-  items.map((item) => {
+): ProxyChainItem[] => {
+  // The proxy view refreshes on a fixed cadence; reusing item and array
+  // identities while the rebound values are equal keeps persistence effects
+  // and memoized chain rows from reprocessing identical content.
+  let reboundItems: ProxyChainItem[] | undefined
+  items.forEach((item, index) => {
     const rebound = rebindNode(candidates, {
       name: item.name,
       source: item.source,
     })
     const record =
       rebound === undefined ? undefined : getRecord(proxyView, rebound.recordId)
-    return {
+    const source = rebound?.source ?? item.source
+    const type = rebound?.type ?? item.type
+    const delay =
+      (record === undefined ? undefined : delayOf?.(record)) ??
+      record?.history.at(-1)?.delay
+    const sourceReused =
+      item.source === source ||
+      (item.source !== undefined &&
+        source !== undefined &&
+        sameSource(item.source, source))
+
+    if (
+      item.recordId === rebound?.recordId &&
+      sourceReused &&
+      item.type === type &&
+      item.delay === delay
+    ) {
+      return
+    }
+
+    reboundItems ??= [...items]
+    reboundItems[index] = {
       ...item,
       recordId: rebound?.recordId,
-      source: rebound?.source ?? item.source,
-      type: rebound?.type ?? item.type,
-      delay:
-        (record === undefined ? undefined : delayOf?.(record)) ??
-        record?.history.at(-1)?.delay,
+      source,
+      type,
+      delay,
     }
   })
+  return reboundItems ?? (items as ProxyChainItem[])
+}
 
 interface ParsedChainConfig {
   proxies?: Array<{

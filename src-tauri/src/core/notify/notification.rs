@@ -11,10 +11,8 @@ use tristr::alias::String;
 
 #[derive(Debug, Clone)]
 pub enum FrontendEvent<'a> {
-    RefreshClash,
-    RefreshVerge,
-    RefreshProfiles,
-    RefreshProxyConfig,
+    /// Several refresh kinds announced by one operation, emitted as one message.
+    Refresh(Vec<super::announce::Refresh>),
     NoticeMessage {
         status: NoticeStatus,
         message: Arc<str>,
@@ -377,13 +375,10 @@ fn sample_frontend_events(uid: &str) -> Vec<(FrontendEvent<'_>, &'static str, se
     }
     .to_view();
     vec![
-        (FrontendEvent::RefreshClash, "verge://refresh-clash-config", json!(null)),
-        (FrontendEvent::RefreshVerge, "verge://refresh-verge-config", json!(null)),
-        (FrontendEvent::RefreshProfiles, "verge://refresh-profiles", json!(null)),
         (
-            FrontendEvent::RefreshProxyConfig,
-            "verge://refresh-proxy-config",
-            json!(null),
+            FrontendEvent::Refresh(vec![super::announce::Refresh::Verge, super::announce::Refresh::Clash]),
+            "verge://refresh-batch",
+            json!(["Verge", "Clash"]),
         ),
         (
             FrontendEvent::NoticeMessage {
@@ -449,10 +444,7 @@ macro_rules! frontend_events {
 }
 
 frontend_events! {
-    refresh_clash: () = "verge://refresh-clash-config", FrontendEvent::RefreshClash => ();
-    refresh_verge: () = "verge://refresh-verge-config", FrontendEvent::RefreshVerge => ();
-    refresh_profiles: () = "verge://refresh-profiles", FrontendEvent::RefreshProfiles => ();
-    refresh_proxy: () = "verge://refresh-proxy-config", FrontendEvent::RefreshProxyConfig => ();
+    refresh_batch: Vec<super::announce::Refresh> = "verge://refresh-batch", FrontendEvent::Refresh(kinds) => kinds;
     notice: (NoticeStatus, std::string::String) = "verge://notice-message", FrontendEvent::NoticeMessage { status, ref message } => (status, message.to_string());
     profile_changed: std::string::String = "profile-changed", FrontendEvent::ProfileChanged { current_profile_id } => current_profile_id.to_string();
     timer_updated: std::string::String = "verge://timer-updated", FrontendEvent::TimerUpdated { profile_index } => profile_index.to_string();

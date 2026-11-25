@@ -680,14 +680,14 @@ impl SilentUpdater {
             }
         };
 
-        let version = update.version.clone();
+        let version = update.version.as_str();
         logging!(info, Type::System, "Silent updater: update available: v{version}");
 
         // The updater plugin's version comparator already rejects downgrades;
         // assert it here too so a misconfigured comparator can't silently
         // install an older build.
         let current_version = env!("CARGO_PKG_VERSION");
-        if version_lte(&version, current_version) && !is_build_to_stable(current_version, &version) {
+        if version_lte(version, current_version) && !is_build_to_stable(current_version, version) {
             logging!(
                 warn,
                 Type::System,
@@ -725,7 +725,7 @@ impl SilentUpdater {
             };
             let bytes = bytes?;
             logging!(info, Type::System, "Silent updater: download complete");
-            Self::write_cache(bytes, version.clone()).await?;
+            Self::write_cache(bytes, version.to_owned()).await?;
         }
 
         // Serialized with `discard_pending` in the verge patch, which holds the same lock.

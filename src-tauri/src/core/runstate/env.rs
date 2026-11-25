@@ -61,19 +61,17 @@ impl RunStateEnv for RealEnv {
                 crate::config::Config::verge().await.latest_arc().get_valid_clash_core(),
                 std::env::consts::EXE_SUFFIX
             );
+            let requirements = [clash_verge_service_ipc::CoreRequirement { name, sha256: None }];
             let status = tokio::time::timeout(
                 SERVICE_PROBE_TIMEOUT,
-                clash_verge_service_ipc::inspect_installation(&[clash_verge_service_ipc::CoreRequirement {
-                    name: name.clone(),
-                    sha256: None,
-                }]),
+                clash_verge_service_ipc::inspect_installation(&requirements),
             )
             .await
             .map_err(|_| anyhow!("service installation probe timed out"))??;
             status
                 .cores
                 .into_iter()
-                .find(|core| core.name == name)
+                .find(|core| core.name == requirements[0].name)
                 .map(|core| core.availability)
         } else {
             None

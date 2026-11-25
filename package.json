@@ -7,10 +7,7 @@
   },
   "scripts": {
     "prepare": "husky || true",
-    "dev": "bun scripts/dev.mjs dev",
-    "dev:service": "bun scripts/dev.mjs service",
-    "dev:sidecar": "bun scripts/dev.mjs sidecar",
-    "dev:trace": "bun scripts/dev.mjs trace",
+    "dev": "RUST_BACKTRACE=full tauri dev",
     "dev:tauri": "RUST_BACKTRACE=full tauri dev -f tauri-dev",
     "build": "NODE_OPTIONS=--max-old-space-size=4096 tauri build",
     "build:fast": "NODE_OPTIONS=--max-old-space-size=4096 tauri build -- --profile fast-release",
@@ -29,8 +26,8 @@
     "release:deploytest": "bun run release-version deploytest",
     "lint": "oxlint src",
     "lint:fix": "oxlint src --fix",
-    "format": "oxfmt .",
-    "format:check": "oxfmt --check .",
+    "format": "bun fmt .",
+    "format:check": "bun fmt --check .",
     "hygiene": "bun scripts/check-file-hygiene.mjs",
     "i18n:check": "bun scripts/cleanup-unused-i18n.mjs",
     "i18n:verify": "bun scripts/cleanup-unused-i18n.mjs --check",
@@ -83,13 +80,14 @@
     "react-dom": "19.3.1",
     "react-error-boundary": "6.1.6",
     "react-hook-form": "^7.88.0",
-    "react-i18next": "18.0.1",
+    "react-i18next": "18.0.3",
     "react-markdown": "10.1.0",
     "react-router": "^8.4.0",
     "rehype-raw": "^7.0.0",
     "rehype-sanitize": "^6.0.0",
     "swr": "^2.5.1",
     "tauri-plugin-mihomo-api": "github:clash-verge-rev/tauri-plugin-mihomo#main",
+    "tldts": "7.5.5",
     "types-pac": "^1.0.3",
     "validator": "^13.15.35"
   },
@@ -113,9 +111,9 @@
     "https-proxy-agent": "^9.1.0",
     "husky": "^9.1.7",
     "jsdom": "^30.1.3",
-    "knip": "6.45.1",
+    "jiti": "^2.7.0",
+    "knip": "6.47.0",
     "lint-staged": "^17.5.1",
-    "oxfmt": "0.74.0",
     "oxlint": "1.89.0",
     "oxlint-tsgolint": "7.0.2004",
     "sass": "^1.104.1",
@@ -129,12 +127,12 @@
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}": [
       "oxlint --fix --no-error-on-unmatched-pattern",
-      "oxfmt --no-error-on-unmatched-pattern"
+      "bun fmt"
     ],
     "*.{json,jsonc,css,scss}": [
-      "oxfmt --no-error-on-unmatched-pattern"
+      "bun fmt"
     ]
   },
   "type": "module",
-  "packageManager": "bun@1.4.3"
+  "packageManager": "bun@1.4.4"
 }

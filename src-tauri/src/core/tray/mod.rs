@@ -22,6 +22,7 @@ use super::handle;
 use anyhow::Result;
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 use std::time::Duration;
 use tauri::Manager as _;
 use tauri::{
@@ -59,6 +60,14 @@ fn parse_proxy_item_id(id: &str) -> Option<(&str, &str)> {
         .strip_prefix(PROXY_MENU_SEPARATOR)?
         .split_once(PROXY_MENU_SEPARATOR)
 }
+
+static TOOLTIP_VERSION: LazyLock<&'static str> = LazyLock::new(|| {
+    let v = env!("CARGO_PKG_VERSION");
+    v.split_once('+').map_or_else(
+        || v,
+        |(main, rest)| Box::leak(format!("{main}+{}", rest.split('.').next().unwrap_or("")).into_boxed_str()),
+    )
+});
 
 #[derive(Clone, Copy)]
 struct TrayMenuOptions<'a> {
@@ -425,11 +434,7 @@ impl Tray {
         let tun_text = clash_verge_i18n::t!("tray.tooltip.tun");
         let profile_text = clash_verge_i18n::t!("tray.tooltip.profile");
 
-        let v = env!("CARGO_PKG_VERSION");
-        let reassembled_version = v.split_once('+').map_or_else(
-            || v.into(),
-            |(main, rest)| format!("{main}+{}", rest.split('.').next().unwrap_or("")),
-        );
+        let reassembled_version = *TOOLTIP_VERSION;
 
         let tooltip = format!(
             "Clash Verge {}\n{}: {}\n{}: {}\n{}: {}",

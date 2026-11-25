@@ -65,7 +65,7 @@ clash-verge-logging = { path = "crates/clash-verge-logging" }
 clash-verge-signal = { path = "crates/clash-verge-signal" }
 clash-verge-i18n = { path = "crates/clash-verge-i18n" }
 clash-verge-limiter = { path = "crates/clash-verge-limiter" }
-tracing-estuary = { git = "https://github.com/Tunglies/tracing-estuary.git", rev = "dbfce033fa4cff8f936f3e7c2282af1277546f3c" }
+tracing-estuary = { git = "https://github.com/Tunglies/tracing-estuary.git", branch = "main" }
 tauri-plugin-clash-verge-sysinfo = { path = "crates/tauri-plugin-clash-verge-sysinfo" }
 tracing = "0.1.44"
 
@@ -73,7 +73,7 @@ tauri = { version = "3.0.0-alpha.4" }
 tauri-runtime-wry = "3.0.0-alpha.4"
 tauri-plugin-clipboard-manager = "3.0.0-alpha.2"
 parking_lot = { version = "0.12.5", features = ["hardware-lock-elision"] }
-anyhow = "1.0.104"
+anyhow = "1.0.105"
 chrono = "0.4.45"
 criterion = { version = "0.8.2", features = ["async_tokio"] }
 tokio = { version = "1.53.3", features = [
@@ -82,8 +82,8 @@ tokio = { version = "1.53.3", features = [
   "time",
   "sync",
 ] }
-flexi_logger = "0.31.10"
-log = "0.4.34"
+flexi_logger = "0.32.0"
+log = "0.4.35"
 keyring-core = "1"
 encoding_rs = "0.8.35"
 reqwest = { version = "0.13.5", features = [
@@ -96,7 +96,7 @@ reqwest = { version = "0.13.5", features = [
 rust_iso3166 = "0.2.0"
 
 serde = { version = "1.0.229" }
-tristr = { git = "https://github.com/Tunglies/tristr", rev = "3738d8c5785d609674c5f4f05def26b94724200c", default-features = false, features = ["serde", "specta"] }
+tristr = { git = "https://github.com/Tunglies/tristr", rev = "d849e5cff47a570849c2e1bada0a2b6481cf3378", default-features = false, features = ["serde", "specta"] }
 serde_json = { version = "1.0.154" }
 serde_yaml_ng = { version = "0.10.0" }
 socket2 = "0.6.5"

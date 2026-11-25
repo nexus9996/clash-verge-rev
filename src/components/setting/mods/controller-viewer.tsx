@@ -11,7 +11,7 @@ import {
   Tooltip,
 } from '@mui/material'
 import { useLockFn } from 'ahooks'
-import { useState, type Ref } from 'react'
+import { useRef, useState, type Ref } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BaseDialog, DialogRef, Switch } from '@/components/base'
@@ -25,11 +25,23 @@ export function ControllerViewer({ ref }: { ref?: Ref<DialogRef> }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [copySuccess, setCopySuccess] = useState<null | string>(null)
+  // A second copy within the window must not be hidden by the first timer.
+  const copySuccessTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  )
   const [isSaving, setIsSaving] = useState(false)
 
   const [controller, setController] = useState('')
   const [secret, setSecret] = useState('')
   const [enableController, setEnableController] = useState(false)
+
+  // A reopen within the window must not replay the previous session's toast.
+  const closeDialog = () => {
+    clearTimeout(copySuccessTimerRef.current)
+    copySuccessTimerRef.current = undefined
+    setCopySuccess(null)
+    setOpen(false)
+  }
 
   // 对话框打开时初始化配置
   useSettingDialog(ref, 'controller-viewer', open, () => ({
@@ -44,9 +56,7 @@ export function ControllerViewer({ ref }: { ref?: Ref<DialogRef> }) {
         showNotice.error(err)
       }
     },
-    close: () => {
-      if (!isSaving) setOpen(false)
-    },
+    close: closeDialog,
   }))
 
   const onSave = useLockFn(async () => {
@@ -75,7 +85,7 @@ export function ControllerViewer({ ref }: { ref?: Ref<DialogRef> }) {
         ['getRuntimeConfig'],
       ])
       showNotice.success('shared.feedback.notifications.common.saveSuccess')
-      setOpen(false)
+      closeDialog()
     } catch (err) {
       showNotice.error(
         'shared.feedback.notifications.common.saveFailed',
@@ -87,17 +97,17 @@ export function ControllerViewer({ ref }: { ref?: Ref<DialogRef> }) {
     }
   })
 
-  const onClose = () => {
-    if (!isSaving) setOpen(false)
-  }
-
   // 复制到剪贴板
   const handleCopyToClipboard = useLockFn(
     async (text: string, type: string) => {
       try {
         await navigator.clipboard.writeText(text)
         setCopySuccess(type)
-        setTimeout(() => setCopySuccess(null))
+        clearTimeout(copySuccessTimerRef.current)
+        copySuccessTimerRef.current = setTimeout(
+          () => setCopySuccess(null),
+          2000,
+        )
       } catch (err) {
         console.warn('[ControllerViewer] copy to clipboard failed:', err)
         showNotice.error(
@@ -116,8 +126,8 @@ export function ControllerViewer({ ref }: { ref?: Ref<DialogRef> }) {
       cancelBtn={t('shared.actions.cancel')}
       loading={isSaving}
       disableCancel={isSaving}
-      onClose={onClose}
-      onCancel={onClose}
+      onClose={closeDialog}
+      onCancel={closeDialog}
       onOk={onSave}
     >
       <span data-settings-dialog="controller-viewer" />

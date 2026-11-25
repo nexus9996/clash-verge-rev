@@ -86,20 +86,18 @@ bun run prebuild:download
 bun run prebuild:download --force  # Re-download and overwrite Mihomo core and service binaries
 ```
 
-### Prepare the Development Service Source
+### Service Development
 
-`bun run dev` builds the development service from a sibling checkout of [`clash-verge-service-ipc`](https://github.com/clash-verge-rev/clash-verge-service-ipc). The binaries downloaded by `bun run prebuild:download` do not replace this source checkout.
-
-Check the `clash_verge_service_ipc` dependency in [`src-tauri/Cargo.toml`](src-tauri/Cargo.toml), then clone the service repository alongside `clash-verge-rev` and check out the matching tag. Set `CLASH_VERGE_DEV_SERVICE_DIR` when the checkout lives elsewhere. Without that checkout, `bun run dev` fails before the app starts.
+The app consumes the published `clash_verge_service_ipc` crate from its git tag (see [`src-tauri/Cargo.toml`](src-tauri/Cargo.toml)). To work on the Service itself, clone [`clash-verge-service-ipc`](https://github.com/clash-verge-rev/clash-verge-service-ipc) alongside `clash-verge-rev`, check out the matching tag, and temporarily point the dependency at the local path before building.
 
 ### Run the Development Server
 
 ```bash
-bun run dev        # Standard
-bun run dev:diff   # If an app instance already exists
-bun run dev:tauri  # Run Tauri development mode
+bun run dev        # Start the desktop app in debug mode
+bun run dev:tauri  # Run Tauri directly with the tauri-dev feature
 ```
 
+For frontend-only development, use `bun run web:dev`. It does not start the Rust backend.
 ### Build the Project
 
 Standard build:

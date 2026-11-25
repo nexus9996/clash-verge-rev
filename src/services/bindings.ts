@@ -473,6 +473,7 @@ export type IVerge_Deserialize = {
   enable_global_hotkey?: boolean | null
   home_cards?: JsonValue | null
   auto_close_connection?: boolean | null
+  auto_switch_selector_group?: boolean | null
   auto_check_update?: boolean | null
   /**  Update channel: `stable` or `alpha`. */
   update_channel?: string | null
@@ -572,6 +573,7 @@ export type IVerge_Serialize = {
   enable_global_hotkey: boolean | null
   home_cards: JsonValue | null
   auto_close_connection: boolean | null
+  auto_switch_selector_group: boolean | null
   auto_check_update: boolean | null
   /**  Update channel: `stable` or `alpha`. */
   update_channel: string | null
@@ -1047,6 +1049,8 @@ export type ProxyViewV1_Serialize = {
   providers: ProxyProviderView_Serialize[]
 }
 
+export type Refresh = 'Clash' | 'Verge' | 'Profiles' | 'Proxies'
+
 export type RuleDisableRequest = {
   index: number
   disabled: boolean
@@ -1165,10 +1169,7 @@ export type ValidationOutcome =
 export type ValidationSkipReason = 'exiting' | 'debounced'
 
 export type VergeEventPayloads = {
-  'verge://refresh-clash-config': null
-  'verge://refresh-verge-config': null
-  'verge://refresh-profiles': null
-  'verge://refresh-proxy-config': null
+  'verge://refresh-batch': Refresh[]
   'verge://notice-message': [NoticeStatus, string]
   'profile-changed': string
   'verge://timer-updated': string

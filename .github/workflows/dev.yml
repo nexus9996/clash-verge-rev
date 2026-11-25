@@ -99,7 +99,7 @@ jobs:
         if: github.event.inputs[matrix.input] == 'true'
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: '1.4.3'
+          bun-version: '1.4.4'
 
       - name: Install Node
         if: github.event.inputs[matrix.input] == 'true'
