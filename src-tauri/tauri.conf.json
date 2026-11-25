@@ -31,7 +31,7 @@
   "identifier": "io.github.clash-verge-rev.clash-verge-rev",
   "plugins": {
     "updater": {
-      "pubkey": "untrusted comment: minisign public key: D93F20B8A9E495D9\nRWTZleSpuCA/2RK02kvEercKD9U1pwX/kd26qj2a+/Z1onS4ZQMOL8LR",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ5M0YyMEI4QTlFNDk1RDkKUldUWmxlU3B1Q0EvMlJLMDJrdkVlcmNLRDlVMXB3WC9rZDI2cWoyYSsvWjFvblM0WlFNT0w4TFIK",
       "endpoints": [
         "https://github.com/clash-verge-rev/clash-verge-rev/releases/download/updater/update.json",
         "https://update.hwdns.net/https://github.com/clash-verge-rev/clash-verge-rev/releases/download/updater/update-proxy.json",
