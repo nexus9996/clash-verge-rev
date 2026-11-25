@@ -1,11 +1,12 @@
 import { getName, getVersion } from '@tauri-apps/api/app'
-import { fetch } from '@tauri-apps/plugin-http'
 import { asyncRetry } from 'foxts/async-retry'
 import { extractErrorMessage } from 'foxts/extract-error-message'
 import { once } from 'foxts/once'
 import i18n from 'i18next'
 
 import { debugLog } from '@/utils/debug'
+
+import { httpGetText } from './cmds'
 
 const getUserAgentPromise = once(async () => {
   try {
@@ -160,47 +161,37 @@ export const getIpInfo = async (): Promise<
         async (bail) => {
           console.debug('Fetching IP information:', service.url)
 
-          const timeoutController = new AbortController()
-          const timeoutId = setTimeout(() => {
-            timeoutController.abort()
-          }, serviceTimeout)
+          // The backend uses the live mixed port, its shared TLS/timeout policy
+          // and the same User-Agent for every probe.
+          const response = await httpGetText(
+            service.url,
+            serviceTimeout,
+            userAgent,
+          )
 
+          if (response.status < 200 || response.status >= 300) {
+            return bail(
+              new Error(
+                `IP 检测服务出错，状态码: ${response.status} from ${service.url}`,
+              ),
+            )
+          }
+
+          let data: any
           try {
-            const response = await fetch(service.url, {
-              method: 'GET',
-              signal: timeoutController.signal,
-              connectTimeout: serviceTimeout,
-              headers: {
-                'User-Agent': userAgent,
-              },
+            data = JSON.parse(response.body)
+          } catch {
+            return bail(new Error(`无法解析 JSON 响应 from ${service.url}`))
+          }
+
+          if (data && data.ip) {
+            debugLog(`IP检测成功，使用服务: ${service.url}`)
+            return Object.assign(service.mapping(data), {
+              // use last fetch success timestamp
+              lastFetchTs: Date.now(),
             })
-
-            if (!response.ok) {
-              return bail(
-                new Error(
-                  `IP 检测服务出错，状态码: ${response.status} from ${service.url}`,
-                ),
-              )
-            }
-
-            let data: any
-            try {
-              data = await response.json()
-            } catch {
-              return bail(new Error(`无法解析 JSON 响应 from ${service.url}`))
-            }
-
-            if (data && data.ip) {
-              debugLog(`IP检测成功，使用服务: ${service.url}`)
-              return Object.assign(service.mapping(data), {
-                // use last fetch success timestamp
-                lastFetchTs: Date.now(),
-              })
-            } else {
-              return bail(new Error(`无效的响应格式 from ${service.url}`))
-            }
-          } finally {
-            clearTimeout(timeoutId)
+          } else {
+            return bail(new Error(`无效的响应格式 from ${service.url}`))
           }
         },
         {

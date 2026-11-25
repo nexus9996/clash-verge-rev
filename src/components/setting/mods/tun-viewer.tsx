@@ -23,40 +23,34 @@ import { useClash } from '@/hooks/use-clash'
 import { enhanceProfiles } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'
+import { supportsTunDnsMode } from '@/utils/core-version'
 import getSystem from '@/utils/get-system'
-import { areValidIpCidrs } from '@/utils/network'
+import { areValidIpCidrs } from '@/utils/network-cidr'
 
 import { useSettingDialog } from '../settings-search-context'
 
 import { DnsModeSwitch } from './dns-mode-switch'
 import { StackModeSwitch } from './stack-mode-switch'
+import {
+  buildTunConfig,
+  defaultTunFormValues,
+  splitRouteExcludeAddress,
+  type TunFormValues,
+} from './tun-config'
 
 const OS = getSystem()
-
-const splitRouteExcludeAddress = (value: string) =>
-  value
-    .split(/[,\n;\r]+/)
-    .map((item) => item.trim())
-    .filter(Boolean)
 
 export function TunViewer({ ref }: { ref?: Ref<DialogRef> }) {
   const { t } = useTranslation()
 
-  const { clash, mutateClash, patchClash } = useClash()
+  const { clash, mutateClash, patchClash, coreVersion } = useClash()
+
+  // Older cores ignore `tun.dns-mode`, so the row only appears when the
+  // running core is known to support it.
+  const dnsModeSupported = supportsTunDnsMode(coreVersion)
 
   const [open, setOpen] = useState(false)
-  const [values, setValues] = useState({
-    stack: 'mips',
-    device: OS === 'macos' ? 'utun1024' : 'Mihomo',
-    autoRoute: true,
-    routeExcludeAddress: '',
-    autoRedirect: false,
-    autoDetectInterface: true,
-    dnsHijack: ['any:53'],
-    strictRoute: false,
-    mtu: 1500 as number | undefined,
-    dnsMode: '',
-  })
+  const [values, setValues] = useState<TunFormValues>(defaultTunFormValues(OS))
 
   const routeExcludeAddressItems = splitRouteExcludeAddress(
     values.routeExcludeAddress,
@@ -96,8 +90,6 @@ export function TunViewer({ ref }: { ref?: Ref<DialogRef> }) {
 
   const onSave = useLockFn(async () => {
     try {
-      const routeExcludeAddress = routeExcludeAddressItems
-
       if (routeExcludeAddressError) {
         showNotice.error(
           'settings.modals.tun.messages.invalidRouteExcludeAddress',
@@ -105,27 +97,7 @@ export function TunViewer({ ref }: { ref?: Ref<DialogRef> }) {
         return
       }
 
-      const tun: IConfigData['tun'] = {
-        stack: values.stack,
-        device:
-          values.device === ''
-            ? OS === 'macos'
-              ? 'utun1024'
-              : 'Mihomo'
-            : values.device,
-        'auto-route': values.autoRoute,
-        'route-exclude-address': routeExcludeAddress,
-        ...(OS === 'linux'
-          ? {
-              'auto-redirect': values.autoRedirect,
-            }
-          : {}),
-        'auto-detect-interface': values.autoDetectInterface,
-        'dns-hijack': values.dnsHijack[0] === '' ? [] : values.dnsHijack,
-        'dns-mode': values.dnsMode,
-        'strict-route': values.strictRoute,
-        mtu: values.mtu ?? 1500,
-      }
+      const tun = buildTunConfig(values, OS)
       await patchClash({ tun })
       await mutateClash(
         (old) => ({
@@ -158,34 +130,9 @@ export function TunViewer({ ref }: { ref?: Ref<DialogRef> }) {
             variant="outlined"
             size="small"
             onClick={async () => {
-              const tun: IConfigData['tun'] = {
-                stack: 'mips',
-                device: OS === 'macos' ? 'utun1024' : 'Mihomo',
-                'auto-route': true,
-                ...(OS === 'linux'
-                  ? {
-                      'auto-redirect': false,
-                    }
-                  : {}),
-                'auto-detect-interface': true,
-                'dns-hijack': ['any:53'],
-                'route-exclude-address': [],
-                'dns-mode': '',
-                'strict-route': false,
-                mtu: 1500,
-              }
-              setValues({
-                stack: 'mips',
-                device: OS === 'macos' ? 'utun1024' : 'Mihomo',
-                autoRoute: true,
-                routeExcludeAddress: '',
-                autoRedirect: false,
-                autoDetectInterface: true,
-                dnsHijack: ['any:53'],
-                strictRoute: false,
-                mtu: 1500,
-                dnsMode: '',
-              })
+              const defaults = defaultTunFormValues(OS)
+              const tun = buildTunConfig(defaults, OS)
+              setValues(defaults)
               await patchClash({ tun })
               await mutateClash(
                 (old) => ({
@@ -225,27 +172,29 @@ export function TunViewer({ ref }: { ref?: Ref<DialogRef> }) {
           />
         </ListItem>
 
-        <ListItem
-          data-setting-target="settings.modals.tun.fields.dnsMode"
-          sx={{ padding: '5px 2px' }}
-        >
-          <ListItemText
-            primary={t('settings.modals.tun.fields.dnsMode')}
-            sx={{ maxWidth: 'fit-content' }}
-          />
-          <TooltipIcon
-            title={t('settings.modals.tun.tooltips.dnsMode')}
-            sx={{ opacity: 0.7 }}
-          />
-          <Box sx={{ marginLeft: 'auto' }}>
-            <DnsModeSwitch
-              value={values.dnsMode}
-              onChange={(value) => {
-                setValues((v) => ({ ...v, dnsMode: value }))
-              }}
+        {dnsModeSupported && (
+          <ListItem
+            data-setting-target="settings.modals.tun.fields.dnsMode"
+            sx={{ padding: '5px 2px' }}
+          >
+            <ListItemText
+              primary={t('settings.modals.tun.fields.dnsMode')}
+              sx={{ maxWidth: 'fit-content' }}
             />
-          </Box>
-        </ListItem>
+            <TooltipIcon
+              title={t('settings.modals.tun.tooltips.dnsMode')}
+              sx={{ opacity: 0.7 }}
+            />
+            <Box sx={{ marginLeft: 'auto' }}>
+              <DnsModeSwitch
+                value={values.dnsMode}
+                onChange={(value) => {
+                  setValues((v) => ({ ...v, dnsMode: value }))
+                }}
+              />
+            </Box>
+          </ListItem>
+        )}
 
         <ListItem
           data-setting-target="settings.modals.tun.fields.device"

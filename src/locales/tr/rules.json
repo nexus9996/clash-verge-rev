@@ -8,7 +8,11 @@
         "update": "Güncelle"
       }
     },
-    "title": "Kurallar"
+    "title": "Kurallar",
+    "rule": {
+      "toggle": "Bu kuralı etkinleştir veya devre dışı bırak",
+      "hits": "İsabet: {{count}}"
+    }
   },
   "feedback": {
     "notifications": {

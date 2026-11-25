@@ -148,21 +148,33 @@ pub(crate) async fn run_exit_cleanup_flow(stop_failed_notice: NoticeStatus) -> C
         handle::Handle::global().clear_is_exiting();
         // A failed stop may still have marked the core stopped, and exit cleanup skipped the DNS restore.
         // A core that kept running keeps its DNS, whatever an unapplied config draft says.
-        #[cfg(target_os = "macos")]
-        {
-            let manager = CoreManager::global();
-            let _lifecycle = manager.lifecycle_lock.lock().await;
-            if matches!(
-                *manager.get_running_mode(),
-                crate::core::manager::RunningMode::NotRunning
-            ) {
-                crate::utils::resolve::dns::sync_public_dns().await;
+        let manager = CoreManager::global();
+        let _lifecycle = manager.lifecycle_lock.lock().await;
+        if matches!(
+            *manager.get_running_mode(),
+            crate::core::manager::RunningMode::NotRunning
+        ) {
+            #[cfg(target_os = "macos")]
+            crate::utils::resolve::dns::sync_public_dns().await;
+        } else {
+            // The stop transition clears the OS proxy before stopping the core. When the stop
+            // fails and we cancel the quit, the live core must keep serving the proxy.
+            if let Err(error) = manager.apply_proxy_after_start().await {
+                logging!(
+                    warn,
+                    Type::Window,
+                    "Failed to restore the system proxy after a cancelled quit: {error:#}"
+                );
             }
         }
         handle::Handle::notice(
             stop_failed_notice,
             cleanup_result.stop_error.clone().unwrap_or_default(),
         );
+        // A failed controlled stop cancels the quit. Cleanup already skipped the DNS restore and
+        // left the core running, so tearing down the embedded server or exiting now would abandon
+        // a live core behind an app that is gone.
+        return cleanup_result;
     }
 
     cleanup_result
@@ -223,6 +235,32 @@ pub fn clean_session_ending_with_hard_deadline() -> Option<CleanupResult> {
             None
         }
     }
+}
+
+/// Last-chance cleanup for exit paths that bypass the event loop.
+///
+/// The plugin cleanup hook runs on paths like AppHandle::restart that never
+/// reach RunEvent::Exit. The interactive quit and restart flows set the
+/// exiting flag before cleaning up, so this only takes over when a caller
+/// skipped them; reuse the bounded cleanup written for OS session end instead
+/// of repeating the async interactive flow on the main thread.
+pub fn cleanup_before_exit_safety_net() {
+    if !handle::Handle::global().is_exiting() {
+        logging!(warn, Type::System, "退出路径未经过常规清理流程，执行兜底清理");
+        handle::Handle::global().set_is_exiting();
+        if let Some(result) = clean_session_ending_with_hard_deadline() {
+            logging!(
+                info,
+                Type::System,
+                "兜底清理完成 - 内核已停止: {}, 全部清理成功: {}",
+                result.core_stopped,
+                result.all_success
+            );
+        }
+        utils::server::shutdown_embedded_server();
+    }
+
+    crate::core::logger::Logger::global().flush_logs();
 }
 
 /// Avoids the app runtime, whose workers may wait on the blocked main thread.

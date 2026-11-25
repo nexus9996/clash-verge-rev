@@ -10,7 +10,7 @@ import {
 } from '@mui/material'
 import { useLockFn } from 'ahooks'
 import type { Ref } from 'react'
-import { useImperativeHandle, useRef, useState } from 'react'
+import { useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
@@ -45,6 +45,29 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
   const { profiles } = useProfiles()
 
   const fileDataRef = useRef<string | null>(null)
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearResetTimer = () => {
+    if (resetTimerRef.current !== null) {
+      clearTimeout(resetTimerRef.current)
+      resetTimerRef.current = null
+    }
+  }
+
+  // Deferred so the dialog can animate out; cancelled when a new form opens.
+  const scheduleReset = () => {
+    clearResetTimer()
+    resetTimerRef.current = setTimeout(() => {
+      resetTimerRef.current = null
+      reset()
+    }, 500)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (resetTimerRef.current !== null) clearTimeout(resetTimerRef.current)
+    }
+  }, [])
 
   const { control, watch, setValue, reset, handleSubmit, getValues } =
     useForm<IProfileItem>({
@@ -63,10 +86,16 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
 
   useImperativeHandle(ref, () => ({
     create: () => {
+      clearResetTimer()
+      // The deferred reset may not have run yet when the user reopens quickly;
+      // a new form must never inherit the previous profile.
+      reset()
       setOpenType('new')
       setOpen(true)
     },
     edit: (item: IProfileItem) => {
+      clearResetTimer()
+      reset()
       if (item) {
         Object.entries(item).forEach(([key, value]) => {
           setValue(key as any, value)
@@ -206,7 +235,7 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
         }
 
         setOpen(false)
-        setTimeout(() => reset(), 500)
+        scheduleReset()
         fileDataRef.current = null
 
         setTimeout(() => {
@@ -222,9 +251,10 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
 
   const handleClose = () => {
     try {
+      clearResetTimer()
       setOpen(false)
       fileDataRef.current = null
-      setTimeout(() => reset(), 500)
+      scheduleReset()
     } catch (e) {
       console.warn('[ProfileViewer] handleClose error:', e)
     }

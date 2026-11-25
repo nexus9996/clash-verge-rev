@@ -40,7 +40,7 @@ mod app_init {
     }
 
     /// Setup plugins for the Tauri builder
-    pub fn setup_plugins(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
+    pub fn setup_plugins(builder: tauri::Builder) -> tauri::Builder {
         #[allow(unused_mut)]
         let mut builder = builder
             .plugin(tauri_plugin_clash_verge_sysinfo::init())
@@ -60,11 +60,18 @@ mod app_init {
             .plugin(tauri_plugin_shell::init())
             .plugin(tauri_plugin_opener::init())
             .plugin(tauri_plugin_deep_link::init())
-            .plugin(tauri_plugin_http::init())
             .plugin(
                 tauri_plugin_mihomo::Builder::new()
                     .protocol(tauri_plugin_mihomo::models::Protocol::LocalSocket)
                     .socket_path(crate::config::IClashTemp::guard_external_controller_ipc())
+                    .build(),
+            )
+            // v3 cleanup hook: also runs on exit paths that skip the event loop
+            // (AppHandle::restart), so a missed interactive cleanup cannot leave
+            // the kernel or the embedded server behind.
+            .plugin(
+                tauri::plugin::Builder::<tauri::DynRuntime, ()>::new("clash-verge-exit-cleanup")
+                    .on_cleanup_before_exit(|_app| crate::feat::cleanup_before_exit_safety_net())
                     .build(),
             );
 
@@ -115,15 +122,19 @@ mod app_init {
     /// Setup window state management
     pub fn setup_window_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         logging!(debug, Type::Setup, "初始化窗口状态管理...");
+        // Decorations are config-driven (`enable_system_titlebar`); restoring a stale
+        // value here would override the builder's `.decorations(...)` on window recreate.
+        let state_flags =
+            tauri_plugin_window_state::StateFlags::all() & !tauri_plugin_window_state::StateFlags::DECORATIONS;
         let window_state_plugin = tauri_plugin_window_state::Builder::new()
             .with_filename(files::WINDOW_STATE)
-            .with_state_flags(tauri_plugin_window_state::StateFlags::default())
+            .with_state_flags(state_flags)
             .build();
         app.handle().plugin(window_state_plugin)?;
         Ok(())
     }
 
-    pub fn generate_handlers() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
+    pub fn generate_handlers() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
         {
             let builder = crate::ipc::builder();
             move |invoke| builder.invoke_handler()(invoke)
@@ -180,7 +191,7 @@ pub fn run() -> std::process::ExitCode {
     #[cfg(target_os = "linux")]
     utils::linux::workarounds::apply_wayland_webkit_fix();
 
-    let builder = app_init::setup_plugins(tauri::Builder::default())
+    let builder = app_init::setup_plugins(tauri::Builder::default().runtime(tauri_runtime_wry::Wry::default()))
         .setup(|app| {
             // Logger may not be ready yet, so mirror setup panics to stderr.
             fn log_setup_panic(stage: &str, panic: Box<dyn std::any::Any + Send>) {
@@ -259,6 +270,8 @@ pub fn run() -> std::process::ExitCode {
         #[cfg(target_os = "macos")]
         use tauri::Manager as _;
 
+        static WINDOW_FOCUS_SERIAL: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
         pub fn handle_ready_resumed(_app_handle: &AppHandle) {
             if handle::Handle::global().is_exiting() {
                 logging!(debug, Type::System, "应用正在退出，跳过处理");
@@ -305,6 +318,10 @@ pub fn run() -> std::process::ExitCode {
 
         pub fn handle_window_focus(focused: bool) {
             AsyncHandler::spawn(move || async move {
+                let _serial = WINDOW_FOCUS_SERIAL.lock().await;
+                if focused != WindowManager::is_main_window_focused(WindowManager::get_main_window().as_ref()) {
+                    return;
+                }
                 let is_enable_global_hotkey = Config::verge().await.data_arc().enable_global_hotkey.unwrap_or(true);
 
                 if focused {
@@ -341,6 +358,7 @@ pub fn run() -> std::process::ExitCode {
         pub fn handle_window_destroyed() {
             use crate::core::hotkey::SystemHotkey;
             AsyncHandler::spawn(move || async move {
+                let _serial = WINDOW_FOCUS_SERIAL.lock().await;
                 let _ = hotkey::Hotkey::global().unregister_system_hotkey(SystemHotkey::CmdQ);
                 let _ = hotkey::Hotkey::global().unregister_system_hotkey(SystemHotkey::CmdW);
                 let is_enable_global_hotkey = Config::verge().await.data_arc().enable_global_hotkey.unwrap_or(true);

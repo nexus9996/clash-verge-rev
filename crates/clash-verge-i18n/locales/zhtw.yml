@@ -34,6 +34,15 @@ notifications:
     body: 新版本（v{version}）已下載完成，是否立即安裝？
     installNow: 立即安裝
     later: 稍後
+  subscriptionImport:
+    title: Import an external subscription?
+    body: |-
+      Download subscription "{name}" from:
+      {url}
+      Its configuration can control where proxied traffic is routed. If no profile is selected, it may become active immediately. Continue only if you trust this source.
+    import: Import
+    cancel: Cancel
+    unnamed: Unnamed subscription
 service:
   adminInstallPrompt: 安裝 Clash Verge 服務需要管理員權限
   adminUninstallPrompt: 解除安裝 Clash Verge 服務需要管理員權限

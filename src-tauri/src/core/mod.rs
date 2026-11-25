@@ -1,10 +1,15 @@
 pub mod auto_backup;
 pub mod autostart;
 pub mod backup;
+pub mod connections;
 pub mod hotkey;
+pub mod ipv6;
+#[cfg(unix)]
+pub mod ipv6_detect;
 pub mod lightweight;
 pub mod listener;
 pub mod logger;
+pub mod logs;
 pub mod manager;
 #[cfg(target_os = "macos")]
 pub mod network_watch;

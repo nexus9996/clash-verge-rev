@@ -26,7 +26,8 @@
     "labels": {
       "proxyCount": "Quantidade de proxies",
       "delayCheckReset": "Teste de latência para cancelar a fixação",
-      "nodeCount": "{{count}} nós"
+      "nodeCount": "{{count}} nós",
+      "groupBadge": "Grupo"
     },
     "tooltips": {
       "locate": "localizar",
@@ -37,7 +38,8 @@
       "delayCheckUrl": "URL do teste de latência",
       "showBasic": "Proxy básico",
       "showDetail": "Proxy detalhado",
-      "filter": "Filtro"
+      "filter": "Filtro",
+      "jumpToGroup": "Ir para o grupo"
     },
     "placeholders": {
       "delayCheckUrl": "URL do teste de latência"

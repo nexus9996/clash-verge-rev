@@ -35,8 +35,57 @@ pub(super) async fn resolve_scheme(param: &str) -> Result<()> {
         return Ok(());
     };
 
+    if !confirm_subscription_import(&url, name.as_ref()).await {
+        logging!(
+            info,
+            Type::Config,
+            "cancelled deep link subscription import: {}",
+            help::mask_url(&url)
+        );
+        return Ok(());
+    }
+
     import_subscription(&url, name.as_ref()).await;
     Ok(())
+}
+
+async fn confirm_subscription_import(url: &str, name: Option<&String>) -> bool {
+    use tauri_plugin_dialog::{DialogExt as _, MessageDialogButtons, MessageDialogKind};
+
+    let display_name = name.map_or_else(
+        || clash_verge_i18n::t!("notifications.subscriptionImport.unnamed").into_owned(),
+        |name| sanitize_dialog_value(name),
+    );
+    let display_url = help::mask_url(url);
+    let title = clash_verge_i18n::t!("notifications.subscriptionImport.title");
+    let body = clash_verge_i18n::t!(
+        "notifications.subscriptionImport.body",
+        name = display_name,
+        url = display_url
+    );
+    let import = clash_verge_i18n::t!("notifications.subscriptionImport.import").into_owned();
+    let cancel = clash_verge_i18n::t!("notifications.subscriptionImport.cancel").into_owned();
+    let (tx, rx) = tokio::sync::oneshot::channel();
+
+    crate::core::handle::Handle::app_handle()
+        .dialog()
+        .message(body)
+        .title(title)
+        .buttons(MessageDialogButtons::OkCancelCustom(import, cancel))
+        .kind(MessageDialogKind::Warning)
+        .show(move |confirmed| {
+            let _ = tx.send(confirmed);
+        });
+
+    rx.await.unwrap_or(false)
+}
+
+fn sanitize_dialog_value(value: &str) -> std::string::String {
+    value
+        .chars()
+        .take(160)
+        .map(|character| if character.is_control() { ' ' } else { character })
+        .collect()
 }
 
 fn extract_subscription_info(link_parsed: &Url) -> Option<(std::string::String, Option<String>)> {
@@ -53,11 +102,16 @@ fn extract_subscription_info(link_parsed: &Url) -> Option<(std::string::String, 
 }
 
 fn extract_subscription_url(link_parsed: &Url) -> Option<std::string::String> {
-    let query = link_parsed.query()?;
-    let prefix = "url=";
-    let pos = query.find(prefix)?;
-    let raw_url = query[pos + prefix.len()..].trim();
-    Some(decode_subscription_url(raw_url))
+    let raw_url = link_parsed
+        .query_pairs()
+        .find(|(key, _)| key == "url")
+        .map(|(_, value)| value.into_owned())?;
+    let url = decode_subscription_url(raw_url.trim());
+    let parsed = Url::parse(&url).ok()?;
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return None;
+    }
+    Some(url)
 }
 
 fn decode_subscription_url(raw_url: &str) -> std::string::String {

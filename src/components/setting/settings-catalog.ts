@@ -441,8 +441,6 @@ const settingsCatalog: readonly SettingEntry[] = [
     'settings.components.verge.basic.actions.browse': '',
   }),
   ...group(layoutFields, {
-    'settings.components.verge.layout.fields.preferSystemTitlebar':
-      'preferSystemTitlebar',
     'settings.components.verge.layout.fields.trafficGraph': 'trafficGraph',
     'settings.components.verge.layout.fields.memoryUsage': 'memoryUsage',
     'settings.components.verge.layout.fields.proxyGroupIcon': 'proxyGroupIcon',

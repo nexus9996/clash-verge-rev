@@ -1,25 +1,46 @@
 import { EditRounded } from '@mui/icons-material'
 import {
+  Box,
   Button,
   List,
   ListItem,
   ListItemText,
   styled,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   useTheme,
 } from '@mui/material'
 import { useLockFn } from 'ahooks'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BaseDialog, DialogRef } from '@/components/base'
 import { EditorViewer } from '@/components/profile/editor-viewer'
+import { ThemeColorSelect } from '@/components/setting/mods/theme-color-select'
+import {
+  defaultDarkTheme,
+  defaultTheme,
+  THEME_PRESETS,
+  type ThemePresetColorKey,
+  type ThemePreset,
+  type ThemePresetId,
+} from '@/config/theme'
 import { useVerge } from '@/hooks/use-verge'
-import { defaultDarkTheme, defaultTheme } from '@/pages/_theme'
 import { showNotice } from '@/services/notice-service'
 
 import { useSettingDialog } from '../settings-search-context'
 
+type EditMode = 'light' | 'dark'
+type ThemeSetting = NonNullable<IVergeConfig['theme_setting']>
+type ThemeSettingColorKey = Exclude<
+  keyof ThemeSetting,
+  | 'font_family'
+  | 'css_injection'
+  | 'background_image'
+  | 'background_blend_mode'
+  | 'background_opacity'
+>
 export function ThemeViewer(props: { ref?: React.Ref<DialogRef> }) {
   const { ref } = props
   const { t } = useTranslation()
@@ -28,9 +49,16 @@ export function ThemeViewer(props: { ref?: React.Ref<DialogRef> }) {
   const [editorOpen, setEditorOpen] = useState(false)
   const [cssEditorValue, setCssEditorValue] = useState('')
   const [cssEditorSavedValue, setCssEditorSavedValue] = useState('')
+  const { palette } = useTheme()
   const { verge, patchVerge } = useVerge()
-  const { theme_setting } = verge ?? {}
-  const [theme, setTheme] = useState(theme_setting || {})
+  const { theme_setting, light_theme_setting, dark_theme_setting } = verge ?? {}
+  const [editMode, setEditMode] = useState<EditMode>('light')
+  const [theme, setTheme] = useState<ThemeSetting>(() => theme_setting ?? {})
+
+  const themeSettingFor = (mode: EditMode): ThemeSetting =>
+    (mode === 'light' ? light_theme_setting : dark_theme_setting) ??
+    theme_setting ??
+    {}
   // Latest theme ref to avoid stale closures when saving CSS
   const themeRef = useRef(theme)
   useEffect(() => {
@@ -39,8 +67,10 @@ export function ThemeViewer(props: { ref?: React.Ref<DialogRef> }) {
 
   useSettingDialog(ref, 'theme-viewer', open, () => ({
     open: () => {
+      const nextMode: EditMode = palette.mode === 'dark' ? 'dark' : 'light'
+      setEditMode(nextMode)
+      setTheme(themeSettingFor(nextMode))
       setOpen(true)
-      setTheme({ ...theme_setting })
     },
     close: () => setOpen(false),
   }))
@@ -51,26 +81,33 @@ export function ThemeViewer(props: { ref?: React.Ref<DialogRef> }) {
     sx: { width: 135 },
   } as const
 
-  const handleChange = (field: keyof typeof theme) => (e: any) => {
-    setTheme((t) => ({ ...t, [field]: e.target.value }))
+  const handleFontFamilyChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setTheme((prev) => ({ ...prev, font_family: event.target.value }))
+  }
+
+  const handleColorChange = (key: ThemeSettingColorKey) => (value: string) => {
+    setTheme((prev) => ({ ...prev, [key]: value || undefined }))
   }
 
   const onSave = useLockFn(async () => {
     try {
-      await patchVerge({ theme_setting: theme })
+      await patchVerge(
+        editMode === 'light'
+          ? { light_theme_setting: theme }
+          : { dark_theme_setting: theme },
+      )
       setOpen(false)
     } catch (err) {
       showNotice.error(err)
     }
   })
 
-  const { palette } = useTheme()
+  const dt = editMode === 'light' ? defaultTheme : defaultDarkTheme
 
-  const dt = palette.mode === 'light' ? defaultTheme : defaultDarkTheme
-
-  type ThemeKey = keyof typeof theme & keyof typeof defaultTheme
-
-  const fieldDefinitions: Array<{ labelKey: string; key: ThemeKey }> = useMemo(
+  const fieldDefinitions: Array<{
+    labelKey: string
+    key: ThemePresetColorKey
+  }> = useMemo(
     () => [
       {
         labelKey: 'settings.components.verge.theme.fields.primaryColor',
@@ -121,22 +158,109 @@ export function ThemeViewer(props: { ref?: React.Ref<DialogRef> }) {
     setCssEditorSavedValue(cssEditorValue)
   })
 
-  const renderItem = (labelKey: string, key: ThemeKey) => {
-    const label = t(labelKey)
-    return (
-      <Item key={key} data-setting-target={labelKey}>
-        <ListItemText primary={label} />
-        <Round sx={{ background: theme[key] || dt[key] }} />
-        <TextField
-          {...textProps}
-          value={theme[key] ?? ''}
-          placeholder={dt[key]}
-          onChange={handleChange(key)}
-          onKeyDown={(e) => e.key === 'Enter' && onSave()}
-        />
-      </Item>
-    )
+  const presetNames = useMemo<Record<ThemePresetId, string>>(
+    () => ({
+      default: t('settings.components.verge.theme.presets.names.default'),
+      ocean: t('settings.components.verge.theme.presets.names.ocean'),
+      indigo: t('settings.components.verge.theme.presets.names.indigo'),
+      sunset: t('settings.components.verge.theme.presets.names.sunset'),
+      lavender: t('settings.components.verge.theme.presets.names.lavender'),
+      monochrome: t('settings.components.verge.theme.presets.names.monochrome'),
+    }),
+    [t],
+  )
+
+  const applyPreset = (preset: ThemePreset) => {
+    const colors = editMode === 'light' ? preset.light : preset.dark
+    setTheme((prev) => ({ ...prev, ...colors }))
   }
+
+  const selectEditMode = (_event: unknown, value: EditMode | null) => {
+    if (!value || value === editMode) return
+    setEditMode(value)
+    setTheme(themeSettingFor(value))
+  }
+
+  const renderEditModes = () => (
+    <Item>
+      <ListItemText
+        primary={t('settings.components.verge.theme.editModes.title')}
+      />
+      <ToggleButtonGroup
+        exclusive
+        color="primary"
+        size="small"
+        value={editMode}
+        onChange={selectEditMode}
+      >
+        <ToggleButton value="light">
+          {t('settings.components.verge.theme.editModes.light')}
+        </ToggleButton>
+        <ToggleButton value="dark">
+          {t('settings.components.verge.theme.editModes.dark')}
+        </ToggleButton>
+      </ToggleButtonGroup>
+    </Item>
+  )
+
+  const renderItem = (labelKey: string, key: ThemePresetColorKey) => (
+    <ThemeColorSelect
+      key={key}
+      label={t(labelKey)}
+      value={theme[key]}
+      defaultValue={dt[key]}
+      onChange={handleColorChange(key)}
+    />
+  )
+
+  const renderPresets = () => (
+    <Item>
+      <ListItemText
+        primary={t('settings.components.verge.theme.presets.title')}
+      />
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 0.5,
+          justifyContent: 'flex-end',
+          maxWidth: 230,
+        }}
+      >
+        {THEME_PRESETS.map((preset) => {
+          const colors = editMode === 'light' ? preset.light : preset.dark
+          return (
+            <Button
+              key={preset.id}
+              size="small"
+              variant="outlined"
+              onClick={() => applyPreset(preset)}
+              sx={{
+                minWidth: 0,
+                px: 1,
+                py: 0.25,
+                fontSize: 12,
+                textTransform: 'none',
+              }}
+            >
+              <Box
+                component="span"
+                sx={{
+                  width: 12,
+                  height: 12,
+                  mr: 0.5,
+                  borderRadius: '50%',
+                  bgcolor: colors.primary_color,
+                  flexShrink: 0,
+                }}
+              />
+              {presetNames[preset.id]}
+            </Button>
+          )
+        })}
+      </Box>
+    </Item>
+  )
 
   return (
     <BaseDialog
@@ -151,7 +275,21 @@ export function ThemeViewer(props: { ref?: React.Ref<DialogRef> }) {
     >
       <span data-settings-dialog="theme-viewer" />
       <List sx={{ pt: 0 }}>
+        {renderPresets()}
+        {renderEditModes()}
         {fieldDefinitions.map((field) => renderItem(field.labelKey, field.key))}
+        <ThemeColorSelect
+          label={t('settings.components.verge.theme.fields.background')}
+          value={theme.background_color}
+          defaultValue={dt.background_color}
+          onChange={handleColorChange('background_color')}
+        />
+        <ThemeColorSelect
+          label={t('settings.components.verge.theme.fields.paperBackground')}
+          value={theme.paper_background_color}
+          defaultValue={dt.background_color}
+          onChange={handleColorChange('paper_background_color')}
+        />
 
         <Item data-setting-target="settings.components.verge.theme.fields.fontFamily">
           <ListItemText
@@ -160,7 +298,7 @@ export function ThemeViewer(props: { ref?: React.Ref<DialogRef> }) {
           <TextField
             {...textProps}
             value={theme.font_family ?? ''}
-            onChange={handleChange('font_family')}
+            onChange={handleFontFamilyChange}
             onKeyDown={(e) => e.key === 'Enter' && onSave()}
           />
         </Item>
@@ -199,12 +337,4 @@ export function ThemeViewer(props: { ref?: React.Ref<DialogRef> }) {
 
 const Item = styled(ListItem)(() => ({
   padding: '5px 2px',
-}))
-
-const Round = styled('div')(() => ({
-  width: '24px',
-  height: '24px',
-  borderRadius: '18px',
-  display: 'inline-block',
-  marginRight: '8px',
 }))

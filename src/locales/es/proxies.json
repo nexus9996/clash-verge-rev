@@ -26,7 +26,8 @@
     "labels": {
       "proxyCount": "Número de nodos",
       "delayCheckReset": "Realizar prueba de latencia para cancelar la fijación",
-      "nodeCount": "{{count}} nodos"
+      "nodeCount": "{{count}} nodos",
+      "groupBadge": "Grupo"
     },
     "tooltips": {
       "locate": "Nodo actual",
@@ -37,7 +38,8 @@
       "delayCheckUrl": "URL de prueba de latencia",
       "showBasic": "Ocultar detalles del nodo",
       "showDetail": "Mostrar detalles del nodo",
-      "filter": "Filtrar nodos"
+      "filter": "Filtrar nodos",
+      "jumpToGroup": "Ir al grupo"
     },
     "placeholders": {
       "delayCheckUrl": "URL de prueba de latencia"

@@ -18,7 +18,7 @@ type QueryOptions<T> = {
   placeholderData?: T | (() => T | undefined)
   staleTime?: number
   retry?: number | false
-  retryDelay?: number
+  retryDelay?: number | ((attempt: number) => number)
   refetchInterval?: number | false
   refetchIntervalInBackground?: boolean
   revalidateOnMount?: boolean
@@ -32,9 +32,29 @@ type QueryResult<T> = SWRResponse<T> & {
   refetch: () => Promise<{ data: T | undefined }>
 }
 
+const DEFAULT_ERROR_RETRY_COUNT = 3
+
+/**
+ * SWR merges per-hook config over the global config, so an explicit
+ * `undefined` would override the shared retry budget and retry forever.
+ * Resolve the caller's intent against the fallback before passing it on.
+ */
+export const resolveErrorRetryCount = (
+  retry: number | false | undefined,
+  fallback: number,
+) => {
+  if (retry === undefined) return fallback
+  return retry === false ? 0 : retry
+}
+
+const resolveDedupingInterval = (
+  staleTime: number | undefined,
+  fallback: number,
+) => staleTime ?? fallback
+
 export const swrConfig: SWRConfiguration = {
   dedupingInterval: 2000,
-  errorRetryCount: 3,
+  errorRetryCount: DEFAULT_ERROR_RETRY_COUNT,
   errorRetryInterval: 5000,
   revalidateOnFocus: false,
 }
@@ -87,15 +107,38 @@ export function useQuery<T>(options: QueryOptions<T>): QueryResult<T> {
     typeof fallbackDataSource === 'function'
       ? (fallbackDataSource as () => T | undefined)()
       : fallbackDataSource
+  const errorRetryCount = resolveErrorRetryCount(
+    retry,
+    DEFAULT_ERROR_RETRY_COUNT,
+  )
+  const dedupingInterval = resolveDedupingInterval(
+    staleTime,
+    swrConfig.dedupingInterval ?? 2000,
+  )
   const swr = useSWR<T>(enabled ? queryKey : null, queryFn, {
-    dedupingInterval: staleTime,
-    errorRetryCount: retry === false ? 0 : retry,
-    errorRetryInterval: retryDelay ?? swrConfig.errorRetryInterval,
+    dedupingInterval,
+    errorRetryCount,
+    errorRetryInterval:
+      typeof retryDelay === 'number'
+        ? retryDelay
+        : swrConfig.errorRetryInterval,
     fallbackData,
     keepPreviousData: placeholderData !== undefined,
+    onErrorRetry: (_error, _key, config, revalidate, { retryCount }) => {
+      if (retryCount > errorRetryCount) return
+
+      const interval =
+        typeof retryDelay === 'function'
+          ? retryDelay(Math.max(retryCount - 1, 0))
+          : config.errorRetryInterval
+
+      setTimeout(() => {
+        revalidate({ retryCount, dedupe: true })
+      }, interval)
+    },
     revalidateOnFocus: refetchOnWindowFocus,
     revalidateOnMount,
-    revalidateOnReconnect: refetchOnReconnect,
+    revalidateOnReconnect: refetchOnReconnect ?? true,
     refreshInterval: refetchInterval || 0,
     refreshWhenHidden: refetchIntervalInBackground ?? false,
   })

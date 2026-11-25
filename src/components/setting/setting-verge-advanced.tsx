@@ -48,7 +48,7 @@ const SettingVergeAdvanced = ({ onError: _ }: Props) => {
     try {
       const info = await checkUpdate()
       updateLastCheckTime()
-      if (!info?.available) {
+      if (!info) {
         showNotice.success(
           'settings.components.verge.advanced.notifications.latestVersion',
         )
@@ -137,16 +137,19 @@ const SettingVergeAdvanced = ({ onError: _ }: Props) => {
         label={t('settings.components.verge.advanced.fields.checkUpdates')}
       />
 
-      <SettingItem
-        data-setting-target="settings.components.verge.advanced.fields.openDevTools"
-        onClick={() => {
-          void mutate(() => openDevTools(), {
-            id: 'open-devtools',
-            errorNotice: false,
-          }).catch(() => {})
-        }}
-        label={t('settings.components.verge.advanced.fields.openDevTools')}
-      />
+      {/* Devtools are only compiled for debug/`tauri-dev` builds. */}
+      {import.meta.env.DEV && (
+        <SettingItem
+          data-setting-target="settings.components.verge.advanced.fields.openDevTools"
+          onClick={() => {
+            void mutate(() => openDevTools(), {
+              id: 'open-devtools',
+              errorNotice: false,
+            }).catch(() => {})
+          }}
+          label={t('settings.components.verge.advanced.fields.openDevTools')}
+        />
+      )}
 
       <SettingItem
         data-setting-target="settings.components.verge.advanced.fields.liteModeSettings"

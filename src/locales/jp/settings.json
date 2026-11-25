@@ -140,7 +140,8 @@
           "networkInterface": "ネットワークインターフェース",
           "unifiedDelay": "統一遅延を有効にすると、2回の遅延テストが行われ、接続ハンドシェイクなどによる異なるタイプのノードの遅延差を解消します。",
           "logLevel": "ログディレクトリのServiceフォルダ内のコアログファイルにのみ適用されます。",
-          "openUwpTool": "Windows 8以降では、UWPアプリケーション（Microsoft Storeなど）がローカルホストのネットワークサービスに直接アクセスすることが制限されています。このツールを使用すると、この制限を回避できます。"
+          "openUwpTool": "Windows 8以降では、UWPアプリケーション（Microsoft Storeなど）がローカルホストのネットワークサービスに直接アクセスすることが制限されています。このツールを使用すると、この制限を回避できます。",
+          "ipv6Auto": "Enable IPv6 only while the physical network provides it; re-checked automatically when the network changes"
         },
         "options": {
           "logLevel": {
@@ -149,6 +150,17 @@
             "warning": "Warn",
             "error": "Error",
             "silent": "Silent"
+          },
+          "ipv6Mode": {
+            "off": "Off",
+            "on": "On",
+            "auto": "Auto"
+          }
+        },
+        "status": {
+          "ipv6Auto": {
+            "available": "IPv6 available",
+            "ipv4Only": "IPv4-only network"
           }
         }
       }
@@ -209,6 +221,22 @@
       },
       "theme": {
         "title": "テーマ設定",
+        "presets": {
+          "title": "プリセット",
+          "names": {
+            "default": "デフォルト",
+            "ocean": "オーシャン",
+            "indigo": "インディゴ",
+            "sunset": "サンセット",
+            "lavender": "ラベンダー",
+            "monochrome": "モノクロ"
+          }
+        },
+        "editModes": {
+          "title": "テーマを編集",
+          "light": "ライト",
+          "dark": "ダーク"
+        },
         "fields": {
           "primaryColor": "主要色",
           "secondaryColor": "次要色",
@@ -218,6 +246,8 @@
           "warningColor": "警告色",
           "errorColor": "エラー色",
           "successColor": "成功色",
+          "background": "背景色",
+          "paperBackground": "カード色",
           "fontFamily": "フォントファミリー",
           "cssInjection": "CSSインジェクション"
         },
@@ -231,7 +261,7 @@
       "layout": {
         "title": "レイアウト設定",
         "fields": {
-          "preferSystemTitlebar": "Prefer System Titlebar",
+          "enableSystemTitlebar": "システムタイトルバーを有効にする",
           "trafficGraph": "トラフィックグラフ",
           "memoryUsage": "コアメモリ使用量",
           "proxyGroupIcon": "プロキシグループアイコン",
@@ -251,6 +281,7 @@
           "pauseRenderTrafficStatsOnBlur": "フォーカスを失ったときにトラフィック統計の描画を一時停止"
         },
         "tooltips": {
+          "enableSystemTitlebar": "内蔵のカスタムタイトルバーの代わりにシステム標準のタイトルバーを使用します（Linux では再起動が必要です）。",
           "hoverNavigator": "Automatically scroll to the corresponding proxy group when hovering over alphabet letters",
           "hoverNavigatorDelay": "Delay before auto scrolling when hovering, in milliseconds"
         },
@@ -305,6 +336,26 @@
       "variants": {
         "release": "正式版",
         "alpha": "アルファ版"
+      },
+      "actions": {
+        "manageVersions": "バージョン管理"
+      },
+      "versions": {
+        "title": "Mihomo バージョン",
+        "description": "指定した Mihomo バージョンをインストールできます。新しいコアの起動に失敗した場合、自動的に元のバージョンへ戻ります。",
+        "channel": "チャンネル: {{channel}}",
+        "loading": "バージョンを読み込み中...",
+        "empty": "インストール可能なバージョンがありません",
+        "latest": "最新",
+        "installed": "インストール済み",
+        "installedAction": "インストール済み",
+        "install": "インストール",
+        "upgradeLatest": "最新にアップグレード",
+        "messages": {
+          "installed": "{{version}} に更新しました",
+          "alreadyInstalled": "現在のバージョンは {{version}} です",
+          "alreadyLatest": "すでに最新バージョンです"
+        }
       }
     },
     "liteMode": {
@@ -418,13 +469,15 @@
         "autoDelayDetection": "自動遅延検出",
         "autoDelayDetectionInterval": "自動遅延検出間隔",
         "defaultLatencyTest": "デフォルトの遅延テストURL",
-        "defaultLatencyTimeout": "テストタイムアウト時間"
+        "defaultLatencyTimeout": "テストタイムアウト時間",
+        "updateChannel": "更新チャンネル"
       },
       "tooltips": {
         "autoCloseConnections": "プロキシグループで選択されたノードまたはプロキシモードが変更されたときに、既存の接続を閉じます。",
         "enableBuiltinEnhanced": "設定ファイルの互換性処理",
         "autoDelayDetection": "バックグラウンドで現在のノードのレイテンシーを定期的にテストします",
-        "defaultLatencyTest": "HTTPクライアントリクエストテストにのみ使用され、設定ファイルには影響しません。"
+        "defaultLatencyTest": "HTTPクライアントリクエストテストにのみ使用され、設定ファイルには影響しません。",
+        "updateChannel": "アルファ版はプレビュービルドに追従し、不安定な場合があります"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -433,6 +486,10 @@
         "autoLogClean": {
           "never": "クリーンアップしない",
           "retainDays": "{{n}}日間保持"
+        },
+        "updateChannel": {
+          "stable": "安定版",
+          "alpha": "アルファ"
         }
       }
     },
@@ -452,6 +509,12 @@
         "important": "重要",
         "warning": "警告",
         "caution": "注意"
+      },
+      "restart": {
+        "title": "アップデートを適用しました",
+        "body": "新しいバージョンを適用するにはアプリを再起動してください。",
+        "restartNow": "今すぐ再起動",
+        "restartLater": "後で"
       }
     },
     "sysproxy": {
@@ -467,7 +530,7 @@
         "usePacMode": "PACモードを使用",
         "proxyGuard": "システムプロキシガード",
         "guardDuration": "プロキシガード間隔",
-        "alwaysUseDefaultBypass": "常にデフォルトのバイパスを使用",
+        "alwaysUseDefaultBypass": "デフォルトのバイパスリストを含める",
         "enableBypassCheck": "プロキシバイパス形式を検証",
         "proxyBypass": "プロキシバイパス設定：",
         "bypass": "現在のバイパス：",
@@ -697,7 +760,8 @@
         "permissionRejectedReason": "コアファイルとフォルダーを高い権限で安全に実行できるか確認できませんでした。",
         "permissionRepairGuide": "修復方法を見る",
         "sidecarFallback": "サービスでコアを起動できなかったため、Sidecar モードで動作を継続しています。サービスは引き続き利用できません。",
-        "uninstallSuccess": "サービスのアンインストールに成功しました。"
+        "uninstallSuccess": "サービスのアンインストールに成功しました。",
+        "coreVersionDrift": "サービスモードで実行中のコア {{running}} が同梱コア {{bundled}} と一致しません。「設定 → Mihomo バージョン」で {{bundled}} をインストールするか、サービスを再インストール/修復してコアを再起動してください。"
       },
       "updater": {
         "withClashProxySuccess": "Clashプロキシを使用して更新に成功しました。",

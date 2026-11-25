@@ -18,7 +18,7 @@ export const Switch = styled((props: SwitchProps) => (
     transitionDuration: '300ms',
     '&.Mui-checked': {
       transform: 'translateX(16px)',
-      color: '#fff',
+      color: 'var(--switch-thumb)',
       '& + .MuiSwitch-track': {
         backgroundColor: theme.palette.primary.main,
         opacity: 1,
@@ -29,8 +29,8 @@ export const Switch = styled((props: SwitchProps) => (
       },
     },
     '&.Mui-focusVisible .MuiSwitch-thumb': {
-      color: '#33cf4d',
-      border: '6px solid #fff',
+      color: 'var(--switch-active)',
+      border: '6px solid var(--switch-thumb)',
     },
     '&.Mui-disabled .MuiSwitch-thumb': {
       color:
@@ -49,7 +49,7 @@ export const Switch = styled((props: SwitchProps) => (
   },
   '& .MuiSwitch-track': {
     borderRadius: 26 / 2,
-    backgroundColor: theme.palette.mode === 'light' ? '#BBBBBB' : '#39393D',
+    backgroundColor: 'var(--switch-track-off)',
     opacity: 1,
     transition: theme.transitions.create(['background-color'], {
       duration: 500,

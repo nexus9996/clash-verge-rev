@@ -1,5 +1,6 @@
 import { CheckCircleOutlineRounded } from '@mui/icons-material'
 import { alpha, Box, ListItemButton, styled, Typography } from '@mui/material'
+import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BaseLoading } from '@/components/base'
@@ -7,26 +8,44 @@ import { useProxyDelayState } from '@/hooks/use-proxy-delay-state'
 import delayManager from '@/services/delay'
 import {
   memberDetails,
+  providerNameOf,
   type ProxyGroupView,
   type ResolvedProxyMember,
 } from '@/types/proxy-view'
+
+import { ProxyGroupJump } from './proxy-group-jump'
 
 interface Props {
   group: ProxyGroupView
   member: ResolvedProxyMember
   selected: boolean
+  /** Latency-test timeout from the owning renderer; rows must not read verge. */
+  latencyTimeout: number
   showType?: boolean
+  groupNames?: readonly string[]
+  onGroupLocation?: (groupName: string) => void
   onClick?: (member: ResolvedProxyMember) => void
 }
 
 // 多列布局
-export const ProxyItemMini = (props: Props) => {
-  const { group, member, selected, showType = true, onClick } = props
+export const ProxyItemMini = memo(function ProxyItemMini(props: Props) {
+  const {
+    group,
+    member,
+    selected,
+    latencyTimeout,
+    showType = true,
+    groupNames,
+    onGroupLocation,
+    onClick,
+  } = props
   const details = memberDetails(member)
   const unresolved = member.kind === 'unresolved'
   const name = member.ref.name
   const type = unresolved ? member.ref.reason : (details?.type ?? '')
   const now = member.kind === 'group' ? member.group.now : undefined
+  const provider =
+    member.kind === 'node' ? providerNameOf(member.node) : undefined
 
   const { t } = useTranslation()
 
@@ -34,6 +53,7 @@ export const ProxyItemMini = (props: Props) => {
   const { delayValue, isPreset, timeout, onDelay } = useProxyDelayState(
     member,
     group.name,
+    latencyTimeout,
   )
 
   return (
@@ -52,7 +72,7 @@ export const ProxyItemMini = (props: Props) => {
           alignItems: 'center',
         },
         ({ palette: { mode, primary } }) => {
-          const bgcolor = mode === 'light' ? '#ffffff' : '#24252f'
+          const bgcolor = 'var(--surface-raised)'
           const showDelay = delayValue > 0
           const selectColor = mode === 'light' ? primary.main : primary.light
 
@@ -82,20 +102,26 @@ export const ProxyItemMini = (props: Props) => {
       ]}
     >
       <Box title={`${name}\n${now ?? ''}`} sx={{ overflow: 'hidden' }}>
-        <Typography
-          variant="body2"
-          component="div"
-          color="text.primary"
-          sx={{
-            display: 'block',
-            textOverflow: 'ellipsis',
-            wordBreak: 'break-all',
-            overflow: 'hidden',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {name}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+          <ProxyGroupJump
+            groups={groupNames ?? []}
+            onGroupLocation={onGroupLocation}
+          />
+          <Typography
+            variant="body2"
+            component="div"
+            color="text.primary"
+            sx={{
+              display: 'block',
+              textOverflow: 'ellipsis',
+              wordBreak: 'break-all',
+              overflow: 'hidden',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {name}
+          </Typography>
+        </Box>
 
         {showType && (
           <Box
@@ -122,6 +148,11 @@ export const ProxyItemMini = (props: Props) => {
               >
                 {now}
               </Typography>
+            )}
+            {provider && (
+              <TypeBox color="text.secondary" component="span">
+                {provider}
+              </TypeBox>
             )}
             <TypeBox color="text.secondary" component="span">
               {type}
@@ -223,7 +254,7 @@ export const ProxyItemMini = (props: Props) => {
       )}
     </ListItemButton>
   )
-}
+})
 
 const Widget = styled(Box)(({ theme: { typography } }) => ({
   padding: '2px 4px',
@@ -236,7 +267,7 @@ const TypeBox = styled(Box, {
   shouldForwardProp: (prop) => prop !== 'component',
 })<{ component?: React.ElementType }>(({ theme: { typography } }) => ({
   display: 'inline-block',
-  border: '1px solid #ccc',
+  border: '1px solid',
   borderColor: 'text.secondary',
   color: 'text.secondary',
   borderRadius: 4,

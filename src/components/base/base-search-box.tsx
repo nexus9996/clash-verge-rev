@@ -15,14 +15,13 @@ import { useTranslation } from 'react-i18next'
 import matchCaseIcon from '@/assets/image/component/match_case.svg?react'
 import matchWholeWordIcon from '@/assets/image/component/match_whole_word.svg?react'
 import UseRegularExpressionIcon from '@/assets/image/component/use_regular_expression.svg?react'
-import { buildRegex, compileStringMatcher } from '@/utils/search-matcher'
+import {
+  buildRegex,
+  compileStringMatcher,
+  type SearchState,
+} from '@/utils/search-matcher'
 
-export type SearchState = {
-  text: string
-  matchCase: boolean
-  matchWholeWord: boolean
-  useRegularExpression: boolean
-}
+export type { SearchState }
 
 type SearchOptionState = Omit<SearchState, 'text'>
 
@@ -42,14 +41,17 @@ type SearchProps = {
 
 const StyledTextField = styled(TextField)(({ theme }) => ({
   '& .MuiInputBase-root': {
-    background: theme.palette.mode === 'light' ? '#fff' : undefined,
+    background:
+      theme.palette.mode === 'light'
+        ? theme.palette.background.paper
+        : undefined,
     paddingRight: '4px',
   },
   "& .MuiInputBase-root svg[aria-label='active'] path": {
     fill: theme.palette.primary.light,
   },
   "& .MuiInputBase-root svg[aria-label='inactive'] path": {
-    fill: '#A7A7A7',
+    fill: theme.palette.text.disabled,
   },
 }))
 

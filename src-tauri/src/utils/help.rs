@@ -6,27 +6,60 @@ use nanoid::nanoid;
 use serde::{Serialize, de::DeserializeOwned};
 use serde_yaml_ng::{Mapping, Value};
 use std::{
+    collections::VecDeque,
+    hash::{DefaultHasher, Hash as _, Hasher as _},
     mem::DropGuard,
     path::{Path, PathBuf},
     str::FromStr,
+    sync::{Arc, LazyLock},
 };
 use tokio::io::AsyncWriteExt as _;
 
-pub async fn read_yaml<T: DeserializeOwned>(path: &Path) -> Result<T> {
-    if !tokio::fs::try_exists(path).await.unwrap_or(false) {
-        bail!("file not found \"{}\"", path.display());
-    }
+const MAPPING_CACHE_CAPACITY: usize = 8;
+const MAPPING_CACHE_MAX_BYTES: usize = 8 * 1024 * 1024;
 
-    let yaml_str = tokio::fs::read_to_string(path)
-        .await
-        .with_context(|| format!("failed to read YAML file {}", path.display()))?;
+struct CachedMapping {
+    path: PathBuf,
+    hash: u64,
+    mapping: Arc<Mapping>,
+}
+
+static MAPPING_CACHE: LazyLock<parking_lot::Mutex<VecDeque<CachedMapping>>> =
+    LazyLock::new(|| parking_lot::Mutex::new(VecDeque::new()));
+
+pub async fn read_yaml<T: DeserializeOwned>(path: &Path) -> Result<T> {
+    let yaml_str = read_text(path, "YAML file").await?;
 
     with_encryption(|| async { serde_yaml_ng::from_str::<T>(&yaml_str) })
         .await
         .with_context(|| format!("failed to parse YAML file {}", path.display()))
 }
 
+async fn read_text(path: &Path, what: &str) -> Result<std::string::String> {
+    if !tokio::fs::try_exists(path).await.unwrap_or(false) {
+        bail!("file not found \"{}\"", path.display());
+    }
+    tokio::fs::read_to_string(path)
+        .await
+        .with_context(|| format!("failed to read {what} \"{}\"", path.display()))
+}
+
 pub async fn read_mapping(path: &Path) -> Result<Mapping> {
+    let yaml_str = read_text(path, "the file").await?;
+    let label = path.to_path_buf();
+
+    // Parsing a multi-megabyte profile is pure CPU; keep it off the async worker.
+    AsyncHandler::spawn_blocking(move || parse_mapping(yaml_str, label))
+        .await
+        .map_err(|join| anyhow!("yaml parse task failed: {join}"))?
+}
+
+/// Reads a mapping while reusing a parse of identical bytes.
+///
+/// The hash is the cache identity, so an external edit that preserves size and
+/// timestamp still cannot serve a stale mapping. The returned `Arc` lets
+/// callers that only read the mapping skip the per-hit deep clone.
+pub async fn read_mapping_cached(path: &Path) -> Result<Arc<Mapping>> {
     if !tokio::fs::try_exists(path).await.unwrap_or(false) {
         bail!("file not found \"{}\"", path.display());
     }
@@ -34,14 +67,49 @@ pub async fn read_mapping(path: &Path) -> Result<Mapping> {
     let bytes = tokio::fs::read(path)
         .await
         .with_context(|| format!("failed to read the file \"{}\"", path.display()))?;
+    let mut hasher = DefaultHasher::new();
+    bytes.hash(&mut hasher);
+    let hash = hasher.finish();
+
+    if let Some(mapping) = cached_mapping(path, hash) {
+        return Ok(mapping);
+    }
+
     let yaml_str =
         String::from_utf8(bytes).with_context(|| format!("failed to read the file \"{}\"", path.display()))?;
+    let cacheable = yaml_str.len() <= MAPPING_CACHE_MAX_BYTES;
     let label = path.to_path_buf();
 
-    // Parsing a multi-megabyte profile is pure CPU; keep it off the async worker.
-    AsyncHandler::spawn_blocking(move || parse_mapping(yaml_str, label))
-        .await
-        .map_err(|join| anyhow!("yaml parse task failed: {join}"))?
+    let mapping = Arc::new(
+        AsyncHandler::spawn_blocking(move || parse_mapping(yaml_str, label))
+            .await
+            .map_err(|join| anyhow!("yaml parse task failed: {join}"))??,
+    );
+    if cacheable {
+        store_mapping(path.to_path_buf(), hash, Arc::clone(&mapping));
+    }
+    Ok(mapping)
+}
+
+fn cached_mapping(path: &Path, hash: u64) -> Option<Arc<Mapping>> {
+    let mut cache = MAPPING_CACHE.lock();
+    let index = cache
+        .iter()
+        .position(|entry| entry.path == path && entry.hash == hash)?;
+    let entry = cache.remove(index)?;
+    let mapping = Arc::clone(&entry.mapping);
+    cache.push_front(entry);
+    drop(cache);
+    Some(mapping)
+}
+
+fn store_mapping(path: PathBuf, hash: u64, mapping: Arc<Mapping>) {
+    let mut cache = MAPPING_CACHE.lock();
+    cache.retain(|entry| entry.path != path);
+    while cache.len() >= MAPPING_CACHE_CAPACITY {
+        cache.pop_back();
+    }
+    cache.push_front(CachedMapping { path, hash, mapping });
 }
 
 fn parse_mapping(yaml_str: String, path: PathBuf) -> Result<Mapping> {
@@ -140,15 +208,38 @@ pub async fn save_yaml<T: Serialize + Sync>(path: &Path, data: &T, prefix: Optio
     save_yaml_str(path, &data_str, prefix).await
 }
 
+/// Preserves an existing mode only when it is at least as restrictive as the 0600 temporary file.
+fn existing_permissions_to_preserve(metadata: &std::fs::Metadata) -> Option<std::fs::Permissions> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        if metadata.permissions().mode() & 0o077 != 0 {
+            return None;
+        }
+    }
+    Some(metadata.permissions())
+}
+
 /// Atomic replace with pre-serialized content; the payload must not need the encryption scope.
 pub async fn save_yaml_str(path: &Path, yaml_str: &str, prefix: Option<&str>) -> Result<()> {
+    match prefix {
+        Some(prefix) => save_bytes_atomic(path, format!("{prefix}\n\n{yaml_str}").as_bytes()).await,
+        None => save_bytes_atomic(path, yaml_str.as_bytes()).await,
+    }
+}
+
+/// Atomically replaces `path` with `bytes` via a temporary file and rename.
+pub async fn save_bytes_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
     let (temporary, file) = loop {
         let temporary = path.with_extension(format!("tmp-{}-{}", std::process::id(), nanoid!()));
-        match std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temporary)
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
         {
+            use std::os::unix::fs::OpenOptionsExt as _;
+            options.mode(0o600);
+        }
+        match options.open(&temporary) {
             Ok(file) => break (temporary, file),
             Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
             Err(error) => {
@@ -167,16 +258,9 @@ pub async fn save_yaml_str(path: &Path, yaml_str: &str, prefix: Option<&str>) ->
         let _ = std::fs::remove_file(path);
     });
     let mut file = tokio::fs::File::from_std(file);
-    async fn write_chunk(file: &mut tokio::fs::File, bytes: &[u8], path: &Path) -> Result<()> {
-        file.write_all(bytes)
-            .await
-            .with_context(|| format!("failed to write temporary file for \"{}\"", path.display()))
-    }
-    if let Some(prefix) = prefix {
-        write_chunk(&mut file, prefix.as_bytes(), path).await?;
-        write_chunk(&mut file, b"\n\n", path).await?;
-    }
-    write_chunk(&mut file, yaml_str.as_bytes(), path).await?;
+    file.write_all(bytes)
+        .await
+        .with_context(|| format!("failed to write temporary file for \"{}\"", path.display()))?;
     file.flush()
         .await
         .with_context(|| format!("failed to flush temporary file for \"{}\"", path.display()))?;
@@ -184,9 +268,11 @@ pub async fn save_yaml_str(path: &Path, yaml_str: &str, prefix: Option<&str>) ->
 
     match tokio::fs::symlink_metadata(path).await {
         Ok(metadata) if metadata.file_type().is_file() => {
-            tokio::fs::set_permissions(temporary.as_path(), metadata.permissions())
-                .await
-                .with_context(|| format!("failed to preserve permissions for \"{}\"", path.display()))?;
+            if let Some(permissions) = existing_permissions_to_preserve(&metadata) {
+                tokio::fs::set_permissions(temporary.as_path(), permissions)
+                    .await
+                    .with_context(|| format!("failed to preserve permissions for \"{}\"", path.display()))?;
+            }
         }
         Ok(_) => {}
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
@@ -251,7 +337,17 @@ pub fn mask_url(url: &str) -> String {
     let scheme_and_host = &path_part[..host_end];
     let path = &path_part[host_end..]; // starts with '/' or empty
 
-    let mut result = scheme_and_host.to_owned();
+    // Userinfo is a credential even without a query string; drop it from the logged authority.
+    let mut result = match scheme_and_host.find("://") {
+        Some(scheme_end) => {
+            let (scheme, authority) = scheme_and_host.split_at(scheme_end + 3);
+            match authority.rfind('@') {
+                Some(at) => format!("{scheme}{}", &authority[at + 1..]),
+                None => scheme_and_host.to_owned(),
+            }
+        }
+        None => scheme_and_host.to_owned(),
+    };
 
     if !path.is_empty() {
         let masked: Vec<&str> = path

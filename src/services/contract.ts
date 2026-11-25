@@ -1,4 +1,1 @@
-export type {
-  NoticeStatus,
-  VergeEventPayloads_Serialize as VergeEventPayloads,
-} from './bindings'
+export type { NoticeStatus, VergeEventPayloads } from './bindings'

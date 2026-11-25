@@ -1,20 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { type Message, type MihomoWebSocket } from 'tauri-plugin-mihomo-api'
 
+import type { TextSocket } from '@/services/cmds'
 import { setCacheData, useQuery } from '@/services/query-client'
 
 const RECONNECT_DELAY_MS = 1000
 
 interface SharedSubscriptionOwner {
   handleMessage: (data: string) => void
-  onConnected?: (ws: MihomoWebSocket) => Promise<void> | void
+  onConnected?: (ws: TextSocket) => Promise<void> | void
   cleanup?: () => void
   isMounted: () => boolean
 }
 
 interface SharedSubscriptionEntry {
   refs: number
-  ws: MihomoWebSocket | null
+  ws: TextSocket | null
   reconnectTimer: ReturnType<typeof setTimeout> | null
   connecting: boolean
   owners: Set<SharedSubscriptionOwner>
@@ -57,8 +57,25 @@ const closeSharedSocket = async (entry: SharedSubscriptionEntry) => {
   await ws.close()
 }
 
-const createSharedSubscriptionEntry = (
-  connect: () => Promise<MihomoWebSocket>,
+/**
+ * Owner-switch notifications are fire-and-forget: while the subscription is
+ * being torn down a rejected `onConnected` must not surface as an unhandled
+ * rejection.
+ */
+const notifyOwnerConnected = (
+  owner: SharedSubscriptionOwner | null,
+  ws: TextSocket,
+) => {
+  try {
+    void Promise.resolve(owner?.onConnected?.(ws)).catch(() => {})
+  } catch (ignoreError) {
+    // Owner already unmounted; the next owner will adopt the socket.
+  }
+}
+
+/** Shared socket lifecycle; exported so the reconnect/teardown paths can be tested. */
+export const createSharedSubscriptionEntry = (
+  connect: () => Promise<TextSocket>,
 ): SharedSubscriptionEntry => {
   const entry: SharedSubscriptionEntry = {
     refs: 0,
@@ -83,22 +100,23 @@ const createSharedSubscriptionEntry = (
     if (entry.closed || entry.connecting || entry.ws) return
 
     entry.connecting = true
+    let ws: TextSocket | null = null
+    let adopted = false
     try {
-      const ws = await connect()
-      if (entry.closed) {
-        await ws.close()
-        return
-      }
+      ws = await connect()
+      if (entry.closed) return
 
       const owner = pickActiveOwner(entry)
-      await owner?.onConnected?.(ws)
-      if (entry.closed) {
-        await ws.close()
-        return
+      try {
+        await owner?.onConnected?.(ws)
+      } catch (error) {
+        // A one-shot history prefill is not a transport failure. Keep the
+        // socket so live messages still flow; the owner can retry the prefill.
+        console.warn('[MihomoWS] owner prefill failed', error)
       }
+      if (entry.closed) return
 
-      ws.addListener((msg: Message) => {
-        if (msg.type !== 'Text') return
+      ws.addListener((msg) => {
         const activeOwner = pickActiveOwner(entry)
         if (!activeOwner) return
 
@@ -106,6 +124,7 @@ const createSharedSubscriptionEntry = (
       })
 
       entry.ws = ws
+      adopted = true
       clearReconnectTimer()
     } catch (ignoreError) {
       if (!entry.closed && !entry.ws) {
@@ -113,6 +132,11 @@ const createSharedSubscriptionEntry = (
         entry.reconnectTimer = setTimeout(entry.connectWs, RECONNECT_DELAY_MS)
       }
     } finally {
+      // Every failure path (owner rejection, closed subscription, listener
+      // registration) must close the socket we opened before retrying.
+      if (ws && !adopted) {
+        await ws.close().catch(() => {})
+      }
       entry.connecting = false
     }
   }
@@ -146,14 +170,14 @@ interface HandlerContext<T> {
 
 interface HandlerResult {
   handleMessage: (data: string) => void
-  onConnected?: (ws: MihomoWebSocket) => Promise<void> | void
+  onConnected?: (ws: TextSocket) => Promise<void> | void
   cleanup?: () => void
 }
 
 interface UseMihomoWsSubscriptionOptions<T> {
   subscriptionKey: string | null
   fallbackData: T
-  connect: () => Promise<MihomoWebSocket>
+  connect: () => Promise<TextSocket>
   /**
    * When > 0, coalesce rapid WebSocket messages by wrapping the `next`
    * function passed to `setupHandlers`.  Only the most recent value is
@@ -288,8 +312,8 @@ export const useMihomoWsSubscription = <T>(
       if (entry.activeOwner === owner) {
         entry.activeOwner = null
         const nextOwner = pickActiveOwner(entry)
-        if (entry.ws && nextOwner?.onConnected) {
-          void nextOwner.onConnected(entry.ws)
+        if (entry.ws) {
+          notifyOwnerConnected(nextOwner, entry.ws)
         }
       }
 
@@ -304,8 +328,7 @@ export const useMihomoWsSubscription = <T>(
         void closeSharedSocket(entry)
       }
     }
-    // eslint-disable-next-line react-compiler/react-compiler
-    // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps
+    // eslint-disable-next-line react/exhaustive-deps
   }, [subscriptionCacheKey, refreshEpoch])
 
   const refresh = useCallback(() => {

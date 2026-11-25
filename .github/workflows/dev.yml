@@ -24,7 +24,8 @@ on:
         type: boolean
         default: true
 
-permissions: write-all
+permissions:
+  contents: read
 env:
   TAG_NAME: deploytest
   TAG_CHANNEL: DeployTest
@@ -92,30 +93,38 @@ jobs:
         if: matrix.os == 'ubuntu-22.04' && github.event.inputs[matrix.input] == 'true'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libxslt1.1 libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libclang-dev clang libxslt1.1 libwebkit2gtk-4.1-dev librsvg2-dev patchelf
 
-      - uses: pnpm/action-setup@v6
-        name: Install pnpm
+      - name: Install Bun
         if: github.event.inputs[matrix.input] == 'true'
+        uses: oven-sh/setup-bun@v2
         with:
-          run_install: false
+          bun-version: '1.4.3'
 
       - name: Install Node
         if: github.event.inputs[matrix.input] == 'true'
         uses: actions/setup-node@v7
         with:
           node-version: '26.13.1'
-          cache: 'pnpm'
 
-      - name: Pnpm install and check
+      - name: Bun cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: 'bun-shared-stable-${{ matrix.os }}-${{ matrix.target }}'
+          restore-keys: |
+            bun-shared-stable-${{ matrix.os }}-${{ matrix.target }}
+          lookup-only: true
+
+      - name: Bun install and check
         if: github.event.inputs[matrix.input] == 'true'
         run: |
-          pnpm i
-          pnpm run prebuild ${{ matrix.target }}
+          bun install --frozen-lockfile
+          bun run prebuild:download ${{ matrix.target }}
 
       - name: Release ${{ env.TAG_CHANNEL }} Version
         if: github.event.inputs[matrix.input] == 'true'
-        run: pnpm release-version ${{ env.TAG_NAME }}
+        run: bun run release-version ${{ env.TAG_NAME }}
 
       - name: Add Rust Target
         if: github.event.inputs[matrix.input] == 'true'
@@ -140,7 +149,7 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
-          tauriScript: pnpm
+          tauriScript: bun run tauri
           args: --target ${{ matrix.target }} -b ${{ matrix.bundle }}
 
       - name: Upload Artifacts (macOS)

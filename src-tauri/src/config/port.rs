@@ -118,6 +118,7 @@ impl Config {
         Ok(())
     }
 
+    #[tracing::instrument(name = "port_fallback_stage_runtime", skip_all, level = "debug")]
     async fn stage_fallback_runtime() -> Result<()> {
         Self::generate()
             .await
@@ -134,7 +135,7 @@ impl Config {
             bail!("runtime configuration with fallback port is invalid: {validation}");
         }
 
-        Self::generate_file()
+        Self::write_runtime_file(&yaml)
             .await
             .context("failed to write Runtime Configuration")?;
         Ok(())

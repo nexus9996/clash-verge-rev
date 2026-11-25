@@ -12,13 +12,16 @@ import {
   BasePage,
   BaseSearchBox,
   BaseStyledSelect,
+} from '@/components/base'
+import {
   VirtualList,
   type VirtualListHandle,
-} from '@/components/base'
+} from '@/components/base/virtual-list'
 import LogItem from '@/components/log/log-item'
 import { useClashLog } from '@/hooks/use-clash-log'
 import { useLogData } from '@/hooks/use-log-data'
 import { usePageSearch } from '@/hooks/use-page-search'
+import { filterLogsForView } from '@/utils/log-search'
 
 const LogPage = () => {
   const { t } = useTranslation()
@@ -34,23 +37,15 @@ const LogPage = () => {
     refreshGetClashLog,
   } = useLogData()
 
-  const filterLogs = useMemo(() => {
-    if (!logData || logData.length === 0) {
-      return []
-    }
-
-    const hasSearch = searchState.text.length > 0
-    if (!hasSearch && logState === 'all') return logData
-
-    return logData.filter((data) => {
-      if (logState !== 'all' && !data.type.includes(logState)) return false
-      if (!hasSearch) return true
-
-      const searchText =
-        `${data.time || ''} ${data.type} ${data.payload}`.toLowerCase()
-      return match(searchText)
-    })
-  }, [logData, logState, match, searchState.text])
+  const filterLogs = useMemo(
+    () =>
+      filterLogsForView(logData ?? [], {
+        level: logState,
+        text: searchState.text,
+        match,
+      }),
+    [logData, logState, match, searchState.text],
+  )
 
   const filteredLogs = useMemo(
     () => (isDescending ? [...filterLogs].reverse() : filterLogs),
@@ -171,7 +166,7 @@ const LogPage = () => {
         </BaseStyledSelect>
         <BaseSearchBox
           defaultValue={searchState.text}
-          {...searchState}
+          searchState={searchState}
           onSearch={onSearch}
         />
       </Box>

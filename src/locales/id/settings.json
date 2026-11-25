@@ -140,7 +140,8 @@
           "networkInterface": "Antarmuka Jaringan",
           "unifiedDelay": "Saat keterlambatan terpadu diaktifkan, dua tes keterlambatan akan dilakukan untuk menghilangkan perbedaan keterlambatan antara berbagai jenis node yang disebabkan oleh jabat tangan koneksi, dll.",
           "logLevel": "Ini hanya berlaku untuk file log kernel di folder layanan di direktori log.",
-          "openUwpTool": "Sejak Windows 8, aplikasi UWP (seperti Microsoft Store) dibatasi dari mengakses layanan jaringan host lokal secara langsung, dan alat ini dapat digunakan untuk melewati pembatasan ini"
+          "openUwpTool": "Sejak Windows 8, aplikasi UWP (seperti Microsoft Store) dibatasi dari mengakses layanan jaringan host lokal secara langsung, dan alat ini dapat digunakan untuk melewati pembatasan ini",
+          "ipv6Auto": "Enable IPv6 only while the physical network provides it; re-checked automatically when the network changes"
         },
         "options": {
           "logLevel": {
@@ -149,6 +150,17 @@
             "warning": "Warn",
             "error": "Error",
             "silent": "Silent"
+          },
+          "ipv6Mode": {
+            "off": "Off",
+            "on": "On",
+            "auto": "Auto"
+          }
+        },
+        "status": {
+          "ipv6Auto": {
+            "available": "IPv6 available",
+            "ipv4Only": "IPv4-only network"
           }
         }
       }
@@ -209,6 +221,22 @@
       },
       "theme": {
         "title": "Pengaturan Tema",
+        "presets": {
+          "title": "Preset",
+          "names": {
+            "default": "Bawaan",
+            "ocean": "Samudra",
+            "indigo": "Indigo",
+            "sunset": "Senja",
+            "lavender": "Lavender",
+            "monochrome": "Monokrom"
+          }
+        },
+        "editModes": {
+          "title": "Edit Tema",
+          "light": "Terang",
+          "dark": "Gelap"
+        },
         "fields": {
           "primaryColor": "Warna Utama",
           "secondaryColor": "Warna Sekunder",
@@ -218,6 +246,8 @@
           "warningColor": "Warna Peringatan",
           "errorColor": "Warna Kesalahan",
           "successColor": "Warna Keberhasilan",
+          "background": "Warna Latar",
+          "paperBackground": "Warna Kartu",
           "fontFamily": "Keluarga Font",
           "cssInjection": "Injeksi CSS"
         },
@@ -231,7 +261,7 @@
       "layout": {
         "title": "Pengaturan Tata Letak",
         "fields": {
-          "preferSystemTitlebar": "Prefer System Titlebar",
+          "enableSystemTitlebar": "Aktifkan bilah judul sistem",
           "trafficGraph": "Grafik Lalu Lintas",
           "memoryUsage": "Penggunaan Memori",
           "proxyGroupIcon": "Ikon Grup Proksi",
@@ -251,6 +281,7 @@
           "pauseRenderTrafficStatsOnBlur": "Jeda render statistik lalu lintas saat jendela tidak fokus"
         },
         "tooltips": {
+          "enableSystemTitlebar": "Gunakan bilah judul asli sistem sebagai ganti bilah judul kustom bawaan (perlu mulai ulang di Linux).",
           "hoverNavigator": "Automatically scroll to the corresponding proxy group when hovering over alphabet letters",
           "hoverNavigatorDelay": "Delay before auto scrolling when hovering, in milliseconds"
         },
@@ -305,6 +336,26 @@
       "variants": {
         "release": "Versi Rilis",
         "alpha": "Versi Alpha"
+      },
+      "actions": {
+        "manageVersions": "Kelola Versi"
+      },
+      "versions": {
+        "title": "Versi Mihomo",
+        "description": "Pasang versi Mihomo tertentu. Jika inti baru gagal berjalan, aplikasi akan memulihkan versi sebelumnya secara otomatis.",
+        "channel": "Saluran: {{channel}}",
+        "loading": "Memuat versi...",
+        "empty": "Tidak ada versi yang tersedia",
+        "latest": "Terbaru",
+        "installed": "Terpasang",
+        "installedAction": "Terpasang",
+        "install": "Pasang",
+        "upgradeLatest": "Perbarui ke Terbaru",
+        "messages": {
+          "installed": "Diperbarui ke {{version}}",
+          "alreadyInstalled": "Sudah di {{version}}",
+          "alreadyLatest": "Sudah versi terbaru"
+        }
       }
     },
     "liteMode": {
@@ -418,13 +469,15 @@
         "autoDelayDetection": "Deteksi Latensi Otomatis",
         "autoDelayDetectionInterval": "Interval Deteksi Latensi Otomatis",
         "defaultLatencyTest": "Tes Latensi Default",
-        "defaultLatencyTimeout": "Waktu Habis Latensi Default"
+        "defaultLatencyTimeout": "Waktu Habis Latensi Default",
+        "updateChannel": "Saluran Pembaruan"
       },
       "tooltips": {
         "autoCloseConnections": "Hentikan koneksi yang sudah ada saat pemilihan grup proksi atau mode proksi berubah",
         "enableBuiltinEnhanced": "Penanganan kompatibilitas untuk file konfigurasi",
         "autoDelayDetection": "Secara berkala menguji latensi node saat ini di latar belakang",
-        "defaultLatencyTest": "Digunakan hanya untuk pengujian permintaan klien HTTP dan tidak akan mempengaruhi file konfigurasi"
+        "defaultLatencyTest": "Digunakan hanya untuk pengujian permintaan klien HTTP dan tidak akan mempengaruhi file konfigurasi",
+        "updateChannel": "Alpha mengikuti build pratinjau dan mungkin tidak stabil"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -433,6 +486,10 @@
         "autoLogClean": {
           "never": "Jangan Pernah Bersihkan",
           "retainDays": "Simpan {{n}} Hari"
+        },
+        "updateChannel": {
+          "stable": "Stabil",
+          "alpha": "Alpha"
         }
       }
     },
@@ -452,6 +509,12 @@
         "important": "Penting",
         "warning": "Peringatan",
         "caution": "Perhatian"
+      },
+      "restart": {
+        "title": "Pembaruan Terpasang",
+        "body": "Mulai ulang aplikasi untuk menerapkan versi baru.",
+        "restartNow": "Mulai Ulang Sekarang",
+        "restartLater": "Nanti"
       }
     },
     "sysproxy": {
@@ -467,7 +530,7 @@
         "usePacMode": "Gunakan Mode PAC",
         "proxyGuard": "Penjaga Proksi",
         "guardDuration": "Durasi Penjagaan",
-        "alwaysUseDefaultBypass": "Selalu gunakan Bypass Default",
+        "alwaysUseDefaultBypass": "Sertakan daftar bypass default",
         "enableBypassCheck": "Validasi format bypass proksi",
         "proxyBypass": "Pengaturan Bypass Proksi: ",
         "bypass": "Bypass: ",
@@ -697,7 +760,8 @@
         "permissionRejectedReason": "Layanan tidak dapat memastikan bahwa berkas dan folder inti aman dijalankan dengan hak istimewa.",
         "permissionRepairGuide": "Lihat panduan perbaikan",
         "sidecarFallback": "Layanan tidak dapat memulai inti. Beralih ke mode Sidecar; layanan masih tidak tersedia.",
-        "uninstallSuccess": "Layanan Berhasil Dicopot"
+        "uninstallSuccess": "Layanan Berhasil Dicopot",
+        "coreVersionDrift": "Mode layanan menjalankan inti {{running}} sementara inti bawaan adalah {{bundled}}. Buka Pengaturan → Versi Mihomo untuk memasang {{bundled}}, atau pasang ulang/perbaiki layanan lalu mulai ulang inti."
       },
       "updater": {
         "withClashProxySuccess": "Update with Clash proxy successfully",

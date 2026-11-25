@@ -27,8 +27,8 @@ Before contributing, you need to set up your development environment. Follow the
 
 ### Prerequisites
 
-1. **Install Rust and Node.js**  
-   Follow the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your operating system. Use the Node.js version in [`.tool-versions`](.tool-versions); [`rust-toolchain.toml`](rust-toolchain.toml) selects the Rust version and required components when you run Cargo from this repository.
+1. **Install Rust, Node.js and Bun**  
+   Our project requires Rust, Node.js (runtime for the Vite, Tauri and Vitest CLIs) and Bun (package manager and script runner). Follow the official installation instructions [here](https://tauri.app/start/prerequisites/) for Rust and Node.js, then install Bun as described below.
 
 ### Windows Users
 
@@ -38,7 +38,7 @@ Before contributing, you need to set up your development environment. Follow the
 
 Additional steps for Windows:
 
-- Ensure Rust and Node.js are added to your system `PATH`.
+- Ensure Rust, Node.js and Bun are added to your system `PATH`.
 
 - Install the GNU `patch` tool.
 
@@ -49,81 +49,94 @@ rustup target add x86_64-pc-windows-msvc
 rustup set default-host x86_64-pc-windows-msvc
 ```
 
-### Install Node.js Package Manager
+### Install Bun (Package Manager)
 
-[Corepack is no longer bundled with Node.js starting with Node.js 25](https://nodejs.org/api/corepack.html). Install it globally if it is not already available, then enable it:
+Install Bun 1.4.3 with the official installer:
 
 ```bash
-npm install --global corepack
-corepack enable
+curl -fsSL https://bun.sh/install | bash
 ```
 
-Run pnpm from this repository so Corepack selects the version pinned by `packageManager` in [`package.json`](package.json).
+On Windows:
+
+```powershell
+powershell -c "irm bun.sh/install.ps1 | iex"
+```
+
+Verify the installation with `bun --version`.
 
 ### Install Project Dependencies
 
-Node.js dependencies:
+JavaScript dependencies:
 
 ```bash
-pnpm install --frozen-lockfile
+bun install
 ```
 
 Ubuntu-only system packages:
 
 ```bash
-sudo apt-get install -y libxslt1.1 libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+sudo apt-get install -y libxslt1.1 libwebkit2gtk-4.1-dev librsvg2-dev patchelf
 ```
 
 ### Download the Mihomo Core Binary (Automatic)
 
 ```bash
-pnpm run prebuild
-pnpm run prebuild --force  # Re-download and overwrite Mihomo core and service binaries
+bun run prebuild:download
+bun run prebuild:download --force  # Re-download and overwrite Mihomo core and service binaries
 ```
 
 ### Prepare the Development Service Source
 
-`pnpm dev` builds the development service from a sibling checkout of [`clash-verge-service-ipc`](https://github.com/clash-verge-rev/clash-verge-service-ipc). The binaries downloaded by `pnpm prebuild` do not replace this source checkout.
+`bun run dev` builds the development service from a sibling checkout of [`clash-verge-service-ipc`](https://github.com/clash-verge-rev/clash-verge-service-ipc). The binaries downloaded by `bun run prebuild:download` do not replace this source checkout.
 
-Check the `clash_verge_service_ipc` dependency in [`src-tauri/Cargo.toml`](src-tauri/Cargo.toml), then clone the service repository alongside `clash-verge-rev` and check out the matching tag. If the sibling directory already exists, reuse it and check its version rather than overwriting it. Without this checkout, `pnpm dev` fails when it tries to access `../clash-verge-service-ipc/Cargo.toml`.
+Check the `clash_verge_service_ipc` dependency in [`src-tauri/Cargo.toml`](src-tauri/Cargo.toml), then clone the service repository alongside `clash-verge-rev` and check out the matching tag. Set `CLASH_VERGE_DEV_SERVICE_DIR` when the checkout lives elsewhere. Without that checkout, `bun run dev` fails before the app starts.
 
 ### Run the Development Server
 
-Run these commands from the root of `clash-verge-rev`:
-
 ```bash
-pnpm dev           # Build the development service and start the desktop app
-pnpm dev:diff      # Alias of pnpm dev
-pnpm dev:tauri     # Run Tauri directly with the tauri-dev feature
+bun run dev        # Standard
+bun run dev:diff   # If an app instance already exists
+bun run dev:tauri  # Run Tauri development mode
 ```
-
-For frontend-only development, use `pnpm web:dev`. It does not start the Rust backend or build the development service.
 
 ### Build the Project
 
 Standard build:
 
 ```bash
-pnpm build
+bun run build
 ```
 
 Fast build for testing:
 
 ```bash
-pnpm build:fast
+bun run build:fast
 ```
 
-### Clean Build
+### Adding a Frontend Page
 
-```bash
-pnpm clean
-```
+The route table and the sidebar both derive from `config/navigation.ts`, so a page takes three edits:
 
-### Portable Version (Windows Only)
+1. **Page component** — add `src/pages/<name>.tsx` and export the component as default. Domain-specific components belong under `src/components/<domain>/`.
+2. **Route mapping** — add the page to `PAGE_ROUTES` in `src/app/route-pages.ts`:
 
-```bash
-pnpm portable
-```
+   ```tsx
+   import MyPage from '@/pages/my-page'
+
+   export const PAGE_ROUTES: Record<NavigationId, PageRoute> = {
+     // ...
+     myPage: { Component: MyPage },
+   }
+   ```
+
+   Every page except `home` uses `{ lazy: lazyPage(() => import('@/pages/my-page')) }`: the router keeps it out of the initial bundle and preloads the chunk when the sidebar entry is hovered or focused.
+
+3. **Navigation and copy** — add the entry to `NAV_META` in `src/config/navigation.ts` (id, path, i18n label key), add its icon pair to `NAV_ICONS` in `src/components/layout/navigation-icons.tsx`, add `tabs.<id>` to all 14 `src/locales/*/layout.json` files, then run `bun run i18n:types`.
+
+`PAGE_ROUTES` is typed as `Record<NavigationId, PageRoute>`, so a navigation entry without a page (or a page without an entry) fails `bun run typecheck`.
+
+Finally run `bun run typecheck && bun run test && bun run lint`. The architecture contract is documented in [`docs/frontend-architecture.md`](docs/frontend-architecture.md).
 
 ## Contributing Your Changes
 
@@ -187,7 +200,7 @@ or generation, inspect the final diff and stage only the intended changes.
 # Rust backend
 cargo clippy-all
 # Frontend
-pnpm lint
+bun run lint
 ```
 
 **Code formatting:**
@@ -196,7 +209,7 @@ pnpm lint
 # Rust backend
 cargo fmt
 # Frontend
-pnpm format
+bun run format
 ```
 
 ### Signing your commit

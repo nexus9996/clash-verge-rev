@@ -19,12 +19,8 @@ import type { Ref } from 'react'
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import {
-  BaseDialog,
-  type DialogRef,
-  MonacoEditor,
-  Switch,
-} from '@/components/base'
+import { BaseDialog, type DialogRef, Switch } from '@/components/base'
+import { MonacoEditor } from '@/components/base/monaco-editor'
 import { useClash } from '@/hooks/use-clash'
 import { useProfiles } from '@/hooks/use-profiles'
 import { useVerge } from '@/hooks/use-verge'
@@ -58,9 +54,9 @@ function parseNameserverPolicy(str: string): NameserverPolicy {
   if (!str) return result
 
   const ruleRegex = /\s*([^=]+?)\s*=\s*([^,]+)(?:,|$)/g
-  const matchs = [...str.matchAll(ruleRegex)]
+  const matches = [...str.matchAll(ruleRegex)]
 
-  matchs.forEach((match) => {
+  matches.forEach((match) => {
     const [, domainsPart, serversPart] = match
 
     const domains = [domainsPart.trim()]

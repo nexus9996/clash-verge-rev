@@ -1,8 +1,8 @@
 import dayjs from 'dayjs'
 import { useEffect, useRef } from 'react'
-import { MihomoWebSocket, type LogLevel } from 'tauri-plugin-mihomo-api'
+import { type LogLevel } from 'tauri-plugin-mihomo-api'
 
-import { getClashLogs } from '@/services/cmds'
+import { getClashLogs, subscribeLogs } from '@/services/cmds'
 
 import { useClashLog } from './use-clash-log'
 import { useMihomoWsSubscription } from './use-mihomo-ws-subscription'
@@ -43,7 +43,13 @@ const appendLogs = (
   if (dropFromBase >= base.length) {
     return incoming.slice(incoming.length - MAX_LOG_NUM)
   }
-  return base.slice(dropFromBase).concat(incoming)
+  // Trim and append into one preallocated array: the page flushes up to 20
+  // times a second, so `slice().concat()` would copy the buffer twice per tick.
+  const keepBase = base.length - dropFromBase
+  const next = new Array<ILogItem>(MAX_LOG_NUM)
+  for (let i = 0; i < keepBase; i += 1) next[i] = base[dropFromBase + i]
+  for (let i = 0; i < incoming.length; i += 1) next[keepBase + i] = incoming[i]
+  return next
 }
 
 export const useLogData = () => {
@@ -56,8 +62,8 @@ export const useLogData = () => {
   const { response, refresh, setData } = useMihomoWsSubscription<ILogItem[]>({
     subscriptionKey: enableLog ? 'getClashLog' : null,
     fallbackData: [],
-    connect: () => MihomoWebSocket.connect_logs(logLevel),
-    setupHandlers: ({ next, scheduleReconnect, isMounted }) => {
+    connect: () => subscribeLogs(logLevel),
+    setupHandlers: ({ next, isMounted }) => {
       let flushTimer: ReturnType<typeof setTimeout> | null = null
       const buffer: ILogItem[] = []
       let flushTimeStr: string | null = null
@@ -82,11 +88,6 @@ export const useLogData = () => {
 
       return {
         handleMessage: (data) => {
-          if (data.startsWith('Websocket error')) {
-            void scheduleReconnect()
-            return
-          }
-
           try {
             const parsed = JSON.parse(data) as ILogItem
             if (
@@ -112,15 +113,21 @@ export const useLogData = () => {
           if (hasLoadedInitialLogsRef.current) {
             return
           }
-          const logs = await getClashLogs()
-          hasLoadedInitialLogsRef.current = true
-          if (isMounted()) {
-            next((current) => {
-              if (!current || current.length === 0) {
-                return clampLogs(filterLogsByLevel(logs, allowedTypes))
-              }
-              return current
-            })
+          try {
+            const logs = await getClashLogs()
+            hasLoadedInitialLogsRef.current = true
+            if (isMounted()) {
+              next((current) => {
+                if (!current || current.length === 0) {
+                  return clampLogs(filterLogsByLevel(logs, allowedTypes))
+                }
+                return current
+              })
+            }
+          } catch (error) {
+            // Keep the live log socket open; a later connection can retry the
+            // history snapshot without restarting the stream.
+            console.warn('[Logs] failed to load the initial log history', error)
           }
         },
         cleanup: clearFlushTimer,

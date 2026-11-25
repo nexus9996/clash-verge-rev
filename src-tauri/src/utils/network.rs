@@ -1,14 +1,51 @@
 use crate::config::MixedPort;
 use anyhow::Result;
 use base64::{Engine as _, engine::general_purpose};
+use encoding_rs::{Encoding, UTF_8};
 use reqwest::{
     Client, Proxy, StatusCode,
-    header::{HeaderMap, HeaderValue, USER_AGENT},
+    header::{CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT},
 };
-use std::{sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex, OnceLock},
+    time::Duration,
+};
 use sysproxy::Sysproxy;
 use tauri::Url;
 use tristr::alias::String;
+
+const MAX_TEXT_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
+
+/// Building a client loads the platform trust store, so identical requests
+/// (subscription updates, core downloads) share one client and its connection pool.
+const MAX_CACHED_CLIENTS: usize = 16;
+
+fn append_limited_chunk(body: &mut Vec<u8>, chunk: &[u8], max_bytes: usize) -> Result<()> {
+    if body.len().saturating_add(chunk.len()) > max_bytes {
+        anyhow::bail!("response exceeded the {max_bytes} byte limit");
+    }
+    body.extend_from_slice(chunk);
+    Ok(())
+}
+
+fn decode_text_response(body: &[u8], headers: &HeaderMap) -> String {
+    let encoding = headers
+        .get(CONTENT_TYPE)
+        .and_then(|content_type| content_type.to_str().ok())
+        .and_then(|content_type| {
+            content_type.split(';').skip(1).find_map(|parameter| {
+                let (name, value) = parameter.split_once('=')?;
+                name.trim()
+                    .eq_ignore_ascii_case("charset")
+                    .then(|| value.trim().trim_matches(['"', '\'']))
+            })
+        })
+        .and_then(|label| Encoding::for_label(label.as_bytes()))
+        .unwrap_or(UTF_8);
+
+    encoding.decode(body).0.into_owned().into()
+}
 
 #[derive(Debug)]
 pub struct HttpResponse {
@@ -42,7 +79,7 @@ pub enum ProxyType {
     System,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum TlsRootMode {
     PlatformVerifier,
     StaticWebpkiRoots,
@@ -59,6 +96,17 @@ pub(crate) fn build_webpki_rooted_tls_config() -> Result<rustls::ClientConfig> {
     Ok(config)
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct ClientKey {
+    proxy_url: Option<std::string::String>,
+    user_agent: std::string::String,
+    accept_invalid_certs: bool,
+    timeout_secs: Option<u64>,
+    tls_root_mode: TlsRootMode,
+}
+
+static CLIENT_CACHE: OnceLock<Mutex<HashMap<ClientKey, Client>>> = OnceLock::new();
+
 pub struct NetworkManager;
 
 impl NetworkManager {
@@ -69,7 +117,7 @@ impl NetworkManager {
     fn build_client(
         &self,
         proxy_url: Option<std::string::String>,
-        default_headers: HeaderMap,
+        user_agent: std::string::String,
         accept_invalid_certs: bool,
         timeout_secs: Option<u64>,
         tls_root_mode: TlsRootMode,
@@ -78,8 +126,10 @@ impl NetworkManager {
             .tls_backend_rustls()
             .redirect(reqwest::redirect::Policy::limited(10))
             .tcp_keepalive(Duration::from_secs(60))
-            .pool_max_idle_per_host(0)
-            .pool_idle_timeout(None);
+            // Keep a small idle pool: sequential fetches then reuse one TLS handshake
+            // instead of paying a full handshake per request.
+            .pool_max_idle_per_host(4)
+            .pool_idle_timeout(Some(Duration::from_secs(90)));
 
         if matches!(tls_root_mode, TlsRootMode::StaticWebpkiRoots) {
             builder = builder.tls_backend_preconfigured(Self::build_static_webpki_tls_config()?);
@@ -93,6 +143,8 @@ impl NetworkManager {
             builder = builder.no_proxy();
         }
 
+        let mut default_headers = HeaderMap::new();
+        default_headers.insert(USER_AGENT, HeaderValue::from_str(user_agent.as_str())?);
         builder = builder.default_headers(default_headers);
 
         // SSL/TLS
@@ -229,18 +281,21 @@ impl NetworkManager {
         };
 
         let response: tauri::http::Response<reqwest::Body> = response.into();
-        let response = reqwest::Response::from(
+        let mut response = reqwest::Response::from(
             response.map(|body| reqwest::Body::wrap(http_body_util::Limited::new(body, 4 * 1024 * 1024))),
         );
 
         let status = response.status();
         let headers = response.headers().to_owned();
-        let body = match response.text().await {
-            Ok(text) => text.into(),
-            Err(e) => {
-                return Err(Self::context_reqwest_error(e, "Failed to read response body"));
-            }
-        };
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response
+            .chunk()
+            .await
+            .map_err(|e| Self::context_reqwest_error(e, "Failed to read response body"))?
+        {
+            append_limited_chunk(&mut bytes, &chunk, MAX_TEXT_RESPONSE_BYTES)?;
+        }
+        let body = decode_text_response(&bytes, &headers);
 
         Ok(HttpResponse::new(status, headers, body))
     }
@@ -260,27 +315,62 @@ impl NetworkManager {
                 Some(format!("http://127.0.0.1:{port}"))
             }
             ProxyType::System => {
-                if let Ok(p @ Sysproxy { enable: true, .. }) = Sysproxy::get_system_proxy() {
-                    Some(format!("http://{}:{}", p.host, p.port))
-                } else {
-                    None
-                }
+                // Reading the OS proxy spawns helper processes on Linux, so it
+                // runs on a blocking worker instead of the async runtime.
+                crate::process::AsyncHandler::spawn_blocking(|| match Sysproxy::get_system_proxy() {
+                    Ok(Sysproxy {
+                        enable: true,
+                        host,
+                        port,
+                        ..
+                    }) => Some(format!("http://{host}:{port}")),
+                    _ => None,
+                })
+                .await
+                .map_err(|join| anyhow::anyhow!("system proxy read task failed: {join}"))?
             }
         };
 
-        let mut headers = HeaderMap::new();
-
         // 设置 User-Agent
-        if let Some(ua) = user_agent {
-            headers.insert(USER_AGENT, HeaderValue::from_str(ua.as_str())?);
-        } else {
-            headers.insert(
-                USER_AGENT,
-                HeaderValue::from_str(&format!("clash-verge/v{}", env!("CARGO_PKG_VERSION")))?,
-            );
+        let user_agent = user_agent.map_or_else(
+            || format!("clash-verge/v{}", env!("CARGO_PKG_VERSION")),
+            |user_agent| user_agent.to_string(),
+        );
+
+        self.client_for(proxy_url, user_agent, accept_invalid_certs, timeout_secs, tls_root_mode)
+    }
+
+    fn client_for(
+        &self,
+        proxy_url: Option<std::string::String>,
+        user_agent: std::string::String,
+        accept_invalid_certs: bool,
+        timeout_secs: Option<u64>,
+        tls_root_mode: TlsRootMode,
+    ) -> Result<Client> {
+        let key = ClientKey {
+            proxy_url: proxy_url.as_ref().map(ToString::to_string),
+            user_agent: user_agent.clone(),
+            accept_invalid_certs,
+            timeout_secs,
+            tls_root_mode,
+        };
+        let cache = CLIENT_CACHE.get_or_init(Default::default);
+
+        if let Some(client) = cache.lock().ok().and_then(|cache| cache.get(&key).cloned()) {
+            return Ok(client);
         }
 
-        self.build_client(proxy_url, headers, accept_invalid_certs, timeout_secs, tls_root_mode)
+        let client = self.build_client(proxy_url, user_agent, accept_invalid_certs, timeout_secs, tls_root_mode)?;
+
+        if let Ok(mut cache) = cache.lock() {
+            if cache.len() >= MAX_CACHED_CLIENTS {
+                cache.clear();
+            }
+            cache.insert(key, client.clone());
+        }
+
+        Ok(client)
     }
 
     pub async fn get(
@@ -359,5 +449,35 @@ impl NetworkManager {
                 .await
         })
         .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{append_limited_chunk, decode_text_response};
+    use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue};
+
+    #[test]
+    fn text_response_limit_rejects_oversized_chunks_without_appending_them() {
+        let mut body = Vec::new();
+        assert!(append_limited_chunk(&mut body, b"abc", 2).is_err());
+        assert!(body.is_empty());
+
+        assert!(append_limited_chunk(&mut body, b"ab", 2).is_ok());
+        assert_eq!(body, b"ab");
+    }
+
+    #[test]
+    fn text_response_keeps_declared_charset_decoding() {
+        let mut headers = HeaderMap::new();
+        assert!(
+            headers
+                .insert(
+                    CONTENT_TYPE,
+                    HeaderValue::from_static("text/plain; charset=windows-1252")
+                )
+                .is_none()
+        );
+        assert_eq!(decode_text_response(&[0x80], &headers), "€");
     }
 }

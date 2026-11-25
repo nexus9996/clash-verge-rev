@@ -46,7 +46,7 @@ tmpfile=$(mktemp)
 		process.stdout.write(fs.readFileSync(process.argv[1], "utf8").replace(/<!--[\s\S]*?-->/g, "").trimStart());
 	' "$CHANGELOG"
 	echo
-	echo "" 
+	echo ""
 	if [ -f "$HISTORY" ]; then
 		cat "$HISTORY"
 	fi

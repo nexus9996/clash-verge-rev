@@ -26,7 +26,8 @@
     "labels": {
       "proxyCount": "프록시 개수",
       "delayCheckReset": "고정 취소를 위한 지연 확인",
-      "nodeCount": "노드 {{count}}개"
+      "nodeCount": "노드 {{count}}개",
+      "groupBadge": "그룹"
     },
     "tooltips": {
       "locate": "위치 찾기",
@@ -37,7 +38,8 @@
       "delayCheckUrl": "지연 확인 URL",
       "showBasic": "프록시 기본",
       "showDetail": "프록시 상세",
-      "filter": "필터"
+      "filter": "필터",
+      "jumpToGroup": "그룹으로 이동"
     },
     "placeholders": {
       "delayCheckUrl": "지연 확인 URL"

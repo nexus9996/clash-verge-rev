@@ -467,7 +467,7 @@ impl Timer {
     }
 
     #[tracing::instrument(skip_all, level = "info", fields(uid = %uid))]
-    async fn async_task(uid: &String) {
+    async fn async_task(uid: &str) {
         logging!(debug, Type::Timer, "Running timer task for profile: {}", uid);
 
         run_timer_profile_update_transition(
