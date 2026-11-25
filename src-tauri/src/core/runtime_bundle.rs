@@ -87,7 +87,9 @@ fn runtime_bundle_from_parts(
 /// Reads the remote providers without cloning or rewriting the runtime config.
 pub(crate) fn remote_providers_of(config: &Mapping, config_root: &Path) -> Result<Vec<RemoteProviderRef>> {
     let config_root = std::fs::canonicalize(config_root)?;
-    let mut destinations: HashSet<String> = GEO_ASSETS.iter().map(|name| (*name).to_owned()).collect();
+    // Start empty like `collect_runtime_parts`: geo assets are only reserved after providers,
+    // so a provider may legitimately download into e.g. `geoip.dat`.
+    let mut destinations = HashSet::new();
     let mut remote_providers = Vec::new();
 
     for section in ["proxy-providers", "rule-providers"] {
@@ -497,6 +499,23 @@ mod tests {
         let expected = collect_runtime_parts(serde_yaml_ng::Value::Mapping(config.clone()), &root)?.remote_providers;
 
         assert_eq!(remote_providers_of(&config, &root)?, expected);
+        std::fs::remove_dir_all(root)?;
+        Ok(())
+    }
+
+    #[test]
+    fn remote_provider_destination_may_use_a_geo_asset_name() -> anyhow::Result<()> {
+        let root = std::env::temp_dir().join(format!("clash-verge-geo-provider-{}", std::process::id()));
+        std::fs::create_dir_all(&root)?;
+        let root = std::fs::canonicalize(root)?;
+        let config: serde_yaml_ng::Mapping = serde_yaml_ng::from_str(
+            "proxy-providers:\n  Geo:\n    type: http\n    url: https://example.com/geoip.dat\n    path: geoip.dat\n",
+        )?;
+
+        let expected = collect_runtime_parts(serde_yaml_ng::Value::Mapping(config.clone()), &root)?.remote_providers;
+        assert_eq!(expected.len(), 1);
+        assert_eq!(remote_providers_of(&config, &root)?, expected);
+
         std::fs::remove_dir_all(root)?;
         Ok(())
     }
