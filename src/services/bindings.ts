@@ -69,6 +69,29 @@ export const commands = {
   continueWithSidecar: () => __TAURI_INVOKE<null>('continue_with_sidecar'),
   syncRuntimeProviders: () => __TAURI_INVOKE<void>('sync_runtime_providers'),
   getClashInfo: () => __TAURI_INVOKE<ClashInfo>('get_clash_info'),
+  /**
+   *  Streams the coalesced mihomo connection snapshot to one webview.
+   *
+   *  Returns the subscription id passed to [`unsubscribe_connections`].
+   */
+  subscribeConnections: (onMessage: Channel<string>) =>
+    __TAURI_INVOKE<number>('subscribe_connections', { onMessage }),
+  /**  Streams the active-connection count from the same mihomo socket. */
+  subscribeConnectionsCount: (onMessage: Channel<string>) =>
+    __TAURI_INVOKE<number>('subscribe_connections_count', { onMessage }),
+  /**  Stops one connection stream; the mihomo socket closes with the last one. */
+  unsubscribeConnections: (id: number) =>
+    __TAURI_INVOKE<void>('unsubscribe_connections', { id }),
+  /**
+   *  Streams mihomo log lines in bounded batches.
+   *
+   *  Returns the subscription id passed to [`unsubscribe_logs`].
+   */
+  subscribeLogs: (level: string, onMessage: Channel<LogBatch>) =>
+    __TAURI_INVOKE<number>('subscribe_logs', { level, onMessage }),
+  /**  Stops one log stream; the mihomo socket closes with the last one. */
+  unsubscribeLogs: (id: number) =>
+    __TAURI_INVOKE<void>('unsubscribe_logs', { id }),
   patchClashConfig: (payload: YamlMapping) =>
     __TAURI_INVOKE<null>('patch_clash_config', { payload }),
   patchClashMode: (payload: string) =>
@@ -450,6 +473,7 @@ export type IVerge_Deserialize = {
   enable_global_hotkey?: boolean | null
   home_cards?: JsonValue | null
   auto_close_connection?: boolean | null
+  auto_switch_selector_group?: boolean | null
   auto_check_update?: boolean | null
   /**  Update channel: `stable` or `alpha`. */
   update_channel?: string | null
@@ -549,6 +573,7 @@ export type IVerge_Serialize = {
   enable_global_hotkey: boolean | null
   home_cards: JsonValue | null
   auto_close_connection: boolean | null
+  auto_switch_selector_group: boolean | null
   auto_check_update: boolean | null
   /**  Update channel: `stable` or `alpha`. */
   update_channel: string | null
@@ -634,6 +659,12 @@ export type LocalBackupFile = {
   path: string
   last_modified: string
   content_length: number
+}
+
+/**  One IPC frame worth of raw mihomo log lines, plus the lines dropped before it. */
+export type LogBatch = {
+  lines: string[]
+  dropped: number
 }
 
 export type NetworkInterfaceView = {
@@ -726,6 +757,7 @@ export type PrfItem_Deserialize = {
   updated?: number | null
   option?: PrfOption_Deserialize | null
   home?: string | null
+  /**  Ordered proxy chain intent (entry first), persisted per profile. See ADR-0005. */
   proxy_chain?: string[] | null
 }
 
@@ -742,6 +774,7 @@ export type PrfItem_Serialize = {
   updated: number | null
   option?: PrfOption_Serialize
   home?: string
+  /**  Ordered proxy chain intent (entry first), persisted per profile. See ADR-0005. */
   proxy_chain?: string[]
 }
 
@@ -1016,6 +1049,8 @@ export type ProxyViewV1_Serialize = {
   providers: ProxyProviderView_Serialize[]
 }
 
+export type Refresh = 'Clash' | 'Verge' | 'Profiles' | 'Proxies'
+
 export type RuleDisableRequest = {
   index: number
   disabled: boolean
@@ -1134,10 +1169,7 @@ export type ValidationOutcome =
 export type ValidationSkipReason = 'exiting' | 'debounced'
 
 export type VergeEventPayloads = {
-  'verge://refresh-clash-config': null
-  'verge://refresh-verge-config': null
-  'verge://refresh-profiles': null
-  'verge://refresh-proxy-config': null
+  'verge://refresh-batch': Refresh[]
   'verge://notice-message': [NoticeStatus, string]
   'profile-changed': string
   'verge://timer-updated': string
