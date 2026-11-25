@@ -1,6 +1,6 @@
 import { Box, Button, Typography } from '@mui/material'
 import { useLockFn } from 'ahooks'
-import { type ChangeEvent, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 interface Props {
@@ -12,34 +12,27 @@ export const FileInput = (props: Props) => {
 
   const { t } = useTranslation()
   // file input
-  const inputRef = useRef<HTMLInputElement | null>(null)
+  const inputRef = useRef<any>(undefined)
   const [loading, setLoading] = useState(false)
   const [fileName, setFileName] = useState('')
 
-  const onFileInput = useLockFn(async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const onFileInput = useLockFn(async (e: any) => {
+    const file = e.target.files?.[0] as File
 
     if (!file) return
 
     setFileName(file.name)
     setLoading(true)
 
-    try {
-      await new Promise((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = (event) => {
-          resolve(null)
-          onChange(file, event.target?.result as string)
-        }
-        reader.onerror = reject
-        reader.readAsText(file)
-      })
-    } finally {
-      setLoading(false)
-      // Allow selecting the same file again: the input only fires change when
-      // its value differs from the previous selection.
-      e.target.value = ''
-    }
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        resolve(null)
+        onChange(file, event.target?.result as string)
+      }
+      reader.onerror = reject
+      reader.readAsText(file)
+    }).finally(() => setLoading(false))
   })
 
   return (

@@ -17,7 +17,6 @@ import {
   TextSnippetOutlined,
 } from '@mui/icons-material'
 import { Box, Button, Divider, Grid, IconButton, Stack } from '@mui/material'
-import { useRouterState } from '@tanstack/react-router'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { readText } from '@tauri-apps/plugin-clipboard-manager'
 import { readTextFile } from '@tauri-apps/plugin-fs'
@@ -25,6 +24,7 @@ import { useLockFn } from 'ahooks'
 import { throttle } from 'lodash-es'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useLocation } from 'react-router'
 import { closeAllConnections } from 'tauri-plugin-mihomo-api'
 
 import {
@@ -81,7 +81,7 @@ const debugProfileSwitch = (action: string, profile: string, extra?: any) => {
 
 const ProfilePage = () => {
   const { t } = useTranslation()
-  const location = useRouterState({ select: (state) => state.location })
+  const location = useLocation()
   const [url, setUrl] = useState('')
   const [disabled, setDisabled] = useState(false)
   const [profileDndRevision, setProfileDndRevision] = useState(0)
@@ -106,7 +106,7 @@ const ProfilePage = () => {
   )
   const currentProfileRef = useRef<string | undefined>(undefined)
   const profilePageMountedRef = useRef(true)
-  const { current } = (location.state ?? {}) as { current?: string }
+  const { current } = location.state || {}
 
   const {
     profiles = {},

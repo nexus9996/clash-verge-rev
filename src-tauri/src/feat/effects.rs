@@ -85,8 +85,6 @@ verge_registry! {
     pac_file_content => [SystemProxy];
     proxy_host => [SystemProxy];
     theme_setting => NoEffect;
-    light_theme_setting => NoEffect;
-    dark_theme_setting => NoEffect;
     web_ui_list => NoEffect;
     clash_core => NoEffect;
     hotkeys => [Hotkey, TrayMenu];
@@ -94,7 +92,6 @@ verge_registry! {
     home_cards => NoEffect;
     auto_close_connection => NoEffect;
     auto_check_update => NoEffect;
-    update_channel => NoEffect;
     default_latency_test => NoEffect;
     default_latency_timeout => NoEffect;
     enable_auto_delay_detection => NoEffect;

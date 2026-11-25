@@ -209,22 +209,6 @@
       },
       "theme": {
         "title": "إعدادات السمة",
-        "presets": {
-          "title": "إعدادات مسبقة",
-          "names": {
-            "default": "افتراضي",
-            "ocean": "محيطي",
-            "indigo": "نيلي",
-            "sunset": "الغروب",
-            "lavender": "الخزامى",
-            "monochrome": "أحادي اللون"
-          }
-        },
-        "editModes": {
-          "title": "تعديل السمة",
-          "light": "فاتح",
-          "dark": "داكن"
-        },
         "fields": {
           "primaryColor": "اللون الأساسي",
           "secondaryColor": "اللون الثانوي",
@@ -234,8 +218,6 @@
           "warningColor": "لون التحذير",
           "errorColor": "لون الخطأ",
           "successColor": "لون النجاح",
-          "background": "لون الخلفية",
-          "paperBackground": "لون البطاقات",
           "fontFamily": "عائلة الخط",
           "cssInjection": "حقن CSS"
         },
@@ -324,26 +306,6 @@
       "variants": {
         "release": "الإصدار المستقر",
         "alpha": "الإصدار التجريبي"
-      },
-      "actions": {
-        "manageVersions": "إدارة الإصدارات"
-      },
-      "versions": {
-        "title": "إصدارات Mihomo",
-        "description": "ثبّت إصدارًا محددًا من Mihomo. إذا فشل تشغيل النواة الجديدة، سيستعيد التطبيق الإصدار السابق تلقائيًا.",
-        "channel": "القناة: {{channel}}",
-        "loading": "جارٍ تحميل الإصدارات...",
-        "empty": "لا توجد إصدارات متاحة",
-        "latest": "الأحدث",
-        "installed": "مثبّت",
-        "installedAction": "مثبّت",
-        "install": "تثبيت",
-        "upgradeLatest": "الترقية إلى الأحدث",
-        "messages": {
-          "installed": "تم التحديث إلى {{version}}",
-          "alreadyInstalled": "الإصدار الحالي {{version}}",
-          "alreadyLatest": "الإصدار الأحدث مثبّت بالفعل"
-        }
       }
     },
     "liteMode": {
@@ -457,15 +419,13 @@
         "autoDelayDetection": "اكتشاف التأخير التلقائي",
         "autoDelayDetectionInterval": "الفاصل الزمني لاكتشاف التأخير التلقائي",
         "defaultLatencyTest": "اختبار التأخير الافتراضي",
-        "defaultLatencyTimeout": "مهلة التأخير الافتراضية",
-        "updateChannel": "قناة التحديث"
+        "defaultLatencyTimeout": "مهلة التأخير الافتراضية"
       },
       "tooltips": {
         "autoCloseConnections": "إنهاء الاتصالات القائمة عند تغيير اختيار مجموعة الوكيل أو وضع الوكيل",
         "enableBuiltinEnhanced": "معالجة توافق ملف التكوين",
         "autoDelayDetection": "يختبر زمن استجابة العقدة الحالية على نحو دوري في الخلفية",
-        "defaultLatencyTest": "يُستخدم فقط لاختبار طلب HTTP العميل. لن يؤثر على ملف التكوين",
-        "updateChannel": "تتبع قناة ألفا الإصدارات التجريبية وقد تكون غير مستقرة"
+        "defaultLatencyTest": "يُستخدم فقط لاختبار طلب HTTP العميل. لن يؤثر على ملف التكوين"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -474,10 +434,6 @@
         "autoLogClean": {
           "never": "عدم التنظيف أبدًا",
           "retainDays": "الاحتفاظ لمدة {{n}} يومًا"
-        },
-        "updateChannel": {
-          "stable": "مستقر",
-          "alpha": "ألفا"
         }
       }
     },
@@ -497,12 +453,6 @@
         "important": "مهم",
         "warning": "تحذير",
         "caution": "تنبيه"
-      },
-      "restart": {
-        "title": "تم تثبيت التحديث",
-        "body": "أعد تشغيل التطبيق لتطبيق الإصدار الجديد.",
-        "restartNow": "إعادة التشغيل الآن",
-        "restartLater": "لاحقاً"
       }
     },
     "sysproxy": {

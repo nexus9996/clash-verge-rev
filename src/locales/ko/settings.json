@@ -209,22 +209,6 @@
       },
       "theme": {
         "title": "테마 설정",
-        "presets": {
-          "title": "프리셋",
-          "names": {
-            "default": "기본",
-            "ocean": "오션",
-            "indigo": "인디고",
-            "sunset": "선셋",
-            "lavender": "라벤더",
-            "monochrome": "모노크롬"
-          }
-        },
-        "editModes": {
-          "title": "테마 편집",
-          "light": "라이트",
-          "dark": "다크"
-        },
         "fields": {
           "primaryColor": "기본 색상",
           "secondaryColor": "보조 색상",
@@ -234,8 +218,6 @@
           "warningColor": "경고 색상",
           "errorColor": "오류 색상",
           "successColor": "성공 색상",
-          "background": "배경색",
-          "paperBackground": "카드 색상",
           "fontFamily": "글꼴",
           "cssInjection": "CSS 삽입"
         },
@@ -324,26 +306,6 @@
       "variants": {
         "release": "안정 버전",
         "alpha": "알파 버전"
-      },
-      "actions": {
-        "manageVersions": "버전 관리"
-      },
-      "versions": {
-        "title": "Mihomo 버전",
-        "description": "특정 Mihomo 버전을 설치할 수 있습니다. 새 코어가 시작되지 않으면 이전 버전으로 자동 복원됩니다.",
-        "channel": "채널: {{channel}}",
-        "loading": "버전 불러오는 중...",
-        "empty": "설치 가능한 버전이 없습니다",
-        "latest": "최신",
-        "installed": "설치됨",
-        "installedAction": "설치됨",
-        "install": "설치",
-        "upgradeLatest": "최신으로 업그레이드",
-        "messages": {
-          "installed": "{{version}}(으)로 업데이트됨",
-          "alreadyInstalled": "현재 버전은 {{version}}입니다",
-          "alreadyLatest": "이미 최신 버전입니다"
-        }
       }
     },
     "liteMode": {
@@ -457,15 +419,13 @@
         "autoDelayDetection": "자동 지연 감지",
         "autoDelayDetectionInterval": "자동 지연 감지 간격",
         "defaultLatencyTest": "기본 지연 테스트",
-        "defaultLatencyTimeout": "기본 지연 제한시간",
-        "updateChannel": "업데이트 채널"
+        "defaultLatencyTimeout": "기본 지연 제한시간"
       },
       "tooltips": {
         "autoCloseConnections": "프록시 그룹 선택 또는 프록시 모드 변경 시 기존 연결을 종료합니다",
         "enableBuiltinEnhanced": "구성 파일에 대한 호환성 처리를 수행합니다",
         "autoDelayDetection": "백그라운드에서 현재 노드의 지연을 주기적으로 검사합니다",
-        "defaultLatencyTest": "HTTP 클라이언트 요청 테스트에만 사용되며 구성 파일에는 영향을 주지 않습니다",
-        "updateChannel": "알파는 프리뷰 빌드를 따르며 불안정할 수 있습니다"
+        "defaultLatencyTest": "HTTP 클라이언트 요청 테스트에만 사용되며 구성 파일에는 영향을 주지 않습니다"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -474,10 +434,6 @@
         "autoLogClean": {
           "never": "정리 안 함",
           "retainDays": "{{n}}일 보관"
-        },
-        "updateChannel": {
-          "stable": "안정",
-          "alpha": "알파"
         }
       }
     },
@@ -497,12 +453,6 @@
         "important": "중요",
         "warning": "경고",
         "caution": "주의"
-      },
-      "restart": {
-        "title": "업데이트 설치됨",
-        "body": "새 버전을 적용하려면 앱을 다시 시작하세요.",
-        "restartNow": "지금 다시 시작",
-        "restartLater": "나중에"
       }
     },
     "sysproxy": {

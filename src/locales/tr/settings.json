@@ -209,22 +209,6 @@
       },
       "theme": {
         "title": "Tema Ayarı",
-        "presets": {
-          "title": "Hazır ayarlar",
-          "names": {
-            "default": "Varsayılan",
-            "ocean": "Okyanus",
-            "indigo": "Çivit",
-            "sunset": "Gün batımı",
-            "lavender": "Lavanta",
-            "monochrome": "Tek renk"
-          }
-        },
-        "editModes": {
-          "title": "Temayı düzenle",
-          "light": "Açık",
-          "dark": "Koyu"
-        },
         "fields": {
           "primaryColor": "Ana Renk",
           "secondaryColor": "İkincil Renk",
@@ -234,8 +218,6 @@
           "warningColor": "Uyarı Rengi",
           "errorColor": "Hata Rengi",
           "successColor": "Başarı Rengi",
-          "background": "Arka Plan Rengi",
-          "paperBackground": "Kart Rengi",
           "fontFamily": "Yazı Tipi Ailesi",
           "cssInjection": "CSS Enjeksiyonu"
         },
@@ -324,26 +306,6 @@
       "variants": {
         "release": "Kararlı Sürüm",
         "alpha": "Alfa Sürümü"
-      },
-      "actions": {
-        "manageVersions": "Sürümleri Yönet"
-      },
-      "versions": {
-        "title": "Mihomo Sürümleri",
-        "description": "Belirli bir Mihomo sürümü yükleyin. Yeni çekirdek başlamazsa uygulama önceki sürümü otomatik olarak geri yükler.",
-        "channel": "Kanal: {{channel}}",
-        "loading": "Sürümler yükleniyor...",
-        "empty": "Kullanılabilir sürüm yok",
-        "latest": "En son",
-        "installed": "Yüklü",
-        "installedAction": "Yüklü",
-        "install": "Yükle",
-        "upgradeLatest": "En Son Sürüme Yükselt",
-        "messages": {
-          "installed": "{{version}} sürümüne güncellendi",
-          "alreadyInstalled": "Zaten {{version}} sürümündesiniz",
-          "alreadyLatest": "Zaten en son sürüm"
-        }
       }
     },
     "liteMode": {
@@ -457,15 +419,13 @@
         "autoDelayDetection": "Otomatik Gecikme Tespiti",
         "autoDelayDetectionInterval": "Otomatik Gecikme Tespiti Aralığı",
         "defaultLatencyTest": "Varsayılan Gecikme Testi",
-        "defaultLatencyTimeout": "Varsayılan Gecikme Zaman Aşımı",
-        "updateChannel": "Güncelleme Kanalı"
+        "defaultLatencyTimeout": "Varsayılan Gecikme Zaman Aşımı"
       },
       "tooltips": {
         "autoCloseConnections": "Vekil grup seçimi veya vekil modu değiştiğinde kurulan bağlantıları sonlandır",
         "enableBuiltinEnhanced": "Yapılandırma dosyası için uyumluluk işleme",
         "autoDelayDetection": "Arka planda mevcut düğümün gecikmesini periyodik olarak test eder",
-        "defaultLatencyTest": "Yalnızca HTTP istemci isteği testi için kullanılır ve yapılandırma dosyasında bir fark yaratmaz",
-        "updateChannel": "Alfa, önizleme derlemelerini takip eder ve kararsız olabilir"
+        "defaultLatencyTest": "Yalnızca HTTP istemci isteği testi için kullanılır ve yapılandırma dosyasında bir fark yaratmaz"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -474,10 +434,6 @@
         "autoLogClean": {
           "never": "Asla Temizleme",
           "retainDays": "{{n}} Gün Sakla"
-        },
-        "updateChannel": {
-          "stable": "Kararlı",
-          "alpha": "Alfa"
         }
       }
     },
@@ -497,12 +453,6 @@
         "important": "Önemli",
         "warning": "Uyarı",
         "caution": "Dikkat"
-      },
-      "restart": {
-        "title": "Güncelleme yüklendi",
-        "body": "Yeni sürümü uygulamak için uygulamayı yeniden başlatın.",
-        "restartNow": "Şimdi Yeniden Başlat",
-        "restartLater": "Daha sonra"
       }
     },
     "sysproxy": {

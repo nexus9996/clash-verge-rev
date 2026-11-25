@@ -742,21 +742,17 @@ interface IProxyConfig
     | 'sudoku'
 }
 
-type IVergeThemeSetting =
-  | (import('@/services/bindings').IVergeTheme & {
-      background_image?: string
-      background_blend_mode?: string
-      background_opacity?: number
-    })
-  | null
-
 type IVergeConfig = Omit<
   Partial<import('@/services/bindings').IVerge_Serialize>,
-  'theme_setting' | 'light_theme_setting' | 'dark_theme_setting'
+  'theme_setting'
 > & {
-  theme_setting?: IVergeThemeSetting
-  light_theme_setting?: IVergeThemeSetting
-  dark_theme_setting?: IVergeThemeSetting
+  theme_setting?:
+    | (import('@/services/bindings').IVergeTheme & {
+        background_image?: string
+        background_blend_mode?: string
+        background_opacity?: number
+      })
+    | null
 }
 
 type IWebDavFile = import('@/services/bindings').WebDavFile & {

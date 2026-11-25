@@ -12,13 +12,9 @@
       "process": "Prozess",
       "time": "Verbindungszeit",
       "source": "Quelladresse",
-      "sourceIp": "Quell-IP",
-      "sourcePort": "Quellport",
       "destination": "Zieladresse",
-      "destinationIp": "Ziel-IP",
       "destinationPort": "Zielport",
-      "type": "Typ",
-      "network": "Netzwerk"
+      "type": "Typ"
     },
     "order": {
       "default": "Standard",
@@ -33,12 +29,6 @@
     "columnManager": {
       "title": "Spalten",
       "dragHandle": "Ziehpunkt"
-    },
-    "filters": {
-      "placeholder": "Verbindungen filtern",
-      "noOptions": "Keine passenden Optionen",
-      "searchValue": "Wert suchen",
-      "clear": "Filter löschen"
     }
   }
 }

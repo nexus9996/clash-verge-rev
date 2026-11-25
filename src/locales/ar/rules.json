@@ -8,11 +8,7 @@
         "update": "تحديث"
       }
     },
-    "title": "القواعد",
-    "rule": {
-      "toggle": "تفعيل أو تعطيل هذه القاعدة",
-      "hits": "الإصابات: {{count}}"
-    }
+    "title": "القواعد"
   },
   "feedback": {
     "notifications": {

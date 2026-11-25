@@ -18,32 +18,22 @@ import SettingsSvg from '@/assets/image/itemicon/settings.svg?react'
 import UnlockSvg from '@/assets/image/itemicon/unlock.svg?react'
 
 import { navigationItems } from './_navigation-meta'
+import ConnectionsPage from './connections'
 import HomePage from './home'
 import LogsPage from './logs'
+import ProfilePage from './profiles'
 import ProxyPage from './proxies'
 import RulesPage from './rules'
+import SettingPage from './settings'
 import UnlockPage from './unlock'
 
-type PageModule = { Component: ComponentType }
-
-export type NavigationItem = {
+type NavigationItem = {
   label: (typeof navigationItems)[keyof typeof navigationItems]['label']
   path: string
   icon: ReactNode[]
-  Component?: ComponentType
-  lazy?: () => Promise<PageModule>
+  Component: ComponentType
 }
 
-const lazyPage = (load: () => Promise<{ default: ComponentType }>) => () =>
-  load().then((module) => ({ Component: module.default }))
-
-export const preloadNavItem = (item: NavigationItem) => {
-  void item.lazy?.().catch(() => {})
-}
-
-// The three largest pages are split out of the initial bundle. They are
-// preloaded on navigation hover/focus so the split does not introduce a
-// visible loading state.
 export const navItems: NavigationItem[] = [
   {
     ...navigationItems.home,
@@ -58,12 +48,12 @@ export const navItems: NavigationItem[] = [
   {
     ...navigationItems.profiles,
     icon: [<DnsOutlinedIcon key="mui" />, <ProfilesSvg key="svg" />],
-    lazy: lazyPage(() => import('./profiles')),
+    Component: ProfilePage,
   },
   {
     ...navigationItems.connections,
     icon: [<LanguageOutlinedIcon key="mui" />, <ConnectionsSvg key="svg" />],
-    lazy: lazyPage(() => import('./connections')),
+    Component: ConnectionsPage,
   },
   {
     ...navigationItems.rules,
@@ -83,6 +73,6 @@ export const navItems: NavigationItem[] = [
   {
     ...navigationItems.settings,
     icon: [<SettingsOutlinedIcon key="mui" />, <SettingsSvg key="svg" />],
-    lazy: lazyPage(() => import('./settings')),
+    Component: SettingPage,
   },
 ]

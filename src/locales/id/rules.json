@@ -8,11 +8,7 @@
         "update": "Perbarui"
       }
     },
-    "title": "Aturan",
-    "rule": {
-      "toggle": "Aktifkan atau nonaktifkan aturan ini",
-      "hits": "Hit: {{count}}"
-    }
+    "title": "Aturan"
   },
   "feedback": {
     "notifications": {

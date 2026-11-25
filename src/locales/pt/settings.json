@@ -209,22 +209,6 @@
       },
       "theme": {
         "title": "Configurações do Tema",
-        "presets": {
-          "title": "Predefinições",
-          "names": {
-            "default": "Padrão",
-            "ocean": "Oceano",
-            "indigo": "Índigo",
-            "sunset": "Pôr do sol",
-            "lavender": "Lavanda",
-            "monochrome": "Monocromático"
-          }
-        },
-        "editModes": {
-          "title": "Editar tema",
-          "light": "Claro",
-          "dark": "Escuro"
-        },
         "fields": {
           "primaryColor": "Cor Primária",
           "secondaryColor": "Cor Secundária",
@@ -234,8 +218,6 @@
           "warningColor": "Cor de Aviso",
           "errorColor": "Cor de Erro",
           "successColor": "Cor de Sucesso",
-          "background": "Cor de fundo",
-          "paperBackground": "Cor dos cartões",
           "fontFamily": "Família da Fonte",
           "cssInjection": "Injeção de CSS"
         },
@@ -324,26 +306,6 @@
       "variants": {
         "release": "Versão Release",
         "alpha": "Versão Alpha"
-      },
-      "actions": {
-        "manageVersions": "Gerenciar versões"
-      },
-      "versions": {
-        "title": "Versões do Mihomo",
-        "description": "Instale uma versão específica do Mihomo. Se o novo núcleo não iniciar, o app restaura automaticamente a versão anterior.",
-        "channel": "Canal: {{channel}}",
-        "loading": "Carregando versões...",
-        "empty": "Nenhuma versão disponível",
-        "latest": "Mais recente",
-        "installed": "Instalada",
-        "installedAction": "Instalada",
-        "install": "Instalar",
-        "upgradeLatest": "Atualizar para a mais recente",
-        "messages": {
-          "installed": "Atualizado para {{version}}",
-          "alreadyInstalled": "Já está em {{version}}",
-          "alreadyLatest": "Já é a versão mais recente"
-        }
       }
     },
     "liteMode": {
@@ -457,15 +419,13 @@
         "autoDelayDetection": "Detecção Automática de Atraso",
         "autoDelayDetectionInterval": "Intervalo da Detecção Automática de Atraso",
         "defaultLatencyTest": "Teste de Latência Padrão",
-        "defaultLatencyTimeout": "Tempo Limite de Latência Padrão",
-        "updateChannel": "Canal de atualização"
+        "defaultLatencyTimeout": "Tempo Limite de Latência Padrão"
       },
       "tooltips": {
         "autoCloseConnections": "Encerra as conexões estabelecidas quando a seleção do grupo de proxy ou o modo de proxy muda",
         "enableBuiltinEnhanced": "Tratamento de compatibilidade para o arquivo de configuração",
         "autoDelayDetection": "Testa periodicamente a latência do nó atual em segundo plano",
-        "defaultLatencyTest": "Usado apenas para testes de requisição do cliente HTTP e não afeta o arquivo de configuração",
-        "updateChannel": "Alfa segue compilações de pré-visualização e pode ser instável"
+        "defaultLatencyTest": "Usado apenas para testes de requisição do cliente HTTP e não afeta o arquivo de configuração"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -474,10 +434,6 @@
         "autoLogClean": {
           "never": "Nunca Limpar",
           "retainDays": "Manter {{n}} Dias"
-        },
-        "updateChannel": {
-          "stable": "Estável",
-          "alpha": "Alfa"
         }
       }
     },
@@ -497,12 +453,6 @@
         "important": "Importante",
         "warning": "Aviso",
         "caution": "Cuidado"
-      },
-      "restart": {
-        "title": "Atualização instalada",
-        "body": "Reinicie o aplicativo para aplicar a nova versão.",
-        "restartNow": "Reiniciar agora",
-        "restartLater": "Mais tarde"
       }
     },
     "sysproxy": {

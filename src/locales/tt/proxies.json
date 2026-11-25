@@ -26,8 +26,7 @@
     "labels": {
       "proxyCount": "Proxy Count",
       "delayCheckReset": "Беркетелгәнне гамәлдән чыгару өчен задержканы тикшерү",
-      "nodeCount": "{{count}} төен",
-      "groupBadge": "Төркем"
+      "nodeCount": "{{count}} төен"
     },
     "tooltips": {
       "locate": "Урын",
@@ -38,8 +37,7 @@
       "delayCheckUrl": "Задержканы тикшерү URL-ы",
       "showBasic": "Прокси турында кыскача мәгълүмат",
       "showDetail": "Прокси турында тулы мәгълүмат",
-      "filter": "Фильтр",
-      "jumpToGroup": "Төркемгә күчү"
+      "filter": "Фильтр"
     },
     "placeholders": {
       "delayCheckUrl": "Задержканы тикшерү URL-ы"

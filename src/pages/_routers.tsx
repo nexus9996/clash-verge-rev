@@ -11,7 +11,7 @@ export const router = createBrowserRouter([
       (item) =>
         ({
           path: item.path,
-          ...(item.lazy ? { lazy: item.lazy } : { Component: item.Component }),
+          Component: item.Component,
         }) as RouteObject,
     ),
   },

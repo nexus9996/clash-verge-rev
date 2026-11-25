@@ -100,6 +100,18 @@ Fast build for testing:
 pnpm build:fast
 ```
 
+### Clean Build
+
+```bash
+pnpm clean
+```
+
+### Portable Version (Windows Only)
+
+```bash
+pnpm portable
+```
+
 ## Contributing Your Changes
 
 ### Before Committing
