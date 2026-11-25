@@ -1,16 +1,17 @@
 use crate::cmd;
 
-pub fn builder() -> tauri_specta::Builder<tauri::Wry> {
+pub fn builder() -> tauri_specta::Builder<tauri::DynRuntime> {
     tauri_specta::Builder::new()
         .types(&platform_types())
         .commands(tauri_specta::collect_commands![
             tauri_plugin_clash_verge_sysinfo::commands::get_system_info,
             tauri_plugin_clash_verge_sysinfo::commands::get_app_uptime,
-            tauri_plugin_clash_verge_sysinfo::commands::export_diagnostic_info::<tauri::Wry>,
+            tauri_plugin_clash_verge_sysinfo::commands::export_diagnostic_info::<tauri::DynRuntime>,
             cmd::probe_listener,
             cmd::save_proxy_ports,
-            cmd::get_sys_proxy,
-            cmd::get_auto_proxy,
+            cmd::get_external_controller,
+            cmd::save_external_controller,
+            cmd::get_system_proxy_state,
             cmd::get_embedded_server_port,
             cmd::open_app_dir,
             cmd::open_logs_dir,
@@ -25,6 +26,7 @@ pub fn builder() -> tauri_specta::Builder<tauri::Wry> {
             cmd::upgrade_clash_core,
             cmd::get_core_versions,
             cmd::install_core_version,
+            cmd::get_bundled_core_version,
             cmd::get_runtime_state,
             cmd::get_pending_failures,
             cmd::get_sidecar_failure,
@@ -36,6 +38,11 @@ pub fn builder() -> tauri_specta::Builder<tauri::Wry> {
             cmd::continue_with_sidecar,
             cmd::sync_runtime_providers,
             cmd::get_clash_info,
+            cmd::subscribe_connections,
+            cmd::subscribe_connections_count,
+            cmd::unsubscribe_connections,
+            cmd::subscribe_logs,
+            cmd::unsubscribe_logs,
             cmd::patch_clash_config,
             cmd::patch_clash_mode,
             cmd::get_clash_mode,
@@ -48,9 +55,8 @@ pub fn builder() -> tauri_specta::Builder<tauri::Wry> {
             cmd::update_proxy_chain_config_in_runtime,
             cmd::invoke_uwp_tool,
             cmd::copy_clash_env,
-            cmd::sync_tray_proxy_selection,
             cmd::record_selected_node,
-            cmd::forget_selected_node,
+            cmd::switch_proxy_node,
             cmd::save_dns_config,
             cmd::apply_dns_config,
             cmd::set_dns_override,
@@ -188,10 +194,10 @@ fn platform_types() -> specta::Types {
         .find(|ty| ty.name == "PlatformVergeFields")
         .and_then(|ty| ty.ty.clone());
     let Some(DataType::Struct(platform)) = platform else {
-        unreachable!()
+        return types;
     };
     let Fields::Named(platform) = platform.fields else {
-        unreachable!()
+        return types;
     };
     types.iter_mut(|ty| {
         if ty.name != "IVerge" {

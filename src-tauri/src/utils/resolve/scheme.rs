@@ -1,8 +1,8 @@
 use crate::core::notify::NoticeStatus;
 use anyhow::Result;
 use percent_encoding::percent_decode_str;
-use smartstring::alias::String;
 use tauri::Url;
+use tristr::alias::String;
 
 use crate::{
     config::{Config, PrfItem, profiles},
@@ -52,9 +52,10 @@ pub(super) async fn resolve_scheme(param: &str) -> Result<()> {
 async fn confirm_subscription_import(url: &str, name: Option<&String>) -> bool {
     use tauri_plugin_dialog::{DialogExt as _, MessageDialogButtons, MessageDialogKind};
 
-    let display_name = name
-        .map(|name| sanitize_dialog_value(name))
-        .unwrap_or_else(|| clash_verge_i18n::t!("notifications.subscriptionImport.unnamed").into_owned());
+    let display_name = name.map_or_else(
+        || clash_verge_i18n::t!("notifications.subscriptionImport.unnamed").into_owned(),
+        |name| sanitize_dialog_value(name),
+    );
     let display_url = help::mask_url(url);
     let title = clash_verge_i18n::t!("notifications.subscriptionImport.title");
     let body = clash_verge_i18n::t!(
@@ -95,17 +96,22 @@ fn extract_subscription_info(link_parsed: &Url) -> Option<(std::string::String, 
     let name = link_parsed
         .query_pairs()
         .find(|(key, _)| key == "name")
-        .map(|(_, value)| value.into_owned().into());
+        .map(|(_, value)| value.into());
     let url = extract_subscription_url(link_parsed)?;
     Some((url, name))
 }
 
 fn extract_subscription_url(link_parsed: &Url) -> Option<std::string::String> {
-    let query = link_parsed.query()?;
-    let prefix = "url=";
-    let pos = query.find(prefix)?;
-    let raw_url = query[pos + prefix.len()..].trim();
-    Some(decode_subscription_url(raw_url))
+    let raw_url = link_parsed
+        .query_pairs()
+        .find(|(key, _)| key == "url")
+        .map(|(_, value)| value.into_owned())?;
+    let url = decode_subscription_url(raw_url.trim());
+    let parsed = Url::parse(&url).ok()?;
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return None;
+    }
+    Some(url)
 }
 
 fn decode_subscription_url(raw_url: &str) -> std::string::String {
@@ -171,7 +177,7 @@ async fn fetch_profile_item(url: &str, name: Option<&String>) -> Option<PrfItem>
     }
 }
 
-async fn post_import_updates(uid: &String, had_current_profile: bool) {
+async fn post_import_updates(uid: &str, had_current_profile: bool) {
     handle::Handle::refresh_verge();
     handle::Handle::notify_profile_changed(uid);
 
@@ -179,7 +185,7 @@ async fn post_import_updates(uid: &String, had_current_profile: bool) {
         false
     } else {
         let profiles = Config::profiles().await;
-        profiles.latest_arc().current.as_ref() == Some(uid)
+        profiles.latest_arc().current.as_deref() == Some(uid)
     };
 
     if should_update_core {

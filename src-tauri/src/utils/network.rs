@@ -6,12 +6,20 @@ use reqwest::{
     Client, Proxy, StatusCode,
     header::{CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT},
 };
-use smartstring::alias::String;
-use std::{sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex, OnceLock},
+    time::Duration,
+};
 use sysproxy::Sysproxy;
 use tauri::Url;
+use tristr::alias::String;
 
 const MAX_TEXT_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
+
+/// Building a client loads the platform trust store, so identical requests
+/// (subscription updates, core downloads) share one client and its connection pool.
+const MAX_CACHED_CLIENTS: usize = 16;
 
 fn append_limited_chunk(body: &mut Vec<u8>, chunk: &[u8], max_bytes: usize) -> Result<()> {
     if body.len().saturating_add(chunk.len()) > max_bytes {
@@ -71,11 +79,33 @@ pub enum ProxyType {
     System,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum TlsRootMode {
     PlatformVerifier,
     StaticWebpkiRoots,
 }
+
+/// ALPN stays unset: raw TLS connectors offer none, while reqwest needs the h2 offer.
+pub(crate) fn build_webpki_rooted_tls_config() -> Result<rustls::ClientConfig> {
+    let root_store = rustls::RootCertStore::from_iter(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+    let config = rustls::ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+        .with_safe_default_protocol_versions()?
+        .with_root_certificates(root_store)
+        .with_no_client_auth();
+
+    Ok(config)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct ClientKey {
+    proxy_url: Option<std::string::String>,
+    user_agent: std::string::String,
+    accept_invalid_certs: bool,
+    timeout_secs: Option<u64>,
+    tls_root_mode: TlsRootMode,
+}
+
+static CLIENT_CACHE: OnceLock<Mutex<HashMap<ClientKey, Client>>> = OnceLock::new();
 
 pub struct NetworkManager;
 
@@ -87,7 +117,7 @@ impl NetworkManager {
     fn build_client(
         &self,
         proxy_url: Option<std::string::String>,
-        default_headers: HeaderMap,
+        user_agent: std::string::String,
         accept_invalid_certs: bool,
         timeout_secs: Option<u64>,
         tls_root_mode: TlsRootMode,
@@ -96,8 +126,10 @@ impl NetworkManager {
             .tls_backend_rustls()
             .redirect(reqwest::redirect::Policy::limited(10))
             .tcp_keepalive(Duration::from_secs(60))
-            .pool_max_idle_per_host(0)
-            .pool_idle_timeout(None);
+            // Keep a small idle pool: sequential fetches then reuse one TLS handshake
+            // instead of paying a full handshake per request.
+            .pool_max_idle_per_host(4)
+            .pool_idle_timeout(Some(Duration::from_secs(90)));
 
         if matches!(tls_root_mode, TlsRootMode::StaticWebpkiRoots) {
             builder = builder.tls_backend_preconfigured(Self::build_static_webpki_tls_config()?);
@@ -111,6 +143,8 @@ impl NetworkManager {
             builder = builder.no_proxy();
         }
 
+        let mut default_headers = HeaderMap::new();
+        default_headers.insert(USER_AGENT, HeaderValue::from_str(user_agent.as_str())?);
         builder = builder.default_headers(default_headers);
 
         // SSL/TLS
@@ -131,13 +165,7 @@ impl NetworkManager {
     }
 
     fn build_static_webpki_tls_config() -> Result<rustls::ClientConfig> {
-        let root_store = rustls::RootCertStore::from_iter(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-        let mut config =
-            rustls::ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
-                .with_safe_default_protocol_versions()?
-                .with_root_certificates(root_store)
-                .with_no_client_auth();
-
+        let mut config = build_webpki_rooted_tls_config()?;
         config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
 
         Ok(config)
@@ -184,6 +212,23 @@ impl NetworkManager {
         detail.contains("protocolversion") || detail.contains("protocol version")
     }
 
+    /// `allow_fallback` stays false when the caller already disabled certificate verification.
+    async fn request_with_static_webpki_fallback<T, F, Fut>(allow_fallback: bool, mut request: F) -> Result<T>
+    where
+        F: FnMut(TlsRootMode) -> Fut,
+        Fut: std::future::Future<Output = Result<T>>,
+    {
+        match request(TlsRootMode::PlatformVerifier).await {
+            Ok(value) => Ok(value),
+            Err(err) if allow_fallback && Self::should_retry_with_static_webpki_roots(&err) => {
+                request(TlsRootMode::StaticWebpkiRoots).await.map_err(|fallback_err| {
+                    fallback_err.context("static webpki roots fallback failed after platform TLS verifier failed")
+                })
+            }
+            Err(err) => Err(err),
+        }
+    }
+
     async fn get_with_tls_mode(
         &self,
         url: &str,
@@ -228,12 +273,17 @@ impl NetworkManager {
             request_builder = request_builder.header(key, value);
         }
 
-        let mut response = match request_builder.send().await {
+        let response = match request_builder.send().await {
             Ok(resp) => resp,
             Err(e) => {
                 return Err(Self::context_reqwest_error(e, "Request failed"));
             }
         };
+
+        let response: tauri::http::Response<reqwest::Body> = response.into();
+        let mut response = reqwest::Response::from(
+            response.map(|body| reqwest::Body::wrap(http_body_util::Limited::new(body, 4 * 1024 * 1024))),
+        );
 
         let status = response.status();
         let headers = response.headers().to_owned();
@@ -265,27 +315,62 @@ impl NetworkManager {
                 Some(format!("http://127.0.0.1:{port}"))
             }
             ProxyType::System => {
-                if let Ok(p @ Sysproxy { enable: true, .. }) = Sysproxy::get_system_proxy() {
-                    Some(format!("http://{}:{}", p.host, p.port))
-                } else {
-                    None
-                }
+                // Reading the OS proxy spawns helper processes on Linux, so it
+                // runs on a blocking worker instead of the async runtime.
+                crate::process::AsyncHandler::spawn_blocking(|| match Sysproxy::get_system_proxy() {
+                    Ok(Sysproxy {
+                        enable: true,
+                        host,
+                        port,
+                        ..
+                    }) => Some(format!("http://{host}:{port}")),
+                    _ => None,
+                })
+                .await
+                .map_err(|join| anyhow::anyhow!("system proxy read task failed: {join}"))?
             }
         };
 
-        let mut headers = HeaderMap::new();
-
         // 设置 User-Agent
-        if let Some(ua) = user_agent {
-            headers.insert(USER_AGENT, HeaderValue::from_str(ua.as_str())?);
-        } else {
-            headers.insert(
-                USER_AGENT,
-                HeaderValue::from_str(&format!("clash-verge/v{}", env!("CARGO_PKG_VERSION")))?,
-            );
+        let user_agent = user_agent.map_or_else(
+            || format!("clash-verge/v{}", env!("CARGO_PKG_VERSION")),
+            |user_agent| user_agent.to_string(),
+        );
+
+        self.client_for(proxy_url, user_agent, accept_invalid_certs, timeout_secs, tls_root_mode)
+    }
+
+    fn client_for(
+        &self,
+        proxy_url: Option<std::string::String>,
+        user_agent: std::string::String,
+        accept_invalid_certs: bool,
+        timeout_secs: Option<u64>,
+        tls_root_mode: TlsRootMode,
+    ) -> Result<Client> {
+        let key = ClientKey {
+            proxy_url: proxy_url.as_ref().map(ToString::to_string),
+            user_agent: user_agent.clone(),
+            accept_invalid_certs,
+            timeout_secs,
+            tls_root_mode,
+        };
+        let cache = CLIENT_CACHE.get_or_init(Default::default);
+
+        if let Some(client) = cache.lock().ok().and_then(|cache| cache.get(&key).cloned()) {
+            return Ok(client);
         }
 
-        self.build_client(proxy_url, headers, accept_invalid_certs, timeout_secs, tls_root_mode)
+        let client = self.build_client(proxy_url, user_agent, accept_invalid_certs, timeout_secs, tls_root_mode)?;
+
+        if let Ok(mut cache) = cache.lock() {
+            if cache.len() >= MAX_CACHED_CLIENTS {
+                cache.clear();
+            }
+            cache.insert(key, client.clone());
+        }
+
+        Ok(client)
     }
 
     pub async fn get(
@@ -296,34 +381,21 @@ impl NetworkManager {
         user_agent: Option<String>,
         accept_invalid_certs: bool,
     ) -> Result<HttpResponse> {
-        let platform_result = self
-            .get_with_tls_mode(
-                url,
-                proxy_type,
-                timeout_secs,
-                user_agent.clone(),
-                accept_invalid_certs,
-                TlsRootMode::PlatformVerifier,
-            )
-            .await;
-
-        match platform_result {
-            Ok(response) => Ok(response),
-            Err(err) if !accept_invalid_certs && Self::should_retry_with_static_webpki_roots(&err) => self
-                .get_with_tls_mode(
+        Self::request_with_static_webpki_fallback(!accept_invalid_certs, |tls_root_mode| {
+            let user_agent = user_agent.clone();
+            async move {
+                self.get_with_tls_mode(
                     url,
                     proxy_type,
                     timeout_secs,
                     user_agent,
                     accept_invalid_certs,
-                    TlsRootMode::StaticWebpkiRoots,
+                    tls_root_mode,
                 )
                 .await
-                .map_err(|fallback_err| {
-                    fallback_err.context("static webpki roots fallback failed after platform TLS verifier failed")
-                }),
-            Err(err) => Err(err),
-        }
+            }
+        })
+        .await
     }
 
     async fn get_bytes_with_tls_mode(
@@ -372,20 +444,11 @@ impl NetworkManager {
         timeout_secs: Option<u64>,
         max_bytes: usize,
     ) -> Result<Vec<u8>> {
-        let platform_result = self
-            .get_bytes_with_tls_mode(url, proxy_type, timeout_secs, max_bytes, TlsRootMode::PlatformVerifier)
-            .await;
-
-        match platform_result {
-            Ok(body) => Ok(body),
-            Err(err) if Self::should_retry_with_static_webpki_roots(&err) => self
-                .get_bytes_with_tls_mode(url, proxy_type, timeout_secs, max_bytes, TlsRootMode::StaticWebpkiRoots)
+        Self::request_with_static_webpki_fallback(true, |tls_root_mode| async move {
+            self.get_bytes_with_tls_mode(url, proxy_type, timeout_secs, max_bytes, tls_root_mode)
                 .await
-                .map_err(|fallback_err| {
-                    fallback_err.context("static webpki roots fallback failed after platform TLS verifier failed")
-                }),
-            Err(err) => Err(err),
-        }
+        })
+        .await
     }
 }
 

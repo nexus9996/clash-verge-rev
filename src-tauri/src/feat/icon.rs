@@ -3,7 +3,6 @@ use crate::{
     utils::dirs::{self, PathBufExec as _},
 };
 use clash_verge_logging::{Type, logging};
-use smartstring::alias::String;
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     path::{Component, Path, PathBuf},
@@ -13,6 +12,7 @@ use std::{
 };
 use tokio::fs;
 use tokio::io::AsyncWriteExt as _;
+use tristr::alias::String;
 
 const ICON_TIMEOUT: Duration = Duration::from_secs(15);
 const MAX_ICON_BYTES: usize = 4 * 1024 * 1024;
@@ -137,11 +137,8 @@ const fn exceeds_icon_limit(current: usize, incoming: usize) -> bool {
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct IconInfo {
-    #[specta(type = std::string::String)]
     name: String,
-    #[specta(type = std::string::String)]
     previous_t: String,
-    #[specta(type = std::string::String)]
     current_t: String,
 }
 
@@ -171,7 +168,7 @@ fn ensure_icon_cache_target(icon_cache_dir: &Path, file_name: &str) -> CmdResult
 }
 
 fn normalized_text_prefix(content: &[u8]) -> std::string::String {
-    let content = content.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(content);
+    let content = content.trim_prefix(&[0xEF, 0xBB, 0xBF]);
     let start = content
         .iter()
         .position(|byte| !byte.is_ascii_whitespace())

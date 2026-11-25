@@ -3,13 +3,13 @@ use crate::{
     cmd::StringifyErr as _,
     core::{
         SilentUpdater,
-        updater::{DownloadEvent, UpdateInfo},
+        updater::{DownloadEvent, InstallUpdateOutcome, UpdateInfo},
     },
     feat,
     utils::{dirs, resolve::window::set_native_window_theme as apply_native_window_theme},
 };
-use smartstring::alias::String;
 use tauri::{AppHandle, Manager as _, ipc::Channel};
+use tristr::alias::String;
 
 #[tauri::command]
 #[specta::specta]
@@ -89,8 +89,7 @@ pub async fn install_update(
     app_handle: AppHandle,
     version: std::string::String,
     on_event: Channel<DownloadEvent>,
-) -> CmdResult<bool> {
-    let version: String = version.into();
+) -> CmdResult<InstallUpdateOutcome> {
     SilentUpdater::global()
         .install_update(&app_handle, &version, |event| {
             let _ = on_event.send(event);
@@ -128,4 +127,40 @@ pub async fn download_icon_cache(
 pub async fn copy_icon_file(path: std::string::String, icon_info: feat::IconInfo) -> CmdResult<std::string::String> {
     let path: String = path.into();
     feat::copy_icon_file(path, icon_info).await.map(Into::into)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::get_app_dir;
+    use tauri::test::{INVOKE_KEY, get_ipc_response, mock_builder, mock_context, noop_assets};
+
+    /// Exercises the Tauri v3 mock runtime: a real command answered over the
+    /// real IPC pipeline without a window and without a display server.
+    #[test]
+    fn get_app_dir_answers_over_mock_ipc() -> anyhow::Result<()> {
+        let app = mock_builder()
+            .invoke_handler(tauri::generate_handler![get_app_dir])
+            .build(mock_context(noop_assets()))?;
+        let webview = tauri::WebviewWindowBuilder::new(&app, "main", tauri::WebviewUrl::default()).build()?;
+        let response = get_ipc_response(
+            &webview,
+            tauri::webview::InvokeRequest {
+                cmd: "get_app_dir".into(),
+                callback: tauri::ipc::CallbackFn(0),
+                error: tauri::ipc::CallbackFn(1),
+                url: "tauri://localhost".parse()?,
+                body: tauri::ipc::InvokeBody::default(),
+                headers: Default::default(),
+                invoke_key: INVOKE_KEY.to_string(),
+            },
+        )
+        .map_err(|error| anyhow::anyhow!("get_app_dir IPC failed: {error}"))?;
+        let app_dir = response.deserialize::<std::string::String>()?;
+
+        assert!(
+            app_dir.ends_with(crate::utils::dirs::APP_ID),
+            "unexpected app dir: {app_dir}"
+        );
+        Ok(())
+    }
 }

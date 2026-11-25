@@ -13,8 +13,8 @@ use crate::{
     },
 };
 use clash_verge_logging::{Type, logging, logging_error};
-use smartstring::alias::String;
 use tokio::fs;
+use tristr::alias::String;
 
 #[tauri::command]
 #[specta::specta]
@@ -26,6 +26,20 @@ pub async fn copy_clash_env() -> CmdResult {
 #[specta::specta]
 pub async fn get_clash_info() -> CmdResult<ClashInfo> {
     Ok(Config::clash().await.data_arc().get_client_info())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_external_controller() -> CmdResult<feat::ExternalControllerSettings> {
+    Ok(feat::get_external_controller().await)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn save_external_controller(settings: feat::ExternalControllerSettings) -> CmdResult {
+    feat::save_external_controller(settings)
+        .await
+        .map_err(|error| proxy_aware_coded_error(&error, "EXTERNAL_CONTROLLER_SAVE_FAILED"))
 }
 
 #[tauri::command]
@@ -342,7 +356,6 @@ pub async fn apply_dns_config(apply: bool) -> CmdResult {
         logging!(info, Type::Config, "Config regenerated successfully");
     }
 
-    logging_error!(Type::Config, Config::sync_dns_override().await);
     handle::Handle::refresh_clash();
     Ok(())
 }

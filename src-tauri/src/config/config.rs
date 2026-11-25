@@ -20,10 +20,10 @@ use backon::{ExponentialBuilder, Retryable as _};
 use clash_verge_draft::Draft;
 use clash_verge_logging::{Type, logging, logging_error};
 use serde_yaml_ng::{Mapping, Value};
-use smartstring::alias::String;
 use std::{collections::HashSet, path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::{Mutex, MutexGuard, OnceCell};
 use tokio::time::sleep;
+use tristr::alias::String;
 
 async fn wait_for_lock<T>(timeout: Duration, acquire: impl std::future::Future<Output = T>) -> Result<T> {
     match tokio::time::timeout(timeout, acquire).await {
@@ -42,6 +42,9 @@ pub(crate) struct Config {
 }
 
 static CONFIG_WRITE_LOCK: Mutex<()> = Mutex::const_new(());
+
+/// Serialized runtime yaml keyed by a hash of the Mapping it came from.
+static RUNTIME_YAML_CACHE: parking_lot::Mutex<Option<(u64, Arc<str>)>> = parking_lot::Mutex::new(None);
 
 impl Config {
     async fn global() -> &'static Self {
@@ -203,7 +206,7 @@ impl Config {
                 }
             }
         } else {
-            let error_msg = config_result.err().map(|err| err.to_string()).unwrap_or_default();
+            let error_msg = config_result.err().map_or_default(|err| err.to_string());
             logging!(warn, Type::Config, "生成配置文件失败，使用默认配置: {error_msg}");
             CoreManager::global()
                 .use_default_config(NoticeStatus::ConfigValidateError, "")
@@ -233,8 +236,18 @@ impl Config {
                 .as_ref()
                 .or_else(|| runtime_data.config.as_ref())
                 .ok_or_else(|| anyhow!("failed to generate runtime config, might need to restart application"))?;
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            std::hash::Hash::hash(config, &mut hasher);
+            let key = std::hash::Hasher::finish(&hasher);
+            if let Some((cached_key, cached)) = RUNTIME_YAML_CACHE.lock().as_ref()
+                && *cached_key == key
+            {
+                return Ok::<_, anyhow::Error>(Arc::clone(cached));
+            }
             let yaml_str = yaml_emitter::to_runtime_config_string(config)?;
-            Ok::<_, anyhow::Error>(Arc::<str>::from(format!("{RUNTIME_YAML_HEADER}{yaml_str}")))
+            let yaml: Arc<str> = Arc::from(format!("{RUNTIME_YAML_HEADER}{yaml_str}"));
+            *RUNTIME_YAML_CACHE.lock() = Some((key, Arc::clone(&yaml)));
+            Ok(yaml)
         })
         .await
         .map_err(|join| anyhow!("runtime serialization task failed: {join}"))??;
@@ -261,7 +274,7 @@ impl Config {
     )]
     pub(crate) async fn write_runtime_file(yaml: &str) -> Result<PathBuf> {
         let path = dirs::app_home_dir()?.join(files::RUNTIME_CONFIG);
-        help::save_yaml_str(&path, yaml).await?;
+        help::save_yaml_str(&path, yaml, None).await?;
         Ok(path)
     }
 
@@ -277,6 +290,20 @@ impl Config {
 
         resolve_provider_path_conflicts(&mut config, &dirs::app_home_dir()?)?;
         sanitize_tunnels_proxy(&mut config);
+
+        // Apply the current profile's persisted chain intent after enhance so it
+        // survives restart / subscription refresh. Generation stays lenient: a
+        // chain whose nodes went missing is skipped, never a hard error (D4).
+        if let Some(chain) = current_profile_proxy_chain(profiles)
+            && let Err(error) = super::proxy_chain::apply_proxy_chain(&mut config, &chain)
+        {
+            logging!(
+                warn,
+                Type::Config,
+                "saved proxy chain is not applicable, keeping the intent and skipping: {error:#}"
+            );
+        }
+
         // Apply only to generated core config so the saved choice survives the next launch.
         if let Some(port) = MixedPort::session_fallback() {
             config.insert(MIXED_PORT_KEY.into(), port.into());
@@ -287,8 +314,19 @@ impl Config {
             *d = IRuntime {
                 config: Some(config),
                 dns_override: Some(dns_override),
-                exists_keys,
-                chain_logs: logs,
+                exists_keys: exists_keys.into_iter().map(std::string::String::from).collect(),
+                chain_logs: logs
+                    .into_iter()
+                    .map(|(key, value)| {
+                        (
+                            key.to_string(),
+                            value
+                                .into_iter()
+                                .map(|(now, next)| (now.to_string(), next.to_string()))
+                                .collect(),
+                        )
+                    })
+                    .collect(),
                 revision,
                 ..IRuntime::default()
             }
@@ -350,6 +388,12 @@ impl Config {
         let _ = tokio::join!(save_clash_task, save_verge_task, save_profiles_task);
         logging!(info, Type::Config, "save all draft data finished");
     }
+}
+
+/// Returns the current profile's persisted proxy chain intent, if any.
+fn current_profile_proxy_chain(profiles: &IProfiles) -> Option<Vec<String>> {
+    let current = profiles.current.as_deref()?;
+    profiles.get_item(current).ok()?.proxy_chain.clone()
 }
 
 fn sanitize_tunnels_proxy(config: &mut Mapping) {
