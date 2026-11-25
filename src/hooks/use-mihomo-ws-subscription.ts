@@ -1,20 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { type Message, type MihomoWebSocket } from 'tauri-plugin-mihomo-api'
 
+import type { TextSocket } from '@/services/cmds'
 import { setCacheData, useQuery } from '@/services/query-client'
 
 const RECONNECT_DELAY_MS = 1000
 
 interface SharedSubscriptionOwner {
   handleMessage: (data: string) => void
-  onConnected?: (ws: MihomoWebSocket) => Promise<void> | void
+  onConnected?: (ws: TextSocket) => Promise<void> | void
   cleanup?: () => void
   isMounted: () => boolean
 }
 
 interface SharedSubscriptionEntry {
   refs: number
-  ws: MihomoWebSocket | null
+  ws: TextSocket | null
   reconnectTimer: ReturnType<typeof setTimeout> | null
   connecting: boolean
   owners: Set<SharedSubscriptionOwner>
@@ -64,7 +64,7 @@ const closeSharedSocket = async (entry: SharedSubscriptionEntry) => {
  */
 const notifyOwnerConnected = (
   owner: SharedSubscriptionOwner | null,
-  ws: MihomoWebSocket,
+  ws: TextSocket,
 ) => {
   try {
     void Promise.resolve(owner?.onConnected?.(ws)).catch(() => {})
@@ -75,7 +75,7 @@ const notifyOwnerConnected = (
 
 /** Shared socket lifecycle; exported so the reconnect/teardown paths can be tested. */
 export const createSharedSubscriptionEntry = (
-  connect: () => Promise<MihomoWebSocket>,
+  connect: () => Promise<TextSocket>,
 ): SharedSubscriptionEntry => {
   const entry: SharedSubscriptionEntry = {
     refs: 0,
@@ -100,7 +100,7 @@ export const createSharedSubscriptionEntry = (
     if (entry.closed || entry.connecting || entry.ws) return
 
     entry.connecting = true
-    let ws: MihomoWebSocket | null = null
+    let ws: TextSocket | null = null
     let adopted = false
     try {
       ws = await connect()
@@ -116,8 +116,7 @@ export const createSharedSubscriptionEntry = (
       }
       if (entry.closed) return
 
-      ws.addListener((msg: Message) => {
-        if (msg.type !== 'Text') return
+      ws.addListener((msg) => {
         const activeOwner = pickActiveOwner(entry)
         if (!activeOwner) return
 
@@ -171,14 +170,14 @@ interface HandlerContext<T> {
 
 interface HandlerResult {
   handleMessage: (data: string) => void
-  onConnected?: (ws: MihomoWebSocket) => Promise<void> | void
+  onConnected?: (ws: TextSocket) => Promise<void> | void
   cleanup?: () => void
 }
 
 interface UseMihomoWsSubscriptionOptions<T> {
   subscriptionKey: string | null
   fallbackData: T
-  connect: () => Promise<MihomoWebSocket>
+  connect: () => Promise<TextSocket>
   /**
    * When > 0, coalesce rapid WebSocket messages by wrapping the `next`
    * function passed to `setupHandlers`.  Only the most recent value is

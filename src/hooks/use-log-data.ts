@@ -1,8 +1,8 @@
 import dayjs from 'dayjs'
 import { useEffect, useRef } from 'react'
-import { MihomoWebSocket, type LogLevel } from 'tauri-plugin-mihomo-api'
+import { type LogLevel } from 'tauri-plugin-mihomo-api'
 
-import { getClashLogs } from '@/services/cmds'
+import { getClashLogs, subscribeLogs } from '@/services/cmds'
 
 import { useClashLog } from './use-clash-log'
 import { useMihomoWsSubscription } from './use-mihomo-ws-subscription'
@@ -62,8 +62,8 @@ export const useLogData = () => {
   const { response, refresh, setData } = useMihomoWsSubscription<ILogItem[]>({
     subscriptionKey: enableLog ? 'getClashLog' : null,
     fallbackData: [],
-    connect: () => MihomoWebSocket.connect_logs(logLevel),
-    setupHandlers: ({ next, scheduleReconnect, isMounted }) => {
+    connect: () => subscribeLogs(logLevel),
+    setupHandlers: ({ next, isMounted }) => {
       let flushTimer: ReturnType<typeof setTimeout> | null = null
       const buffer: ILogItem[] = []
       let flushTimeStr: string | null = null
@@ -88,11 +88,6 @@ export const useLogData = () => {
 
       return {
         handleMessage: (data) => {
-          if (data.startsWith('Websocket error')) {
-            void scheduleReconnect()
-            return
-          }
-
           try {
             const parsed = JSON.parse(data) as ILogItem
             if (
