@@ -98,9 +98,6 @@
         "directMode": "Туры режим",
         "group": "Group",
         "proxy": "Proxy",
-        "ruleTarget": "Rule Target",
-        "defaultRoute": "Default",
-        "ruleCount": "{{count}} rules",
         "noActiveNode": "No active proxy node"
       },
       "status": {

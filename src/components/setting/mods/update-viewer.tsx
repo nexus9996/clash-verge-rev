@@ -359,7 +359,7 @@ export function UpdateViewer({ ref }: { ref?: Ref<UpdateViewerRef> }) {
       } else if (result.ok && result.value === 'installed') {
         setRestartPrompt(true)
       }
-    } catch (err: any) {
+    } catch (err) {
       showNotice.error(err)
     } finally {
       setUpdateState(false)

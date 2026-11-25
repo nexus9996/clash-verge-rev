@@ -1,9 +1,7 @@
-import type { Refresh, VergeEventPayloads } from '@/services/contract'
+import type { VergeEventPayloads } from '@/services/contract'
 import delayManager from '@/services/delay'
 import { forgetShownStartupError } from '@/services/notice-handlers'
 import type { AppStoreAction } from '@/store/app-state'
-
-import { resetPageFilters } from '@/hooks/use-page-filter'
 
 /** Frontend-internal event: home test card → test items. Not in the backend contract. */
 export const TEST_ALL_EVENT = 'verge://test-all'
@@ -32,11 +30,14 @@ export interface BusHandlerDeps {
 /**
  * Pure per-event handler table for the bus. Handlers may trigger documented
  * side effects (SWR revalidation, notice toasts) but write store state only
- * through dispatched pure actions. Created exactly once per bus mount.
+ * through dispatched pure actions. Created exactly once per bus mount; the
+ * throttles below live in the returned closure, mirroring the previous
+ * scattered listeners.
  */
 export const createEventBus = (deps: BusHandlerDeps) => {
   let lastProfileId: string | null = null
   let lastProfileChangeTime = 0
+  let lastProxyRefreshTime = 0
   const refreshThrottle = 800
 
   const handleProfileChanged = (newProfileId: string) => {
@@ -47,37 +48,35 @@ export const createEventBus = (deps: BusHandlerDeps) => {
     ) {
       return
     }
-    const changed = lastProfileId !== newProfileId
     lastProfileId = newProfileId
     lastProfileChangeTime = now
-    if (changed) {
-      resetPageFilters()
-    }
     delayManager.clear()
     deps.revalidateKeys(['getProfiles'])
   }
 
-  const QUERY_KEYS: Record<Refresh, readonly string[]> = {
-    Clash: [
-      'getProxyView',
-      'getVersion',
-      'getClashConfig',
-      'getClashInfo',
-      'getClashMode',
-      'getRuntimeConfig',
-      'getRules',
-      'getRuleProviders',
-    ],
-    Verge: ['getVergeConfig', 'getSystemProxyState'],
-    Profiles: ['getProfiles'],
-    Proxies: ['getProxyView'],
+  const handleRefreshProxyConfig = () => {
+    const now = Date.now()
+    if (now - lastProxyRefreshTime <= refreshThrottle) return
+    lastProxyRefreshTime = now
+    deps.revalidateKeys(['getProxyView'])
   }
 
   const handlers: BusHandlers = {
-    // The backend batches the kinds one operation announced, so a setting save
-    // reaches the windows as one message and is expanded here.
-    'verge://refresh-batch': (kinds) =>
-      deps.revalidateKeys(kinds.flatMap((kind) => QUERY_KEYS[kind])),
+    'verge://refresh-clash-config': () =>
+      deps.revalidateKeys([
+        'getProxyView',
+        'getVersion',
+        'getClashConfig',
+        'getClashInfo',
+        'getClashMode',
+        'getRuntimeConfig',
+        'getRules',
+        'getRuleProviders',
+      ]),
+    'verge://refresh-verge-config': () =>
+      deps.revalidateKeys(['getVergeConfig', 'getSystemProxy', 'getAutoProxy']),
+    'verge://refresh-profiles': () => deps.revalidateKeys(['getProfiles']),
+    'verge://refresh-proxy-config': handleRefreshProxyConfig,
     'verge://notice-message': (payload) => deps.handleNotice(payload),
     'profile-changed': handleProfileChanged,
     'verge://timer-updated': (uid) =>

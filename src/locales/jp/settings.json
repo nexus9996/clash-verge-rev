@@ -462,7 +462,6 @@
         "appLogMaxSize": "App Log Max Size",
         "appLogMaxCount": "App Log Max Count",
         "autoCloseConnections": "接続を自動的に閉じる",
-        "autoSwitchSelectorGroup": "ノード選択時にグループを連動",
         "autoCheckUpdate": "自動更新チェック",
         "enableBuiltinEnhanced": "組み込み拡張機能を有効にする",
         "proxyLayoutColumns": "プロキシページのレイアウト列数",
@@ -475,7 +474,6 @@
       },
       "tooltips": {
         "autoCloseConnections": "プロキシグループで選択されたノードまたはプロキシモードが変更されたときに、既存の接続を閉じます。",
-        "autoSwitchSelectorGroup": "ルールモードで、ルールの通信が通らないグループのノードを選択すると、そのグループを含む最初の select グループも当該グループに切り替えます。",
         "enableBuiltinEnhanced": "設定ファイルの互換性処理",
         "autoDelayDetection": "バックグラウンドで現在のノードのレイテンシーを定期的にテストします",
         "defaultLatencyTest": "HTTPクライアントリクエストテストにのみ使用され、設定ファイルには影響しません。",
@@ -560,13 +558,11 @@
         "strictRoute": "厳格なルート",
         "autoDetectInterface": "トラフィックの出口インターフェースを自動選択",
         "dnsHijack": "DNSハイジャック",
-        "dnsMode": "DNSモード",
         "mtu": "最大転送単位",
         "autoRedirect": "Auto Redirect"
       },
       "tooltips": {
         "dnsHijack": "Please use , to separate multiple DNS servers",
-        "dnsMode": "Auto は従来の動作を維持します。hijack には Windows で厳格なルートまたは Linux で Auto Redirect が必要です",
         "autoRedirect": "Automatically configures nftables/iptables TCP redirects"
       },
       "messages": {
@@ -762,8 +758,7 @@
         "permissionRejectedReason": "コアファイルとフォルダーを高い権限で安全に実行できるか確認できませんでした。",
         "permissionRepairGuide": "修復方法を見る",
         "sidecarFallback": "サービスでコアを起動できなかったため、Sidecar モードで動作を継続しています。サービスは引き続き利用できません。",
-        "uninstallSuccess": "サービスのアンインストールに成功しました。",
-        "coreVersionDrift": "サービスモードで実行中のコア {{running}} が同梱コア {{bundled}} と一致しません。「設定 → Mihomo バージョン」で {{bundled}} をインストールするか、サービスを再インストール/修復してコアを再起動してください。"
+        "uninstallSuccess": "サービスのアンインストールに成功しました。"
       },
       "updater": {
         "withClashProxySuccess": "Clashプロキシを使用して更新に成功しました。",
@@ -780,12 +775,5 @@
       "installing": "サービスをインストール中...",
       "uninstalling": "サービスをアンインストール中..."
     }
-  },
-  "search": {
-    "placeholder": "設定を検索",
-    "clear": "検索をクリア",
-    "back": "結果に戻る",
-    "results": "検索結果",
-    "empty": "設定が見つかりません"
   }
 }

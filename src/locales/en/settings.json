@@ -462,7 +462,6 @@
         "appLogMaxSize": "App Log Max Size",
         "appLogMaxCount": "App Log Max Count",
         "autoCloseConnections": "Auto Close Connections",
-        "autoSwitchSelectorGroup": "Auto Switch Select Group",
         "autoCheckUpdate": "Auto Check Update",
         "enableBuiltinEnhanced": "Enable Builtin Enhanced",
         "proxyLayoutColumns": "Proxy Layout Columns",
@@ -475,7 +474,6 @@
       },
       "tooltips": {
         "autoCloseConnections": "Terminate established connections when the proxy group selection or proxy mode changes",
-        "autoSwitchSelectorGroup": "In rule mode, selecting a node in a group that rule traffic does not reach also switches the first select group containing it to that group",
         "enableBuiltinEnhanced": "Compatibility handling for the configuration file",
         "autoDelayDetection": "Periodically test the current node latency in the background",
         "defaultLatencyTest": "Used for HTTP client request testing only and won't make a difference to the configuration file",
@@ -560,13 +558,11 @@
         "strictRoute": "Strict Route",
         "autoDetectInterface": "Auto Detect Interface",
         "dnsHijack": "DNS Hijack",
-        "dnsMode": "DNS Mode",
         "mtu": "Max Transmission Unit",
         "autoRedirect": "Auto Redirect"
       },
       "tooltips": {
         "dnsHijack": "Please use , to separate multiple DNS servers",
-        "dnsMode": "Auto keeps the legacy behavior; hijack requires Strict Route on Windows or Auto Redirect on Linux",
         "autoRedirect": "Automatically configures nftables/iptables TCP redirects"
       },
       "messages": {
@@ -762,8 +758,7 @@
         "permissionRejectedReason": "The service could not confirm that the core files and folders are safe to run with elevated privileges.",
         "permissionRepairGuide": "View repair instructions",
         "sidecarFallback": "The service could not start the core. Switched to Sidecar mode; the service remains unavailable.",
-        "uninstallSuccess": "Service Uninstalled Successfully",
-        "coreVersionDrift": "The service is running kernel {{running}} while the bundled kernel is {{bundled}}. Open Settings → Mihomo Versions to install {{bundled}}, or reinstall/repair the service and restart the core."
+        "uninstallSuccess": "Service Uninstalled Successfully"
       },
       "updater": {
         "withClashProxySuccess": "Update with Clash proxy successfully",
@@ -780,12 +775,5 @@
       "installing": "Installing Service...",
       "uninstalling": "Uninstalling Service..."
     }
-  },
-  "search": {
-    "placeholder": "Search settings",
-    "clear": "Clear search",
-    "back": "Back to results",
-    "results": "Search results",
-    "empty": "No settings found"
   }
 }

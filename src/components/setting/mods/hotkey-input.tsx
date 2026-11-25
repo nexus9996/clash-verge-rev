@@ -77,13 +77,8 @@ export const HotkeyInput = (props: Props) => {
             }
           }}
           onKeyDown={(e) => {
-            // Tab/Shift+Tab/Escape must keep their native behavior, and they
-            // also abort any partially recorded chord (e.g. Ctrl held first).
-            if (isPassthroughHotkey(e)) {
-              changeRef.current = []
-              setKeys([])
-              return
-            }
+            // Tab/Shift+Tab/Escape must keep their native behavior.
+            if (isPassthroughHotkey(e)) return
 
             e.preventDefault()
             e.stopPropagation()

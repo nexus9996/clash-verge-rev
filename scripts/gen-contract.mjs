@@ -31,8 +31,12 @@ try {
     { cwd: ROOT, stdio: 'inherit' },
   )
   const formatted = execFileSync(
-    process.execPath,
-    ['fmt', '--no-script', '--stdin-filepath', BINDINGS],
+    path.join(
+      ROOT,
+      'node_modules/.bin',
+      process.platform === 'win32' ? 'oxfmt.cmd' : 'oxfmt',
+    ),
+    ['--stdin-filepath', BINDINGS],
     { cwd: ROOT, input: fs.readFileSync(output) },
   )
   if (check) {

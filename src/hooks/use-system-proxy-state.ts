@@ -2,10 +2,13 @@ import { useRef } from 'react'
 import { closeAllConnections } from 'tauri-plugin-mihomo-api'
 
 import { useSystemData } from '@/hooks/data'
-import { APP_DATA_QUERY_KEYS } from '@/hooks/data/query-options'
 import { useDisplayedMixedPort } from '@/hooks/use-displayed-mixed-port'
 import { useVerge } from '@/hooks/use-verge'
-import { getEmbeddedServerPort, patchVergeConfig } from '@/services/cmds'
+import {
+  getAutoProxy,
+  getEmbeddedServerPort,
+  patchVergeConfig,
+} from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import {
   removeCacheData,
@@ -13,12 +16,16 @@ import {
   useQuery,
 } from '@/services/query-client'
 
-const SYSTEM_PROXY_KEY = APP_DATA_QUERY_KEYS.systemProxyState
-
 export const useSystemProxyState = () => {
   const { verge, mutateVerge } = useVerge()
-  const { sysproxy, autoproxy } = useSystemData()
+  const { sysproxy } = useSystemData()
   const displayedMixedPort = useDisplayedMixedPort()
+  const { data: autoproxy } = useQuery({
+    queryKey: ['getAutoProxy'],
+    queryFn: getAutoProxy,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  })
   const { data: pacPort } = useQuery({
     queryKey: ['getEmbeddedServerPort'],
     queryFn: getEmbeddedServerPort,
@@ -41,16 +48,13 @@ export const useSystemProxyState = () => {
   // Coalesce rapid clicks so only the latest requested state is applied.
   const pendingRef = useRef<boolean | null>(null)
   const busyRef = useRef(false)
-  // The drain loop outlives the render it started in; reading the config
-  // through a ref keeps mid-loop revalidations visible to later iterations.
-  const vergeRef = useRef(verge)
-  vergeRef.current = verge
 
   const toggleSystemProxy = async (enabled: boolean) => {
     // Roll failed optimistic writes back to the latest confirmed state.
-    let confirmed = vergeRef.current?.enable_system_proxy ?? false
-    mutateVerge((prev) =>
-      prev ? { ...prev, enable_system_proxy: enabled } : prev,
+    let confirmed = verge?.enable_system_proxy ?? false
+    mutateVerge(
+      (prev) => (prev ? { ...prev, enable_system_proxy: enabled } : prev),
+      false,
     )
     pendingRef.current = enabled
 
@@ -66,7 +70,7 @@ export const useSystemProxyState = () => {
           errorNotice: false,
         })
         confirmed = target
-        if (!target && vergeRef.current?.auto_close_connection) {
+        if (!target && verge?.auto_close_connection) {
           await mutate(() => closeAllConnections(), {
             id: 'close-all-connections',
             errorNotice: false,
@@ -74,8 +78,9 @@ export const useSystemProxyState = () => {
         }
       }
     } catch (error) {
-      mutateVerge((prev) =>
-        prev ? { ...prev, enable_system_proxy: confirmed } : prev,
+      mutateVerge(
+        (prev) => (prev ? { ...prev, enable_system_proxy: confirmed } : prev),
+        false,
       )
       // Queued requests were based on a state that never landed.
       pendingRef.current = null
@@ -94,7 +99,7 @@ export const useSystemProxyState = () => {
       }
       // Kept separate so an unreadable config cannot discard OS state that did read.
       try {
-        await revalidateQueries([SYSTEM_PROXY_KEY])
+        await revalidateQueries([['getSystemProxy'], ['getAutoProxy']])
       } catch (error) {
         console.warn(
           '[system-proxy] rereading the OS proxy after a toggle failed:',
@@ -102,12 +107,16 @@ export const useSystemProxyState = () => {
         )
         // The indicator reports observed OS state, so an unreadable one must read as inactive
         // rather than stay live from a stale cache.
-        await removeCacheData(SYSTEM_PROXY_KEY)
+        await Promise.all([
+          removeCacheData(['getSystemProxy']),
+          removeCacheData(['getAutoProxy']),
+        ])
       }
     }
   }
 
-  const invalidateProxyState = () => revalidateQueries([SYSTEM_PROXY_KEY])
+  const invalidateProxyState = () =>
+    revalidateQueries([['getSystemProxy'], ['getAutoProxy']])
 
   return {
     indicator,

@@ -29,7 +29,6 @@ import {
   getConnectionStartTime,
   getConnectionTypeLabel,
 } from './connection-row-view'
-import type { ConnectionRuleKind } from './connection-rule'
 
 const ROW_HEIGHT = 40
 const RESIZE_HANDLE_WIDTH = 6
@@ -224,16 +223,6 @@ const compareConnectionCellValue = (
   right: IConnectionsItem,
   getSnapshot: (row: IConnectionsItem) => TableRowSnapshot,
 ) => {
-  switch (field) {
-    case 'download':
-      return (left.download ?? 0) - (right.download ?? 0)
-    case 'upload':
-      return (left.upload ?? 0) - (right.upload ?? 0)
-    case 'dlSpeed':
-      return (left.curDownload ?? 0) - (right.curDownload ?? 0)
-    case 'ulSpeed':
-      return (left.curUpload ?? 0) - (right.curUpload ?? 0)
-  }
   const leftValue = getConnectionCellValue(field, getSnapshot(left))
   const rightValue = getConnectionCellValue(field, getSnapshot(right))
 
@@ -258,7 +247,7 @@ const renderCell = (
 interface RowComponentProps {
   row: IConnectionsItem
   columns: DisplayColumn[]
-  onShowDetail: (id: string, preferredKind?: ConnectionRuleKind) => void
+  onShowDetail: (id: string) => void
   getSnapshot: (row: IConnectionsItem) => TableRowSnapshot
   borderColor: string
   virtualTop: number
@@ -274,22 +263,7 @@ const RowComponent = memo(
     virtualTop,
   }: RowComponentProps) {
     const handleClick = useCallback(
-      (event: ReactMouseEvent<HTMLDivElement>) => {
-        const field =
-          event.target instanceof Element
-            ? event.target.closest<HTMLElement>('[data-connection-field]')
-                ?.dataset.connectionField
-            : undefined
-        const preferredKind =
-          field === 'process'
-            ? 'process'
-            : field === 'source'
-              ? 'source'
-              : field === 'remoteDestination'
-                ? 'destination'
-                : 'domain'
-        onShowDetail(row.id, preferredKind)
-      },
+      () => onShowDetail(row.id),
       [onShowDetail, row.id],
     )
     const snapshot = getSnapshot(row)
@@ -311,7 +285,6 @@ const RowComponent = memo(
         {columns.map((column) => (
           <div
             key={column.field}
-            data-connection-field={column.field}
             style={{
               boxSizing: 'border-box',
               flex: `0 0 ${column.size}px`,
@@ -345,7 +318,7 @@ const RowComponent = memo(
 
 interface Props {
   connections: IConnectionsItem[]
-  onShowDetail: (id: string, preferredKind?: ConnectionRuleKind) => void
+  onShowDetail: (id: string) => void
   columnManagerOpen: boolean
   onCloseColumnManager: () => void
 }
@@ -360,8 +333,7 @@ export const ConnectionTable = (props: Props) => {
   const onShowDetailRef = useRef(rawOnShowDetail)
   onShowDetailRef.current = rawOnShowDetail
   const onShowDetail = useCallback(
-    (id: string, preferredKind?: ConnectionRuleKind) =>
-      onShowDetailRef.current(id, preferredKind),
+    (id: string) => onShowDetailRef.current(id),
     [],
   )
   const { t } = useTranslation()
@@ -492,6 +464,21 @@ export const ConnectionTable = (props: Props) => {
     ]
   }, [t])
 
+  useEffect(() => {
+    setColumnOrder((prevValue) => {
+      const baseFields = baseColumns.map((col) => col.field)
+      const prev = Array.isArray(prevValue) ? prevValue : []
+      const reconciled = reconcileColumnOrder(prev, baseFields)
+      if (
+        reconciled.length === prev.length &&
+        reconciled.every((field, i) => field === prev[i])
+      ) {
+        return prevValue
+      }
+      return reconciled
+    })
+  }, [baseColumns, setColumnOrder])
+
   const orderedColumns = useMemo(() => {
     const baseFields = baseColumns.map((column) => column.field)
     const reconciledOrder = reconcileColumnOrder(columnOrder, baseFields)
@@ -519,8 +506,6 @@ export const ConnectionTable = (props: Props) => {
   const [sorting, setSorting] = useState<SortingState | null>(null)
   const [viewport, setViewport] = useState({ scrollTop: 0, height: 0 })
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
-  const resizeCleanupRef = useRef<(() => void) | null>(null)
-  useEffect(() => () => resizeCleanupRef.current?.(), [])
   const rowSnapshotCacheRef = useRef(new Map<string, TableRowSnapshot>())
   const getRowSnapshot = useCallback((row: IConnectionsItem) => {
     const cache = rowSnapshotCacheRef.current
@@ -694,7 +679,6 @@ export const ConnectionTable = (props: Props) => {
       minWidth: number,
       maxWidth: number | undefined,
     ) => {
-      resizeCleanupRef.current?.()
       const handleMove = (clientX: number) => {
         const nextWidth = Math.max(
           minWidth,
@@ -717,10 +701,8 @@ export const ConnectionTable = (props: Props) => {
         window.removeEventListener('touchmove', handleTouchMove)
         window.removeEventListener('touchend', cleanup)
         window.removeEventListener('touchcancel', cleanup)
-        resizeCleanupRef.current = null
       }
 
-      resizeCleanupRef.current = cleanup
       window.addEventListener('mousemove', handleMouseMove)
       window.addEventListener('mouseup', cleanup)
       window.addEventListener('touchmove', handleTouchMove, { passive: true })

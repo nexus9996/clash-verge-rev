@@ -3,31 +3,33 @@ use clash_verge_logging::{Type, logging};
 use parking_lot::Mutex;
 #[cfg(test)]
 use serde_json::json;
+use smartstring::alias::String;
 use std::sync::Arc;
 use std::sync::LazyLock;
 use std::{collections::HashMap, future::Future};
 use tauri::{AppHandle, Emitter as _, Manager as _, WebviewWindow};
-use tristr::alias::String;
 
 #[derive(Debug, Clone)]
 pub enum FrontendEvent<'a> {
-    /// Several refresh kinds announced by one operation, emitted as one message.
-    Refresh(Vec<super::announce::Refresh>),
+    RefreshClash,
+    RefreshVerge,
+    RefreshProfiles,
+    RefreshProxyConfig,
     NoticeMessage {
         status: NoticeStatus,
         message: Arc<str>,
     },
     ProfileChanged {
-        current_profile_id: &'a str,
+        current_profile_id: &'a String,
     },
     TimerUpdated {
-        profile_index: &'a str,
+        profile_index: &'a String,
     },
     ProfileUpdateStarted {
-        uid: &'a str,
+        uid: &'a String,
     },
     ProfileUpdateCompleted {
-        uid: &'a str,
+        uid: &'a String,
     },
     RunStateChanged {
         state: crate::core::runstate::RunStateView,
@@ -75,8 +77,10 @@ impl FailedOperation {
 #[serde(rename_all = "camelCase")]
 pub struct PendingFailure {
     /// Stable code used as the table key.
+    #[specta(type = std::string::String)]
     pub code: String,
     /// Full diagnostic context chain.
+    #[specta(type = std::string::String)]
     pub detail: String,
     pub operation: FailedOperation,
     /// Monotonic identity for repeated failures under the same code.
@@ -243,6 +247,7 @@ static PENDING_FAILURES: LazyLock<FailureTable> = LazyLock::new(FailureTable::de
 #[derive(Debug, Default, Clone, serde::Serialize, specta::Type)]
 pub struct SidecarFailureSnapshot {
     pub revision: u64,
+    #[specta(type = Option<std::string::String>)]
     pub detail: Option<String>,
 }
 
@@ -364,7 +369,7 @@ mod wire_tests {
 
 /// One sample per `FrontendEvent` variant, paired with its wire name and payload.
 #[cfg(test)]
-fn sample_frontend_events(uid: &str) -> Vec<(FrontendEvent<'_>, &'static str, serde_json::Value)> {
+fn sample_frontend_events(uid: &String) -> Vec<(FrontendEvent<'_>, &'static str, serde_json::Value)> {
     let state = crate::core::runstate::RunState {
         health: Default::default(),
         pending: None,
@@ -375,10 +380,13 @@ fn sample_frontend_events(uid: &str) -> Vec<(FrontendEvent<'_>, &'static str, se
     }
     .to_view();
     vec![
+        (FrontendEvent::RefreshClash, "verge://refresh-clash-config", json!(null)),
+        (FrontendEvent::RefreshVerge, "verge://refresh-verge-config", json!(null)),
+        (FrontendEvent::RefreshProfiles, "verge://refresh-profiles", json!(null)),
         (
-            FrontendEvent::Refresh(vec![super::announce::Refresh::Verge, super::announce::Refresh::Clash]),
-            "verge://refresh-batch",
-            json!(["Verge", "Clash"]),
+            FrontendEvent::RefreshProxyConfig,
+            "verge://refresh-proxy-config",
+            json!(null),
         ),
         (
             FrontendEvent::NoticeMessage {
@@ -444,7 +452,10 @@ macro_rules! frontend_events {
 }
 
 frontend_events! {
-    refresh_batch: Vec<super::announce::Refresh> = "verge://refresh-batch", FrontendEvent::Refresh(kinds) => kinds;
+    refresh_clash: () = "verge://refresh-clash-config", FrontendEvent::RefreshClash => ();
+    refresh_verge: () = "verge://refresh-verge-config", FrontendEvent::RefreshVerge => ();
+    refresh_profiles: () = "verge://refresh-profiles", FrontendEvent::RefreshProfiles => ();
+    refresh_proxy: () = "verge://refresh-proxy-config", FrontendEvent::RefreshProxyConfig => ();
     notice: (NoticeStatus, std::string::String) = "verge://notice-message", FrontendEvent::NoticeMessage { status, ref message } => (status, message.to_string());
     profile_changed: std::string::String = "profile-changed", FrontendEvent::ProfileChanged { current_profile_id } => current_profile_id.to_string();
     timer_updated: std::string::String = "verge://timer-updated", FrontendEvent::TimerUpdated { profile_index } => profile_index.to_string();

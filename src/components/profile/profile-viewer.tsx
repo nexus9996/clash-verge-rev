@@ -45,29 +45,6 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
   const { profiles } = useProfiles()
 
   const fileDataRef = useRef<string | null>(null)
-  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const clearResetTimer = () => {
-    if (resetTimerRef.current !== null) {
-      clearTimeout(resetTimerRef.current)
-      resetTimerRef.current = null
-    }
-  }
-
-  // Deferred so the dialog can animate out; cancelled when a new form opens.
-  const scheduleReset = () => {
-    clearResetTimer()
-    resetTimerRef.current = setTimeout(() => {
-      resetTimerRef.current = null
-      reset()
-    }, 500)
-  }
-
-  useEffect(() => {
-    return () => {
-      if (resetTimerRef.current !== null) clearTimeout(resetTimerRef.current)
-    }
-  }, [])
 
   const { control, watch, setValue, reset, handleSubmit, getValues } =
     useForm<IProfileItem>({
@@ -84,32 +61,32 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
       },
     })
 
-  // The handle only closes over stable form/state setters.
-  useImperativeHandle(
-    ref,
-    () => ({
-      create: () => {
-        clearResetTimer()
-        // The deferred reset may not have run yet when the user reopens quickly;
-        // a new form must never inherit the previous profile.
-        reset()
-        setOpenType('new')
-        setOpen(true)
-      },
-      edit: (item: IProfileItem) => {
-        clearResetTimer()
-        reset()
-        if (item) {
-          Object.entries(item).forEach(([key, value]) => {
-            setValue(key as any, value)
-          })
-        }
-        setOpenType('edit')
-        setOpen(true)
-      },
-    }),
-    [reset, setValue],
-  )
+  useImperativeHandle(ref, () => ({
+    create: () => {
+      setOpenType('new')
+      setOpen(true)
+    },
+    edit: (item: IProfileItem) => {
+      if (item) {
+        Object.entries(item).forEach(([key, value]) => {
+          setValue(key as any, value)
+        })
+      }
+      setOpenType('edit')
+      setOpen(true)
+    },
+  }))
+
+  const selfProxy = watch('option.self_proxy')
+  const withProxy = watch('option.with_proxy')
+
+  useEffect(() => {
+    if (selfProxy) setValue('option.with_proxy', false)
+  }, [selfProxy, setValue])
+
+  useEffect(() => {
+    if (withProxy) setValue('option.self_proxy', false)
+  }, [setValue, withProxy])
 
   const handleOk = useLockFn(
     handleSubmit(async (form) => {
@@ -240,7 +217,7 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
         }
 
         setOpen(false)
-        scheduleReset()
+        setTimeout(() => reset(), 500)
         fileDataRef.current = null
 
         setTimeout(() => {
@@ -256,10 +233,9 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
 
   const handleClose = () => {
     try {
-      clearResetTimer()
       setOpen(false)
       fileDataRef.current = null
-      scheduleReset()
+      setTimeout(() => reset(), 500)
     } catch (e) {
       console.warn('[ProfileViewer] handleClose error:', e)
     }
@@ -443,15 +419,7 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
                 <InputLabel>
                   {t('profiles.modals.profileForm.fields.useSystemProxy')}
                 </InputLabel>
-                <Switch
-                  checked={field.value!}
-                  {...field}
-                  onChange={(_, checked) => {
-                    field.onChange(checked)
-                    if (checked) setValue('option.self_proxy', false)
-                  }}
-                  color="primary"
-                />
+                <Switch checked={field.value!} {...field} color="primary" />
               </StyledBox>
             )}
           />
@@ -464,15 +432,7 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
                 <InputLabel>
                   {t('profiles.modals.profileForm.fields.useClashProxy')}
                 </InputLabel>
-                <Switch
-                  checked={field.value!}
-                  {...field}
-                  onChange={(_, checked) => {
-                    field.onChange(checked)
-                    if (checked) setValue('option.with_proxy', false)
-                  }}
-                  color="primary"
-                />
+                <Switch checked={field.value!} {...field} color="primary" />
               </StyledBox>
             )}
           />

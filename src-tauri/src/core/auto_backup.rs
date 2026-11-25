@@ -7,10 +7,11 @@ use crate::{
 use anyhow::Result;
 use chrono::Local;
 use clash_verge_logging::{Type, logging};
+use parking_lot::RwLock;
 use std::{
     path::PathBuf,
     sync::{
-        OnceLock,
+        Arc, OnceLock,
         atomic::{AtomicBool, AtomicI64, Ordering},
     },
     time::{Duration, UNIX_EPOCH},
@@ -85,9 +86,8 @@ impl Default for AutoBackupSettings {
 }
 
 pub struct AutoBackupManager {
+    settings: Arc<RwLock<AutoBackupSettings>>,
     settings_tx: watch::Sender<AutoBackupSettings>,
-    // The watch channel is the single settings store; no duplicate copies.
-    settings_rx: watch::Receiver<AutoBackupSettings>,
     runner_started: AtomicBool,
     exec_lock: Mutex<()>,
     last_backup: AtomicI64,
@@ -97,10 +97,10 @@ impl AutoBackupManager {
     pub fn global() -> &'static Self {
         static INSTANCE: OnceLock<AutoBackupManager> = OnceLock::new();
         INSTANCE.get_or_init(|| {
-            let (settings_tx, settings_rx) = watch::channel(AutoBackupSettings::default());
+            let (tx, _rx) = watch::channel(AutoBackupSettings::default());
             Self {
-                settings_tx,
-                settings_rx,
+                settings: Arc::new(RwLock::new(AutoBackupSettings::default())),
+                settings_tx: tx,
                 runner_started: AtomicBool::new(false),
                 exec_lock: Mutex::new(()),
                 last_backup: AtomicI64::new(0),
@@ -110,6 +110,9 @@ impl AutoBackupManager {
 
     pub async fn init(&self) -> Result<()> {
         let settings = Self::load_settings().await;
+        {
+            *self.settings.write() = settings;
+        }
         self.settings_tx.send_replace(settings);
         self.maybe_start_runner(settings);
         Ok(())
@@ -117,11 +120,15 @@ impl AutoBackupManager {
 
     pub async fn refresh_settings(&self) -> Result<()> {
         let settings = Self::load_settings().await;
-        self.settings_tx.send_if_modified(|current| {
+        let schedule_changed = {
+            let mut current = self.settings.write();
             let changed = schedule_settings_changed(*current, settings);
             *current = settings;
             changed
-        });
+        };
+        if schedule_changed {
+            self.settings_tx.send_replace(settings);
+        }
         self.maybe_start_runner(settings);
         Ok(())
     }
@@ -195,7 +202,7 @@ impl AutoBackupManager {
     }
 
     async fn execute_trigger(&self, trigger: AutoBackupTrigger) -> Result<()> {
-        let snapshot = *self.settings_rx.borrow();
+        let snapshot = *self.settings.read();
 
         if trigger.is_schedule() && !snapshot.schedule_enabled {
             return Ok(());
@@ -287,7 +294,8 @@ async fn cleanup_auto_backups() -> Result<()> {
             .and_then(|meta| meta.modified())
             .ok()
             .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
-            .map_or(0, |dur| dur.as_secs());
+            .map(|dur| dur.as_secs())
+            .unwrap_or(0);
 
         files.push((path, modified));
     }

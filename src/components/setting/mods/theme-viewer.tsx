@@ -12,7 +12,14 @@ import {
   useTheme,
 } from '@mui/material'
 import { useLockFn } from 'ahooks'
-import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  type ChangeEvent,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BaseDialog, DialogRef } from '@/components/base'
@@ -29,18 +36,13 @@ import {
 import { useVerge } from '@/hooks/use-verge'
 import { showNotice } from '@/services/notice-service'
 
-import { useSettingDialog } from '../settings-search-context'
-
 type EditMode = 'light' | 'dark'
 type ThemeSetting = NonNullable<IVergeConfig['theme_setting']>
-type ThemeSettingColorKey = Exclude<
-  keyof ThemeSetting,
-  | 'font_family'
-  | 'css_injection'
-  | 'background_image'
-  | 'background_blend_mode'
-  | 'background_opacity'
->
+type ThemeSettingColorKey =
+  | ThemePresetColorKey
+  | 'background_color'
+  | 'paper_background_color'
+
 export function ThemeViewer(props: { ref?: React.Ref<DialogRef> }) {
   const { ref } = props
   const { t } = useTranslation()
@@ -65,7 +67,7 @@ export function ThemeViewer(props: { ref?: React.Ref<DialogRef> }) {
     themeRef.current = theme
   }, [theme])
 
-  useSettingDialog(ref, 'theme-viewer', open, () => ({
+  useImperativeHandle(ref, () => ({
     open: () => {
       const nextMode: EditMode = palette.mode === 'dark' ? 'dark' : 'light'
       setEditMode(nextMode)
@@ -273,7 +275,6 @@ export function ThemeViewer(props: { ref?: React.Ref<DialogRef> }) {
       onCancel={() => setOpen(false)}
       onOk={onSave}
     >
-      <span data-settings-dialog="theme-viewer" />
       <List sx={{ pt: 0 }}>
         {renderPresets()}
         {renderEditModes()}
@@ -291,7 +292,7 @@ export function ThemeViewer(props: { ref?: React.Ref<DialogRef> }) {
           onChange={handleColorChange('paper_background_color')}
         />
 
-        <Item data-setting-target="settings.components.verge.theme.fields.fontFamily">
+        <Item>
           <ListItemText
             primary={t('settings.components.verge.theme.fields.fontFamily')}
           />
@@ -302,12 +303,11 @@ export function ThemeViewer(props: { ref?: React.Ref<DialogRef> }) {
             onKeyDown={(e) => e.key === 'Enter' && onSave()}
           />
         </Item>
-        <Item data-setting-target="settings.components.verge.theme.fields.cssInjection">
+        <Item>
           <ListItemText
             primary={t('settings.components.verge.theme.fields.cssInjection')}
           />
           <Button
-            data-setting-target="settings.components.verge.theme.actions.editCss"
             startIcon={<EditRounded />}
             variant="outlined"
             onClick={openCssEditor}

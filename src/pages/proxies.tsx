@@ -1,15 +1,11 @@
 import { LanOutlined, LanRounded, WarningRounded } from '@mui/icons-material'
 import { Box, Button, ButtonGroup, Typography } from '@mui/material'
 import { useLockFn } from 'ahooks'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useReducer, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BaseDialog, BasePage, TooltipIcon } from '@/components/base'
 import { ProviderButton } from '@/components/proxy/provider-button'
-import {
-  parseChainConfigItems,
-  type ProxyChainItem,
-} from '@/components/proxy/proxy-chain-model'
 import { ProxyGroups } from '@/components/proxy/proxy-groups'
 import { useAppRefreshers, useClashConfigData } from '@/hooks/data'
 import {
@@ -41,12 +37,17 @@ const ProxyPage = () => {
   })
   const [chainConfirmOpen, setChainConfirmOpen] = useState(false)
 
-  const [chainConfigItems, setChainConfigItems] = useState<
-    ProxyChainItem[] | null
-  >(null)
+  const [chainConfigData, dispatchChainConfigData] = useReducer(
+    (_: string | null, action: string | null) => action,
+    null as string | null,
+  )
 
   const { clashConfig } = useClashConfigData()
   const { refreshClashConfig } = useAppRefreshers()
+
+  const updateChainConfigData = useCallback((value: string | null) => {
+    dispatchChainConfigData(value)
+  }, [])
 
   const normalizedMode = clashConfig?.mode?.toLowerCase()
   const curMode = isMode(normalizedMode) ? normalizedMode : undefined
@@ -67,7 +68,6 @@ const ProxyPage = () => {
 
   const applyChainMode = (enabled: boolean) => {
     setIsChainMode(enabled)
-    if (!enabled) setChainConfigItems(null)
     localStorage.setItem('proxy-chain-mode-enabled', enabled.toString())
   }
 
@@ -96,7 +96,10 @@ const ProxyPage = () => {
 
   // 当开启链式代理模式时，获取配置数据
   useEffect(() => {
-    if (!isChainMode) return
+    if (!isChainMode) {
+      updateChainConfigData(null)
+      return
+    }
 
     let cancelled = false
 
@@ -107,21 +110,19 @@ const ProxyPage = () => {
         if (!exitNode) {
           console.error('No proxy chain exit node found in localStorage')
           if (!cancelled) {
-            setChainConfigItems([])
+            updateChainConfigData('')
           }
           return
         }
 
         const configData = await getRuntimeProxyChainConfig(exitNode)
         if (!cancelled) {
-          setChainConfigItems(
-            configData ? parseChainConfigItems(configData) : [],
-          )
+          updateChainConfigData(configData || '')
         }
       } catch (error) {
         console.error('Failed to get runtime proxy chain config:', error)
         if (!cancelled) {
-          setChainConfigItems([])
+          updateChainConfigData('')
         }
       }
     }
@@ -131,7 +132,7 @@ const ProxyPage = () => {
     return () => {
       cancelled = true
     }
-  }, [isChainMode])
+  }, [isChainMode, updateChainConfigData])
 
   useEffect(() => {
     if (normalizedMode && !isMode(normalizedMode)) {
@@ -199,7 +200,7 @@ const ProxyPage = () => {
       <ProxyGroups
         mode={curMode ?? 'rule'}
         isChainMode={isChainMode}
-        chainConfigItems={chainConfigItems}
+        chainConfigData={chainConfigData}
         onExitChainMode={onExitChainMode}
       />
       <BaseDialog

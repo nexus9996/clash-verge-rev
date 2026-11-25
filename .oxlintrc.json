@@ -29,6 +29,7 @@
     "denyWarnings": true
   },
   "ignorePatterns": [
+    "src/routeTree.gen.ts",
     "dist/**",
     "node_modules/**",
     "target/**",

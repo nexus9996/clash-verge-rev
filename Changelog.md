@@ -1,82 +1,17 @@
-<!-- Release-notes skeleton. Entries accumulate in ./Changelog.md as PRs land;
-     before publishing a release, distill them:
-     - user-visible changes only — no dev tooling, CI fixes, or refactors whose
-       effect is already covered by another entry
-     - describe outcomes, not internals: no internal module names, IPC or
-       protocol details, or implementation mechanics — write what the user
-       observes, not how the code achieves it
-     - one line per theme: merge entries that share a root cause
-     - each entry fits a single readable line (about 60 CJK characters); if it
-       overflows, it is packing multiple themes or detail that belongs in the
-       linked issue/PR — split it or drop the detail
-     - line grammar: open with a verb (修复/新增/优化), with the platform
-       first (Windows/macOS/Linux) when the change is platform-specific;
-       merge sub-symptoms as 主题：症状、症状; full-width punctuation,
-       「」 for UI labels, backticks for config keys and commands
-     - omit the redundant suffix 「的问题」; end with the concrete symptom
-       or outcome instead
-     - platform entries sit under their platform heading (bold, emoji
-       prefixed, ordered Windows/macOS/Linux, combined for pairs like
-       macOS/Linux) at the end of their section;
-       scripts-workflow/group_platforms.sh regroups, --check verifies
-     HTML comments are stripped by the update dialog's sanitizer and hidden on
-     GitHub, so they never reach users. -->
-
-## v2.6.0
-
-- **Mihomo 内核升级至 v1.19.34**
+## v(Version Goes Here)
 
 <details>
 <summary><strong> 🐞 修复问题 </strong></summary>
 
-- 修复扩展配置或脚本整体替换 TUN/DNS 配置块时，每次启动都误报字段被接管并丢弃的问题
 - 应用退出时不再重写未变更的配置文件，保留文件创建时间
-- 修复「Mihomo 版本」在 GitHub 发布列表较大时误报 oversized release index、无法加载可安装版本的问题；发布列表改为缓存并减少单次拉取数量，打开更快、更省流量
-- 服务模式下应用更新后若服务仍在运行旧内核，会提示前往「Mihomo 版本」安装内置内核或修复服务，避免内核版本静默落后
 - 修复 TUN 设置显示默认 MTU 但未写入运行配置的问题
 - 修复断开链式代理时清空已选节点，以及误删扩展脚本/merge 设置的 `dialer-proxy` 的问题
-- 修复重启、切换订阅或刷新订阅后链式代理失效但仍显示已连接的问题；链式代理配置改为随订阅方案持久化
 - 修复代理页来自代理集合的节点不显示所属集合名称的问题
 - 修复首页 IP 信息在系统代理下可能显示直连地址的问题
 - 修复系统代理开启默认绕过列表时，自定义绕过项不显示的问题
 - 修复连接页排序时表头换行、高度跳动的问题
 - 修复设置页开关和选项所在行缺少悬停高亮的问题
 - 修复服务版本探测在启动阶段 IPC 未就绪时直接失败的问题
-- 修复规则扩展包含空列表项时，「编辑规则」界面报错的问题
-- 修复 自定义 CSS 无法修改编辑器字体和字号的问题
-- 修复「编辑规则」的代理策略列表缺少扩展覆写配置中的代理组
-- 修复「链式代理」节点列表按名称排序，未保持订阅中的节点顺序
-- 修复自定义节点无法选择目标代理组的问题，所选分组在订阅更新后保留
-- 修复外部控制器设置保存时重复重启内核、校验失败仍改变开关的问题
-- 重启或退出绕过常规清理流程时也会兜底停止内核并刷新日志，避免残留进程
-- 修复「全局模式」下无法选择 GLOBAL 全局节点的问题：GLOBAL 分组恢复为可展开卡片，已配置的策略组仍可展开查看
-- 修复服务模式下，SSH 节点的 `private-key` 使用私钥文件时内核无法启动的问题
-- 修复服务模式下，内核更新的 GEO 数据库不会同步回应用目录，导致使用新分类的规则无法通过校验的问题
-- 修复订阅的 DNS 配置变化后，「DNS 覆写」实际已关闭但开关仍显示开启且没有提示的问题
-- 修复「外部控制器」复制成功的提示一闪而过
-- 修复订阅的规则、代理组、节点编辑器快速连续操作时条目可能重复或错位
-- 修复检测更新后又发布新版时，应用内更新失败
-- 修复关闭「自动检查更新」后，手动检查更新时弹窗空白
-- 修复订阅响应过大导致内存占用过高，限制单次下载为 4 MiB
-- 修复全局模式默认停在 `DIRECT` 或 `REJECT` 导致流量未经代理，现自动切换到第一个策略组
-- 修复订阅中未加引号的 REALITY `short-id`（如 `1234e123`）被误读为数字，导致订阅无法启用
-- 修复订阅中唯一的代理组名为 `GLOBAL` 或没有代理组时，规则模式下代理页面显示「未获取到代理信息」
-- 修复窗口较窄时，首页「当前节点」卡片中过长的节点名把延迟标签挤出卡片
-- 修复断开链式代理时清空已选节点，导致再次连接需要重新选择
-- 修复「连接」页表格排序时表头换行、标题位置跳动
-- 修复「TUN 设置」未手动保存时，界面显示的默认 MTU 1500 未生效
-- 修复连接详情较窄时操作按钮偏离右侧
-- 修复「链式代理」节点列表按名称排序，未保持订阅中的节点顺序
-- 修复规则模式下 Muse AI 解锁检测显示错误的出口地区
-- 修复使用系统代理或本地代理认证时首页 IP 信息显示直连地址或报错
-- 修复打开「链式代理」时自动对全部节点发起延迟测试
-
-**🖥️ Windows**
-
-- 修复 Windows 普通用户因权限不足无法开启「开机自启」
-- Windows：修复托盘快捷键包含 Win 键时可能导致托盘菜单注册失败的问题
-- Windows：修复安装程序重新安装或覆盖时未提示退出运行中应用，导致卸载报错或覆盖失败的问题
-- Windows：修复偶发的异步错误可能让整个窗口变为空白的问题
 
 **🍎 macOS**
 
@@ -86,18 +21,10 @@
 - macOS：修复 TUN + `redir-host` 时局域网 DNS 绕过 TUN、部分网站无法访问的问题
 - macOS：修复系统外观切换后原生标题栏偶尔仍停留在旧主题的问题
 - macOS：修复旧版 WebKit 上更新说明弹窗因正则 lookbehind 无法加载的问题
-- macOS：修复 Bigsur 上首页测速和流量图无法显示的问题
-- macOS：修复 TUN 模式下原有 DNS 被清除、关闭后 DNS 未恢复及联网后设置未生效
-- macOS：修复断网时误报代理已回退直连，恢复联网后自动重试系统代理
-- 修复 macOS TUN 模式下原有 DNS 被清除、关闭后 DNS 未恢复及联网后设置未生效
-- 修复 macOS 断网时误报代理已回退直连，恢复联网后自动重试系统代理
-- 修复 macOS 切换主题后标题栏保留原有深浅色
 
 **🐧 Linux**
 
-- Linux：修复系统包安装（deb/rpm/AUR）升级内核时因系统目录无写入权限而失败的问题，升级后系统目录与服务使用的内核会一并更新
 - Linux：修复 deb/rpm 升级时服务被卸载、更新流程卡死的问题
-- 修复 Linux OpenRC 环境下服务安装失败
 
 </details>
 
@@ -112,10 +39,6 @@
 - 设置页支持切换更新渠道（稳定版 / 内测版），内测版跟随带版本号的内测构建
 - 代理节点支持显示所属代理组并快速跳转到对应分组
 - 设置页支持安装指定版本的 Mihomo 内核，安装失败时自动回滚到原版本
-- 新增虚拟网卡设置的「DNS 模式」选项，支持配置 mihomo 系统 DNS 行为
-- 新增连接页面按网络协议（TCP/UDP）筛选连接
-- 新增从连接详情设置域名、进程或源／目标 IP 规则，支持识别主域、匹配子域、自定义 IP 网段及修改已有规则
-- 新增规则模式下在规则流量未经过的代理组选节点时，自动将首个包含该组的 `select` 代理组切换到该组，可在「杂项设置」关闭
 
 **🍎/🐧 macOS/Linux**
 
@@ -126,28 +49,15 @@
 <details>
 <summary><strong> 🚀 优化改进 </strong></summary>
 
-- 除首页外所有页面、拖拽排序、CIDR 校验与设置弹窗改为按需加载，首屏 JS gzip 在上一版 415.8 kB 基础上降至 340.5 kB（约 -18%）
-- 优化「连接」页刷新：连接变动时列表与计数更新更快
-- 优化「日志」页在高频日志下的流畅度
-- 优化托盘菜单刷新：构建合并为主线程单次派发，状态变化原地更新、仅在结构变化时重建，代理节点较多时更流畅
-- 优化设置保存后界面刷新：同一次保存触发的多类刷新合并为一次，减少重复刷新与短暂卡顿
-- 「DNS 模式」仅在 mihomo v1.19.33 及以上内核显示，避免旧内核出现无效选项
-- 优化 WebDAV 密码存储：优先写入系统钥匙串，不再持久化到配置文件
+- 订阅、设置与连接页改为按需加载，首屏主包体积降低约 33%
 
 **🖥️ Windows**
 
 - 更新下载完成改为提示用户重启应用以应用新版本，不再自动重启（Windows 安装器仍会自动退出并重启）
 
-**🐧 Linux**
-
-- Linux：托盘改用 StatusNotifierItem（ksni）后端，安装包不再捆绑 libayatana-appindicator 与 dbusmenu 运行库，并移除对应的 deb/rpm 依赖，体积更小
-- Linux：RPM 安装包改用 zstd 压缩（level 19）
-
 </details>
 
 ## v2.5.9
-
-- **Mihomo(Meta) 内核升级至 v1.19.33**
 
 <details>
 <summary><strong> 🐞 修复问题 </strong></summary>
@@ -156,16 +66,11 @@
 - 修复订阅和远程配置下载对响应体大小无限制的问题
 - 修复通过深链导入订阅未经确认就下载，并可能在首次启动时立即启用的问题
 - 修复轻量模式退出请求被中断后状态卡住、托盘开关失效的问题
-- 修复规则扩展包含空列表项时，「编辑规则」界面报错的问题
-- 修复 重启应用后定时自动备份不执行的问题
 - 修复托盘测速与代理页行为不一致的问题，移除托盘「测试延迟」入口
 - 修复通过 URL 导入订阅时，即使导入的订阅并非当前使用的订阅，也会重新加载当前配置
 - 修复节点密码等日期格式字符串在运行配置序列化时丢失引号、导致内核校验失败的问题
 - 修复 首页 网站测速失败后卡片一直显示测试中
 - 修复 代理 页展开分组后不显示最新测速结果，需切换节点才刷新
-- 修复 代理 在全局模式下无法展开节点组
-- 修复 自定义 CSS 无法修改编辑器字体和字号的问题
-- 修复 WebDAV 设置清空后无法保存
 
 **🍎 macOS**
 
@@ -181,9 +86,6 @@
 <details>
 <summary><strong> ✨ 新增功能 </strong></summary>
 
-- 新增虚拟网卡设置的「DNS 模式」选项，支持配置 mihomo 系统 DNS 行为
-- 新增「IP 信息」自动刷新开关，关闭后仍可手动刷新
-- 新增 Muse AI 解锁检测，针对 Muse AI 特有的 Cloudflare 人机验证增加「Risky」状态标记
 
 </details>
 
@@ -192,19 +94,9 @@
 
 - 记住「启用系统标题栏」设置，Windows/macOS 即时生效，Linux 重启后生效
 - 优化「链式代理」：开启前需确认网速影响提示，空面板新增「关闭」按钮
-- 优化设置页打开时的开销：布局设置弹窗首次打开时才加载图标
-- 优化连接、规则和日志筛选：切换页面后保留过滤条件
-- 优化全局模式代理列表：仅显示 `GLOBAL` 节点，选中其中的策略组时才显示该组
-- 优化设置页开关和选项所在行的鼠标悬停高亮，便于对应说明与控件
-- 优化首页「当前节点」卡片：按规则指向的代理组逐级显示和切换实际生效的节点，选中后下拉菜单自动收起
-- 优化延迟测试：节点超时后自动重测一次再显示结果，减少网络波动造成的误报
 
 **🖥️ Windows**
 
 - Windows 系统代理默认绕过 `*.local` 域名，访问局域网设备的 `.local` 主机名时不再经过代理
-
-**🍎 macOS**
-
-- 优化 macOS TUN 模式的系统 DNS，增加阿里和 Cloudflare 地址
 
 </details>

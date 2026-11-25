@@ -1,12 +1,13 @@
 use crate::{process::AsyncHandler, utils::tmpl};
 
-use super::field::use_lowercase;
+use super::field::use_lowercase_owned;
 use anyhow::{Error, Result};
 use clash_verge_logging::{Type, logging};
 use parking_lot::Mutex;
 use rquickjs::{Context, Function, Runtime};
 use serde::ser::SerializeMap as _;
-use serde_yaml_ng::{Mapping, Value};
+use serde_yaml_ng::Mapping;
+use smartstring::alias::String;
 use std::{
     cell::RefCell,
     sync::Arc,
@@ -28,9 +29,6 @@ const CONSOLE_SCRIPT: &str = r#"var __verge_log_count = 0;
 var __verge_log_size = 0;
 function __verge_push_log(level, data) {
   var text = JSON.stringify(data, null, 2);
-  // JSON.stringify returns undefined for undefined, functions and symbols; logging those must
-  // not throw and abort the whole enhancement script.
-  if (text === undefined) text = String(data);
   __verge_log_count = __verge_log_count + 1;
   __verge_log_size = __verge_log_size + level.length + text.length;
   if (__verge_log_count > 1000) throw new Error("Maximum number of log outputs exceeded");
@@ -46,15 +44,8 @@ var console = Object.freeze({
   table(data){__verge_push_log("table",data)},
 });"#;
 
-type ScriptResult = (
-    Mapping,
-    Vec<tristr::alias::String>,
-    Vec<(tristr::alias::String, tristr::alias::String)>,
-);
-type EvalOutcome = (
-    Result<Mapping, std::string::String>,
-    Vec<(tristr::alias::String, tristr::alias::String)>,
-);
+type ScriptResult = (Mapping, Vec<String>, Vec<(String, String)>);
+type EvalOutcome = (Result<Mapping, std::string::String>, Vec<(String, String)>);
 
 // One runtime per worker thread: creating a QuickJS runtime per script is measurable and the
 // runtime stays usable for later script runs on the same thread.
@@ -81,13 +72,13 @@ fn with_runtime<T>(f: impl FnOnce(&Runtime) -> Result<T, std::string::String>) -
 
 #[derive(Default)]
 struct SandboxState {
-    outputs: Vec<(tristr::alias::String, tristr::alias::String)>,
+    outputs: Vec<(String, String)>,
     total_size: usize,
     aborted: Option<&'static str>,
 }
 
 impl SandboxState {
-    fn push_output(&mut self, level: tristr::alias::String, data: std::string::String) {
+    fn push_output(&mut self, level: std::string::String, data: std::string::String) {
         if self.aborted.is_some() {
             return;
         }
@@ -101,7 +92,7 @@ impl SandboxState {
             return;
         }
         self.total_size = new_size;
-        self.outputs.push((level, data.into()));
+        self.outputs.push((level.into(), data.into()));
     }
 }
 
@@ -122,35 +113,29 @@ impl serde::Serialize for LowercaseKeys<'_> {
 }
 
 /// Never fails: exceptions are logged and the input config is returned unchanged.
-pub(super) async fn use_script(script: String, config: Mapping, name: &tristr::alias::String) -> ScriptResult {
-    let original = config.clone();
+pub(super) async fn use_script(script: String, config: Mapping, name: String) -> ScriptResult {
     // The template is identity-plus-lowercasing; skip the engine round-trip.
     if script == tmpl::ITEM_SCRIPT {
-        return (use_lowercase(config), vec![], vec![]);
+        return (use_lowercase_owned(config), vec![], vec![]);
     }
 
-    let json = match serde_json::to_string(&LowercaseKeys(&original)) {
+    let json = match serde_json::to_string(&LowercaseKeys(&config)) {
         Ok(json) if json.len() <= MAX_JSON_SIZE => json,
         Ok(_) => {
             let message = "Configuration size exceeds maximum allowed size";
-            return (original, vec![], vec![("exception".into(), message.into())]);
+            return (config, vec![], vec![("exception".into(), message.into())]);
         }
-        Err(err) => return (original, vec![], vec![("exception".into(), err.to_string().into())]),
+        Err(err) => return (config, vec![], vec![("exception".into(), err.to_string().into())]),
     };
 
-    let script_name = name.to_owned();
-    let mut evaluated = AsyncHandler::spawn_blocking(move || eval_script(&script, &json, &script_name, SCRIPT_TIMEOUT));
-    let (outcome, mut logs) = match tokio::time::timeout(SCRIPT_TIMEOUT, &mut evaluated).await {
+    let evaluated = AsyncHandler::spawn_blocking(move || eval_script(&script, &json, &name, SCRIPT_TIMEOUT));
+    let (outcome, mut logs) = match tokio::time::timeout(SCRIPT_TIMEOUT, evaluated).await {
         Ok(Ok(evaluated)) => evaluated,
         Ok(Err(join_err)) => (Err(format!("script task panicked: {join_err}")), vec![]),
-        Err(_elapsed) => {
-            // Aborting prevents queued work from starting; running blocking tasks cannot be stopped.
-            evaluated.abort();
-            (
-                Err(format!("script execution timed out after {SCRIPT_TIMEOUT:?}")),
-                vec![],
-            )
-        }
+        Err(_elapsed) => (
+            Err(format!("script execution timed out after {SCRIPT_TIMEOUT:?}")),
+            vec![],
+        ),
     };
 
     match outcome {
@@ -158,27 +143,24 @@ pub(super) async fn use_script(script: String, config: Mapping, name: &tristr::a
             // Compared against the config as handed in, not the lowercased copy the script saw.
             let changed_keys = result
                 .iter()
-                .filter(|(key, value)| {
-                    key.as_str()
-                        .is_none_or(|key| original.get(Value::from(key)) != Some(value))
-                })
+                .filter(|(key, value)| config.get(key) != Some(value))
                 .filter_map(|(key, _)| {
-                    let mut key = key.as_str()?.to_owned();
+                    let mut key: String = key.as_str()?.into();
                     key.make_ascii_lowercase();
-                    Some(key.into())
+                    Some(key)
                 })
-                .collect::<Vec<tristr::alias::String>>();
+                .collect();
             (result, changed_keys, logs)
         }
         Err(reason) => {
-            logs.push(("exception".into(), reason.as_str().into()));
-            (original, vec![], logs)
+            logs.push(("exception".into(), reason.into()));
+            (config, vec![], logs)
         }
     }
 }
 
 /// Runs one script under the engine limits; console logs survive every failure path.
-fn eval_script(script: &str, config_json: &str, name: &str, timeout: Duration) -> EvalOutcome {
+fn eval_script(script: &str, config_json: &str, name: &String, timeout: Duration) -> EvalOutcome {
     let state = Arc::new(Mutex::new(SandboxState::default()));
     let deadline = Instant::now() + timeout;
     let state_for_interrupt = Arc::clone(&state);
@@ -212,7 +194,7 @@ fn eval_in_context(
     runtime: &Runtime,
     script: &str,
     config_json: &str,
-    name: &str,
+    name: &String,
     state: &Arc<Mutex<SandboxState>>,
 ) -> Result<Mapping, std::string::String> {
     let abort_reason = || state.lock().aborted.map(str::to_owned);
@@ -223,7 +205,7 @@ fn eval_in_context(
         let log = Function::new(
             ctx.clone(),
             move |level: std::string::String, data: std::string::String| {
-                log_state.lock().push_output(level.into(), data);
+                log_state.lock().push_output(level, data);
             },
         )
         .map_err(|err| format!("Failed to register the script logger: {err}"))?;
@@ -269,7 +251,7 @@ JSON.stringify(main(JSON.parse(globalThis.__verge_config__),'{safe_name}')||'')
         }
 
         match parse_json_safely(&result) {
-            Ok(config) => Ok(use_lowercase(config)),
+            Ok(config) => Ok(use_lowercase_owned(config)),
             Err(err) => {
                 logging!(
                     error,
@@ -337,7 +319,7 @@ fn escape_js_string_for_single_quote(s: &str) -> String {
         }
     }
 
-    escaped
+    escaped.into()
 }
 
 #[cfg(test)]
@@ -346,11 +328,15 @@ mod tests {
     use super::{LowercaseKeys, MAX_OUTPUTS, eval_script, with_runtime};
     use crate::enhance::field::use_lowercase;
     use serde_yaml_ng::Mapping;
+    use smartstring::alias::String;
     use std::time::{Duration, Instant};
 
+    const META_GUARD_SCRIPT: &str = include_str!("./builtin/meta_guard.js");
+    const META_HY_ALPN_SCRIPT: &str = include_str!("./builtin/meta_hy_alpn.js");
+
     fn run(script: &str, config_json: &str) -> super::EvalOutcome {
-        let name = "test-profile";
-        eval_script(script, config_json, name, Duration::from_secs(1))
+        let name: String = "test-profile".into();
+        eval_script(script, config_json, &name, Duration::from_secs(1))
     }
 
     /// Runs a script against a JSON config and returns the transformed config as JSON.
@@ -375,7 +361,7 @@ nested:
 
         assert_eq!(
             serde_json::to_value(LowercaseKeys(&config))?,
-            serde_json::to_value(use_lowercase(config))?
+            serde_json::to_value(use_lowercase(&config))?
         );
         Ok(())
     }
@@ -398,23 +384,6 @@ nested:
         assert_eq!(logs.len(), 1);
         assert_eq!(logs[0].0.as_str(), "log");
         assert!(logs[0].1.contains("rules"));
-    }
-
-    #[test]
-    fn console_log_of_a_missing_value_still_transforms_the_config() {
-        let (outcome, logs) = run(
-            r#"function main(config) {
-                console.log(config.missing);
-                config.mode = "global";
-                return config;
-            }"#,
-            r#"{"mode":"rule"}"#,
-        );
-        let config = outcome.expect("logging an undefined value must not fail the script");
-        assert_eq!(config.get("mode").and_then(|value| value.as_str()), Some("global"));
-        assert_eq!(logs.len(), 1);
-        assert_eq!(logs[0].0.as_str(), "log");
-        assert_eq!(logs[0].1.as_str(), "undefined");
     }
 
     #[test]
@@ -445,12 +414,12 @@ nested:
 
     #[test]
     fn runaway_loop_is_interrupted_by_the_deadline() {
-        let name = "test-profile";
+        let name: String = "test-profile".into();
         let started = std::time::Instant::now();
         let (outcome, _logs) = eval_script(
             r"function main() { while (true) {} }",
             "{}",
-            name,
+            &name,
             Duration::from_millis(200),
         );
         let reason = outcome.expect_err("runaway loop should be interrupted");
@@ -580,6 +549,79 @@ nested:
         );
     }
 
+    #[test]
+    fn quickjs_runs_meta_guard_builtin_script() {
+        let config = run_with_config(
+            META_GUARD_SCRIPT,
+            serde_json::json!({
+                "mode": "script",
+                "proxy-groups": [{
+                    "name": "PROXY",
+                    "type": "select",
+                    "proxies": ["node-hk-01"],
+                }],
+                "proxies": [{
+                    "name": "node-hk-01",
+                    "type": "ss",
+                    "server": "hk01.example.com",
+                    "port": 443,
+                    "cipher": "aes-128-gcm",
+                    "password": "secret",
+                }],
+                "rules": ["DOMAIN-SUFFIX,example.com,PROXY", "MATCH,PROXY"],
+            }),
+        );
+
+        assert_eq!(config["mode"], "rule");
+        assert_eq!(config["proxies"].as_array().map(Vec::len), Some(1));
+        assert_eq!(config["rules"].as_array().map(Vec::len), Some(2));
+    }
+
+    #[test]
+    fn quickjs_runs_meta_hy_alpn_builtin_script() {
+        let config = run_with_config(
+            META_HY_ALPN_SCRIPT,
+            serde_json::json!({
+                "proxies": [
+                    {
+                        "name": "hy-string",
+                        "type": "hysteria",
+                        "server": "hy1.example.com",
+                        "port": 443,
+                        "alpn": "h3",
+                    },
+                    {
+                        "name": "hy-array",
+                        "type": "hysteria",
+                        "server": "hy2.example.com",
+                        "port": 443,
+                        "alpn": ["h2", "h3"],
+                    },
+                    {
+                        "name": "hy2-string",
+                        "type": "hysteria2",
+                        "server": "hy3.example.com",
+                        "port": 443,
+                        "alpn": "h3",
+                    },
+                    {
+                        "name": "ss-plain",
+                        "type": "ss",
+                        "server": "ss.example.com",
+                        "port": 443,
+                        "cipher": "aes-128-gcm",
+                        "password": "secret",
+                    },
+                ],
+            }),
+        );
+
+        assert_eq!(config["proxies"][0]["alpn"], serde_json::json!(["h3"]));
+        assert_eq!(config["proxies"][1]["alpn"], serde_json::json!(["h2", "h3"]));
+        assert_eq!(config["proxies"][2]["alpn"], serde_json::json!("h3"));
+        assert_eq!(config["proxies"][3].get("alpn"), None);
+    }
+
     // Representative shape of subscription scripts users run, not a real user script; real
     // subscription scripts remain a manual release check.
     #[test]
@@ -666,7 +708,7 @@ nested:
             return config;
         }"#;
         let config_json = r#"{"proxies":[{"name":"alpha","type":"ss"},{"name":"beta","type":"trojan"}],"rules":["DOMAIN-SUFFIX,alpha.example.com,PROXY"]}"#;
-        let name = "test-profile";
+        let name: String = "test-profile".into();
 
         let measure = || {
             with_runtime(|runtime| {
@@ -679,13 +721,13 @@ nested:
         // The thread-local runtime keeps bounded one-time state: interned atoms, compiled shapes and
         // shape-hash capacity. Warm it up so the assertion below observes only per-run growth.
         for _ in 0..100 {
-            let (outcome, _logs) = eval_script(script, config_json, name, Duration::from_secs(1));
+            let (outcome, _logs) = eval_script(script, config_json, &name, Duration::from_secs(1));
             outcome.expect("warm-up script should succeed");
         }
         let baseline = measure();
 
         for _ in 0..100 {
-            let (outcome, _logs) = eval_script(script, config_json, name, Duration::from_secs(1));
+            let (outcome, _logs) = eval_script(script, config_json, &name, Duration::from_secs(1));
             outcome.expect("repeated script should succeed");
         }
 

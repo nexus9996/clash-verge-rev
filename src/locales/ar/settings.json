@@ -462,7 +462,6 @@
         "appLogMaxSize": "App Log Max Size",
         "appLogMaxCount": "App Log Max Count",
         "autoCloseConnections": "إغلاق الاتصالات تلقائيًا",
-        "autoSwitchSelectorGroup": "تبديل مجموعة select تلقائيًا",
         "autoCheckUpdate": "فحص التحديث تلقائيًا",
         "enableBuiltinEnhanced": "تفعيل التحسين المدمج",
         "proxyLayoutColumns": "أعمدة عرض الوكيل",
@@ -475,7 +474,6 @@
       },
       "tooltips": {
         "autoCloseConnections": "إنهاء الاتصالات القائمة عند تغيير اختيار مجموعة الوكيل أو وضع الوكيل",
-        "autoSwitchSelectorGroup": "في وضع القواعد، عند اختيار عقدة في مجموعة لا تمر بها حركة القواعد يتم أيضًا تحويل أول مجموعة select تحتوي عليها إلى تلك المجموعة",
         "enableBuiltinEnhanced": "معالجة توافق ملف التكوين",
         "autoDelayDetection": "يختبر زمن استجابة العقدة الحالية على نحو دوري في الخلفية",
         "defaultLatencyTest": "يُستخدم فقط لاختبار طلب HTTP العميل. لن يؤثر على ملف التكوين",
@@ -560,13 +558,11 @@
         "strictRoute": "توجيه صارم",
         "autoDetectInterface": "الكشف التلقائي عن الواجهة",
         "dnsHijack": "اختطاف DNS",
-        "dnsMode": "وضع DNS",
         "mtu": "وحدة الإرسال القصوى",
         "autoRedirect": "Auto Redirect"
       },
       "tooltips": {
         "dnsHijack": "Please use , to separate multiple DNS servers",
-        "dnsMode": "يحافظ Auto على السلوك القديم؛ يتطلب hijack تفعيل توجيه صارم على Windows أو Auto Redirect على Linux",
         "autoRedirect": "Automatically configures nftables/iptables TCP redirects"
       },
       "messages": {
@@ -762,8 +758,7 @@
         "permissionRejectedReason": "تعذّر على الخدمة التأكد من أن ملفات النواة ومجلداتها آمنة للتشغيل بصلاحيات مرتفعة.",
         "permissionRepairGuide": "عرض خطوات الإصلاح",
         "sidecarFallback": "تعذّر على الخدمة تشغيل النواة. تم التبديل إلى وضع Sidecar؛ ولا تزال الخدمة غير متاحة.",
-        "uninstallSuccess": "تم إلغاء تثبيت الخدمة بنجاح",
-        "coreVersionDrift": "يعمل وضع الخدمة بالنواة {{running}} بينما النواة المضمّنة هي {{bundled}}. افتح الإعدادات → إصدارات Mihomo لتثبيت {{bundled}}، أو أعد تثبيت الخدمة/أصلحها ثم أعد تشغيل النواة."
+        "uninstallSuccess": "تم إلغاء تثبيت الخدمة بنجاح"
       },
       "updater": {
         "withClashProxySuccess": "Update with Clash proxy successfully",
@@ -780,12 +775,5 @@
       "installing": "جاري تثبيت الخدمة...",
       "uninstalling": "Uninstalling Service..."
     }
-  },
-  "search": {
-    "placeholder": "البحث في الإعدادات",
-    "clear": "مسح البحث",
-    "back": "العودة إلى النتائج",
-    "results": "نتائج البحث",
-    "empty": "لم يتم العثور على إعدادات"
   }
 }

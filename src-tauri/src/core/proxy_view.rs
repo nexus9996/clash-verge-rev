@@ -13,7 +13,6 @@ pub struct ProxyViewInput {
 }
 
 /// The providers a group draws from (Mihomo order) and its `exclude-type` entries.
-#[derive(Clone)]
 pub struct GroupScope {
     pub providers: Vec<String>,
     pub exclude_types: Vec<String>,
@@ -337,7 +336,9 @@ fn build_provider_records(
     providers: Option<ProxyProviders>,
     records: &mut BTreeMap<String, ProxyNodeView>,
 ) -> (Vec<ProxyProviderView>, ProviderCandidates) {
-    let providers = providers.map_or_default(|providers| providers.providers.into_iter().collect::<BTreeMap<_, _>>());
+    let providers = providers
+        .map(|providers| providers.providers.into_iter().collect::<BTreeMap<_, _>>())
+        .unwrap_or_default();
     let mut views = Vec::new();
     let mut candidates = BTreeMap::new();
 

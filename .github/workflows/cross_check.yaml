@@ -49,12 +49,12 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v7
         with:
-          node-version: '26.13.1'
+          node-version: '24.22.0'
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: '1.4.4'
+          bun-version: '1.4.3'
 
       - name: Bun install and check
         run: |

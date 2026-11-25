@@ -1,32 +1,12 @@
-import { useCallback, useMemo, useReducer, useState } from 'react'
+import { arrayMove } from '@dnd-kit/helpers'
+import type { DragEndEvent } from '@dnd-kit/react'
+import { isSortable } from '@dnd-kit/react/sortable'
+import { useCallback, useEffect, useMemo, useReducer } from 'react'
 
 type MenuOrderAction = { type: 'sync'; payload: string[] }
 
 export const areOrdersEqual = (a: string[], b: string[]) =>
   a.length === b.length && a.every((value, index) => value === b[index])
-
-/** Returns a reordered copy, or `null` when the move is a no-op or out of range. */
-export const moveOrder = (
-  order: string[],
-  oldIndex: number,
-  newIndex: number,
-): string[] | null => {
-  if (
-    oldIndex < 0 ||
-    newIndex < 0 ||
-    oldIndex >= order.length ||
-    newIndex >= order.length ||
-    oldIndex === newIndex
-  ) {
-    return null
-  }
-
-  const next = [...order]
-  const [moved] = next.splice(oldIndex, 1)
-  if (moved === undefined) return null
-  next.splice(newIndex, 0, moved)
-  return next
-}
 
 const menuOrderReducer = (state: string[], action: MenuOrderAction) => {
   const next = action.payload
@@ -99,29 +79,44 @@ export const useNavMenuOrder = <T extends { path: string }>({
     configMenuOrder,
   )
 
-  const [syncedConfigOrder, setSyncedConfigOrder] = useState(configMenuOrder)
-  if (!areOrdersEqual(syncedConfigOrder, configMenuOrder)) {
-    setSyncedConfigOrder(configMenuOrder)
+  useEffect(() => {
     dispatchMenuOrder({ type: 'sync', payload: configMenuOrder })
-  }
+  }, [configMenuOrder])
 
   const isDefaultOrder = useMemo(
     () => areOrdersEqual(menuOrder, defaultOrder),
     [menuOrder, defaultOrder],
   )
 
-  const moveMenuOrder = useCallback(
-    async (oldIndex: number, newIndex: number) => {
+  const handleMenuDragEnd = useCallback(
+    async (event: DragEndEvent) => {
       if (!enabled) {
         return
       }
+      const { operation, canceled } = event
+      const { source, target } = operation
 
-      const nextOrder = moveOrder(menuOrder, oldIndex, newIndex)
-      if (!nextOrder) {
+      if (canceled || !target || !isSortable(source)) return
+
+      const { index: newIndex, initialIndex: oldIndex } = source.sortable
+      if (
+        oldIndex < 0 ||
+        newIndex < 0 ||
+        oldIndex >= menuOrder.length ||
+        newIndex >= menuOrder.length ||
+        oldIndex === newIndex
+      ) {
         return
       }
 
+      const activeId = menuOrder[oldIndex]
+      const overId = menuOrder[newIndex]
+
+      if (activeId == null || overId == null || activeId === overId) return
+
       const previousOrder = [...menuOrder]
+      const nextOrder = arrayMove(menuOrder, oldIndex, newIndex)
+
       dispatchMenuOrder({ type: 'sync', payload: nextOrder })
       onOptimisticUpdate?.(nextOrder)
 
@@ -159,7 +154,7 @@ export const useNavMenuOrder = <T extends { path: string }>({
   return {
     menuOrder,
     navItemMap,
-    moveMenuOrder,
+    handleMenuDragEnd,
     isDefaultOrder,
     resetMenuOrder,
   }

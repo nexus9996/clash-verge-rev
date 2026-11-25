@@ -1,14 +1,10 @@
 import { Button } from '@mui/material'
-import { lazy, Suspense, useRef } from 'react'
+import { useRef } from 'react'
 
-import type { DialogRef } from '@/components/base/base-dialog'
+import { DialogRef } from '@/components/base'
 import { useUpdate } from '@/hooks/use-update'
 
-const LazyUpdateViewer = lazy(() =>
-  import('../setting/mods/update-viewer').then((module) => ({
-    default: module.UpdateViewer,
-  })),
-)
+import { UpdateViewer } from '../setting/mods/update-viewer'
 
 interface Props {
   className?: string
@@ -20,13 +16,11 @@ export const UpdateButton = (props: Props) => {
 
   const { updateInfo } = useUpdate()
 
-  if (!updateInfo) return null
+  if (!updateInfo?.available) return null
 
   return (
     <>
-      <Suspense fallback={null}>
-        <LazyUpdateViewer ref={viewerRef} />
-      </Suspense>
+      <UpdateViewer ref={viewerRef} />
 
       <Button
         color="error"

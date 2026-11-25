@@ -2,6 +2,7 @@ import { ContentCopy } from '@mui/icons-material'
 import {
   Alert,
   Box,
+  CircularProgress,
   IconButton,
   List,
   ListItem,
@@ -11,81 +12,71 @@ import {
   Tooltip,
 } from '@mui/material'
 import { useLockFn } from 'ahooks'
-import { useRef, useState, type Ref } from 'react'
+import { useImperativeHandle, useState, type Ref } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BaseDialog, DialogRef, Switch } from '@/components/base'
-import { getExternalController, saveExternalController } from '@/services/cmds'
+import { useClashInfo } from '@/hooks/use-clash'
+import { useVerge } from '@/hooks/use-verge'
 import { showNotice } from '@/services/notice-service'
-import { revalidateQueries } from '@/services/query-client'
-
-import { useSettingDialog } from '../settings-search-context'
 
 export function ControllerViewer({ ref }: { ref?: Ref<DialogRef> }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [copySuccess, setCopySuccess] = useState<null | string>(null)
-  // A second copy within the window must not be hidden by the first timer.
-  const copySuccessTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  )
   const [isSaving, setIsSaving] = useState(false)
 
-  const [controller, setController] = useState('')
-  const [secret, setSecret] = useState('')
-  const [enableController, setEnableController] = useState(false)
-
-  // A reopen within the window must not replay the previous session's toast.
-  const closeDialog = () => {
-    clearTimeout(copySuccessTimerRef.current)
-    copySuccessTimerRef.current = undefined
-    setCopySuccess(null)
-    setOpen(false)
-  }
+  const { clashInfo, patchInfo } = useClashInfo()
+  const { verge, patchVerge } = useVerge()
+  const [controller, setController] = useState(clashInfo?.server || '')
+  const [secret, setSecret] = useState(clashInfo?.secret || '')
+  const [enableController, setEnableController] = useState(
+    verge?.enable_external_controller ?? false,
+  )
 
   // 对话框打开时初始化配置
-  useSettingDialog(ref, 'controller-viewer', open, () => ({
+  useImperativeHandle(ref, () => ({
     open: async () => {
-      try {
-        const settings = await getExternalController()
-        setController(settings.address)
-        setSecret(settings.secret)
-        setEnableController(settings.enabled)
-        setOpen(true)
-      } catch (err) {
-        showNotice.error(err)
-      }
+      setOpen(true)
+      setController(clashInfo?.server || '')
+      setSecret(clashInfo?.secret || '')
+      setEnableController(verge?.enable_external_controller ?? false)
     },
-    close: closeDialog,
+    close: () => setOpen(false),
   }))
 
+  // 保存配置
   const onSave = useLockFn(async () => {
-    if (enableController && !controller.trim()) {
-      showNotice.error(
-        'settings.sections.externalController.messages.addressRequired',
-      )
-      return
-    }
-    if (enableController && !secret.trim()) {
-      showNotice.error(
-        'settings.sections.externalController.messages.secretRequired',
-      )
-      return
-    }
     try {
       setIsSaving(true)
-      await saveExternalController({
-        enabled: enableController,
-        address: controller,
-        secret,
-      })
-      void revalidateQueries([
-        ['getClashInfo'],
-        ['getVergeConfig'],
-        ['getRuntimeConfig'],
-      ])
+
+      // 先保存 enable_external_controller 设置
+      await patchVerge({ enable_external_controller: enableController })
+
+      // 如果启用了外部控制器，则保存控制器地址和密钥
+      if (enableController) {
+        if (!controller.trim()) {
+          showNotice.error(
+            'settings.sections.externalController.messages.addressRequired',
+          )
+          return
+        }
+
+        if (!secret.trim()) {
+          showNotice.error(
+            'settings.sections.externalController.messages.secretRequired',
+          )
+          return
+        }
+
+        await patchInfo({ 'external-controller': controller, secret })
+      } else {
+        // 如果禁用了外部控制器，则清空控制器地址
+        await patchInfo({ 'external-controller': '' })
+      }
+
       showNotice.success('shared.feedback.notifications.common.saveSuccess')
-      closeDialog()
+      setOpen(false)
     } catch (err) {
       showNotice.error(
         'shared.feedback.notifications.common.saveFailed',
@@ -103,11 +94,7 @@ export function ControllerViewer({ ref }: { ref?: Ref<DialogRef> }) {
       try {
         await navigator.clipboard.writeText(text)
         setCopySuccess(type)
-        clearTimeout(copySuccessTimerRef.current)
-        copySuccessTimerRef.current = setTimeout(
-          () => setCopySuccess(null),
-          2000,
-        )
+        setTimeout(() => setCopySuccess(null))
       } catch (err) {
         console.warn('[ControllerViewer] copy to clipboard failed:', err)
         showNotice.error(
@@ -122,18 +109,23 @@ export function ControllerViewer({ ref }: { ref?: Ref<DialogRef> }) {
       open={open}
       title={t('settings.sections.externalController.title')}
       contentSx={{ width: 400 }}
-      okBtn={t('shared.actions.save')}
+      okBtn={
+        isSaving ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CircularProgress size={16} color="inherit" />
+            {t('shared.statuses.saving')}
+          </Box>
+        ) : (
+          t('shared.actions.save')
+        )
+      }
       cancelBtn={t('shared.actions.cancel')}
-      loading={isSaving}
-      disableCancel={isSaving}
-      onClose={closeDialog}
-      onCancel={closeDialog}
+      onClose={() => setOpen(false)}
+      onCancel={() => setOpen(false)}
       onOk={onSave}
     >
-      <span data-settings-dialog="controller-viewer" />
       <List>
         <ListItem
-          data-setting-target="settings.sections.externalController.fields.enable"
           sx={{
             padding: '5px 2px',
             display: 'flex',
@@ -152,7 +144,6 @@ export function ControllerViewer({ ref }: { ref?: Ref<DialogRef> }) {
         </ListItem>
 
         <ListItem
-          data-setting-target="settings.sections.externalController.fields.address"
           sx={{
             padding: '5px 2px',
             display: 'flex',
@@ -193,7 +184,6 @@ export function ControllerViewer({ ref }: { ref?: Ref<DialogRef> }) {
         </ListItem>
 
         <ListItem
-          data-setting-target="settings.sections.externalController.fields.secret"
           sx={{
             padding: '5px 2px',
             display: 'flex',

@@ -40,7 +40,7 @@ mod app_init {
     }
 
     /// Setup plugins for the Tauri builder
-    pub fn setup_plugins(builder: tauri::Builder) -> tauri::Builder {
+    pub fn setup_plugins(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
         #[allow(unused_mut)]
         let mut builder = builder
             .plugin(tauri_plugin_clash_verge_sysinfo::init())
@@ -54,24 +54,18 @@ mod app_init {
                     .build(),
             )
             .plugin(tauri_plugin_clipboard_manager::init())
+            .plugin(tauri_plugin_process::init())
             .plugin(tauri_plugin_global_shortcut::Builder::new().build())
             .plugin(tauri_plugin_fs::init())
             .plugin(tauri_plugin_dialog::init())
             .plugin(tauri_plugin_shell::init())
             .plugin(tauri_plugin_opener::init())
             .plugin(tauri_plugin_deep_link::init())
+            .plugin(tauri_plugin_http::init())
             .plugin(
                 tauri_plugin_mihomo::Builder::new()
                     .protocol(tauri_plugin_mihomo::models::Protocol::LocalSocket)
                     .socket_path(crate::config::IClashTemp::guard_external_controller_ipc())
-                    .build(),
-            )
-            // v3 cleanup hook: also runs on exit paths that skip the event loop
-            // (AppHandle::restart), so a missed interactive cleanup cannot leave
-            // the kernel or the embedded server behind.
-            .plugin(
-                tauri::plugin::Builder::<tauri::DynRuntime, ()>::new("clash-verge-exit-cleanup")
-                    .on_cleanup_before_exit(|_app| crate::feat::cleanup_before_exit_safety_net())
                     .build(),
             );
 
@@ -134,7 +128,7 @@ mod app_init {
         Ok(())
     }
 
-    pub fn generate_handlers() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
+    pub fn generate_handlers() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
         {
             let builder = crate::ipc::builder();
             move |invoke| builder.invoke_handler()(invoke)
@@ -164,7 +158,7 @@ fn handle_singleton_startup(
 }
 
 pub fn run() -> std::process::ExitCode {
-    #[cfg(all(target_os = "macos", not(debug_assertions), not(test)))]
+    #[cfg(all(target_os = "macos", not(debug_assertions), not(test), not(feature = "verge-dev")))]
     if utils::macos_launch_guard::enforce_before_initialization() == utils::macos_launch_guard::LaunchDisposition::Exit
     {
         return std::process::ExitCode::SUCCESS;
@@ -191,7 +185,7 @@ pub fn run() -> std::process::ExitCode {
     #[cfg(target_os = "linux")]
     utils::linux::workarounds::apply_wayland_webkit_fix();
 
-    let builder = app_init::setup_plugins(tauri::Builder::default().runtime(tauri_runtime_wry::Wry::default()))
+    let builder = app_init::setup_plugins(tauri::Builder::default())
         .setup(|app| {
             // Logger may not be ready yet, so mirror setup panics to stderr.
             fn log_setup_panic(stage: &str, panic: Box<dyn std::any::Any + Send>) {

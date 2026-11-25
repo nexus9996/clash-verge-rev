@@ -105,7 +105,7 @@ impl IClashTemp {
                 "tauri://localhost",
                 "http://tauri.localhost",
                 // Only enable this in dev mode
-                #[cfg(debug_assertions)]
+                #[cfg(feature = "verge-dev")]
                 "http://localhost:3000",
                 "https://yacd.metacubex.one",
                 "https://metacubex.github.io",
@@ -180,10 +180,6 @@ impl IClashTemp {
         }
     }
 
-    pub fn get_external_controller_address(&self) -> String {
-        Self::guard_server_ctrl(&self.0)
-    }
-
     /// 容错读取当前代理模式。
     ///
     /// 仅从已保存的 clash 配置 Mapping 中提取 `mode` 字段，不依赖 mihomo `/configs`
@@ -194,41 +190,84 @@ impl IClashTemp {
             _ => None,
         })
     }
-    fn guard_port_value(config: &Mapping, key: &str, default: u16) -> u16 {
+    #[cfg(not(target_os = "windows"))]
+    fn guard_redir_port(config: &Mapping) -> u16 {
         let mut port = config
-            .get(key)
+            .get("redir-port")
             .and_then(|value| match value {
                 Value::String(val_str) => val_str.parse().ok(),
                 Value::Number(val_num) => val_num.as_u64().map(|u| u as u16),
                 _ => None,
             })
-            .unwrap_or(default);
+            .unwrap_or(7895);
         if port == 0 {
-            port = default;
+            port = 7895;
         }
         port
     }
 
-    #[cfg(not(target_os = "windows"))]
-    fn guard_redir_port(config: &Mapping) -> u16 {
-        Self::guard_port_value(config, "redir-port", network::ports::DEFAULT_REDIR)
-    }
-
     #[cfg(target_os = "linux")]
     fn guard_tproxy_port(config: &Mapping) -> u16 {
-        Self::guard_port_value(config, "tproxy-port", network::ports::DEFAULT_TPROXY)
+        let mut port = config
+            .get("tproxy-port")
+            .and_then(|value| match value {
+                Value::String(val_str) => val_str.parse().ok(),
+                Value::Number(val_num) => val_num.as_u64().map(|u| u as u16),
+                _ => None,
+            })
+            .unwrap_or(network::ports::DEFAULT_TPROXY);
+        if port == 0 {
+            port = network::ports::DEFAULT_TPROXY;
+        }
+        port
     }
 
     fn guard_mixed_port(config: &Mapping) -> u16 {
-        Self::guard_port_value(config, "mixed-port", network::ports::DEFAULT_MIXED)
+        let raw_value = config.get("mixed-port");
+
+        let mut port = raw_value
+            .and_then(|value| match value {
+                Value::String(val_str) => val_str.parse().ok(),
+                Value::Number(val_num) => val_num.as_u64().map(|u| u as u16),
+                _ => None,
+            })
+            .unwrap_or(network::ports::DEFAULT_MIXED);
+
+        if port == 0 {
+            port = network::ports::DEFAULT_MIXED;
+        }
+
+        port
     }
 
     fn guard_socks_port(config: &Mapping) -> u16 {
-        Self::guard_port_value(config, "socks-port", network::ports::DEFAULT_SOCKS)
+        let mut port = config
+            .get("socks-port")
+            .and_then(|value| match value {
+                Value::String(val_str) => val_str.parse().ok(),
+                Value::Number(val_num) => val_num.as_u64().map(|u| u as u16),
+                _ => None,
+            })
+            .unwrap_or(7898);
+        if port == 0 {
+            port = 7898;
+        }
+        port
     }
 
     fn guard_port(config: &Mapping) -> u16 {
-        Self::guard_port_value(config, "port", network::ports::DEFAULT_HTTP)
+        let mut port = config
+            .get("port")
+            .and_then(|value| match value {
+                Value::String(val_str) => val_str.parse().ok(),
+                Value::Number(val_num) => val_num.as_u64().map(|u| u as u16),
+                _ => None,
+            })
+            .unwrap_or(7899);
+        if port == 0 {
+            port = 7899;
+        }
+        port
     }
 
     pub(super) fn guard_server_ctrl(config: &Mapping) -> String {

@@ -30,8 +30,10 @@ export const useProxyGroupHeaderLayout = () => {
       if (canceled || !operation.source || !operation.target) return
 
       const position = toolsOnLeft ? 'right' : 'left'
-      mutateVerge((prev) =>
-        prev ? { ...prev, proxy_group_tools_position: position } : prev,
+      mutateVerge(
+        (prev) =>
+          prev ? { ...prev, proxy_group_tools_position: position } : prev,
+        false,
       )
       try {
         await patchVerge({ proxy_group_tools_position: position })

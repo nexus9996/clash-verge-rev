@@ -256,9 +256,7 @@ export const ConnectionFilterBox = (props: Props) => {
                     >
                       <ListItemText
                         primary={fieldLabels[field]}
-                        secondary={
-                          selected ? activeFieldValues.length : undefined
-                        }
+                        secondary={selected ? activeFieldValues.length : undefined}
                         slotProps={{
                           primary: {
                             noWrap: true,

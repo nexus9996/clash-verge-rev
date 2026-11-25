@@ -12,11 +12,11 @@ We welcome AI-assisted contributions — AI assistance itself is not a problem. 
 
 To make sure your contribution is assessed fairly:
 
-- **Link a pre-existing issue.** Product bug fixes and features require one; self-scoped maintenance does not. Follow the [PR template](.github/PULL_REQUEST_TEMPLATE.md) for scope, linkage, and revert references. If a required issue is missing, ask maintainers to open or approve one before implementing. Use maintainer-approved private tracking for security-sensitive fixes that cannot be reported publicly.
-- **Keep the diff mapped to the scope.** Every changed area should be explainable from the linked issue or stated maintenance scope. Unrelated refactors, formatting churn, or dependency bumps belong in separate pull requests with their own motivation.
+- **Link a pre-existing issue.** Non-trivial changes should fix or implement something already reported in an issue. An issue created after the pull request is a much weaker signal than a genuine problem report.
+- **Keep the diff mapped to the issue.** Every changed area should be explainable from the linked issue. Unrelated refactors, formatting churn, or dependency bumps belong in separate pull requests with their own motivation.
 - **Describe the problem in your own words.** A short statement of what breaks or what is needed, and why this approach fixes it, is worth more than a long generated report.
 - **Validate against the reported behavior.** Show how the reported problem was reproduced and confirmed fixed. Generic checklists and raw tool output are not verification.
-- **Do not pad with tests or defensive code.** New tests are not expected by default. Add a minimal test when the issue or task requires it, it reproduces the reported regression, or it guards behavior whose breakage would otherwise go unnoticed. Explain why it is needed; speculative error handling and coverage of hypothetical failure modes inflate the diff without adding value.
+- **Do not pad with tests or defensive code.** New tests are not expected by default. Add them only when the linked issue calls for them, keep them minimal, and explain in the pull request why each is necessary; speculative error handling and coverage of hypothetical failure modes inflate the diff without adding value.
 - **Disclose AI automation.** If an AI agent produced or co-produced the change, end the pull request body with the model and effort level (for example, `Assisted by: GPT-5.6 High`; effort is optional when your tool does not report it). The PR template intentionally omits this footer; agents add it themselves. Disclosure is transparency only — it does not affect how the change is assessed.
 
 If your pull request receives an `ai-slop` label, the fastest way to clear it is substantive: link (or ask us to create) the underlying issue, narrow the scope, or push implementation changes that respond to review feedback. Editing the pull request description alone does not change the assessment.
@@ -76,7 +76,7 @@ bun install
 Ubuntu-only system packages:
 
 ```bash
-sudo apt-get install -y libxslt1.1 libwebkit2gtk-4.1-dev librsvg2-dev patchelf
+sudo apt-get install -y libxslt1.1 libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
 ```
 
 ### Download the Mihomo Core Binary (Automatic)
@@ -86,18 +86,14 @@ bun run prebuild:download
 bun run prebuild:download --force  # Re-download and overwrite Mihomo core and service binaries
 ```
 
-### Service Development
-
-The app consumes the published `clash_verge_service_ipc` crate from its git tag (see [`src-tauri/Cargo.toml`](src-tauri/Cargo.toml)). To work on the Service itself, clone [`clash-verge-service-ipc`](https://github.com/clash-verge-rev/clash-verge-service-ipc) alongside `clash-verge-rev`, check out the matching tag, and temporarily point the dependency at the local path before building.
-
 ### Run the Development Server
 
 ```bash
-bun run dev        # Start the desktop app in debug mode
-bun run dev:tauri  # Run Tauri directly with the tauri-dev feature
+bun run dev        # Standard
+bun run dev:diff   # If an app instance already exists
+bun run dev:tauri  # Run Tauri development mode
 ```
 
-For frontend-only development, use `bun run web:dev`. It does not start the Rust backend.
 ### Build the Project
 
 Standard build:
@@ -112,85 +108,33 @@ Fast build for testing:
 bun run build:fast
 ```
 
-### Adding a Frontend Page
+### Adding a Frontend Page (TanStack Router)
 
-The route table and the sidebar both derive from `config/navigation.ts`, so a page takes three edits:
+The router is file-based and the sidebar catalog is centralized, so a page takes three edits:
 
 1. **Page component** — add `src/pages/<name>.tsx` and export the component as default. Domain-specific components belong under `src/components/<domain>/`.
-2. **Route mapping** — add the page to `PAGE_ROUTES` in `src/app/route-pages.ts`:
+2. **Route shell** — add `src/routes/<name>.tsx`:
 
    ```tsx
+   import { createFileRoute } from '@tanstack/react-router'
+
    import MyPage from '@/pages/my-page'
 
-   export const PAGE_ROUTES: Record<NavigationId, PageRoute> = {
-     // ...
-     myPage: { Component: MyPage },
-   }
+   export const Route = createFileRoute('/my-page')({
+     component: MyPage,
+     staticData: { navId: 'myPage' },
+   })
    ```
 
-   Every page except `home` uses `{ lazy: lazyPage(() => import('@/pages/my-page')) }`: the router keeps it out of the initial bundle and preloads the chunk when the sidebar entry is hovered or focused.
+   Then run `bun run generate-routes` to refresh `src/routeTree.gen.ts` (the Vite plugin also regenerates it during dev/build).
 
 3. **Navigation and copy** — add the entry to `NAV_META` in `src/config/navigation.ts` (id, path, i18n label key), add its icon pair to `NAV_ICONS` in `src/components/layout/navigation-icons.tsx`, add `tabs.<id>` to all 14 `src/locales/*/layout.json` files, then run `bun run i18n:types`.
 
-`PAGE_ROUTES` is typed as `Record<NavigationId, PageRoute>`, so a navigation entry without a page (or a page without an entry) fails `bun run typecheck`.
-
-Finally run `bun run typecheck && bun run test && bun run lint`. The architecture contract is documented in [`docs/frontend-architecture.md`](docs/frontend-architecture.md).
+Finally run `bun run typecheck && bun run test && bun run lint`. `src/routes/__route-catalog.test.ts` fails when the route tree, `staticData.navId` and the navigation catalog drift apart. The architecture contract is documented in [`docs/frontend-architecture.md`](docs/frontend-architecture.md).
 
 ## Contributing Your Changes
 
-### Development Workflow
-
-Scale the work to the change. A wording fix needs a focused diff check; a change
-to configuration persistence, asynchronous state, or system networking needs
-evidence for the affected behavior.
-
-1. **Define the outcome.** Identify the triggering action, relevant platform and
-   configuration, and actual versus expected behavior. For a bug fix, separate
-   the reported symptom from the suspected cause. State what remains unknown.
-2. **Trace the affected path.** Read the relevant callers, state owners, and
-   failure paths before editing. Follow the module rules in
-   [src/AGENTS.md](src/AGENTS.md) or [src-tauri/AGENTS.md](src-tauri/AGENTS.md)
-   where applicable. Choose a reproduction or observable check that can
-   distinguish the old behavior from the intended result.
-3. **Make the smallest complete change.** Address the confirmed cause and its
-   affected instances within scope. Keep unrelated cleanup separate. Add a test
-   only when justified by the contribution expectations above.
-4. **Verify the result.** Use the checks below that cover the changed behavior.
-   If reproduction is unavailable, explain the alternative evidence and its
-   limits rather than claiming the reported problem is confirmed fixed.
-5. **Review and resolve findings.** Follow [REVIEW.md](REVIEW.md). For changes
-   altering concurrency, persistence, system networking, or shared-contract behavior,
-   seek an independent review with fresh context. Check each finding against
-   the code before changing it; return fixes to the implementer when working
-   with a separate reviewer.
-
-### Choosing Validation
-
-Use existing checks appropriate to the affected paths; this is not a requirement
-to run every command for every change. Run commands from the repository root.
-
-| Changed behavior | Relevant checks and evidence |
-| --- | --- |
-| Frontend logic or state | `pnpm lint`, `pnpm typecheck`, and existing focused tests via `pnpm test <path>`; exercise the affected user interaction. |
-| Rust logic | `cargo clippy-all`, relevant Cargo tests, and the affected failure or recovery path. Platform-specific branches require checks on those platforms. |
-| IPC or event contracts | `pnpm gen:contract --check`, frontend type checking, and inspection of both producers and consumers. |
-| UI or native integration | Exercise the changed flow; use a screenshot for visual changes and the native app for window, Service/Core, DNS, or system-proxy behavior. |
-| Documentation | Check wording, relative links, referenced commands, and consistency with the authoritative rule or implementation. |
-
-Tie results to the code reviewed: identify the base/head commits for branch
-comparisons and include task-relevant staged, unstaged, and untracked files in a
-local review. Keep command-level results in the working conversation. For PR
-descriptions, follow the [PR template](.github/PULL_REQUEST_TEMPLATE.md): include
-behavioral evidence and material gaps relevant to review, omitting routine check
-pass lists. No separate verification report is required. Static checks,
-mocks, browser previews, native runs, and remote CI establish different things.
-When code changes after verification, repeat affected checks. Attribute a failure
-to the baseline only after comparing the same check on the base revision.
-
 ### Before Committing
-
-Run the applicable checks from the validation guidance above. After formatting
-or generation, inspect the final diff and stage only the intended changes.
 
 **Code quality checks:**
 

@@ -147,9 +147,6 @@
       }
     },
     "proxiesEditor": {
-      "fields": {
-        "targetGroups": "Destination Groups"
-      },
       "title": "Vekil'leri Düzenle",
       "placeholders": {
         "multiUri": "Birden fazla URI için yeni satırlar kullanın (Base64 kodlaması desteklenir)"

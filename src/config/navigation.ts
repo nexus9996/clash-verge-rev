@@ -2,9 +2,8 @@ import type { TranslationKey } from '@/types/generated/i18n-keys'
 
 /**
  * Single source of truth for the sidebar navigation: id, path and i18n label.
- * The route table in `app/router.tsx` and the sidebar both consume it, so
- * adding a page means touching the page, `app/route-pages.ts` and this
- * catalog only.
+ * Route files point at an entry through `staticData.navId`, so adding a page
+ * means touching the page, its route shell and this catalog only.
  */
 const NAV_META = {
   home: { path: '/', labelKey: 'layout.components.navigation.tabs.home' },
@@ -75,4 +74,10 @@ export const resolveNavigationPath = (path: string): NavigationPath => {
 
   console.warn(`[navigation] unknown route path: ${path}`)
   return '/'
+}
+
+declare module '@tanstack/react-router' {
+  interface StaticDataRouteOption {
+    navId?: NavigationId
+  }
 }

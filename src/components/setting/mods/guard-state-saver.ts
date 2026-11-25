@@ -21,7 +21,7 @@ export type LatestSaver<Value> = {
   dispose: () => void
 }
 
-export const createLatestSaver = <Value>({
+export const createLatestSaver = <Value,>({
   waitTime = 0,
   initialCommitted,
   onSave,
@@ -34,6 +34,7 @@ export const createLatestSaver = <Value>({
   let hasPending = false
   let ready = false
   let running = false
+  let disposed = false
   let timer: ReturnType<typeof setTimeout> | undefined
 
   const clearTimer = () => {
@@ -44,7 +45,7 @@ export const createLatestSaver = <Value>({
   }
 
   const run = async () => {
-    if (running || !hasPending || !ready) return
+    if (disposed || running || !hasPending || !ready) return
 
     running = true
     ready = false
@@ -72,6 +73,8 @@ export const createLatestSaver = <Value>({
 
   return {
     change(value: Value) {
+      if (disposed) return
+
       version += 1
       pending = value
       hasPending = true
@@ -98,12 +101,10 @@ export const createLatestSaver = <Value>({
     },
 
     dispose() {
-      // React's StrictMode replays mount effects before any change, so flushing
-      // here is safe. Dropping a pending value would lose the last edit when
-      // the user leaves a debounced control immediately after typing.
+      disposed = true
       clearTimer()
-      ready = true
-      void run()
+      hasPending = false
+      pending = undefined
     },
   }
 }

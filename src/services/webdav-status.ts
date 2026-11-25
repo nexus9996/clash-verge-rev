@@ -43,11 +43,7 @@ export const getWebdavStatus = (signature: string): WebdavStatus => {
 }
 
 export const setWebdavStatus = (signature: string, status: WebdavStatus) => {
-  if (!canUseStorage()) return
-  if (!signature) {
-    localStorage.removeItem(WEBDAV_STATUS_KEY)
-    return
-  }
+  if (!signature || !canUseStorage()) return
 
   const payload: WebdavStatusCache = {
     signature,

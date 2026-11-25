@@ -15,6 +15,3 @@ target
 .vfox
 .claude
 .zed
-
-# pnpm lockfile from upstream dev; local manages dependencies with bun (bun.lock)
-pnpm-lock.yaml

@@ -462,7 +462,6 @@
         "appLogMaxSize": "應用程式日誌最大大小",
         "appLogMaxCount": "應用程式日誌最大數量",
         "autoCloseConnections": "自動關閉連線",
-        "autoSwitchSelectorGroup": "選擇節點時聯動代理組",
         "autoCheckUpdate": "自動檢查更新",
         "enableBuiltinEnhanced": "內建增強功能",
         "proxyLayoutColumns": "代理頁面欄數",
@@ -475,7 +474,6 @@
       },
       "tooltips": {
         "autoCloseConnections": "當代理組選中節點或代理模式變動時，關閉已建立的連線",
-        "autoSwitchSelectorGroup": "規則模式下，在規則流量未經過的代理組中選擇節點時，將首個包含該組的 select 代理組切換到該組",
         "enableBuiltinEnhanced": "配置檔案的相容性處理",
         "autoDelayDetection": "在背景定時偵測目前節點延遲",
         "defaultLatencyTest": "僅用於 HTTP 客戶端請求測試，不會對配置檔案產生影響",
@@ -560,13 +558,11 @@
         "strictRoute": "嚴格路由",
         "autoDetectInterface": "自動偵測流量輸出介面",
         "dnsHijack": "DNS 綁架",
-        "dnsMode": "DNS 模式",
         "mtu": "最大傳輸單位",
         "autoRedirect": "自動重導"
       },
       "tooltips": {
         "dnsHijack": "請用半形逗號來區隔多個 DNS 伺服器",
-        "dnsMode": "Auto 保持舊行為；hijack 需 Windows 開啟嚴格路由或 Linux 開啟自動重導",
         "autoRedirect": "自動配置 nftables/iptables 的 TCP 重導"
       },
       "messages": {
@@ -762,8 +758,7 @@
         "permissionRejectedReason": "服務無法確認核心檔案及所在目錄是否安全，已拒絕以高權限執行。",
         "permissionRepairGuide": "查看修復方法",
         "sidecarFallback": "服務無法啟動核心，已降級為 Sidecar 模式執行，服務仍無法使用。",
-        "uninstallSuccess": "已成功解除安裝服務",
-        "coreVersionDrift": "服務模式正在執行的核心 {{running}} 與內建核心 {{bundled}} 不一致。請開啟「設定 → Mihomo 版本」安裝 {{bundled}}，或重新安裝/修復服務後重新啟動核心。"
+        "uninstallSuccess": "已成功解除安裝服務"
       },
       "updater": {
         "withClashProxySuccess": "使用 Clash 代理更新成功",
@@ -780,12 +775,5 @@
       "installing": "安裝服務中...",
       "uninstalling": "服務解除安裝中..."
     }
-  },
-  "search": {
-    "placeholder": "搜尋設定",
-    "clear": "清除搜尋",
-    "back": "返回結果",
-    "results": "搜尋結果",
-    "empty": "找不到設定"
   }
 }

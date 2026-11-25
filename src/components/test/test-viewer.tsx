@@ -7,7 +7,6 @@ import { useTranslation } from 'react-i18next'
 
 import { BaseDialog } from '@/components/base'
 import { useVerge } from '@/hooks/use-verge'
-import type { IVergeTestItem_Serialize } from '@/services/bindings'
 import { showNotice } from '@/services/notice-service'
 
 interface Props {
@@ -78,12 +77,7 @@ export const TestViewer = forwardRef<TestViewerRef, Props>(
 
           if (openType === 'new') {
             const uid = nanoid()
-            const item: IVergeTestItem_Serialize = {
-              uid,
-              name: form.name ?? null,
-              icon: form.icon ?? null,
-              url: form.url ?? null,
-            }
+            const item = { ...form, uid }
             const newList = [...testList, item]
             await patchVerge({ test_list: newList })
             onChange(uid)

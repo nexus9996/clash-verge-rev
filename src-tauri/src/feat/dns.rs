@@ -2,7 +2,7 @@ use crate::core::notify::{Refresh, announce};
 use anyhow::{Result, ensure};
 use clash_verge_draft::DraftTransaction;
 use serde::Serialize;
-use tristr::alias::String;
+use smartstring::alias::String;
 
 use crate::{
     config::{
@@ -19,7 +19,10 @@ use crate::{
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum DnsOverrideOutcome {
     Applied,
-    ConfirmationRequired { source: String },
+    ConfirmationRequired {
+        #[specta(type = std::string::String)]
+        source: String,
+    },
 }
 
 pub async fn set_dns_override(

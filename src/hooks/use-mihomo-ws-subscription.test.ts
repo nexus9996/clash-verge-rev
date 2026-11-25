@@ -6,7 +6,7 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-it('keeps the socket when a one-shot owner prefill throws', async () => {
+it('closes the socket and schedules a reconnect when onConnected throws', async () => {
   vi.useFakeTimers()
 
   const close = vi.fn(async () => {})
@@ -17,7 +17,7 @@ it('keeps the socket when a one-shot owner prefill throws', async () => {
     handleMessage: vi.fn(),
     isMounted: () => true,
     onConnected: vi.fn(() => {
-      throw new Error('log history is temporarily unavailable')
+      throw new Error('owner rejected the socket')
     }),
   }
 
@@ -27,12 +27,11 @@ it('keeps the socket when a one-shot owner prefill throws', async () => {
   await entry.connectWs()
 
   expect(connect).toHaveBeenCalledOnce()
-  expect(close).not.toHaveBeenCalled()
-  expect(ws.addListener).toHaveBeenCalledOnce()
-  expect(entry.ws).toBe(ws)
+  expect(close).toHaveBeenCalledOnce()
+  expect(entry.ws).toBeNull()
 
   await vi.advanceTimersByTimeAsync(1000)
-  expect(connect).toHaveBeenCalledOnce()
+  expect(connect).toHaveBeenCalledTimes(2)
 })
 
 it('does not close an adopted socket after a successful connect', async () => {

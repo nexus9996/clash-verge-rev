@@ -2,10 +2,10 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "identifier": "io.github.clash-verge-rev.clash-verge-rev",
   "bundle": {
-    "targets": ["deb", "rpm", "appimage"],
+    "targets": ["deb", "rpm"],
     "linux": {
       "deb": {
-        "depends": ["openssl"],
+        "depends": ["openssl", "libayatana-appindicator3-1"],
         "desktopTemplate": "./packages/linux/clash-verge.desktop",
         "provides": ["clash-verge"],
         "conflicts": ["clash-verge"],
@@ -14,8 +14,7 @@
         "preRemoveScript": "./packages/linux/pre-remove.sh"
       },
       "rpm": {
-        "depends": ["openssl"],
-        "compression": { "type": "zstd", "level": 19 },
+        "depends": ["openssl", "libayatana-appindicator-gtk3"],
         "recommends": ["policycoreutils", "policycoreutils-python-utils"],
         "desktopTemplate": "./packages/linux/clash-verge.desktop",
         "provides": ["clash-verge"],
