@@ -620,7 +620,7 @@ async function resolveServiceBundle() {
     }
     return
   }
-  const { archiveFile, downloadURL } = resolveServiceRelease(
+  const { version, archiveFile, downloadURL } = resolveServiceRelease(
     cargoManifest,
     SIDECAR_HOST,
     platform,
@@ -632,7 +632,18 @@ async function resolveServiceBundle() {
   await fsp.mkdir(SERVICE_DIR, { recursive: true })
 
   try {
-    await downloadFile(downloadURL, tempArchive)
+    try {
+      await downloadFile(downloadURL, tempArchive)
+    } catch (error) {
+      // The crate version on the tracked branch can run ahead of its release:
+      // the dependency then names a tag that has no assets yet.
+      throw new Error(
+        `Service bundle ${version} is not published for ${SIDECAR_HOST}: ${error.message}\n` +
+          `Publish ${version} in clash-verge-service-ipc, or declare a local "path" ` +
+          `dependency for clash_verge_service_ipc to build the bundle from source.`,
+        { cause: error },
+      )
+    }
 
     if (platform === 'win32') {
       const zip = new AdmZip(tempArchive)

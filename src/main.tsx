@@ -92,6 +92,9 @@ window.addEventListener('error', (event) => {
 
 window.addEventListener('unhandledrejection', (event) => {
   console.error('[main.tsx] Unhandled promise rejection:', event.reason)
+  // Without this some WebView2 builds replace the document with an error
+  // frameset, blanking the whole window instead of only failing the promise.
+  event.preventDefault()
 })
 
 // Page close/refresh events
