@@ -165,6 +165,10 @@ pub async fn quit() {
             NoticeStatus::AppQuitCoreStopFailed,
             cleanup_result.stop_error.unwrap_or_default(),
         );
+        // A failed controlled stop cancels the quit. Cleanup already skipped the DNS restore and
+        // left the core running, so tearing down the embedded server or exiting now would abandon
+        // a live core behind an app that is gone.
+        return;
     }
 
     utils::server::shutdown_embedded_server();

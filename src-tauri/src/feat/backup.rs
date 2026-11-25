@@ -70,6 +70,7 @@ fn strip_untrusted_startup_script(verge: &mut IVerge) -> bool {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 /// Accepts only a bare backup file name so it cannot escape its containing directory.
 fn sanitize_backup_filename(filename: &str) -> Result<&str> {
@@ -135,6 +136,29 @@ fn restore_temp_path() -> Result<PathBuf> {
 ||||||| parent of f7445cf18 (fix(backup): drop startup_script from backups and restored config)
 =======
 >>>>>>> f7445cf18 (fix(backup): drop startup_script from backups and restored config)
+||||||| parent of de2a2013f (fix(backup): restore WebDAV archives through a private temp file)
+=======
+/// A remote listing name must never choose the local download path: a hostile or odd WebDAV
+/// entry named `verge.yaml` would otherwise overwrite (and the cleanup guard would delete) a
+/// live app file. Always restore through a fresh private temp archive.
+fn restore_temp_path() -> Result<PathBuf> {
+    let path = std::env::temp_dir().join(format!(
+        "clash-verge-restore-{}-{}.zip",
+        std::process::id(),
+        nanoid::nanoid!()
+    ));
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        options.mode(0o600);
+    }
+    options.open(&path)?.sync_all()?;
+    Ok(path)
+}
+
+>>>>>>> de2a2013f (fix(backup): restore WebDAV archives through a private temp file)
 /// Reloads restored configs into memory while preserving WebDAV credentials.
 async fn finalize_restored_verge_config(
     webdav_url: Option<String>,
@@ -258,15 +282,26 @@ pub async fn restore_webdav_backup(filename: String) -> Result<()> {
     let webdav_password = verge_data.webdav_password.clone();
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     let backup_storage_path = app_home_dir()
         .map_err(|e| anyhow::anyhow!("Failed to get app home dir: {e}"))?
         .join(filename.as_str());
 ||||||| parent of de2a2013f (fix(backup): restore WebDAV archives through a private temp file)
     let app_home = app_home_dir().map_err(|e| anyhow::anyhow!("Failed to get app home dir: {e}"))?;
     let backup_storage_path = resolve_within(&app_home, &filename)?;
+||||||| parent of de2a2013f (fix(backup): restore WebDAV archives through a private temp file)
+    let app_home = app_home_dir().map_err(|e| anyhow::anyhow!("Failed to get app home dir: {e}"))?;
+    let backup_storage_path = resolve_within(&app_home, &filename)?;
+=======
+>>>>>>> de2a2013f (fix(backup): restore WebDAV archives through a private temp file)
     let filename = String::from(sanitize_backup_filename(&filename)?);
+<<<<<<< HEAD
 =======
     let filename = String::from(sanitize_backup_filename(&filename)?);
+    let backup_storage_path = restore_temp_path()?;
+>>>>>>> de2a2013f (fix(backup): restore WebDAV archives through a private temp file)
+||||||| parent of de2a2013f (fix(backup): restore WebDAV archives through a private temp file)
+=======
     let backup_storage_path = restore_temp_path()?;
 >>>>>>> de2a2013f (fix(backup): restore WebDAV archives through a private temp file)
     let name = filename.to_string();
