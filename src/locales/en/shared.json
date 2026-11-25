@@ -46,8 +46,7 @@
     "disabled": "Disabled",
     "saving": "Saving...",
     "empty": "Empty",
-    "loading": "Loading...",
-    "pageNotFound": "Page not found"
+    "loading": "Loading..."
   },
   "units": {
     "milliseconds": "ms",
@@ -136,14 +135,5 @@
       "warn": "WARN",
       "error": "ERROR"
     }
-  },
-  "search": {
-    "content": "Content",
-    "domain": "Domain",
-    "cidr": "CIDR",
-    "contentPlaceholder": "Search rules",
-    "domainPlaceholder": "Search domain, URL or keyword",
-    "cidrPlaceholder": "Search IP or CIDR",
-    "action": "Search"
   }
 }

@@ -12,21 +12,16 @@ import {
 } from '@mui/material'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { join } from '@tauri-apps/api/path'
-import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { exists } from '@tauri-apps/plugin-fs'
 import { forwardRef, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import {
-  BaseDialog,
-  type DialogRef,
-  Switch,
-  TooltipIcon,
-} from '@/components/base'
+import { BaseDialog, DialogRef, Switch, TooltipIcon } from '@/components/base'
 import { DEFAULT_HOVER_DELAY } from '@/components/proxy/proxy-group-navigator'
 import { useVerge } from '@/hooks/use-verge'
-import { copyIconFile, getAppDir, restartApp } from '@/services/cmds'
+import { useWindowDecorations } from '@/hooks/use-window'
+import { copyIconFile, getAppDir } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'
 import getSystem from '@/utils/get-system'
@@ -64,6 +59,8 @@ export const LayoutViewer = forwardRef<DialogRef>((_, ref) => {
   const [commonIcon, setCommonIcon] = useState('')
   const [sysproxyIcon, setSysproxyIcon] = useState('')
   const [tunIcon, setTunIcon] = useState('')
+
+  const { decorated, toggleDecorations } = useWindowDecorations()
 
   useEffect(() => {
     initIconPath()
@@ -129,50 +126,17 @@ export const LayoutViewer = forwardRef<DialogRef>((_, ref) => {
       <List>
         <Item data-setting-target="settings.components.verge.layout.fields.preferSystemTitlebar">
           <ListItemText
-            primary={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <span>
-                  {t(
-                    'settings.components.verge.layout.fields.enableSystemTitlebar',
-                  )}
-                </span>
-                <TooltipIcon
-                  title={t(
-                    'settings.components.verge.layout.tooltips.enableSystemTitlebar',
-                  )}
-                  sx={{ opacity: '0.7' }}
-                />
-              </Box>
-            }
+            primary={t(
+              'settings.components.verge.layout.fields.preferSystemTitlebar',
+            )}
           />
           <GuardState
-            value={verge?.enable_system_titlebar ?? true}
+            value={decorated}
             valueProps="checked"
             onCatch={onError}
             onFormat={onSwitchFormat}
-            onChange={(e) => onChangeData({ enable_system_titlebar: e })}
-            onGuard={async (e) => {
-              await patchVerge({ enable_system_titlebar: e })
-              if (OS === 'linux') {
-                void mutate(() => restartApp(), {
-                  id: 'restart-app',
-                  errorNotice: false,
-                }).catch((error) => {
-                  console.warn('[LayoutViewer] failed to restart app:', error)
-                })
-              } else {
-                const currentWindow = getCurrentWindow()
-                try {
-                  await currentWindow.setDecorations(e)
-                  // macOS clears the Miniaturizable style bit when decorations are disabled; re-enable minimize.
-                  await currentWindow.setMinimizable(true)
-                } catch (error) {
-                  console.warn(
-                    '[LayoutViewer] failed to apply system titlebar setting:',
-                    error,
-                  )
-                }
-              }
+            onChange={async () => {
+              await toggleDecorations()
             }}
           >
             <Switch edge="end" />

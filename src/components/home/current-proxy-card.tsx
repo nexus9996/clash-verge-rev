@@ -29,9 +29,9 @@ import {
   alpha,
   useTheme,
 } from '@mui/material'
-import { useNavigate } from 'react-router'
 import { useLockFn } from 'ahooks'
 import {
+  memo,
   useCallback,
   useEffect,
   useEffectEvent,
@@ -41,20 +41,20 @@ import {
   useState,
 } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router'
 
 import { EnhancedCard } from '@/components/home/enhanced-card'
 import type { ProxySortType } from '@/components/proxy/use-filter-sort'
-import {
-  HOME_PROXY_VIEW_REFETCH_MS,
-  useAppRefreshers,
-  useClashConfigData,
-  useCoreDataStatus,
-  useProxiesData,
-} from '@/hooks/data'
 import { useGroupDelays } from '@/hooks/use-group-delays'
 import { useProfiles } from '@/hooks/use-profiles'
 import { useProxySelection } from '@/hooks/use-proxy-selection'
 import { useVerge } from '@/hooks/use-verge'
+import {
+  useAppRefreshers,
+  useClashConfigData,
+  useCoreDataStatus,
+  useProxiesData,
+} from '@/providers/app-data-context'
 import delayManager from '@/services/delay'
 import {
   findCurrentGroupMember,
@@ -205,14 +205,11 @@ const optionValue = (memberIndex: number, member: ResolvedProxyMember) =>
 
 const sortProxyOptions = (
   options: ProxyOption[],
-  sortType: ProxySortType,
+  sortType: 0 | 1,
   delayOf: (member: ResolvedProxyMember) => number,
   latencyTimeout?: number,
 ) => {
   if (sortType === 0) return options
-  if (sortType === 2) {
-    return [...options].sort((a, b) => a.name.localeCompare(b.name))
-  }
 
   const effectiveTimeout =
     typeof latencyTimeout === 'number' && latencyTimeout > 0
@@ -423,10 +420,8 @@ const PersistentSelect = ({
   )
 }
 
-interface PersistentProxySelectProps extends Omit<
-  PersistentSelectProps,
-  'displayValue' | 'renderOptions'
-> {
+interface PersistentProxySelectProps
+  extends Omit<PersistentSelectProps, 'displayValue' | 'renderOptions'> {
   value: string
   selectedName: string
   groupName: string
@@ -435,6 +430,72 @@ interface PersistentProxySelectProps extends Omit<
   options: ProxyOption[]
   onChange: (value: string) => void
 }
+
+const ProxyMenuOption = memo(function ProxyMenuOption({
+  option,
+  selected,
+  isFixed,
+  fixedProxyInUsed,
+  delay,
+  onChange,
+}: {
+  option: ProxyOption
+  selected: boolean
+  isFixed: boolean
+  fixedProxyInUsed: boolean
+  delay: number
+  onChange: (value: string) => void
+}) {
+  return (
+    <MenuItem
+      role="option"
+      aria-selected={selected}
+      selected={selected}
+      disabled={option.disabled}
+      onClick={() => {
+        if (!option.disabled) onChange(option.value)
+      }}
+      sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        width: '100%',
+        pr: 1,
+      }}
+    >
+      {isFixed && (
+        <span
+          style={{
+            position: 'absolute',
+            fontSize: '12px',
+            top: '-5px',
+            right: '5px',
+            ...(!fixedProxyInUsed && {
+              filter: 'grayscale(1)',
+            }),
+          }}
+        >
+          📌
+        </span>
+      )}
+      <Typography noWrap sx={{ flex: 1, mr: 1 }}>
+        {option.name}
+      </Typography>
+      {!option.disabled && (
+        <Chip
+          size="small"
+          label={delayManager.formatDelay(delay)}
+          color={convertDelayColor(delay)}
+          sx={{
+            minWidth: '60px',
+            height: '22px',
+            flexShrink: 0,
+          }}
+        />
+      )}
+    </MenuItem>
+  )
+})
 
 const PersistentProxySelect = ({
   groupName,
@@ -488,54 +549,15 @@ const PersistentProxySelect = ({
             : delayManager.getDelayFix(option.member, groupName)
 
           return (
-            <MenuItem
+            <ProxyMenuOption
               key={option.value}
-              role="option"
-              aria-selected={selected}
+              option={option}
               selected={selected}
-              disabled={option.disabled}
-              onClick={() => {
-                if (!option.disabled) onChange(option.value)
-              }}
-              sx={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                width: '100%',
-                pr: 1,
-              }}
-            >
-              {isFixed && (
-                <span
-                  style={{
-                    position: 'absolute',
-                    fontSize: '12px',
-                    top: '-5px',
-                    right: '5px',
-                    ...(!fixedProxyInUsed && {
-                      filter: 'grayscale(1)',
-                    }),
-                  }}
-                >
-                  📌
-                </span>
-              )}
-              <Typography noWrap sx={{ flex: 1, mr: 1 }}>
-                {option.name}
-              </Typography>
-              {!option.disabled && (
-                <Chip
-                  size="small"
-                  label={delayManager.formatDelay(delay)}
-                  color={convertDelayColor(delay)}
-                  sx={{
-                    minWidth: '60px',
-                    height: '22px',
-                    flexShrink: 0,
-                  }}
-                />
-              )}
-            </MenuItem>
+              isFixed={isFixed}
+              fixedProxyInUsed={fixedProxyInUsed}
+              delay={delay}
+              onChange={onChange}
+            />
           )
         })
       }
@@ -547,7 +569,7 @@ export const CurrentProxyCard = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const theme = useTheme()
-  const { proxyView } = useProxiesData(HOME_PROXY_VIEW_REFETCH_MS)
+  const { proxyView } = useProxiesData()
   const { clashConfig } = useClashConfigData()
   const { refreshProxy } = useAppRefreshers()
   const { isCoreDataPending } = useCoreDataStatus()
@@ -608,12 +630,14 @@ export const CurrentProxyCard = () => {
     [getProfileStorageKey],
   )
 
-  const { select } = useProxySelection({
-    onError: (error) => {
+  const onSelectionError = useCallback(
+    (error: unknown) => {
       console.error('代理切换失败', error)
       refreshProxy()
     },
-  })
+    [refreshProxy],
+  )
+  const { select } = useProxySelection({ onError: onSelectionError })
 
   const mode = clashConfig?.mode?.toLowerCase() || 'rule'
   const isGlobalMode = mode === 'global'
@@ -676,7 +700,6 @@ export const CurrentProxyCard = () => {
   if (proxyView && lastGroupName !== selectedGroupName) {
     setLastGroupName(selectedGroupName)
   }
-  const delays = useGroupDelays(selectedGroupName || null)
 
   const selectedGroup = useMemo<ProxyGroupView | null>(() => {
     if (!proxyView || isDirectMode) return null
@@ -763,17 +786,24 @@ export const CurrentProxyCard = () => {
   )
 
   const goToProxies = useCallback(() => {
-    void navigate('/proxies')
+    navigate('/proxies')
   }, [navigate])
 
   const currentMember = currentOption?.member
   const currentProxy = currentMember ? memberDetails(currentMember) : undefined
   const selectedProxyName = currentMember?.ref.name ?? ''
 
+  const delays = useGroupDelays(
+    selectedGroupName,
+    currentMember,
+    openSelect === 'proxy',
+  )
   const currentDelay =
-    currentMember && selectedGroupName
-      ? delayManager.getDelayFix(currentMember, selectedGroupName)
-      : -1
+    typeof delays === 'number'
+      ? delays
+      : currentMember
+        ? delays.of(currentMember)
+        : -1
 
   const signalInfo =
     currentProxy && selectedGroupName
@@ -817,6 +847,7 @@ export const CurrentProxyCard = () => {
       )
     } finally {
       autoCheckInProgressRef.current = false
+      refreshProxy()
     }
   })
 
@@ -892,18 +923,28 @@ export const CurrentProxyCard = () => {
     refreshProxy()
   })
 
+  const nameSortedProxyOptions = useMemo(
+    () =>
+      !isDirectMode && openSelect === 'proxy' && sortType === 2
+        ? [...unsortedProxyOptions].sort((a, b) => a.name.localeCompare(b.name))
+        : unsortedProxyOptions,
+    [isDirectMode, openSelect, sortType, unsortedProxyOptions],
+  )
   const proxyOptions = useMemo(
     () =>
-      isDirectMode || openSelect !== 'proxy'
+      isDirectMode || openSelect !== 'proxy' || typeof delays === 'number'
         ? []
-        : sortProxyOptions(
-            unsortedProxyOptions,
-            sortType,
-            delays.of,
-            defaultLatencyTimeout!,
-          ),
+        : sortType === 2
+          ? nameSortedProxyOptions
+          : sortProxyOptions(
+              unsortedProxyOptions,
+              sortType,
+              delays.of,
+              defaultLatencyTimeout!,
+            ),
     [
       delays,
+      nameSortedProxyOptions,
       isDirectMode,
       openSelect,
       unsortedProxyOptions,

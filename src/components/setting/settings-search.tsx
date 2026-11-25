@@ -282,7 +282,7 @@ export function SettingsSearch({
       <GlobalStyles
         styles={{
           '[data-search-highlight]': {
-            outline: '2px solid var(--primary-main)',
+            outline: '2px solid #6b70e8',
             outlineOffset: -2,
           },
         }}

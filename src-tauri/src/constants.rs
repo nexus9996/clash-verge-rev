@@ -14,11 +14,6 @@ pub mod network {
     }
 }
 
-pub mod latency {
-    /// Milliseconds; mirrors the `IVerge::default_latency_timeout` field width.
-    pub const DEFAULT_TIMEOUT_MS: i16 = 10_000;
-}
-
 pub mod sysproxy {
     /// Single source of the macOS default bypass list; both proxy backends compose from it.
     #[cfg(target_os = "macos")]
@@ -70,8 +65,6 @@ pub mod files {
     pub const CHECK_CONFIG: &str = "clash-verge-check.yaml";
     pub const DNS_CONFIG: &str = "dns_config.yaml";
     pub const WINDOW_STATE: &str = "window_state.json";
-    /// Last runtime YAML verdict accepted by the bundled core validator, reused across restarts.
-    pub const VALIDATION_STATE: &str = "validation-state";
 }
 
 pub mod tun {

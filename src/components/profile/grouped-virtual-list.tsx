@@ -10,7 +10,7 @@ import { isSortable, isSortableOperation } from '@dnd-kit/react/sortable'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { type CSSProperties, type ReactNode, useRef, useState } from 'react'
 
-import { SortableItem } from '@/components/base/sortable-item'
+import { SortableItem } from '../base'
 
 type GroupedVirtualCategory = 'prepend' | 'original' | 'append'
 
@@ -20,7 +20,7 @@ export interface GroupedVirtualItem<T> {
   item: T
 }
 
-// eslint-disable-next-line react/only-export-components
+// eslint-disable-next-line react-refresh/only-export-components
 export function buildGroupedItems<T>(
   prepend: T[],
   original: T[],

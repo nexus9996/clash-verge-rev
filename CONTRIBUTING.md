@@ -27,8 +27,8 @@ Before contributing, you need to set up your development environment. Follow the
 
 ### Prerequisites
 
-1. **Install Rust, Node.js and Bun**  
-   Our project requires Rust, Node.js (runtime for the Vite, Tauri and Vitest CLIs) and Bun (package manager and script runner). Follow the official installation instructions [here](https://tauri.app/start/prerequisites/) for Rust and Node.js, then install Bun as described below.
+1. **Install Rust and Node.js**  
+   Follow the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your operating system. Use the Node.js version in [`.tool-versions`](.tool-versions); [`rust-toolchain.toml`](rust-toolchain.toml) selects the Rust version and required components when you run Cargo from this repository.
 
 ### Windows Users
 
@@ -38,7 +38,7 @@ Before contributing, you need to set up your development environment. Follow the
 
 Additional steps for Windows:
 
-- Ensure Rust, Node.js and Bun are added to your system `PATH`.
+- Ensure Rust and Node.js are added to your system `PATH`.
 
 - Install the GNU `patch` tool.
 
@@ -49,94 +49,81 @@ rustup target add x86_64-pc-windows-msvc
 rustup set default-host x86_64-pc-windows-msvc
 ```
 
-### Install Bun (Package Manager)
+### Install Node.js Package Manager
 
-Install Bun 1.4.3 with the official installer:
+[Corepack is no longer bundled with Node.js starting with Node.js 25](https://nodejs.org/api/corepack.html). Install it globally if it is not already available, then enable it:
 
 ```bash
-curl -fsSL https://bun.sh/install | bash
+npm install --global corepack
+corepack enable
 ```
 
-On Windows:
-
-```powershell
-powershell -c "irm bun.sh/install.ps1 | iex"
-```
-
-Verify the installation with `bun --version`.
+Run pnpm from this repository so Corepack selects the version pinned by `packageManager` in [`package.json`](package.json).
 
 ### Install Project Dependencies
 
-JavaScript dependencies:
+Node.js dependencies:
 
 ```bash
-bun install
+pnpm install --frozen-lockfile
 ```
 
 Ubuntu-only system packages:
 
 ```bash
-sudo apt-get install -y libxslt1.1 libwebkit2gtk-4.1-dev librsvg2-dev patchelf
+sudo apt-get install -y libxslt1.1 libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
 ```
 
 ### Download the Mihomo Core Binary (Automatic)
 
 ```bash
-bun run prebuild:download
-bun run prebuild:download --force  # Re-download and overwrite Mihomo core and service binaries
+pnpm run prebuild
+pnpm run prebuild --force  # Re-download and overwrite Mihomo core and service binaries
 ```
 
 ### Prepare the Development Service Source
 
-`bun run dev` builds the development service from a sibling checkout of [`clash-verge-service-ipc`](https://github.com/clash-verge-rev/clash-verge-service-ipc). The binaries downloaded by `bun run prebuild:download` do not replace this source checkout.
+`pnpm dev` builds the development service from a sibling checkout of [`clash-verge-service-ipc`](https://github.com/clash-verge-rev/clash-verge-service-ipc). The binaries downloaded by `pnpm prebuild` do not replace this source checkout.
 
-Check the `clash_verge_service_ipc` dependency in [`src-tauri/Cargo.toml`](src-tauri/Cargo.toml), then clone the service repository alongside `clash-verge-rev` and check out the matching tag. Set `CLASH_VERGE_DEV_SERVICE_DIR` when the checkout lives elsewhere. Without that checkout, `bun run dev` fails before the app starts.
+Check the `clash_verge_service_ipc` dependency in [`src-tauri/Cargo.toml`](src-tauri/Cargo.toml), then clone the service repository alongside `clash-verge-rev` and check out the matching tag. If the sibling directory already exists, reuse it and check its version rather than overwriting it. Without this checkout, `pnpm dev` fails when it tries to access `../clash-verge-service-ipc/Cargo.toml`.
 
 ### Run the Development Server
 
+Run these commands from the root of `clash-verge-rev`:
+
 ```bash
-bun run dev        # Standard
-bun run dev:diff   # If an app instance already exists
-bun run dev:tauri  # Run Tauri development mode
+pnpm dev           # Build the development service and start the desktop app
+pnpm dev:diff      # Alias of pnpm dev
+pnpm dev:tauri     # Run Tauri directly with the tauri-dev feature
 ```
+
+For frontend-only development, use `pnpm web:dev`. It does not start the Rust backend or build the development service.
 
 ### Build the Project
 
 Standard build:
 
 ```bash
-bun run build
+pnpm build
 ```
 
 Fast build for testing:
 
 ```bash
-bun run build:fast
+pnpm build:fast
 ```
 
-### Adding a Frontend Page
+### Clean Build
 
-The route table and the sidebar both derive from `config/navigation.ts`, so a page takes three edits:
+```bash
+pnpm clean
+```
 
-1. **Page component** — add `src/pages/<name>.tsx` and export the component as default. Domain-specific components belong under `src/components/<domain>/`.
-2. **Route mapping** — add the page to `PAGE_ROUTES` in `src/app/route-pages.ts`:
+### Portable Version (Windows Only)
 
-   ```tsx
-   import MyPage from '@/pages/my-page'
-
-   export const PAGE_ROUTES: Record<NavigationId, PageRoute> = {
-     // ...
-     myPage: { Component: MyPage },
-   }
-   ```
-
-   Every page except `home` uses `{ lazy: lazyPage(() => import('@/pages/my-page')) }`: the router keeps it out of the initial bundle and preloads the chunk when the sidebar entry is hovered or focused.
-
-3. **Navigation and copy** — add the entry to `NAV_META` in `src/config/navigation.ts` (id, path, i18n label key), add its icon pair to `NAV_ICONS` in `src/components/layout/navigation-icons.tsx`, add `tabs.<id>` to all 14 `src/locales/*/layout.json` files, then run `bun run i18n:types`.
-
-`PAGE_ROUTES` is typed as `Record<NavigationId, PageRoute>`, so a navigation entry without a page (or a page without an entry) fails `bun run typecheck`.
-
-Finally run `bun run typecheck && bun run test && bun run lint`. The architecture contract is documented in [`docs/frontend-architecture.md`](docs/frontend-architecture.md).
+```bash
+pnpm portable
+```
 
 ## Contributing Your Changes
 
@@ -181,9 +168,10 @@ to run every command for every change. Run commands from the repository root.
 
 Tie results to the code reviewed: identify the base/head commits for branch
 comparisons and include task-relevant staged, unstaged, and untracked files in a
-local review. Report
-the command or interaction, observed result, and material gaps in the existing
-conversation or PR; no separate verification report is required. Static checks,
+local review. Keep command-level results in the working conversation. For PR
+descriptions, follow the [PR template](.github/PULL_REQUEST_TEMPLATE.md): include
+behavioral evidence and material gaps relevant to review, omitting routine check
+pass lists. No separate verification report is required. Static checks,
 mocks, browser previews, native runs, and remote CI establish different things.
 When code changes after verification, repeat affected checks. Attribute a failure
 to the baseline only after comparing the same check on the base revision.
@@ -199,7 +187,7 @@ or generation, inspect the final diff and stage only the intended changes.
 # Rust backend
 cargo clippy-all
 # Frontend
-bun run lint
+pnpm lint
 ```
 
 **Code formatting:**
@@ -208,7 +196,7 @@ bun run lint
 # Rust backend
 cargo fmt
 # Frontend
-bun run format
+pnpm format
 ```
 
 ### Signing your commit

@@ -4,10 +4,8 @@
 
   "features": {
     "ghcr.io/devcontainers/features/node:2": {
-      "version": "26.13.1"
-    },
-    "ghcr.io/devcontainers-extra/features/bun:1": {
-      "version": "1.4.3"
+      "version": "26.13.1",
+      "pnpmVersion": "12.18.0"
     },
     "ghcr.io/devcontainers/features/rust:1": {
       "version": "1.100.0",
@@ -27,28 +25,28 @@
         "redhat.vscode-yaml",
         "ms-vscode.hexeditor",
         "streetsidesoftware.code-spell-checker",
-        "oxc.oxc-vscode"
+        "ms-vscode.vscode-eslint",
+        "biomejs.biome"
       ],
       "settings": {
         "rust-analyzer.cargo.features": ["verge-dev"],
         "rust-analyzer.check.command": "clippy",
         "editor.formatOnSave": true,
-        "editor.defaultFormatter": "oxc.oxc-vscode",
-        "editor.codeActionsOnSave": {
-          "source.fixAll.oxc": "always"
-        },
-        "oxc.typeAware": true,
+        "editor.defaultFormatter": "biomejs.biome",
         "[rust]": {
           "editor.defaultFormatter": "rust-lang.rust-analyzer"
         },
         "[json]": {
-          "editor.defaultFormatter": "oxc.oxc-vscode"
+          "editor.defaultFormatter": "biomejs.biome"
+        },
+        "[yaml]": {
+          "editor.defaultFormatter": "biomejs.biome"
         },
         "[typescript]": {
-          "editor.defaultFormatter": "oxc.oxc-vscode"
+          "editor.defaultFormatter": "biomejs.biome"
         },
         "[typescriptreact]": {
-          "editor.defaultFormatter": "oxc.oxc-vscode"
+          "editor.defaultFormatter": "biomejs.biome"
         }
       }
     }
@@ -83,7 +81,7 @@
 
   "mounts": [
     "source=clash-verge-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
-    "source=clash-verge-bun-cache,target=/home/vscode/.bun/install/cache,type=volume",
+    "source=clash-verge-pnpm-store,target=/home/vscode/.local/share/pnpm/store,type=volume",
     "source=clash-verge-cargo-registry,target=/home/vscode/.cargo/registry,type=volume",
     "source=clash-verge-cargo-git,target=/home/vscode/.cargo/git,type=volume"
   ],

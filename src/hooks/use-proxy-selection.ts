@@ -1,11 +1,10 @@
-import { useCallback, useRef } from 'react'
+import { useCallback } from 'react'
 
 import { switchProxyNode } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
-import { showNotice } from '@/services/notice-service'
 
 interface ProxySelectionOptions {
-  onError?: (error: unknown) => void
+  onError?: (error: any) => void
 }
 
 interface ProxyChangeRequest {
@@ -15,15 +14,6 @@ interface ProxyChangeRequest {
 }
 
 export const useProxySelection = (options: ProxySelectionOptions = {}) => {
-  const pendingRequestsRef = useRef<Map<string, ProxyChangeRequest> | null>(
-    null,
-  )
-  const isProcessingRef = useRef(false)
-  const getPendingRequests = () => {
-    pendingRequestsRef.current ??= new Map()
-    return pendingRequestsRef.current
-  }
-
   const { onError } = options
 
   const executeChange = useCallback(
@@ -38,45 +28,21 @@ export const useProxySelection = (options: ProxySelectionOptions = {}) => {
           `[ProxySelection] Failed to switch proxy: ${groupName} -> ${proxyName}`,
           error,
         )
-        showNotice.error(error)
         onError?.(error)
       }
     },
     [onError],
   )
 
-  const flushChangeQueue = useCallback(async () => {
-    if (isProcessingRef.current) return
-    isProcessingRef.current = true
-
-    try {
-      // Map keeps insertion order, so every group is applied once; a newer
-      // request for the same group replaces the stale pending one.
-      while (getPendingRequests().size > 0) {
-        const next = getPendingRequests().entries().next().value
-        if (!next) break
-        const [groupName, request] = next
-        getPendingRequests().delete(groupName)
-        await executeChange(request)
-      }
-    } finally {
-      isProcessingRef.current = false
-      if (getPendingRequests().size > 0) {
-        void flushChangeQueue()
-      }
-    }
-  }, [executeChange])
-
   const select = useCallback(
     (groupName: string, proxyName: string, fixed?: string) => {
-      getPendingRequests().set(groupName, {
+      void executeChange({
         groupName,
         proxyName,
         fixed,
       })
-      void flushChangeQueue()
     },
-    [flushChangeQueue],
+    [executeChange],
   )
 
   return { select }

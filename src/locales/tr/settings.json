@@ -140,8 +140,7 @@
           "networkInterface": "Ağ Arayüzü",
           "unifiedDelay": "Birleşik gecikme açıldığında, bağlantı el sıkışmaları vb. nedeniyle farklı tür düğümler arasındaki gecikme farklarını ortadan kaldırmak için iki gecikme testi gerçekleştirilir",
           "logLevel": "Bu parametre yalnızca günlük dizini Hizmet klasöründeki çekirdek günlük dosyaları için geçerlidir",
-          "openUwpTool": "Windows 8'den beri, UWP uygulamaları (Microsoft Store gibi) yerel ana bilgisayar ağ hizmetlerine doğrudan erişmekten kısıtlanmıştır ve bu araç bu kısıtlamayı atlatmak için kullanılabilir",
-          "ipv6Auto": "Enable IPv6 only while the physical network provides it; re-checked automatically when the network changes"
+          "openUwpTool": "Windows 8'den beri, UWP uygulamaları (Microsoft Store gibi) yerel ana bilgisayar ağ hizmetlerine doğrudan erişmekten kısıtlanmıştır ve bu araç bu kısıtlamayı atlatmak için kullanılabilir"
         },
         "options": {
           "logLevel": {
@@ -150,17 +149,6 @@
             "warning": "Uyarı",
             "error": "Hata",
             "silent": "Sessiz"
-          },
-          "ipv6Mode": {
-            "off": "Off",
-            "on": "On",
-            "auto": "Auto"
-          }
-        },
-        "status": {
-          "ipv6Auto": {
-            "available": "IPv6 available",
-            "ipv4Only": "IPv4-only network"
           }
         }
       }
@@ -221,22 +209,6 @@
       },
       "theme": {
         "title": "Tema Ayarı",
-        "presets": {
-          "title": "Hazır ayarlar",
-          "names": {
-            "default": "Varsayılan",
-            "ocean": "Okyanus",
-            "indigo": "Çivit",
-            "sunset": "Gün batımı",
-            "lavender": "Lavanta",
-            "monochrome": "Tek renk"
-          }
-        },
-        "editModes": {
-          "title": "Temayı düzenle",
-          "light": "Açık",
-          "dark": "Koyu"
-        },
         "fields": {
           "primaryColor": "Ana Renk",
           "secondaryColor": "İkincil Renk",
@@ -246,8 +218,6 @@
           "warningColor": "Uyarı Rengi",
           "errorColor": "Hata Rengi",
           "successColor": "Başarı Rengi",
-          "background": "Arka Plan Rengi",
-          "paperBackground": "Kart Rengi",
           "fontFamily": "Yazı Tipi Ailesi",
           "cssInjection": "CSS Enjeksiyonu"
         },
@@ -261,7 +231,7 @@
       "layout": {
         "title": "Düzen Ayarı",
         "fields": {
-          "enableSystemTitlebar": "Sistem başlık çubuğunu etkinleştir",
+          "preferSystemTitlebar": "Sistem Başlık Çubuğunu Tercih Et",
           "trafficGraph": "Trafik Grafiği",
           "memoryUsage": "Çekirdek Kullanımı",
           "proxyGroupIcon": "Vekil Grup Simgesi",
@@ -281,7 +251,6 @@
           "pauseRenderTrafficStatsOnBlur": "Odak kaybolduğunda trafik istatistiklerinin işlenmesini duraklat"
         },
         "tooltips": {
-          "enableSystemTitlebar": "Yerleşik özel başlık çubuğu yerine sistemin yerel başlık çubuğunu kullan (Linux'ta yeniden başlatma gerekir).",
           "hoverNavigator": "Alfabe harflerinin üzerine gelindiğinde ilgili vekil grubuna otomatik olarak kaydırır",
           "hoverNavigatorDelay": "Üzerine gelindiğinde otomatik kaydırmadan önceki gecikme, milisaniye cinsinden"
         },
@@ -336,26 +305,6 @@
       "variants": {
         "release": "Kararlı Sürüm",
         "alpha": "Alfa Sürümü"
-      },
-      "actions": {
-        "manageVersions": "Sürümleri Yönet"
-      },
-      "versions": {
-        "title": "Mihomo Sürümleri",
-        "description": "Belirli bir Mihomo sürümü yükleyin. Yeni çekirdek başlamazsa uygulama önceki sürümü otomatik olarak geri yükler.",
-        "channel": "Kanal: {{channel}}",
-        "loading": "Sürümler yükleniyor...",
-        "empty": "Kullanılabilir sürüm yok",
-        "latest": "En son",
-        "installed": "Yüklü",
-        "installedAction": "Yüklü",
-        "install": "Yükle",
-        "upgradeLatest": "En Son Sürüme Yükselt",
-        "messages": {
-          "installed": "{{version}} sürümüne güncellendi",
-          "alreadyInstalled": "Zaten {{version}} sürümündesiniz",
-          "alreadyLatest": "Zaten en son sürüm"
-        }
       }
     },
     "liteMode": {
@@ -469,15 +418,13 @@
         "autoDelayDetection": "Otomatik Gecikme Tespiti",
         "autoDelayDetectionInterval": "Otomatik Gecikme Tespiti Aralığı",
         "defaultLatencyTest": "Varsayılan Gecikme Testi",
-        "defaultLatencyTimeout": "Varsayılan Gecikme Zaman Aşımı",
-        "updateChannel": "Güncelleme Kanalı"
+        "defaultLatencyTimeout": "Varsayılan Gecikme Zaman Aşımı"
       },
       "tooltips": {
         "autoCloseConnections": "Vekil grup seçimi veya vekil modu değiştiğinde kurulan bağlantıları sonlandır",
         "enableBuiltinEnhanced": "Yapılandırma dosyası için uyumluluk işleme",
         "autoDelayDetection": "Arka planda mevcut düğümün gecikmesini periyodik olarak test eder",
-        "defaultLatencyTest": "Yalnızca HTTP istemci isteği testi için kullanılır ve yapılandırma dosyasında bir fark yaratmaz",
-        "updateChannel": "Alfa, önizleme derlemelerini takip eder ve kararsız olabilir"
+        "defaultLatencyTest": "Yalnızca HTTP istemci isteği testi için kullanılır ve yapılandırma dosyasında bir fark yaratmaz"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -486,10 +433,6 @@
         "autoLogClean": {
           "never": "Asla Temizleme",
           "retainDays": "{{n}} Gün Sakla"
-        },
-        "updateChannel": {
-          "stable": "Kararlı",
-          "alpha": "Alfa"
         }
       }
     },
@@ -509,12 +452,6 @@
         "important": "Önemli",
         "warning": "Uyarı",
         "caution": "Dikkat"
-      },
-      "restart": {
-        "title": "Güncelleme yüklendi",
-        "body": "Yeni sürümü uygulamak için uygulamayı yeniden başlatın.",
-        "restartNow": "Şimdi Yeniden Başlat",
-        "restartLater": "Daha sonra"
       }
     },
     "sysproxy": {
@@ -530,7 +467,7 @@
         "usePacMode": "PAC Modunu Kullan",
         "proxyGuard": "Vekil Koruyucusu",
         "guardDuration": "Koruma Süresi",
-        "alwaysUseDefaultBypass": "Varsayılan baypas listesini dahil et",
+        "alwaysUseDefaultBypass": "Her Zaman Varsayılan Baypas Kullan",
         "enableBypassCheck": "Proxy baypas biçimini doğrula",
         "proxyBypass": "Vekil Baypas Ayarları: ",
         "bypass": "Baypas: ",
@@ -760,8 +697,7 @@
         "permissionRejectedReason": "Hizmet, çekirdek dosya ve klasörlerinin yükseltilmiş yetkilerle güvenle çalıştırılabileceğini doğrulayamadı.",
         "permissionRepairGuide": "Düzeltme adımlarını görüntüle",
         "sidecarFallback": "Hizmet çekirdeği başlatamadı. Sidecar moduna geçildi; hizmet hâlâ kullanılamıyor.",
-        "uninstallSuccess": "Hizmet Başarıyla Kaldırıldı",
-        "coreVersionDrift": "Servis modu {{running}} çekirdeğini çalıştırıyor, ancak paketlenmiş çekirdek {{bundled}}. {{bundled}} sürümünü kurmak için Ayarlar → Mihomo Sürümleri'ni açın veya servisi yeniden kurun/onarın ve çekirdeği yeniden başlatın."
+        "uninstallSuccess": "Hizmet Başarıyla Kaldırıldı"
       },
       "updater": {
         "withClashProxySuccess": "Clash vekil ile güncelleme başarılı",

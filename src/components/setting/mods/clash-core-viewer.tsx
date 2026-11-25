@@ -1,4 +1,7 @@
-import { ManageHistoryRounded, RestartAltRounded } from '@mui/icons-material'
+import {
+  RestartAltRounded,
+  SwitchAccessShortcutRounded,
+} from '@mui/icons-material'
 import {
   Box,
   Button,
@@ -10,18 +13,17 @@ import {
 } from '@mui/material'
 import { useLockFn } from 'ahooks'
 import type { Ref } from 'react'
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { closeAllConnections } from 'tauri-plugin-mihomo-api'
 
 import { BaseDialog, DialogRef } from '@/components/base'
 import { useClash, useClashInfo } from '@/hooks/use-clash'
 import { useVerge } from '@/hooks/use-verge'
-import { changeClashCore, restartCore } from '@/services/cmds'
+import { changeClashCore, restartCore, upgradeClashCore } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'
 
-import { MihomoVersionViewer } from './mihomo-version-viewer'
 import { useSettingDialog } from '../settings-search-context'
 
 const VALID_CORE = [
@@ -45,8 +47,8 @@ export function ClashCoreViewer({ ref }: { ref?: Ref<DialogRef> }) {
   const { invalidateClashConfig } = useClashInfo()
 
   const [open, setOpen] = useState(false)
+  const [upgrading, setUpgrading] = useState(false)
   const [restarting, setRestarting] = useState(false)
-  const versionViewerRef = useRef<DialogRef>(null)
   const [changingCore, setChangingCore] = useState<string | null>(null)
 
   useSettingDialog(ref, 'clash-core-viewer', open, () => ({
@@ -104,6 +106,26 @@ export function ClashCoreViewer({ ref }: { ref?: Ref<DialogRef> }) {
     }
   })
 
+  const onUpgrade = useLockFn(async () => {
+    try {
+      setUpgrading(true)
+      await mutate(() => upgradeClashCore(), {
+        id: 'upgrade-clash-core',
+        onFulfilled: (report) => {
+          showNotice.success(
+            report.upgraded
+              ? t('settings.feedback.notifications.clash.versionUpdated')
+              : t('settings.feedback.notifications.clash.alreadyLatestVersion'),
+          )
+        },
+      })
+    } catch {
+      // the funnel already notified
+    } finally {
+      setUpgrading(false)
+    }
+  })
+
   return (
     <BaseDialog
       open={open}
@@ -114,13 +136,15 @@ export function ClashCoreViewer({ ref }: { ref?: Ref<DialogRef> }) {
             <Button
               variant="contained"
               size="small"
-              startIcon={<ManageHistoryRounded />}
+              startIcon={<SwitchAccessShortcutRounded />}
+              loadingPosition="start"
+              loading={upgrading}
               disabled={restarting || changingCore !== null}
               sx={{ marginRight: '8px' }}
               data-setting-target="core-upgrade"
-              onClick={() => versionViewerRef.current?.open()}
+              onClick={onUpgrade}
             >
-              {t('settings.modals.clashCore.actions.manageVersions')}
+              {t('shared.actions.upgrade')}
             </Button>
             <Button
               variant="contained"
@@ -128,7 +152,7 @@ export function ClashCoreViewer({ ref }: { ref?: Ref<DialogRef> }) {
               startIcon={<RestartAltRounded />}
               loadingPosition="start"
               loading={restarting}
-              disabled={restarting || changingCore !== null}
+              disabled={upgrading}
               data-setting-target="core-restart"
               onClick={onRestart}
             >
@@ -161,7 +185,7 @@ export function ClashCoreViewer({ ref }: { ref?: Ref<DialogRef> }) {
             key={each.core}
             selected={each.core === clash_core}
             onClick={() => onCoreChange(each.core)}
-            disabled={changingCore !== null || restarting}
+            disabled={changingCore !== null || restarting || upgrading}
           >
             <ListItemText primary={each.name} secondary={`/${each.core}`} />
             {changingCore === each.core ? (
@@ -172,7 +196,6 @@ export function ClashCoreViewer({ ref }: { ref?: Ref<DialogRef> }) {
           </ListItemButton>
         ))}
       </List>
-      <MihomoVersionViewer ref={versionViewerRef} />
     </BaseDialog>
   )
 }

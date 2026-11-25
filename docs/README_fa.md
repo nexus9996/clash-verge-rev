@@ -99,9 +99,9 @@
 پس از نصب تمام پیش‌نیازهای **Tauri**، پوسته توسعه را با دستور زیر اجرا کنید:
 
 ```shell
-bun install
-bun run prebuild:download
-bun run dev
+pnpm i
+pnpm run prebuild
+pnpm dev
 ```
 
 ## مشارکت‌ها

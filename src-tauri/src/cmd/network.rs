@@ -6,58 +6,40 @@ use gethostname::gethostname;
 use sysproxy::{Autoproxy, Sysproxy};
 use tauri_plugin_clash_verge_sysinfo;
 
-/// Both proxy modes come from the same OS settings and a refresh needs them
-/// together, so one command returns both from a single blocking round-trip.
-#[derive(serde::Serialize, specta::Type)]
-pub struct SystemProxyState {
-    pub sysproxy: SystemProxy,
-    pub autoproxy: AutoProxy,
-}
-
 #[tauri::command]
 #[specta::specta]
-pub async fn get_system_proxy_state() -> CmdResult<SystemProxyState> {
+pub async fn get_sys_proxy() -> CmdResult<SystemProxy> {
     Sysopt::global().wait_idle().await;
-
-    // Each platform read can spawn helper processes (gsettings on Linux, the
-    // system prefs framework on macOS), so the pair runs on a blocking worker.
-    let (sys_proxy, auto_proxy) = crate::process::AsyncHandler::spawn_blocking(|| {
-        // With no network service there is no proxy configured anywhere, which reads as disabled.
-        let sys_proxy = match Sysproxy::get_system_proxy() {
-            Err(error) if proxy_control::is_missing_network_service(&error) => Sysproxy::default(),
-            other => other.stringify_err()?,
-        };
-        let auto_proxy = match Autoproxy::get_auto_proxy() {
-            Err(error) if proxy_control::is_missing_network_service(&error) => Autoproxy::default(),
-            other => other.stringify_err()?,
-        };
-        Ok::<_, crate::cmd::CommandFailure>((sys_proxy, auto_proxy))
-    })
-    .await
-    .map_err(|join| crate::cmd::CommandFailure::plain(format!("system proxy state task failed: {join}")))??;
-
+    // With no network service there is no proxy configured anywhere, which reads as disabled.
+    let sys_proxy = match Sysproxy::get_system_proxy() {
+        Err(error) if proxy_control::is_missing_network_service(&error) => Sysproxy::default(),
+        other => other.stringify_err()?,
+    };
     let Sysproxy {
         host,
         bypass,
         port,
         enable,
     } = sys_proxy;
-    let Autoproxy {
-        enable: auto_enable,
-        url,
-    } = auto_proxy;
 
-    Ok(SystemProxyState {
-        sysproxy: SystemProxy {
-            enable,
-            server: format!("{host}:{port}"),
-            bypass,
-        },
-        autoproxy: AutoProxy {
-            enable: auto_enable,
-            url,
-        },
+    Ok(SystemProxy {
+        enable,
+        server: format!("{host}:{port}"),
+        bypass,
     })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_auto_proxy() -> CmdResult<AutoProxy> {
+    Sysopt::global().wait_idle().await;
+    let auto_proxy = match Autoproxy::get_auto_proxy() {
+        Err(error) if proxy_control::is_missing_network_service(&error) => Autoproxy::default(),
+        other => other.stringify_err()?,
+    };
+    let Autoproxy { enable, url } = auto_proxy;
+
+    Ok(AutoProxy { enable, url })
 }
 
 #[tauri::command]

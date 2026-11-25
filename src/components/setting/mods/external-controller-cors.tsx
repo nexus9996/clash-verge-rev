@@ -1,13 +1,5 @@
 import { Delete as DeleteIcon } from '@mui/icons-material'
-import {
-  Box,
-  Button,
-  Divider,
-  List,
-  ListItem,
-  TextField,
-  type Theme,
-} from '@mui/material'
+import { Box, Button, Divider, List, ListItem, TextField } from '@mui/material'
 import { useLockFn, useRequest } from 'ahooks'
 import { forwardRef, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -51,23 +43,23 @@ const buttonStyle = {
   },
 }
 
-const addButtonStyle = (theme: Theme) => ({
+const addButtonStyle = {
   ...buttonStyle,
-  backgroundColor: theme.palette.success.main,
-  color: theme.palette.success.contrastText,
+  backgroundColor: '#4CAF50',
+  color: 'white',
   '&:hover': {
-    backgroundColor: theme.palette.success.dark,
+    backgroundColor: '#388E3C',
   },
-})
+}
 
-const deleteButtonStyle = (theme: Theme) => ({
+const deleteButtonStyle = {
   ...buttonStyle,
-  backgroundColor: theme.palette.error.main,
-  color: theme.palette.error.contrastText,
+  backgroundColor: '#FF5252',
+  color: 'white',
   '&:hover': {
-    backgroundColor: theme.palette.error.dark,
+    backgroundColor: '#D32F2F',
   },
-})
+}
 
 interface ClashHeaderConfigingRef {
   open: () => void
@@ -278,26 +270,22 @@ export const HeaderConfiguration = forwardRef<ClashHeaderConfigingRef>(
                 {t('settings.sections.externalCors.actions.add')}
               </Button>
 
-              <Box
-                sx={{
-                  mt: 1.5,
-                  p: 1,
-                  bgcolor: 'action.hover',
-                  borderRadius: 1,
+              <div
+                style={{
+                  marginTop: 12,
+                  padding: 8,
+                  backgroundColor: '#f5f5f5',
+                  borderRadius: 4,
                 }}
               >
-                <Box
-                  sx={{
-                    color: 'text.secondary',
-                    fontSize: 12,
-                    fontStyle: 'italic',
-                  }}
+                <div
+                  style={{ color: '#666', fontSize: 12, fontStyle: 'italic' }}
                 >
                   {t('settings.sections.externalCors.messages.alwaysIncluded', {
                     urls: DEV_URLS.join(', '),
                   })}
-                </Box>
-              </Box>
+                </div>
+              </div>
             </div>
           </ListItem>
         </List>

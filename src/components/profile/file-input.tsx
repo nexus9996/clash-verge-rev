@@ -17,30 +17,22 @@ export const FileInput = (props: Props) => {
   const [fileName, setFileName] = useState('')
 
   const onFileInput = useLockFn(async (e: any) => {
-    const input = e.target as HTMLInputElement
-    const file = input.files?.[0] as File
+    const file = e.target.files?.[0] as File
 
     if (!file) return
 
     setFileName(file.name)
     setLoading(true)
 
-    try {
-      await new Promise((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = (event) => {
-          resolve(null)
-          onChange(file, event.target?.result as string)
-        }
-        reader.onerror = reject
-        reader.readAsText(file)
-      })
-    } finally {
-      setLoading(false)
-      // Allow selecting the same file again: the input only fires change when
-      // its value differs from the previous selection.
-      input.value = ''
-    }
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        resolve(null)
+        onChange(file, event.target?.result as string)
+      }
+      reader.onerror = reject
+      reader.readAsText(file)
+    }).finally(() => setLoading(false))
   })
 
   return (

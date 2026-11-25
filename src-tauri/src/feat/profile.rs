@@ -9,8 +9,7 @@ use crate::{
 };
 use anyhow::{Result, bail};
 use clash_verge_logging::{Type, logging};
-use futures::stream::{self, StreamExt as _};
-use smartstring::alias::String;
+use tristr::alias::String;
 
 /// Toggle proxy profile
 pub async fn toggle_proxy_profile(profile_index: String) {
@@ -74,9 +73,7 @@ pub async fn switch_proxy_node(group_name: &str, proxy_name: &str, unfix: bool) 
                     return;
                 }
             };
-            // One POST per affected connection; keep a small in-flight window so a
-            // busy session cannot queue hundreds of requests on mihomo's API.
-            stream::iter(
+            futures::future::join_all(
                 connections
                     .connections
                     .unwrap_or_default()
@@ -93,33 +90,20 @@ pub async fn switch_proxy_node(group_name: &str, proxy_name: &str, unfix: bool) 
                         }
                     }),
             )
-            .buffer_unordered(8)
-            .collect::<Vec<_>>()
             .await;
         });
     }
-    // The tray only carries node checks while its proxy section is displayed; with
-    // it disabled there is nothing to rebuild after a selection.
-    let tray_shows_groups = Config::verge()
-        .await
-        .latest_arc()
-        .tray_proxy_groups_display_mode
-        .as_deref()
-        != Some("disable");
-    if tray_shows_groups {
-        let tray_update = tray::Tray::global().update_menu().await;
-        if let Err(err) = tray_update {
-            logging!(
-                warn,
-                Type::Tray,
-                "Failed to refresh tray after switching proxy: {err:#}"
-            );
-        }
+    if let Err(err) = tray::Tray::global().update_menu().await {
+        logging!(
+            warn,
+            Type::Tray,
+            "Failed to refresh tray after switching proxy: {err:#}"
+        );
     }
     Ok(())
 }
 
-async fn should_update_profile(uid: &String, ignore_auto_update: bool) -> Result<Option<(String, Option<PrfOption>)>> {
+async fn should_update_profile(uid: &str, ignore_auto_update: bool) -> Result<Option<(String, Option<PrfOption>)>> {
     let profiles = Config::profiles().await;
     let profiles = profiles.latest_arc();
     let item = profiles.get_item(uid)?;
@@ -154,11 +138,11 @@ async fn should_update_profile(uid: &String, ignore_auto_update: bool) -> Result
 
 #[tracing::instrument(skip_all, level = "info", fields(uid = %uid, strategy = tracing::field::Empty, configured_elapsed = tracing::field::Empty, clash_elapsed = tracing::field::Empty, system_elapsed = tracing::field::Empty))]
 async fn perform_profile_update(
-    uid: &String,
-    url: &String,
+    uid: &str,
+    url: &str,
     opt: Option<&PrfOption>,
     option: Option<&PrfOption>,
-    is_manual_trigger: bool,
+    is_mannual_trigger: bool,
 ) -> Result<()> {
     let merged_opt = PrfOption::merge(opt, option);
     let profiles = Config::profiles().await;
@@ -240,7 +224,7 @@ async fn perform_profile_update(
     };
 
     let last_err = mask_err(&last_err.to_string());
-    if is_manual_trigger {
+    if is_mannual_trigger {
         handle::Handle::notice(
             NoticeStatus::UpdateFailedEvenWithClash,
             format!("{profile_name} - {last_err}"),
@@ -249,26 +233,26 @@ async fn perform_profile_update(
     bail!(last_err)
 }
 
-#[tracing::instrument(skip_all, level = "info", fields(uid = %uid, manual = is_manual_trigger))]
-pub async fn update_profile(uid: &String, option: Option<&PrfOption>, is_manual_trigger: bool) -> Result<()> {
-    let url_opt = should_update_profile(uid, is_manual_trigger).await?;
+#[tracing::instrument(skip_all, level = "info", fields(uid = %uid, manual = is_mannual_trigger))]
+pub async fn update_profile(uid: &str, option: Option<&PrfOption>, is_mannual_trigger: bool) -> Result<()> {
+    let url_opt = should_update_profile(uid, is_mannual_trigger).await?;
 
     let profile_persisted = match url_opt {
         Some((url, opt)) => {
-            perform_profile_update(uid, &url, opt.as_ref(), option, is_manual_trigger).await?;
+            perform_profile_update(uid, &url, opt.as_ref(), option, is_mannual_trigger).await?;
             true
         }
         None => false,
     };
     let profiles = Config::profiles().await;
-    let is_current = profiles.latest_arc().current.as_ref() == Some(uid);
-    let should_refresh = is_current || (!profile_persisted && is_manual_trigger);
+    let is_current = profiles.latest_arc().current.as_deref() == Some(uid);
+    let should_refresh = is_current || (!profile_persisted && is_mannual_trigger);
 
     if should_refresh {
         logging!(debug, Type::Config, "[订阅更新] 更新内核配置");
-        match CoreManager::global().update_config_with_force(is_manual_trigger).await {
+        match CoreManager::global().update_config_with_force(is_mannual_trigger).await {
             Ok(outcome) if outcome.is_valid() => announce(Refresh::Clash),
-            Ok(outcome @ (ValidationOutcome::Skipped { .. } | ValidationOutcome::Busy)) if !is_manual_trigger => {
+            Ok(outcome @ (ValidationOutcome::Skipped { .. } | ValidationOutcome::Busy)) if !is_mannual_trigger => {
                 logging!(info, Type::Config, "[订阅更新] 本次配置刷新已跳过: {}", outcome);
             }
             result => {

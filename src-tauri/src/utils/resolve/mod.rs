@@ -49,7 +49,7 @@ pub(crate) fn resolve_setup_async() {
     AsyncHandler::spawn(resolve_setup);
 }
 
-#[tracing::instrument(name = "app_setup", skip_all, level = "info")]
+#[tracing::instrument(skip_all, level = "info")]
 async fn resolve_setup() {
     logging!(info, Type::ClashVergeRev, "Version: {}", env!("CARGO_PKG_VERSION"));
 
@@ -57,26 +57,11 @@ async fn resolve_setup() {
     logging_error!(Type::Setup, init::migrate_short_update_intervals().await);
 
     #[cfg(target_os = "macos")]
-    {
-        resolve_dock_show().await;
-        // Legacy entries are not covered by the current LaunchAgent
-        // registration, so removal runs once per startup rather than only
-        // when the auto-launch setting changes.
-        crate::core::autostart::cleanup_legacy_autostart();
-    }
+    resolve_dock_show().await;
+    init_startup_script().await;
+    init_service_manager().await;
     let config_initialized = init_verge_config_before_window().await;
-
-    // Create the window as soon as the pre-window configuration is ready. Building the window
-    // hands the page to Tauri's own WebView thread, so it starts loading immediately while this
-    // task keeps running; the window itself stays hidden until `PageLoadEvent::Finished`.
     init_window().await;
-
-    // Yield to the loading WebView above: run the startup script and the service health probe
-    // alongside the page load instead of making the window wait for them. The probe must still
-    // finish before the TUN reconcile and core startup below, which read the settled service
-    // state, so both tasks are joined here rather than detached.
-    let _ = futures::join!(init_startup_script(), init_service_manager());
-
     feat::reconcile_startup_tun_availability().await;
     init_resources().await;
     if let Err(e) = init::init_dns_config().await {
@@ -90,8 +75,6 @@ async fn resolve_setup() {
     // Live before the core starts, so a service appearing mid-start is not missed.
     #[cfg(target_os = "macos")]
     crate::core::network_watch::start();
-    // Re-probe the physical underlay on network changes and apply `ipv6_mode: auto` results.
-    crate::core::ipv6::start();
 
     let core_init = AsyncHandler::spawn(|| async {
         init_core_manager().await;
@@ -206,7 +189,6 @@ async fn init_tray() {
     logging_error!(Type::Setup, Tray::global().init().await);
 }
 
-#[tracing::instrument(name = "config_init", skip_all, level = "info")]
 async fn init_verge_config() {
     logging_error!(Type::Setup, Config::init_runtime_config().await);
 }
@@ -224,7 +206,6 @@ async fn init_service_manager() {
     SERVICE_MANAGER.detect_startup_status().await;
 }
 
-#[tracing::instrument(name = "core_init", skip_all, level = "info")]
 async fn init_core_manager() -> bool {
     match CoreManager::global().init().await {
         Ok(initialized) => initialized,
@@ -241,7 +222,6 @@ async fn refresh_tray_menu() {
     logging_error!(Type::Setup, Tray::global().update_part().await);
 }
 
-#[tracing::instrument(name = "window_init", skip_all, level = "info")]
 async fn init_window() {
     let is_silent_start = Config::verge().await.data_arc().enable_silent_start.unwrap_or(false);
     WindowManager::create_window(!is_silent_start).await;

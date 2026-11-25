@@ -25,10 +25,10 @@ import {
   TooltipIcon,
 } from '@/components/base'
 import { EditorViewer } from '@/components/profile/editor-viewer'
-import { useSystemData } from '@/hooks/data'
 import { useDisplayedMixedPort } from '@/hooks/use-displayed-mixed-port'
 import { useSystemProxyState } from '@/hooks/use-system-proxy-state'
 import { useVerge } from '@/hooks/use-verge'
+import { useSystemData } from '@/providers/app-data-context'
 import {
   getEmbeddedServerPort,
   getNetworkInterfacesInfo,
@@ -575,12 +575,7 @@ export const SysproxyViewer = forwardRef<DialogRef>((props, ref) => {
             />
             <Box sx={{ padding: '0 2px 5px' }}>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {Array.from(
-                  new Set([
-                    ...splitBypass(defaultBypass()),
-                    ...splitBypass(value.bypass ?? ''),
-                  ]),
-                ).map((item) => (
+                {splitBypass(defaultBypass()).map((item) => (
                   <Chip key={item} label={item} size="small" />
                 ))}
               </Box>

@@ -2,7 +2,6 @@ use crate::core::notify::{Refresh, announce};
 use crate::{
     config::{
         Config, MixedPort,
-        runtime::IRuntime,
         snapshot::{FileSnapshot, capture_config_files, restore_files},
     },
     core::{
@@ -18,9 +17,9 @@ use crate::{
     process::AsyncHandler,
 };
 use anyhow::{Context as _, Result, anyhow, bail};
-use clash_verge_draft::{DraftTransaction, SharedDraft};
+use clash_verge_draft::DraftTransaction;
 use clash_verge_logging::{Type, logging};
-use std::{mem::DropGuard, sync::Arc};
+use std::mem::DropGuard;
 
 pub async fn probe_listener(request: ListenerProbe) -> Result<ListenerProbeOutcome> {
     AsyncHandler::spawn_blocking(move || probe_listener_sync(&request))
@@ -41,7 +40,7 @@ pub async fn save_proxy_ports(settings: ProxyPortSettings) -> Result<SaveProxyPo
     });
 
     // Read first because transaction rollback discards all claimed drafts.
-    let current = current_runtime().await?;
+    let current = current_runtime_mapping().await?;
 
     let clash = Config::clash().await;
     let verge = Config::verge().await;
@@ -64,10 +63,10 @@ pub async fn save_proxy_ports(settings: ProxyPortSettings) -> Result<SaveProxyPo
     Config::generate()
         .await
         .context("failed to generate candidate proxy port configuration")?;
-    let candidate = latest_runtime().await?;
+    let candidate = latest_runtime_mapping().await?;
 
     let was_running = !matches!(*manager.get_running_mode(), RunningMode::NotRunning);
-    let assessment = probe_proxy_ports(Arc::clone(&current), Arc::clone(&candidate), was_running).await?;
+    let assessment = probe_proxy_ports(current.clone(), candidate.clone(), was_running).await?;
     if let Some(outcome) = rejected_save_outcome(assessment)? {
         return Ok(outcome);
     }
@@ -83,7 +82,7 @@ pub async fn save_proxy_ports(settings: ProxyPortSettings) -> Result<SaveProxyPo
         bail!("candidate proxy port configuration is invalid: {validation}");
     }
 
-    let snapshots = capture_config_files(true, true, true).await?;
+    let snapshots = capture_config_files().await?;
     // Once files change, failures must restore both files and drafts.
     if let Err(error) = Config::write_runtime_file(&yaml).await {
         transaction.rollback();
@@ -141,40 +140,32 @@ fn restore_borrowed_port(previous: Option<u16>) {
     }
 }
 
-async fn current_runtime() -> Result<SharedDraft<IRuntime>> {
-    let runtime = Config::runtime().await.data_arc();
-    if runtime.config.is_none() {
-        bail!("current Runtime Configuration is unavailable");
-    }
-    Ok(runtime)
+async fn current_runtime_mapping() -> Result<serde_yaml_ng::Mapping> {
+    Config::runtime()
+        .await
+        .data_arc()
+        .config
+        .clone()
+        .ok_or_else(|| anyhow!("current Runtime Configuration is unavailable"))
 }
 
-async fn latest_runtime() -> Result<SharedDraft<IRuntime>> {
-    let runtime = Config::runtime().await.latest_arc();
-    if runtime.config.is_none() {
-        bail!("candidate Runtime Configuration is unavailable");
-    }
-    Ok(runtime)
+async fn latest_runtime_mapping() -> Result<serde_yaml_ng::Mapping> {
+    Config::runtime()
+        .await
+        .latest_arc()
+        .config
+        .clone()
+        .ok_or_else(|| anyhow!("candidate Runtime Configuration is unavailable"))
 }
 
 async fn probe_proxy_ports(
-    current: SharedDraft<IRuntime>,
-    candidate: SharedDraft<IRuntime>,
+    current: serde_yaml_ng::Mapping,
+    candidate: serde_yaml_ng::Mapping,
     current_core_is_running: bool,
 ) -> Result<ListenerProbeOutcome> {
-    AsyncHandler::spawn_blocking(move || {
-        let current = current
-            .config
-            .as_ref()
-            .ok_or_else(|| anyhow!("current Runtime Configuration is unavailable"))?;
-        let candidate = candidate
-            .config
-            .as_ref()
-            .ok_or_else(|| anyhow!("candidate Runtime Configuration is unavailable"))?;
-        Ok(probe_proxy_port_change(current, candidate, current_core_is_running))
-    })
-    .await
-    .context("proxy port probe task failed")?
+    AsyncHandler::spawn_blocking(move || probe_proxy_port_change(&current, &candidate, current_core_is_running))
+        .await
+        .context("proxy port probe task failed")
 }
 
 fn rejected_save_outcome(assessment: ListenerProbeOutcome) -> Result<Option<SaveProxyPortsOutcome>> {

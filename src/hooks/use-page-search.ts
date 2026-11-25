@@ -1,7 +1,7 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
-import { readPageFilter, writePageFilter } from '@/hooks/use-page-filter'
-import type { SearchState } from '@/utils/search-matcher'
+import type { SearchState } from '@/components/base'
+import { compileStringMatcher } from '@/utils/search-matcher'
 
 const initialSearch: SearchState = {
   text: '',
@@ -10,37 +10,29 @@ const initialSearch: SearchState = {
   useRegularExpression: false,
 }
 
-type PageKey = 'connections' | 'logs'
-
-type PageSearch = {
-  state: SearchState
-  match: (content: string) => boolean
+const searches: Record<'connections' | 'rules' | 'logs', SearchState> = {
+  connections: initialSearch,
+  rules: initialSearch,
+  logs: initialSearch,
 }
 
-const pageKey = (page: PageKey) => `page-search:${page}`
+const saveSearch = (page: keyof typeof searches, state: SearchState) => {
+  searches[page] = state
+}
 
-/**
- * Search state for the list pages, kept across unmount so a navigation
- * round-trip preserves the filter. Reuses the matcher the search box already
- * compiled instead of recompiling the same text a second time.
- */
-export const usePageSearch = (page: PageKey) => {
-  const [entry, setEntry] = useState<PageSearch>(
-    () =>
-      readPageFilter<PageSearch>(pageKey(page)) ?? {
-        state: initialSearch,
-        match: () => true,
-      },
+export const usePageSearch = (page: keyof typeof searches) => {
+  const [searchState, setSearchState] = useState(() => searches[page])
+  const match = useMemo(
+    () => compileStringMatcher(searchState.text, searchState).matcher,
+    [searchState],
   )
-
   const onSearch = useCallback(
-    (match: (content: string) => boolean, state: SearchState) => {
-      const next = { state, match }
-      writePageFilter(pageKey(page), next)
-      setEntry(next)
+    (_match: (content: string) => boolean, state: SearchState) => {
+      saveSearch(page, state)
+      setSearchState(state)
     },
     [page],
   )
 
-  return { searchState: entry.state, match: entry.match, onSearch }
+  return { searchState, match, onSearch }
 }

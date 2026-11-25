@@ -17,7 +17,6 @@ import {
   TextSnippetOutlined,
 } from '@mui/icons-material'
 import { Box, Button, Divider, Grid, IconButton, Stack } from '@mui/material'
-import { useLocation } from 'react-router'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { readText } from '@tauri-apps/plugin-clipboard-manager'
 import { readTextFile } from '@tauri-apps/plugin-fs'
@@ -25,6 +24,7 @@ import { useLockFn } from 'ahooks'
 import { throttle } from 'lodash-es'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useLocation } from 'react-router'
 import { closeAllConnections } from 'tauri-plugin-mihomo-api'
 
 import {
@@ -105,7 +105,7 @@ const ProfilePage = () => {
   )
   const currentProfileRef = useRef<string | undefined>(undefined)
   const profilePageMountedRef = useRef(true)
-  const { current } = (location.state ?? {}) as { current?: string }
+  const { current } = location.state || {}
 
   const {
     profiles = {},

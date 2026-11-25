@@ -62,14 +62,7 @@ export const SettingItem: React.FC<ItemProps> = ({
       </ListItemButton>
     </ListItem>
   ) : (
-    <ListItem
-      data-setting-target={searchTarget}
-      sx={{
-        pt: '5px',
-        pb: '5px',
-        '&:hover': { bgcolor: 'action.hover' },
-      }}
-    >
+    <ListItem data-setting-target={searchTarget} sx={{ pt: '5px', pb: '5px' }}>
       <ListItemText primary={primary} secondary={secondary} />
       {children}
     </ListItem>

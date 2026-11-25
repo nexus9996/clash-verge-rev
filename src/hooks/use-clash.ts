@@ -1,3 +1,4 @@
+import { useLockFn } from 'ahooks'
 import i18n from 'i18next'
 import { getVersion } from 'tauri-plugin-mihomo-api'
 
@@ -71,19 +72,7 @@ export const useRuntimeConfig = (shouldFetch: boolean = true) => {
     queryKey: ['getRuntimeConfig'],
     queryFn: getRuntimeConfig,
     enabled: shouldFetch,
-    // The runtime document carries the whole proxy map; a navigation burst must
-    // not re-pull it. Writers refresh it explicitly through `mutateClash`.
-    staleTime: 60_000,
   })
-}
-
-/** Core version string alone; consumers that only compare versions must not pull the runtime config. */
-export const useClashVersion = () => {
-  const { data } = useQuery({
-    queryKey: ['getVersion'],
-    queryFn: getVersion,
-  })
-  return data?.version
 }
 
 // Fault-tolerant fallback for the current proxy mode, read straight from the
@@ -115,15 +104,13 @@ export const useClash = () => {
     return Promise.resolve()
   }
 
-  // `mutate` serializes writes with the same id, so concurrent patches queue
-  // instead of being dropped by a lock.
-  const patchClash = async (patch: Partial<IConfigData>) => {
+  const patchClash = useLockFn(async (patch: Partial<IConfigData>) => {
     await mutate(() => patchClashConfig(patch), {
       id: 'patch-clash-config',
       revalidate: [['getRuntimeConfig']],
       errorNotice: false,
     })
-  }
+  })
 
   const version = versionData?.meta
     ? `${versionData.version} Mihomo`
@@ -132,7 +119,6 @@ export const useClash = () => {
   return {
     clash,
     version,
-    coreVersion: versionData?.version,
     mutateClash,
     mutateVersion,
     patchClash,
@@ -145,7 +131,7 @@ export const useClashInfo = () => {
     queryFn: getClashInfo,
   })
 
-  const patchInfo = async (patch: ClashInfoPatch) => {
+  const patchInfo = useLockFn(async (patch: ClashInfoPatch) => {
     if (!hasClashInfoPayload(patch)) return
 
     validatePorts(patch)
@@ -155,7 +141,7 @@ export const useClashInfo = () => {
       revalidate: [['getClashInfo'], ['getClashConfig']],
       errorNotice: false,
     })
-  }
+  })
 
   const invalidateClashConfig = () => revalidateQuery(['getClashConfig'])
 

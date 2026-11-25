@@ -166,10 +166,7 @@ export function parsePortOrDefault(
   port: string | undefined,
   dft: number,
 ): number {
-  if (port === undefined) return dft
-  const parsed = parsePortStrict(port)
-  if (parsed === undefined) throw new Error('Invalid port')
-  return parsed
+  return parseInteger(port) ?? dft
 }
 
 const IP_VERSIONS = [
@@ -201,7 +198,7 @@ export function normalizeHost(host: string): string {
 }
 
 const URLLIKE_RE =
-  /^(?:(?<auth>.*?)@)?(?<host>\[[^\]]+\]|[^:@/?#]+)(?::(?<port>[^/?#]*))?\/?(?:\?(?<query>.*?))?(?:#(?<fragment>.*?))?$/
+  /^(?:(?<auth>.*?)@)?(?<host>.*?)(?::(?<port>\d+))?\/?(?:\?(?<query>.*?))?(?:#(?<fragment>.*?))?$/
 
 export function parseUrlLike(
   input: string,

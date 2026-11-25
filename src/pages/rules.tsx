@@ -1,56 +1,26 @@
 import { Box } from '@mui/material'
-import {
-  useCallback,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { BaseEmpty, BasePage } from '@/components/base'
 import {
+  BaseEmpty,
+  BasePage,
+  BaseSearchBox,
   VirtualList,
   type VirtualListHandle,
-} from '@/components/base/virtual-list'
+} from '@/components/base'
 import { ScrollTopButton } from '@/components/layout/scroll-top-button'
 import { ProviderButton } from '@/components/rule/provider-button'
 import RuleItem from '@/components/rule/rule-item'
-import { RuleSearchBox } from '@/components/rule/rule-search-box'
-import { useAppRefreshers, useRulesData } from '@/hooks/data'
-import { usePageFilter } from '@/hooks/use-page-filter'
+import { usePageSearch } from '@/hooks/use-page-search'
 import { useVisibility } from '@/hooks/use-visibility'
-import {
-  getRulesExtra,
-  updateRulesDisable,
-  type RuleExtraInfo,
-} from '@/services/cmds'
-import { mutate } from '@/services/mutate'
-import { mergeRuleExtras } from '@/utils/rule-extras'
-import {
-  EMPTY_RULE_SEARCH,
-  type RuleSearchState,
-  createRuleSearchMatcher,
-} from '@/utils/rule-search'
-
-// Hit counts are secondary information; refresh often enough to stay useful
-const HIT_REFRESH_INTERVAL_MS = 15000
+import { useAppRefreshers, useRulesData } from '@/providers/app-data-context'
 
 const RulesPage = () => {
   const { t } = useTranslation()
   const { rules = [] } = useRulesData()
   const { refreshRules, refreshRuleProviders } = useAppRefreshers()
-  const [search, setSearch] = usePageFilter<RuleSearchState>(
-    'page-search:rules',
-    EMPTY_RULE_SEARCH,
-  )
-  const [ruleExtras, setRuleExtras] = useState<
-    ReadonlyMap<number, RuleExtraInfo>
-  >(() => new Map())
-  const [pendingRuleIndexes, setPendingRuleIndexes] = useState<
-    ReadonlySet<number>
-  >(() => new Set())
+  const { searchState, match, onSearch } = usePageSearch('rules')
   const virtuosoRef = useRef<VirtualListHandle>(null)
   const [showScrollTop, setShowScrollTop] = useState(false)
   const pageVisible = useVisibility()
@@ -63,69 +33,13 @@ const RulesPage = () => {
     }
   }, [refreshRules, refreshRuleProviders, pageVisible])
 
-  // Defer only the filter derivation: input state stays immediate, while a
-  // burst of keystrokes cannot block the render with a full rules scan.
-  const deferredSearch = useDeferredValue(search)
-  const searchMatcher = useMemo(
-    () => createRuleSearchMatcher(deferredSearch),
-    [deferredSearch],
-  )
-
-  const refreshExtras = useCallback(async () => {
-    try {
-      const extras = await getRulesExtra()
-      setRuleExtras((previous) => mergeRuleExtras(previous, extras))
-    } catch (error) {
-      console.warn('Failed to load rule hit information', error)
+  const filteredRules = useMemo(() => {
+    const indices: number[] = []
+    for (let i = 0; i < rules.length; i++) {
+      if (match(rules[i].payload ?? '')) indices.push(i)
     }
-  }, [])
-
-  useEffect(() => {
-    if (!pageVisible) return
-    void refreshExtras()
-    const timer = window.setInterval(
-      () => void refreshExtras(),
-      HIT_REFRESH_INTERVAL_MS,
-    )
-    return () => window.clearInterval(timer)
-  }, [pageVisible, refreshExtras])
-
-  const handleToggleRule = useCallback(
-    async (index: number, disabled: boolean) => {
-      setPendingRuleIndexes((prev) => new Set(prev).add(index))
-      try {
-        await mutate(() => updateRulesDisable([{ index, disabled }]), {
-          id: `rule-disable-${index}`,
-        })
-        await refreshExtras()
-      } catch (error) {
-        console.error('Failed to update rule state', error)
-      } finally {
-        setPendingRuleIndexes((prev) => {
-          const next = new Set(prev)
-          next.delete(index)
-          return next
-        })
-      }
-    },
-    [refreshExtras],
-  )
-
-  // Only original indexes are collected, so a keystroke no longer clones ~12k
-  // rule objects; lineNo and all lookups fall out of the index when rendering.
-  const visibleIndexes = useMemo(() => {
-    const indexes: number[] = []
-    for (let index = 0; index < rules.length; index += 1) {
-      const rule = rules[index]
-      if (searchMatcher(rule, rule.payload ?? '')) indexes.push(index)
-    }
-    return indexes
-  }, [rules, searchMatcher])
-
-  const getItemKey = useCallback(
-    (index: number) => rules[visibleIndexes[index]]?.index ?? index,
-    [rules, visibleIndexes],
-  )
+    return indices
+  }, [rules, match])
 
   const handleScroll = useCallback((e: Event) => {
     setShowScrollTop((e.target as HTMLElement).scrollTop > 100)
@@ -161,29 +75,25 @@ const RulesPage = () => {
           alignItems: 'center',
         }}
       >
-        <RuleSearchBox initialState={search} onSearch={setSearch} />
+        <BaseSearchBox
+          defaultValue={searchState.text}
+          {...searchState}
+          onSearch={onSearch}
+        />
       </Box>
 
-      {visibleIndexes.length > 0 ? (
+      {filteredRules && filteredRules.length > 0 ? (
         <>
           <VirtualList
             ref={virtuosoRef}
-            count={visibleIndexes.length}
+            count={filteredRules.length}
             estimateSize={40}
-            getItemKey={getItemKey}
-            renderItem={(i) => {
-              const ruleIndex = visibleIndexes[i]
-              const rule = rules[ruleIndex]
-              return (
-                <RuleItem
-                  value={rule}
-                  lineNo={ruleIndex + 1}
-                  extra={ruleExtras.get(rule.index)}
-                  pending={pendingRuleIndexes.has(rule.index)}
-                  onToggleDisabled={handleToggleRule}
-                />
-              )
-            }}
+            renderItem={(i) => (
+              <RuleItem
+                value={rules[filteredRules[i]]}
+                lineNo={filteredRules[i] + 1}
+              />
+            )}
             style={{ flex: 1 }}
             onScroll={handleScroll}
           />

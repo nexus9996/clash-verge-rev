@@ -17,7 +17,6 @@ use clash_verge_logging::{Type, logging};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use serde_yaml_ng::Mapping;
-use smartstring::alias::String;
 use std::num::NonZeroUsize;
 use std::{
     collections::{HashMap, HashSet},
@@ -30,6 +29,7 @@ use std::{
 };
 use tauri_plugin_mihomo::models::{Proxies, ProxyType};
 use tokio::{fs, task::JoinHandle};
+use tristr::alias::String;
 
 pub(crate) static PROFILE_WRITE_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
@@ -51,7 +51,6 @@ const SELECTED_NODES_FIRST_PASS_BUDGET: Duration = Duration::from_secs(3);
 #[derive(Default, Debug, Clone, Deserialize, Serialize, specta::Type)]
 #[serde(default)]
 pub struct IProfiles {
-    #[specta(type = Option<std::string::String>)]
     pub current: Option<String>,
 
     pub items: Option<Vec<PrfItem>>,
@@ -191,7 +190,7 @@ impl IProfiles {
                 .ok_or_else(|| anyhow::anyhow!("file field is required when file_data is provided"))?;
             let path = dirs::app_profiles_dir()?.join(file.as_str());
 
-            help::save_bytes_atomic(&path, file_data.as_bytes())
+            fs::write(&path, file_data.as_bytes())
                 .await
                 .with_context(|| format!("failed to write to file \"{file}\""))?;
         }
@@ -295,12 +294,9 @@ impl IProfiles {
 
                         let path = dirs::app_profiles_dir()?.join(file.as_str());
 
-                        if !write_profile_file_if_changed(&path, file_data.as_bytes())
+                        fs::write(&path, file_data.as_bytes())
                             .await
-                            .with_context(|| format!("failed to write to file \"{file}\""))?
-                        {
-                            logging!(debug, Type::Config, "profile content unchanged, skipping write: {file}");
-                        }
+                            .with_context(|| format!("failed to write to file \"{file}\""))?;
                     }
 
                     break;
@@ -373,7 +369,6 @@ impl IProfiles {
     }
 
     /// 获取current指向的订阅内容
-    #[tracing::instrument(name = "profile_current_mapping", skip_all, level = "debug")]
     pub async fn current_mapping(&self) -> Result<Mapping> {
         match (self.current.as_ref(), self.items.as_ref()) {
             (Some(current), Some(items)) => {
@@ -382,9 +377,7 @@ impl IProfiles {
                         Some(file) => dirs::app_profiles_dir()?.join(file.as_str()),
                         None => bail!("failed to get the file field"),
                     };
-                    return help::read_mapping_cached(&file_path)
-                        .await
-                        .map(|mapping| (*mapping).clone());
+                    return help::read_mapping(&file_path).await;
                 }
                 bail!("failed to find the current profile \"uid:{current}\"");
             }
@@ -611,7 +604,7 @@ async fn fetch_proxies_with_timeout() -> Result<Proxies> {
     .map_err(Into::into)
 }
 
-async fn select_node_with_timeout(group_name: &String, node: &String) -> Result<()> {
+async fn select_node_with_timeout(group_name: &str, node: &str) -> Result<()> {
     tokio::time::timeout(MIHOMO_OPERATION_TIMEOUT, async {
         handle::Handle::mihomo().select_node_for_group(group_name, node).await
     })
@@ -767,7 +760,7 @@ pub(crate) async fn record_selected_node(group_name: &str, node: &str) -> Result
             return Ok((profiles, false));
         };
 
-        let mut selected = item.selected.clone().unwrap_or_default();
+        let selected = item.selected.get_or_insert_with(Vec::new);
         match selected
             .iter_mut()
             .find(|entry| entry.name.as_ref() == Some(&group_name))
@@ -776,14 +769,13 @@ pub(crate) async fn record_selected_node(group_name: &str, node: &str) -> Result
                 if entry.now.as_ref() == Some(&node) {
                     return Ok((profiles, false));
                 }
-                entry.now = Some(node);
+                entry.now = Some(node.clone());
             }
             None => selected.push(PrfSelected {
                 name: Some(group_name),
                 now: Some(node),
             }),
         }
-        item.selected = Some(selected);
         profiles.save_file().await?;
         Ok((profiles, true))
     })
@@ -802,12 +794,17 @@ pub(crate) async fn forget_selected_node(group_name: &str) -> Result<()> {
             return Ok((profiles, false));
         };
 
-        let mut selected = item.selected.clone().unwrap_or_default();
+        let Some(mut selected) = item.selected.take() else {
+            return Ok((profiles, false));
+        };
         if !remove_selected_node(&mut selected, group_name) {
+            item.selected = Some(selected);
             return Ok((profiles, false));
         }
 
-        item.selected = (!selected.is_empty()).then_some(selected);
+        if !selected.is_empty() {
+            item.selected = Some(selected);
+        }
         profiles.save_file().await?;
         Ok((profiles, true))
     })
@@ -815,7 +812,7 @@ pub(crate) async fn forget_selected_node(group_name: &str) -> Result<()> {
 }
 
 async fn persist_reconciled_selected(
-    profile_uid: &String,
+    profile_uid: &str,
     original_selected: &[PrfSelected],
     selected: Vec<PrfSelected>,
     generation: u64,
@@ -824,7 +821,7 @@ async fn persist_reconciled_selected(
         return Ok(());
     }
 
-    let profile_uid = profile_uid.clone();
+    let profile_uid = String::from(profile_uid);
     let original_selected = original_selected.to_vec();
     persist_selected_update(false, move |mut profiles| async move {
         if !is_activation_current(generation) || profiles.current.as_ref() != Some(&profile_uid) {
@@ -1101,20 +1098,6 @@ fn activate_selected_nodes_with(repair: SelectionRepair) -> tokio::sync::oneshot
     *active_task = Some(handle);
     drop(active_task);
     first_pass_done
-}
-
-/// Writes profile bytes only when they differ from the file already on disk.
-///
-/// A subscription refresh that returns unchanged content must not rewrite a multi-megabyte
-/// profile or disturb its modification time.
-async fn write_profile_file_if_changed(path: &Path, bytes: &[u8]) -> Result<bool> {
-    if let Ok(existing) = fs::read(path).await
-        && existing == bytes
-    {
-        return Ok(false);
-    }
-    help::save_bytes_atomic(path, bytes).await?;
-    Ok(true)
 }
 
 #[cfg(test)]
@@ -1545,21 +1528,5 @@ mod tests {
                 ("first-group".into(), "replacement".into()),
             ]
         );
-    }
-
-    #[tokio::test]
-    async fn refreshed_profile_bytes_that_match_are_not_rewritten() -> anyhow::Result<()> {
-        let unique = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or_default(|duration| duration.as_nanos());
-        let path = std::env::temp_dir().join(format!("clash-verge-profile-write-{}-{unique}", std::process::id()));
-
-        assert!(write_profile_file_if_changed(&path, b"first").await?);
-        assert!(!write_profile_file_if_changed(&path, b"first").await?);
-        assert!(write_profile_file_if_changed(&path, b"second").await?);
-        assert_eq!(tokio::fs::read(&path).await?, b"second");
-
-        let _ = tokio::fs::remove_file(&path).await;
-        Ok(())
     }
 }

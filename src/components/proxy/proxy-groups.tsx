@@ -13,15 +13,16 @@ import {
   useState,
 } from 'react'
 
-import { BaseEmpty, BaseLoading } from '@/components/base'
 import {
+  BaseEmpty,
+  BaseLoading,
   StickyVirtualList,
   type StickyVirtualListHandle,
-} from '@/components/base/sticky-virtual-list'
-import { useProxiesData, useSystemData } from '@/hooks/data'
+} from '@/components/base'
 import { useProfiles } from '@/hooks/use-profiles'
 import { useProxySelection } from '@/hooks/use-proxy-selection'
 import { useVerge } from '@/hooks/use-verge'
+import { useProxiesData, useSystemData } from '@/providers/app-data-context'
 import delayManager from '@/services/delay'
 import {
   isInteractableMember,
@@ -181,7 +182,6 @@ function useProxyRenderState(
   return {
     verge,
     renderList,
-    proxyView,
     onProxies,
     onHeadState,
     setHeadState: setListHeadState,
@@ -257,9 +257,7 @@ function ChainProxyGroups(props: {
     count: renderList.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 56,
-    // Sticky group headers are injected by rangeExtractor, so overscan only
-    // needs to cover row measurement while scrolling.
-    overscan: 6,
+    overscan: 15,
     getItemKey: (index) => renderList[index]?.key ?? index,
     rangeExtractor,
   })
@@ -379,7 +377,6 @@ function NormalProxyGroups(props: { mode: string }) {
   const {
     verge,
     renderList,
-    proxyView,
     onProxies,
     onHeadState,
     setHeadState,
@@ -389,25 +386,58 @@ function NormalProxyGroups(props: { mode: string }) {
   } = useProxyRenderState(mode, false, null)
   const emptyList = useEmptyRenderList()
   const { onDragEnd: onHeaderDragEnd } = useProxyGroupHeaderLayout()
+  const { proxyView } = useProxiesData()
   const globalGroupName = proxyView?.global?.name
   // The revealed group sits below GLOBAL's rows, so a click must bring it into view.
   const pendingRevealRef = useRef<string | null>(null)
-  const [navigatorReady, setNavigatorReady] = useState(false)
+  const renderFirstRef = useRef(true)
+  // Do not persist intermediate positions produced while restoring virtual scroll.
+  const isRestoringRef = useRef(false)
 
-  useEffect(() => {
-    if (typeof window.requestIdleCallback === 'function') {
-      const id = window.requestIdleCallback(() => setNavigatorReady(true), {
-        timeout: 1200,
-      })
-      return () => window.cancelIdleCallback?.(id)
+  useLayoutEffect(() => {
+    if (renderList.length === 0) return
+    if (!renderFirstRef.current) return
+    const node = stickyListRef.current?.getScrollElement()
+    if (!node) return
+
+    const savedPosition = getScrollPosition()
+    if (!savedPosition) {
+      renderFirstRef.current = false
+      return
     }
-    const id = window.setTimeout(() => setNavigatorReady(true), 600)
-    return () => window.clearTimeout(id)
-  }, [])
 
-  // The virtualizer applies this offset on mount and clamps stale values as row
-  // measurements grow the scroll range, so no rAF retry loop is needed.
-  const [initialOffset] = useState(() => getScrollPosition())
+    // Retry across frames until virtual-list measurements can reach the saved offset.
+    isRestoringRef.current = true
+    let rafId = 0
+    let attempts = 0
+    const maxAttempts = 30
+
+    const step = () => {
+      const el = stickyListRef.current?.getScrollElement()
+      if (!el) {
+        isRestoringRef.current = false
+        return
+      }
+
+      el.scrollTop = savedPosition
+      attempts += 1
+
+      const reached = Math.abs(el.scrollTop - savedPosition) <= 1
+      if (reached || attempts >= maxAttempts) {
+        renderFirstRef.current = false
+        isRestoringRef.current = false
+        return
+      }
+
+      rafId = requestAnimationFrame(step)
+    }
+
+    rafId = requestAnimationFrame(step)
+    return () => {
+      cancelAnimationFrame(rafId)
+      isRestoringRef.current = false
+    }
+  }, [renderList.length, getScrollPosition])
 
   const saveScrollPositionThrottled = useMemo(
     () => throttle(saveScrollPosition, 500),
@@ -416,6 +446,7 @@ function NormalProxyGroups(props: { mode: string }) {
 
   const handleScroll = useCallback(
     (event: Event) => {
+      if (isRestoringRef.current) return
       const target = event.target as HTMLElement | null
       const nextScrollTop = target?.scrollTop ?? 0
 
@@ -438,12 +469,14 @@ function NormalProxyGroups(props: { mode: string }) {
     }
   }, [handleScroll])
 
-  const { select } = useProxySelection({
-    onError: (error) => {
+  const onSelectionError = useCallback(
+    (error: unknown) => {
       console.error('代理切换失败', error)
       onProxies()
     },
-  })
+    [onProxies],
+  )
+  const { select } = useProxySelection({ onError: onSelectionError })
 
   const handleChangeProxy = useCallback(
     (group: ProxyGroupView, member: ResolvedProxyMember) => {
@@ -506,30 +539,6 @@ function NormalProxyGroups(props: { mode: string }) {
     return Array.from(new Set(names))
   }, [renderList])
 
-  const nodeGroupsMap = useMemo(() => {
-    const visibleGroups = new Set(proxyGroupNames)
-    const map = new Map<string, string[]>()
-    for (const group of proxyView?.groups ?? []) {
-      if (!visibleGroups.has(group.name)) continue
-      for (const member of group.members) {
-        if (member.kind !== 'node') continue
-        const groups = map.get(member.name)
-        if (!groups) {
-          map.set(member.name, [group.name])
-        } else if (!groups.includes(group.name)) {
-          groups.push(group.name)
-        }
-      }
-    }
-    return map
-  }, [proxyGroupNames, proxyView?.groups])
-
-  const getGroupsContainingNode = useCallback(
-    (nodeName: string) => nodeGroupsMap.get(nodeName) ?? [],
-    [nodeGroupsMap],
-  )
-
-  // Selecting a group in GLOBAL reveals its header below GLOBAL's rows.
   useEffect(() => {
     if (mode !== 'global') {
       pendingRevealRef.current = null
@@ -562,8 +571,6 @@ function NormalProxyGroups(props: { mode: string }) {
     [renderList],
   )
 
-  // Stable per sticky-ness, so the memoised rows keep bailing out of re-render:
-  // a sticky header has to scroll its group into view before a filter edit lands.
   const onStickyHeadState = useCallback(
     async (groupName: string, patch: Partial<HeadState>) => {
       if (patch.filterText !== undefined) {
@@ -585,19 +592,15 @@ function NormalProxyGroups(props: { mode: string }) {
         onHeadState={stickyed ? onStickyHeadState : onHeadState}
         onChangeProxy={handleChangeProxy}
         onGroupToggle={handleGroupToggle}
-        getGroupsContainingNode={getGroupsContainingNode}
-        onGroupLocation={handleGroupLocationByName}
       />
     ),
     [
       handleChangeProxy,
       handleCheckAll,
       onHeadState,
-      onStickyHeadState,
       handleLocation,
       handleGroupToggle,
-      handleGroupLocationByName,
-      getGroupsContainingNode,
+      onStickyHeadState,
     ],
   )
 
@@ -610,18 +613,9 @@ function NormalProxyGroups(props: { mode: string }) {
         onCheckAll={handleCheckAll}
         onHeadState={onHeadState}
         onChangeProxy={handleChangeProxy}
-        getGroupsContainingNode={getGroupsContainingNode}
-        onGroupLocation={handleGroupLocationByName}
       />
     ),
-    [
-      handleChangeProxy,
-      handleCheckAll,
-      onHeadState,
-      handleLocation,
-      handleGroupLocationByName,
-      getGroupsContainingNode,
-    ],
+    [handleChangeProxy, handleCheckAll, onHeadState, handleLocation],
   )
 
   if (!hasRenderableItems(renderList)) return emptyList
@@ -634,8 +628,6 @@ function NormalProxyGroups(props: { mode: string }) {
       >
         <StickyVirtualList
           ref={stickyListRef}
-          initialOffset={initialOffset}
-          overscan={1}
           items={renderList}
           isGroupItem={(item) => item.type === 0}
           getItemKey={(item) => item.key}
@@ -646,7 +638,7 @@ function NormalProxyGroups(props: { mode: string }) {
         />
       </DragDropProvider>
 
-      {mode === 'rule' && navigatorReady && (
+      {mode === 'rule' && (
         <ProxyGroupNavigator
           proxyGroupNames={proxyGroupNames}
           onGroupLocation={handleGroupLocationByName}

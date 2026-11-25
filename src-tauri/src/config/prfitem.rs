@@ -2,19 +2,18 @@ use super::patch_opt_field;
 
 use crate::{
     config::profiles,
-    process::AsyncHandler,
     utils::{
         dirs, help,
         network::{NetworkManager, ProxyType},
         tmpl,
     },
 };
-use anyhow::{Context as _, Result, anyhow, bail};
+use anyhow::{Context as _, Result, bail};
 use serde::{Deserialize, Serialize};
 use serde_yaml_ng::Mapping;
-use smartstring::alias::String;
 use std::time::Duration;
 use tokio::fs;
+use tristr::alias::String;
 // TODO, use other re-export
 use reqwest_dav::re_exports::url::form_urlencoded;
 use tauri::Url;
@@ -27,30 +26,24 @@ pub(super) fn normalize_profile_home_url(raw: &str) -> Option<String> {
     }
 
     url.host_str()?;
-    Some(url.to_string().into())
+    Some(url.as_str().into())
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default, specta::Type)]
 #[serde(default)]
 pub struct PrfItem {
-    #[specta(type = Option<std::string::String>)]
     pub uid: Option<String>,
 
     /// enum value: remote | local | script | merge
     #[serde(rename = "type")]
-    #[specta(type = Option<std::string::String>)]
     pub itype: Option<String>,
-    #[specta(type = Option<std::string::String>)]
     pub name: Option<String>,
-    #[specta(type = Option<std::string::String>)]
     pub file: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[specta(type = Option<std::string::String>)]
     pub desc: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[specta(type = Option<std::string::String>)]
     pub url: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -65,25 +58,16 @@ pub struct PrfItem {
     pub option: Option<PrfOption>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[specta(type = Option<std::string::String>)]
     pub home: Option<String>,
 
-    /// Ordered proxy chain intent (entry first), persisted per profile. See ADR-0005.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[specta(type = Option<Vec<std::string::String>>)]
-    pub proxy_chain: Option<Vec<String>>,
-
     #[serde(skip)]
-    #[specta(type = Option<std::string::String>)]
     pub file_data: Option<String>,
 }
 
 #[derive(Default, Debug, Clone, Deserialize, Serialize, PartialEq, Eq, specta::Type)]
 #[serde(default)]
 pub struct PrfSelected {
-    #[specta(type = Option<std::string::String>)]
     pub name: Option<String>,
-    #[specta(type = Option<std::string::String>)]
     pub now: Option<String>,
 }
 
@@ -99,7 +83,6 @@ pub struct PrfExtra {
 #[serde(default)]
 pub struct PrfOption {
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[specta(type = Option<std::string::String>)]
     pub user_agent: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -122,15 +105,10 @@ pub struct PrfOption {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub allow_auto_update: Option<bool>,
-    #[specta(type = Option<std::string::String>)]
     pub merge: Option<String>,
-    #[specta(type = Option<std::string::String>)]
     pub script: Option<String>,
-    #[specta(type = Option<std::string::String>)]
     pub rules: Option<String>,
-    #[specta(type = Option<std::string::String>)]
     pub proxies: Option<String>,
-    #[specta(type = Option<std::string::String>)]
     pub groups: Option<String>,
 }
 
@@ -256,7 +234,6 @@ impl PrfItem {
                 ..PrfOption::default()
             }),
             home: None,
-            proxy_chain: None,
             updated: Some(chrono::Local::now().timestamp() as usize),
             file_data: Some(file_data.unwrap_or_else(|| tmpl::ITEM_LOCAL.into())),
         })
@@ -386,23 +363,11 @@ impl PrfItem {
 
         let data = data.trim_start_matches('\u{feff}');
 
-        // A subscription body can be multi-megabyte and the check below only
-        // needs two top-level keys, so the parse runs on a blocking worker; the
-        // owned text travels through the task so `file_data` does not copy it again.
-        let data: String = data.into();
-        let data = AsyncHandler::spawn_blocking(move || {
-            let yaml =
-                serde_yaml_ng::from_str::<Mapping>(data.as_str()).context("the remote profile data is invalid yaml")?;
+        let yaml = serde_yaml_ng::from_str::<Mapping>(data).context("the remote profile data is invalid yaml")?;
 
-            if !yaml.contains_key("proxies") && !yaml.contains_key("proxy-providers") {
-                bail!("profile does not contain `proxies` or `proxy-providers`");
-            }
-
-            drop(yaml);
-            Ok::<_, anyhow::Error>(data)
-        })
-        .await
-        .map_err(|join| anyhow!("profile parse task failed: {join}"))??;
+        if !yaml.contains_key("proxies") && !yaml.contains_key("proxy-providers") {
+            bail!("profile does not contain `proxies` or `proxy-providers`");
+        }
 
         Self::ensure_companion_items(&mut merge, &mut script, &mut rules, &mut proxies, &mut groups).await?;
 
@@ -426,9 +391,8 @@ impl PrfItem {
                 ..PrfOption::default()
             }),
             home,
-            proxy_chain: None,
             updated: Some(chrono::Local::now().timestamp() as usize),
-            file_data: Some(data),
+            file_data: Some(data.into()),
         })
     }
 

@@ -15,8 +15,8 @@ import { forwardRef, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BaseDialog } from '@/components/base'
-import { useProxiesData } from '@/hooks/data'
 import { useClash } from '@/hooks/use-clash'
+import { useProxiesData } from '@/providers/app-data-context'
 import { probeListener, type ListenerTransport } from '@/services/cmds'
 import { showNotice } from '@/services/notice-service'
 import {
@@ -27,8 +27,12 @@ import {
   type ProxyMemberOccurrenceBinding,
   type ResolvedProxyMember,
 } from '@/types/proxy-view'
-import { formatHostPort, isValidPort, normalizeHost } from '@/utils/network'
-import { normalizeListenHost } from '@/utils/network-cidr'
+import {
+  formatHostPort,
+  isValidPort,
+  normalizeHost,
+  normalizeListenHost,
+} from '@/utils/network'
 
 import { useSettingDialog } from '../settings-search-context'
 

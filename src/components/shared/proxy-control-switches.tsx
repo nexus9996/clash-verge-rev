@@ -7,31 +7,18 @@ import {
 } from '@mui/icons-material'
 import { Box, Typography, alpha, useTheme } from '@mui/material'
 import { useLockFn } from 'ahooks'
-import { lazy, Suspense, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import type { DialogRef } from '@/components/base/base-dialog'
-import { Switch } from '@/components/base/base-switch'
-import { TooltipIcon } from '@/components/base/base-tooltip-icon'
+import { type DialogRef, Switch, TooltipIcon } from '@/components/base'
+import { SysproxyViewer } from '@/components/setting/mods/sysproxy-viewer'
+import { TunViewer } from '@/components/setting/mods/tun-viewer'
 import { useServiceUninstaller } from '@/hooks/use-service-uninstaller'
 import { useSystemProxyState } from '@/hooks/use-system-proxy-state'
 import { useSystemState } from '@/hooks/use-system-state'
 import { useVerge } from '@/hooks/use-verge'
 import { showNotice } from '@/services/notice-service'
 import { requestService } from '@/services/service-request'
-
-// Settings dialogs are opened from refs, so they can load after first paint
-// instead of pulling the whole settings editor into the initial bundle.
-const LazySysproxyViewer = lazy(() =>
-  import('@/components/setting/mods/sysproxy-viewer').then((module) => ({
-    default: module.SysproxyViewer,
-  })),
-)
-const LazyTunViewer = lazy(() =>
-  import('@/components/setting/mods/tun-viewer').then((module) => ({
-    default: module.TunViewer,
-  })),
-)
 
 interface ProxySwitchProps {
   label?: string
@@ -243,16 +230,8 @@ const ProxyControlSwitches = ({
         />
       )}
 
-      {isSystemProxyMode && (
-        <Suspense fallback={null}>
-          <LazySysproxyViewer ref={sysproxyRef} />
-        </Suspense>
-      )}
-      {isTunMode && (
-        <Suspense fallback={null}>
-          <LazyTunViewer ref={tunRef} />
-        </Suspense>
-      )}
+      {isSystemProxyMode && <SysproxyViewer ref={sysproxyRef} />}
+      {isTunMode && <TunViewer ref={tunRef} />}
     </Box>
   )
 }

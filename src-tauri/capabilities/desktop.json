@@ -9,6 +9,7 @@
     "dialog:default",
     "dialog:allow-ask",
     "dialog:allow-message",
+    "updater:default",
     "updater:allow-check",
     "updater:allow-download-and-install",
     "deep-link:default",
@@ -19,6 +20,12 @@
     "core:window:allow-set-background-color",
     "core:webview:allow-set-webview-background-color",
     "notification:default",
+    "http:default",
+    "http:allow-fetch",
+    {
+      "identifier": "http:default",
+      "allow": [{ "url": "https://*/*" }, { "url": "http://*/*" }]
+    },
     "mihomo:default"
   ]
 }
