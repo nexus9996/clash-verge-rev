@@ -13,16 +13,19 @@ import {
   useState,
 } from 'react'
 
-import { BaseEmpty, BaseLoading } from '@/components/base'
 import {
+  BaseEmpty,
+  BaseLoading,
   StickyVirtualList,
   type StickyVirtualListHandle,
-} from '@/components/base/sticky-virtual-list'
-import { useProxiesData, useSystemData } from '@/hooks/data'
+} from '@/components/base'
 import { useProfiles } from '@/hooks/use-profiles'
 import { useProxySelection } from '@/hooks/use-proxy-selection'
 import { useVerge } from '@/hooks/use-verge'
+import { useProxiesData, useSystemData } from '@/providers/app-data-context'
+import { syncTrayProxySelection } from '@/services/cmds'
 import delayManager from '@/services/delay'
+import { mutate } from '@/services/mutate'
 import {
   isInteractableMember,
   resolveMember,
@@ -68,7 +71,6 @@ interface Props {
   mode: string
   isChainMode?: boolean
   chainConfigData?: string | null
-  onExitChainMode: () => void
 }
 
 function useEmptyRenderList() {
@@ -142,6 +144,12 @@ function useProxyRenderState(
         console.error(`[ProxyGroups] 延迟测试出错，组: ${groupName}`, error)
       } finally {
         onProxies()
+        mutate(() => syncTrayProxySelection(), {
+          id: 'sync-tray-selection',
+          errorNotice: false,
+        }).catch((error) => {
+          console.error('[ProxyGroups] Failed to sync tray latency:', error)
+        })
       }
     }),
   )
@@ -192,9 +200,8 @@ function useProxyRenderState(
 function ChainProxyGroups(props: {
   mode: string
   chainConfigData?: string | null
-  onExitChainMode: () => void
 }) {
-  const { mode, chainConfigData, onExitChainMode } = props
+  const { mode, chainConfigData } = props
   const { proxyView } = useProxiesData()
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
 
@@ -349,7 +356,6 @@ function ChainProxyGroups(props: {
       <ProxyGroupsChain
         mode={mode}
         chainConfigData={chainConfigData}
-        onExitChainMode={onExitChainMode}
         availableGroups={availableGroups}
         activeSelectedGroup={activeSelectedGroup}
         showScrollTop={showScrollTop}
@@ -384,22 +390,54 @@ function NormalProxyGroups(props: { mode: string }) {
   } = useProxyRenderState(mode, false, null)
   const emptyList = useEmptyRenderList()
   const { onDragEnd: onHeaderDragEnd } = useProxyGroupHeaderLayout()
-  const [navigatorReady, setNavigatorReady] = useState(false)
+  const renderFirstRef = useRef(true)
+  // Do not persist intermediate positions produced while restoring virtual scroll.
+  const isRestoringRef = useRef(false)
 
-  useEffect(() => {
-    if (typeof window.requestIdleCallback === 'function') {
-      const id = window.requestIdleCallback(() => setNavigatorReady(true), {
-        timeout: 1200,
-      })
-      return () => window.cancelIdleCallback?.(id)
+  useLayoutEffect(() => {
+    if (renderList.length === 0) return
+    if (!renderFirstRef.current) return
+    const node = stickyListRef.current?.getScrollElement()
+    if (!node) return
+
+    const savedPosition = getScrollPosition()
+    if (!savedPosition) {
+      renderFirstRef.current = false
+      return
     }
-    const id = window.setTimeout(() => setNavigatorReady(true), 600)
-    return () => window.clearTimeout(id)
-  }, [])
 
-  // The virtualizer applies this offset on mount and clamps stale values as row
-  // measurements grow the scroll range, so no rAF retry loop is needed.
-  const [initialOffset] = useState(() => getScrollPosition())
+    // Retry across frames until virtual-list measurements can reach the saved offset.
+    isRestoringRef.current = true
+    let rafId = 0
+    let attempts = 0
+    const maxAttempts = 30
+
+    const step = () => {
+      const el = stickyListRef.current?.getScrollElement()
+      if (!el) {
+        isRestoringRef.current = false
+        return
+      }
+
+      el.scrollTop = savedPosition
+      attempts += 1
+
+      const reached = Math.abs(el.scrollTop - savedPosition) <= 1
+      if (reached || attempts >= maxAttempts) {
+        renderFirstRef.current = false
+        isRestoringRef.current = false
+        return
+      }
+
+      rafId = requestAnimationFrame(step)
+    }
+
+    rafId = requestAnimationFrame(step)
+    return () => {
+      cancelAnimationFrame(rafId)
+      isRestoringRef.current = false
+    }
+  }, [renderList.length, getScrollPosition])
 
   const saveScrollPositionThrottled = useMemo(
     () => throttle(saveScrollPosition, 500),
@@ -408,6 +446,7 @@ function NormalProxyGroups(props: { mode: string }) {
 
   const handleScroll = useCallback(
     (event: Event) => {
+      if (isRestoringRef.current) return
       const target = event.target as HTMLElement | null
       const nextScrollTop = target?.scrollTop ?? 0
 
@@ -601,8 +640,6 @@ function NormalProxyGroups(props: { mode: string }) {
       >
         <StickyVirtualList
           ref={stickyListRef}
-          initialOffset={initialOffset}
-          overscan={1}
           items={renderList}
           isGroupItem={(item) => item.type === 0}
           getItemKey={(item) => item.key}
@@ -613,7 +650,7 @@ function NormalProxyGroups(props: { mode: string }) {
         />
       </DragDropProvider>
 
-      {mode === 'rule' && navigatorReady && (
+      {mode === 'rule' && (
         <ProxyGroupNavigator
           proxyGroupNames={proxyGroupNames}
           onGroupLocation={handleGroupLocationByName}
@@ -626,7 +663,7 @@ function NormalProxyGroups(props: { mode: string }) {
 }
 
 export const ProxyGroups = (props: Props) => {
-  const { mode, isChainMode = false, chainConfigData, onExitChainMode } = props
+  const { mode, isChainMode = false, chainConfigData } = props
   const { profiles, isLoading: isProfilesLoading } = useProfiles()
   const { isProxyViewPending } = useProxiesData()
   const { isRunningModePending } = useSystemData()
@@ -648,11 +685,7 @@ export const ProxyGroups = (props: Props) => {
       return <ProxyEmptyState reason={listState.reason} />
     case 'render':
       return isChainMode ? (
-        <ChainProxyGroups
-          mode={mode}
-          chainConfigData={chainConfigData}
-          onExitChainMode={onExitChainMode}
-        />
+        <ChainProxyGroups mode={mode} chainConfigData={chainConfigData} />
       ) : (
         <NormalProxyGroups mode={mode} />
       )
