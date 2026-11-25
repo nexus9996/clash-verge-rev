@@ -12,10 +12,11 @@ import {
   SortRounded,
 } from '@mui/icons-material'
 import { Box, IconButton, TextField, type SxProps } from '@mui/material'
+import { useDebounceFn } from 'ahooks'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { BaseSearchBox } from '@/components/base'
+import { BaseSearchBox, type SearchState } from '@/components/base'
 import { useVerge } from '@/hooks/use-verge'
 import delayManager from '@/services/delay'
 import { showNotice } from '@/services/notice-service'
@@ -60,6 +61,26 @@ export const ProxyHead = ({
 
   const { t } = useTranslation()
   const [autoFocus, setAutoFocus] = useState(false)
+
+  // Filtering re-renders every proxy in the GLOBAL group, so writes to the
+  // head state are debounced while the local input stays responsive.
+  const { run: applyFilter, flush: flushFilter } = useDebounceFn(
+    (state: SearchState) => {
+      onHeadState({
+        filterText: state.text,
+        filterMatchCase: state.matchCase,
+        filterMatchWholeWord: state.matchWholeWord,
+        filterUseRegularExpression: state.useRegularExpression,
+      })
+    },
+    { wait: 600 },
+  )
+
+  // Apply the last keystroke when the filter box closes or unmounts.
+  useEffect(() => {
+    if (textState !== 'filter') flushFilter()
+  }, [textState, flushFilter])
+  useEffect(() => () => flushFilter(), [flushFilter])
 
   useEffect(() => {
     // fix the focus conflict
@@ -169,20 +190,13 @@ export const ProxyHead = ({
         <Box sx={{ ml: 0.5, flex: '1 1 auto' }}>
           <BaseSearchBox
             autoFocus={autoFocus}
-            value={filterText}
+            defaultValue={filterText}
             searchState={{
               matchCase: filterMatchCase,
               matchWholeWord: filterMatchWholeWord,
               useRegularExpression: filterUseRegularExpression,
             }}
-            onSearch={(_, state) =>
-              onHeadState({
-                filterText: state.text,
-                filterMatchCase: state.matchCase,
-                filterMatchWholeWord: state.matchWholeWord,
-                filterUseRegularExpression: state.useRegularExpression,
-              })
-            }
+            onSearch={(_, state) => applyFilter(state)}
           />
         </Box>
       )}

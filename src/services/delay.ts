@@ -277,7 +277,7 @@ class DelayManager {
     }
 
     if (details?.history && details.history.length > 0) {
-      return details.history[details.history.length - 1].delay || 1e6
+      return details.history[details.history.length - 1].delay ?? 1e6
     }
     return -1
   }
