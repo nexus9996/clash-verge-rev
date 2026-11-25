@@ -18,6 +18,7 @@ const results = await eslint.lintFiles(['src'])
 const boundaryRules = new Set([
   'no-restricted-imports',
   'no-restricted-syntax',
+  'import-x/no-restricted-paths',
   '@typescript-eslint/no-floating-promises',
 ])
 const violations = results.flatMap((result) =>

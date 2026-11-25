@@ -22,7 +22,7 @@ import {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { useProxiesData } from '@/providers/app-data-context'
+import { useProxiesData } from '@/hooks/data'
 import { updateProxyChainConfigInRuntime } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import {

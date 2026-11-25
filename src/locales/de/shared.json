@@ -46,7 +46,8 @@
     "disabled": "Deaktiviert",
     "saving": "Wird gespeichert...",
     "empty": "Leer",
-    "loading": "Wird geladen..."
+    "loading": "Wird geladen...",
+    "pageNotFound": "Seite nicht gefunden"
   },
   "units": {
     "milliseconds": "Millisekunden",
@@ -135,5 +136,14 @@
       "warn": "WARN",
       "error": "ERROR"
     }
+  },
+  "search": {
+    "content": "Inhalt",
+    "domain": "Domain",
+    "cidr": "CIDR",
+    "contentPlaceholder": "Regeln durchsuchen",
+    "domainPlaceholder": "Domain, URL oder Schlüsselwort suchen",
+    "cidrPlaceholder": "IP oder CIDR suchen",
+    "action": "Suchen"
   }
 }

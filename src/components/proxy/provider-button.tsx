@@ -22,7 +22,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { updateProxyProvider } from 'tauri-plugin-mihomo-api'
 
-import { useAppRefreshers, useProxiesData } from '@/providers/app-data-context'
+import { useAppRefreshers, useProxiesData } from '@/hooks/data'
 import { syncRuntimeProviders } from '@/services/cmds'
 import { mutate } from '@/services/mutate'
 import { showNotice } from '@/services/notice-service'

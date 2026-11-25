@@ -11,17 +11,29 @@ import {
   type ResolvedProxyMember,
 } from '@/types/proxy-view'
 
+import { ProxyGroupJump } from './proxy-group-jump'
+
 interface Props {
   group: ProxyGroupView
   member: ResolvedProxyMember
   selected: boolean
   showType?: boolean
+  groupNames?: readonly string[]
+  onGroupLocation?: (groupName: string) => void
   onClick?: (member: ResolvedProxyMember) => void
 }
 
 // 多列布局
 export const ProxyItemMini = (props: Props) => {
-  const { group, member, selected, showType = true, onClick } = props
+  const {
+    group,
+    member,
+    selected,
+    showType = true,
+    groupNames,
+    onGroupLocation,
+    onClick,
+  } = props
   const details = memberDetails(member)
   const unresolved = member.kind === 'unresolved'
   const name = member.ref.name
@@ -82,20 +94,26 @@ export const ProxyItemMini = (props: Props) => {
       ]}
     >
       <Box title={`${name}\n${now ?? ''}`} sx={{ overflow: 'hidden' }}>
-        <Typography
-          variant="body2"
-          component="div"
-          color="text.primary"
-          sx={{
-            display: 'block',
-            textOverflow: 'ellipsis',
-            wordBreak: 'break-all',
-            overflow: 'hidden',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {name}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+          <ProxyGroupJump
+            groups={groupNames ?? []}
+            onGroupLocation={onGroupLocation}
+          />
+          <Typography
+            variant="body2"
+            component="div"
+            color="text.primary"
+            sx={{
+              display: 'block',
+              textOverflow: 'ellipsis',
+              wordBreak: 'break-all',
+              overflow: 'hidden',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {name}
+          </Typography>
+        </Box>
 
         {showType && (
           <Box

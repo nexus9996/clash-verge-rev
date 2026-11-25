@@ -4,12 +4,19 @@ import legacy from '@vitejs/plugin-legacy'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import svgr from 'vite-plugin-svgr'
+import { tanstackRouter } from '@tanstack/router-plugin/vite'
 
 export default defineConfig({
   root: 'src',
   server: { port: 3000 },
   plugins: [
     svgr(),
+    tanstackRouter({
+      target: 'react',
+      autoCodeSplitting: true,
+      routesDirectory: path.resolve('./src/routes'),
+      generatedRouteTree: path.resolve('./src/routeTree.gen.ts'),
+    }),
     react(),
     legacy({
       modernTargets: ['edge>=109', 'safari>=14'],

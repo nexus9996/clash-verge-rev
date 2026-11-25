@@ -15,7 +15,6 @@ import {
   WindowResizeHandles,
 } from '@/components/layout/window-controller'
 import { resolveNavigationPath } from '@/config/navigation'
-import { resolveModeSurfaces } from '@/config/theme'
 import {
   useCustomTheme,
   useLoadingOverlay,
@@ -86,18 +85,17 @@ const Layout = () => {
   }, [language, switchLanguage])
 
   if (!themeReady) {
-    const loadingSurfaces = resolveModeSurfaces(mode)
     return (
       <div
         style={{
           width: '100vw',
           height: '100vh',
-          background: loadingSurfaces.loadingBackground,
+          background: mode === 'light' ? '#fff' : '#181a1b',
           transition: 'background 0.2s',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: loadingSurfaces.loadingText,
+          color: mode === 'light' ? '#333' : '#fff',
         }}
       ></div>
     )

@@ -63,9 +63,9 @@ function parseNameserverPolicy(str: string): NameserverPolicy {
   if (!str) return result
 
   const ruleRegex = /\s*([^=]+?)\s*=\s*([^,]+)(?:,|$)/g
-  const matchs = [...str.matchAll(ruleRegex)]
+  const matches = [...str.matchAll(ruleRegex)]
 
-  matchs.forEach((match) => {
+  matches.forEach((match) => {
     const [, domainsPart, serversPart] = match
 
     const domains = [domainsPart.trim()]

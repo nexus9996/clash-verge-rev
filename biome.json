@@ -37,6 +37,7 @@
       "!node_modules",
       "!src-tauri/target",
       "!src-tauri/gen",
+      "!src/routeTree.gen.ts",
       "!target",
       "!Cargo.lock",
       "!pnpm-lock.yaml",

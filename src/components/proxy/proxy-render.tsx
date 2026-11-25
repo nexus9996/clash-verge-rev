@@ -13,7 +13,7 @@ import {
   Chip,
   Tooltip,
 } from '@mui/material'
-import { memo, useId, useMemo } from 'react'
+import { memo, useCallback, useId, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useIconCache } from '@/hooks/use-icon-cache'
@@ -41,6 +41,8 @@ interface RenderProps {
     member: ResolvedProxyMember,
   ) => void
   onGroupToggle?: (group: IRenderItem['group']) => void
+  getGroupsContainingNode?: (nodeName: string) => readonly string[]
+  onGroupLocation?: (groupName: string) => void
 }
 
 export const ProxyRender = memo(function ProxyRender(props: RenderProps) {
@@ -53,6 +55,8 @@ export const ProxyRender = memo(function ProxyRender(props: RenderProps) {
     onHeadState,
     onChangeProxy,
     onGroupToggle,
+    getGroupsContainingNode,
+    onGroupLocation,
     isChainMode: _ = false,
   } = props
   const { type, group, headState, member, memberCol } = item
@@ -70,6 +74,16 @@ export const ProxyRender = memo(function ProxyRender(props: RenderProps) {
   })
 
   const showType = headState?.showType
+  const groupsOfMember = useCallback(
+    (current: ResolvedProxyMember) =>
+      current.kind === 'node'
+        ? (getGroupsContainingNode?.(current.ref.name) ?? []).filter(
+            (groupName) => groupName !== group.name,
+          )
+        : [],
+    [getGroupsContainingNode, group.name],
+  )
+
   const memberColItemsMemo = useMemo(() => {
     if (type !== 4 || !memberCol) {
       return null
@@ -82,10 +96,21 @@ export const ProxyRender = memo(function ProxyRender(props: RenderProps) {
         member={occurrence.member}
         selected={group.now === occurrence.member.ref.name}
         showType={showType}
+        groupNames={groupsOfMember(occurrence.member)}
+        onGroupLocation={onGroupLocation}
         onClick={(nextMember) => onChangeProxy(group, nextMember)}
       />
     ))
-  }, [type, memberCol, item.key, group, showType, onChangeProxy])
+  }, [
+    type,
+    memberCol,
+    item.key,
+    group,
+    showType,
+    onChangeProxy,
+    groupsOfMember,
+    onGroupLocation,
+  ])
 
   if (type === 0) {
     const nameBlock = (
@@ -264,6 +289,8 @@ export const ProxyRender = memo(function ProxyRender(props: RenderProps) {
         member={member!.member}
         selected={group.now === member?.member.ref.name}
         showType={headState?.showType}
+        groupNames={groupsOfMember(member!.member)}
+        onGroupLocation={onGroupLocation}
         sx={{ py: 0, pl: 2 }}
         onClick={(nextMember) => onChangeProxy(group, nextMember)}
       />

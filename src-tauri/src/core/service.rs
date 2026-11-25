@@ -708,6 +708,7 @@ fn uninstall_service() -> Result<()> {
     // clash_verge_i18n::sync_locale(Config::verge().await.latest_arc().language.as_deref());
 
     let prompt = clash_verge_i18n::t!("service.adminUninstallPrompt");
+    let prompt = escape_osascript_double_quoted_string(&prompt);
     let uninstall_quoted = shell_single_quote(&uninstall_shell);
     let shell = format!("cd /; {uninstall_quoted}");
     let shell = escape_osascript_double_quoted_string(&shell);
@@ -2084,6 +2085,8 @@ pub static SERVICE_MANAGER: ServiceManager = ServiceManager;
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic, reason = "tests assert by panicking")]
 mod tests {
+    #[cfg(target_os = "macos")]
+    use super::escape_osascript_double_quoted_string;
     use super::{
         ServiceHealth, ServiceStatus, capture_generation_before, claim_owner_recovery_generation,
         generate_service_session_token, mark_service_unavailable_after_owner_loss, owner_recovery_policy,
@@ -2100,6 +2103,12 @@ mod tests {
         path::{Path, PathBuf},
         sync::atomic::{AtomicU64, Ordering},
     };
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn osascript_escaping_covers_quotes_and_backslashes() {
+        assert_eq!(escape_osascript_double_quoted_string(r#"a "b" \ c"#), r#"a \"b\" \\ c"#);
+    }
 
     /// A Run State backed by a scripted environment, so these tests never touch the global.
     fn fake_store() -> RunStateStore<FakeEnv> {

@@ -40,6 +40,202 @@ pub struct CoreUpgradeReport {
     pub upgraded: bool,
 }
 
+const RELEASE_INDEX_URL: &str = "https://api.github.com/repos/MetaCubeX/mihomo/releases?per_page=30";
+const INDEX_TIMEOUT_SECS: u64 = 20;
+/// The release index is far smaller than this; reject an oversized or wrong response early.
+const MAX_INDEX_BYTES: usize = 2 * 1024 * 1024;
+const MAX_INDEX_VERSIONS: usize = 30;
+/// Unauthenticated GitHub API requests are rejected without a user agent.
+const RELEASE_INDEX_USER_AGENT: &str = "clash-verge-rev";
+
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CoreVersionInfo {
+    pub version: std::string::String,
+    pub published_at: Option<std::string::String>,
+}
+
+#[derive(Debug, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct CoreVersionCatalog {
+    /// Release channel of the managed core: `stable` or `alpha`.
+    pub channel: std::string::String,
+    pub installed: Option<std::string::String>,
+    pub versions: Vec<CoreVersionInfo>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct GithubRelease {
+    tag_name: std::string::String,
+    prerelease: bool,
+    published_at: Option<std::string::String>,
+    assets: Vec<GithubAsset>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct GithubAsset {
+    name: std::string::String,
+}
+
+/// Lists the versions installable for the managed core's channel, newest first.
+pub async fn get_core_versions() -> Result<CoreVersionCatalog> {
+    let core = Config::verge().await.latest_arc().get_valid_clash_core();
+    let alpha = core.ends_with("-alpha");
+    let target = managed_core_path(&core)?;
+    let installed = read_core_version(&target).ok();
+
+    let versions = if alpha {
+        let (_, latest) = resolve_latest_version(true).await?;
+        vec![CoreVersionInfo {
+            version: latest,
+            published_at: None,
+        }]
+    } else {
+        let releases = fetch_release_index().await?;
+        installable_release_versions(&releases)?
+    };
+
+    if versions.is_empty() {
+        bail!("no installable mihomo versions were found for this platform");
+    }
+
+    Ok(CoreVersionCatalog {
+        channel: if alpha { "alpha".to_owned() } else { "stable".to_owned() },
+        installed,
+        versions,
+    })
+}
+
+/// Installs an explicit core version through the same stage/publish/rollback path as an upgrade.
+pub async fn install_core_version(version: std::string::String) -> Result<CoreUpgradeReport> {
+    let _serialized = UPGRADE_LOCK.lock().await;
+    let core = Config::verge().await.latest_arc().get_valid_clash_core();
+    tracing::Span::current().record("core", tracing::field::display(&core));
+    let alpha = core.ends_with("-alpha");
+    if !usable_channel_version(alpha, &version) {
+        bail!("version {version:?} is not installable for the selected core channel");
+    }
+
+    let target = managed_core_path(&core)?;
+    let installed = read_core_version(&target).unwrap_or_default();
+    tracing::Span::current().record("from", tracing::field::display(&installed));
+
+    if installed == version {
+        return Ok(CoreUpgradeReport { upgraded: false });
+    }
+
+    let (proxy, package) = download_package_from_any_proxy(alpha, &version).await?;
+    logging!(
+        info,
+        Type::Core,
+        "core install: package for {version} downloaded via {proxy:?}"
+    );
+    install_managed_core(&core, &target, package, &version, &installed).await
+}
+
+/// The core variant decides the channel: releasing a stable tag onto an alpha core would
+/// break the next alpha upgrade, and an alpha build cannot pass the stable package URL.
+fn usable_channel_version(alpha: bool, version: &str) -> bool {
+    is_usable_version(version) && version.starts_with("alpha-") == alpha
+}
+
+fn expected_asset_name(alpha: bool, version: &str) -> Result<std::string::String> {
+    let asset = asset_base_name(alpha)?;
+    let extension = if cfg!(windows) { "zip" } else { "gz" };
+    Ok(format!("{asset}-{version}.{extension}"))
+}
+
+fn installable_release_versions(releases: &[GithubRelease]) -> Result<Vec<CoreVersionInfo>> {
+    let mut versions = Vec::new();
+    for release in releases {
+        if release.prerelease || !is_usable_version(&release.tag_name) {
+            continue;
+        }
+        let expected = expected_asset_name(false, &release.tag_name)?;
+        if !release.assets.iter().any(|asset| asset.name == expected) {
+            continue;
+        }
+        versions.push(CoreVersionInfo {
+            version: release.tag_name.clone(),
+            published_at: release.published_at.clone(),
+        });
+        if versions.len() >= MAX_INDEX_VERSIONS {
+            break;
+        }
+    }
+    Ok(versions)
+}
+
+async fn fetch_release_index() -> Result<Vec<GithubRelease>> {
+    let mut last_error = None;
+
+    for proxy in [ProxyType::Localhost, ProxyType::System, ProxyType::None] {
+        let attempt = NetworkManager::new()
+            .get(
+                RELEASE_INDEX_URL,
+                proxy,
+                Some(INDEX_TIMEOUT_SECS),
+                Some(RELEASE_INDEX_USER_AGENT.into()),
+                false,
+            )
+            .await;
+
+        match attempt {
+            Ok(response) if response.status().is_success() => {
+                let body = response.text();
+                if body.len() > MAX_INDEX_BYTES {
+                    last_error = Some(anyhow!("{RELEASE_INDEX_URL} returned an oversized release index"));
+                    continue;
+                }
+                match serde_json::from_str::<Vec<GithubRelease>>(body) {
+                    Ok(releases) => return Ok(releases),
+                    Err(error) => {
+                        last_error =
+                            Some(anyhow::Error::from(error).context("failed to parse the mihomo release index"));
+                    }
+                }
+            }
+            Ok(response) => {
+                last_error = Some(anyhow!("{RELEASE_INDEX_URL} returned status {}", response.status()));
+            }
+            Err(error) => {
+                logging!(
+                    debug,
+                    Type::Core,
+                    "core install: release index probe via {proxy:?} failed: {error:#}"
+                );
+                last_error = Some(error.context(format!("{proxy:?} could not reach {RELEASE_INDEX_URL}")));
+            }
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| anyhow!("failed to fetch the mihomo release index")))
+}
+
+async fn download_package_from_any_proxy(alpha: bool, version: &str) -> Result<(ProxyType, Vec<u8>)> {
+    let url = package_url(alpha, version)?;
+    let mut last_error = None;
+
+    for proxy in [ProxyType::Localhost, ProxyType::System, ProxyType::None] {
+        match NetworkManager::new()
+            .get_bytes(&url, proxy, Some(PACKAGE_TIMEOUT_SECS), MAX_PACKAGE_BYTES)
+            .await
+        {
+            Ok(bytes) => return Ok((proxy, bytes)),
+            Err(error) => {
+                logging!(
+                    debug,
+                    Type::Core,
+                    "core install: package download via {proxy:?} failed: {error:#}"
+                );
+                last_error = Some(error.context(format!("failed to download {url}")));
+            }
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| anyhow!("failed to download {url}")))
+}
+
 pub async fn upgrade_core(force: bool) -> Result<CoreUpgradeReport> {
     let _serialized = UPGRADE_LOCK.lock().await;
     let core = Config::verge().await.latest_arc().get_valid_clash_core();
@@ -64,8 +260,20 @@ pub async fn upgrade_core(force: bool) -> Result<CoreUpgradeReport> {
     }
 
     let package = download_package(proxy, alpha, &latest).await?;
-    let stage_target = target.clone();
-    let stage_version = latest.clone();
+    install_managed_core(&core, &target, package, &latest, &installed).await
+}
+
+/// Stages, publishes and restarts the managed core; restores the previous core when the new one
+/// cannot be accepted or started. Shared by the upgrade and explicit-version install paths.
+async fn install_managed_core(
+    core: &str,
+    target: &Path,
+    package: Vec<u8>,
+    version: &str,
+    installed: &str,
+) -> Result<CoreUpgradeReport> {
+    let stage_target = target.to_path_buf();
+    let stage_version = version.to_owned();
     let staged =
         crate::process::AsyncHandler::spawn_blocking(move || stage_core(&stage_target, &package, &stage_version))
             .await
@@ -76,20 +284,20 @@ pub async fn upgrade_core(force: bool) -> Result<CoreUpgradeReport> {
     let rollback = target.with_file_name(format!(".{core}.rollback"));
     let _ = std::fs::remove_file(&rollback);
     // Nothing to roll back to when the core we are replacing could not report a version.
-    let restorable = !installed.is_empty() && std::fs::hard_link(&target, &rollback).is_ok();
+    let restorable = !installed.is_empty() && std::fs::hard_link(target, &rollback).is_ok();
 
     // Decided before anything can crash: after a failed restart the mode reads NotRunning, which
     // says nothing about whether this upgrade went through the Service.
     let service_mode = matches!(*CoreManager::global().get_running_mode(), RunningMode::Service);
 
-    let mut result = staged.publish(&target);
+    let mut result = staged.publish(target);
     // The Service executes its own administrator-approved copy, never this file; hand the new
     // bytes over before the restart below asks for them, or a service-mode restart would keep
     // running the previous core while the app reports the new version. Sidecar mode runs the
     // file directly and gets no elevation prompt.
     let service_staging = if result.is_ok() && service_mode {
         result =
-            crate::core::service::stage_approved_core(&target).context("core replaced but not accepted by the service");
+            crate::core::service::stage_approved_core(target).context("core replaced but not accepted by the service");
         if result.is_ok() {
             ServiceStaging::Succeeded
         } else {
@@ -113,7 +321,7 @@ pub async fn upgrade_core(force: bool) -> Result<CoreUpgradeReport> {
         let core_is_down = matches!(*CoreManager::global().get_running_mode(), RunningMode::NotRunning);
         if restorable
             && (matches!(service_staging, ServiceStaging::Refused) || core_is_down || !target.exists())
-            && std::fs::rename(&rollback, &target).is_ok()
+            && std::fs::rename(&rollback, target).is_ok()
         {
             logging!(warn, Type::Core, "core upgrade: rolled back to {installed:?}");
             // Only a staging that SUCCEEDED left the failing bytes in the approved copy, and only
@@ -123,7 +331,7 @@ pub async fn upgrade_core(force: bool) -> Result<CoreUpgradeReport> {
             // deliberately not gated on the current running mode, which reads NotRunning after
             // the very crash being rolled back.
             if matches!(service_staging, ServiceStaging::Succeeded)
-                && let Err(stage_error) = crate::core::service::stage_approved_core(&target)
+                && let Err(stage_error) = crate::core::service::stage_approved_core(target)
             {
                 logging!(
                     warn,
@@ -471,7 +679,10 @@ fn read_core_version(path: &Path) -> Result<std::string::String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_usable_version, package_url};
+    use super::{
+        GithubAsset, GithubRelease, expected_asset_name, installable_release_versions, is_usable_version, package_url,
+        usable_channel_version,
+    };
 
     #[test]
     fn only_plain_version_tokens_reach_the_package_url() {
@@ -500,5 +711,43 @@ mod tests {
             "{release}"
         );
         assert!(alpha.contains("/Prerelease-Alpha/"), "{alpha}");
+    }
+
+    #[test]
+    fn explicit_versions_must_match_the_managed_core_channel() {
+        assert!(usable_channel_version(false, "v1.19.32"));
+        assert!(usable_channel_version(true, "alpha-94b13ae"));
+        assert!(!usable_channel_version(false, "alpha-94b13ae"));
+        assert!(!usable_channel_version(true, "v1.19.32"));
+        assert!(!usable_channel_version(false, "../v1.19.32"));
+    }
+
+    #[test]
+    fn only_releases_with_a_platform_asset_are_installable() {
+        let asset = expected_asset_name(false, "v1.19.32").unwrap_or_default();
+        let releases = vec![
+            GithubRelease {
+                tag_name: "v1.19.32".to_owned(),
+                prerelease: false,
+                published_at: None,
+                assets: vec![GithubAsset { name: asset.clone() }],
+            },
+            GithubRelease {
+                tag_name: "v1.19.31".to_owned(),
+                prerelease: false,
+                published_at: None,
+                assets: Vec::new(),
+            },
+            GithubRelease {
+                tag_name: "Prerelease-Alpha".to_owned(),
+                prerelease: true,
+                published_at: None,
+                assets: vec![GithubAsset { name: asset }],
+            },
+        ];
+
+        let versions = installable_release_versions(&releases).unwrap_or_default();
+        assert_eq!(versions.len(), 1);
+        assert_eq!(versions[0].version, "v1.19.32");
     }
 }

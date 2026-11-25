@@ -18,22 +18,32 @@ import SettingsSvg from '@/assets/image/itemicon/settings.svg?react'
 import UnlockSvg from '@/assets/image/itemicon/unlock.svg?react'
 
 import { navigationItems } from './_navigation-meta'
-import ConnectionsPage from './connections'
 import HomePage from './home'
 import LogsPage from './logs'
-import ProfilePage from './profiles'
 import ProxyPage from './proxies'
 import RulesPage from './rules'
-import SettingPage from './settings'
 import UnlockPage from './unlock'
 
-type NavigationItem = {
+type PageModule = { Component: ComponentType }
+
+export type NavigationItem = {
   label: (typeof navigationItems)[keyof typeof navigationItems]['label']
   path: string
   icon: ReactNode[]
-  Component: ComponentType
+  Component?: ComponentType
+  lazy?: () => Promise<PageModule>
 }
 
+const lazyPage = (load: () => Promise<{ default: ComponentType }>) => () =>
+  load().then((module) => ({ Component: module.default }))
+
+export const preloadNavItem = (item: NavigationItem) => {
+  void item.lazy?.().catch(() => {})
+}
+
+// The three largest pages are split out of the initial bundle. They are
+// preloaded on navigation hover/focus so the split does not introduce a
+// visible loading state.
 export const navItems: NavigationItem[] = [
   {
     ...navigationItems.home,
@@ -48,12 +58,12 @@ export const navItems: NavigationItem[] = [
   {
     ...navigationItems.profiles,
     icon: [<DnsOutlinedIcon key="mui" />, <ProfilesSvg key="svg" />],
-    Component: ProfilePage,
+    lazy: lazyPage(() => import('./profiles')),
   },
   {
     ...navigationItems.connections,
     icon: [<LanguageOutlinedIcon key="mui" />, <ConnectionsSvg key="svg" />],
-    Component: ConnectionsPage,
+    lazy: lazyPage(() => import('./connections')),
   },
   {
     ...navigationItems.rules,
@@ -73,6 +83,6 @@ export const navItems: NavigationItem[] = [
   {
     ...navigationItems.settings,
     icon: [<SettingsOutlinedIcon key="mui" />, <SettingsSvg key="svg" />],
-    Component: SettingPage,
+    lazy: lazyPage(() => import('./settings')),
   },
 ]

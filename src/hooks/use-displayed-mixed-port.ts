@@ -1,6 +1,6 @@
+import { useClashConfigData } from '@/hooks/data'
 import { useClashInfo, useRuntimeConfig } from '@/hooks/use-clash'
 import { useVerge } from '@/hooks/use-verge'
-import { useClashConfigData } from '@/providers/app-data-context'
 import { resolveDisplayedMixedPort } from '@/utils/mixed-port'
 
 export const useDisplayedMixedPort = () => {

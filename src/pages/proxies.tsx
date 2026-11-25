@@ -7,10 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { BasePage, TooltipIcon } from '@/components/base'
 import { ProviderButton } from '@/components/proxy/provider-button'
 import { ProxyGroups } from '@/components/proxy/proxy-groups'
-import {
-  useAppRefreshers,
-  useClashConfigData,
-} from '@/providers/app-data-context'
+import { useAppRefreshers, useClashConfigData } from '@/hooks/data'
 import {
   getRuntimeProxyChainConfig,
   patchClashMode,

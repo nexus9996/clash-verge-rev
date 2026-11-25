@@ -324,6 +324,26 @@
       "variants": {
         "release": "Официальная версия",
         "alpha": "Альфа-версия"
+      },
+      "actions": {
+        "manageVersions": "Управление версиями"
+      },
+      "versions": {
+        "title": "Версии Mihomo",
+        "description": "Установите конкретную версию Mihomo. Если новое ядро не запустится, приложение автоматически восстановит предыдущую версию.",
+        "channel": "Канал: {{channel}}",
+        "loading": "Загрузка версий...",
+        "empty": "Нет доступных версий",
+        "latest": "Последняя",
+        "installed": "Установлена",
+        "installedAction": "Установлена",
+        "install": "Установить",
+        "upgradeLatest": "Обновить до последней",
+        "messages": {
+          "installed": "Обновлено до {{version}}",
+          "alreadyInstalled": "Уже установлена версия {{version}}",
+          "alreadyLatest": "Уже последняя версия"
+        }
       }
     },
     "liteMode": {
@@ -437,13 +457,15 @@
         "autoDelayDetection": "Автоматическое измерение задержки",
         "autoDelayDetectionInterval": "Интервал автоматического измерения задержки",
         "defaultLatencyTest": "URL для теста задержки",
-        "defaultLatencyTimeout": "Таймаут задержки по умолчанию"
+        "defaultLatencyTimeout": "Таймаут задержки по умолчанию",
+        "updateChannel": "Канал обновлений"
       },
       "tooltips": {
         "autoCloseConnections": "Закрывать установленные соединения при изменении выбора группы прокси или режима прокси",
         "enableBuiltinEnhanced": "Обработка совместимости для файла конфигурации",
         "autoDelayDetection": "Периодически проверяет задержку текущего узла в фоновом режиме",
-        "defaultLatencyTest": "Используется только для тестирования HTTP-запросов клиента и не влияет на файл конфигурации"
+        "defaultLatencyTest": "Используется только для тестирования HTTP-запросов клиента и не влияет на файл конфигурации",
+        "updateChannel": "Альфа-канал следует предварительным сборкам и может быть нестабильным"
       },
       "options": {
         "proxyLayoutColumns": {
@@ -452,6 +474,10 @@
         "autoLogClean": {
           "never": "Никогда не очищать",
           "retainDays": "Хранить {{n}} дней"
+        },
+        "updateChannel": {
+          "stable": "Стабильная",
+          "alpha": "Альфа"
         }
       }
     },
@@ -471,6 +497,12 @@
         "important": "Важно",
         "warning": "Предупреждение",
         "caution": "Осторожно"
+      },
+      "restart": {
+        "title": "Обновление установлено",
+        "body": "Перезапустите приложение, чтобы применить новую версию.",
+        "restartNow": "Перезапустить",
+        "restartLater": "Позже"
       }
     },
     "sysproxy": {

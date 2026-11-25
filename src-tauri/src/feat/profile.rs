@@ -108,7 +108,7 @@ async fn perform_profile_update(
     url: &String,
     opt: Option<&PrfOption>,
     option: Option<&PrfOption>,
-    is_mannual_trigger: bool,
+    is_manual_trigger: bool,
 ) -> Result<()> {
     let merged_opt = PrfOption::merge(opt, option);
     let profiles = Config::profiles().await;
@@ -190,7 +190,7 @@ async fn perform_profile_update(
     };
 
     let last_err = mask_err(&last_err.to_string());
-    if is_mannual_trigger {
+    if is_manual_trigger {
         handle::Handle::notice(
             NoticeStatus::UpdateFailedEvenWithClash,
             format!("{profile_name} - {last_err}"),
@@ -199,29 +199,29 @@ async fn perform_profile_update(
     bail!(last_err)
 }
 
-#[tracing::instrument(skip_all, level = "info", fields(uid = %uid, manual = is_mannual_trigger))]
-pub async fn update_profile(uid: &String, option: Option<&PrfOption>, is_mannual_trigger: bool) -> Result<()> {
-    let url_opt = should_update_profile(uid, is_mannual_trigger).await?;
+#[tracing::instrument(skip_all, level = "info", fields(uid = %uid, manual = is_manual_trigger))]
+pub async fn update_profile(uid: &String, option: Option<&PrfOption>, is_manual_trigger: bool) -> Result<()> {
+    let url_opt = should_update_profile(uid, is_manual_trigger).await?;
 
     let profile_persisted = match url_opt {
         Some((url, opt)) => {
-            perform_profile_update(uid, &url, opt.as_ref(), option, is_mannual_trigger).await?;
+            perform_profile_update(uid, &url, opt.as_ref(), option, is_manual_trigger).await?;
             true
         }
         None => false,
     };
     let profiles = Config::profiles().await;
     let is_current = profiles.latest_arc().current.as_ref() == Some(uid);
-    let should_refresh = is_current || (!profile_persisted && is_mannual_trigger);
+    let should_refresh = is_current || (!profile_persisted && is_manual_trigger);
 
     if should_refresh {
         logging!(debug, Type::Config, "[订阅更新] 更新内核配置");
-        match CoreManager::global().update_config_with_force(is_mannual_trigger).await {
+        match CoreManager::global().update_config_with_force(is_manual_trigger).await {
             Ok(outcome) if outcome.is_valid() => {
                 logging_error!(Type::Config, Config::sync_dns_override().await);
                 announce(Refresh::Clash);
             }
-            Ok(outcome @ (ValidationOutcome::Skipped { .. } | ValidationOutcome::Busy)) if !is_mannual_trigger => {
+            Ok(outcome @ (ValidationOutcome::Skipped { .. } | ValidationOutcome::Busy)) if !is_manual_trigger => {
                 logging!(info, Type::Config, "[订阅更新] 本次配置刷新已跳过: {}", outcome);
             }
             result => {

@@ -60,13 +60,13 @@ jobs:
           for commit in $(git rev-list HEAD --max-count=50); do
             CHANGED_FILES=$(git show --name-only --pretty=format: $commit | tr '\n' ' ')
             HAS_TAURI_CHANGES=false
-            
+
             if echo "$CHANGED_FILES" | grep -q "src/" && echo "$CHANGED_FILES" | grep -qvE "src/(dist|build|node_modules|\.next|\.cache)"; then
               HAS_TAURI_CHANGES=true
             elif echo "$CHANGED_FILES" | grep -qE "src-tauri/(src|Cargo\.(toml|lock)|tauri\..*\.conf\.json|build\.rs|capabilities)"; then
               HAS_TAURI_CHANGES=true
             fi
-            
+
             if [ "$HAS_TAURI_CHANGES" = true ]; then
               LAST_TAURI_COMMIT=$(git rev-parse --short $commit)
               break
@@ -172,15 +172,15 @@ jobs:
           else
             echo ""
             echo "🗑️  Deleting old assets..."
-            
+
             DELETED_COUNT=0
             FAILED_COUNT=0
-            
+
             for asset in $assets; do
               if [[ "$asset" == *"$CURRENT_AUTOBUILD_VERSION"* ]] || [[ "$asset" == "latest.json" ]]; then
                 continue
               fi
-              
+
               echo "  Deleting: $asset"
               if gh release delete-asset "$TAG_NAME" "$asset" -y 2>/dev/null; then
                 DELETED_COUNT=$((DELETED_COUNT + 1))
@@ -197,7 +197,7 @@ jobs:
               echo "  - Failed: $FAILED_COUNT assets"
             fi
             echo "  - Kept: $(echo -e "$ASSETS_TO_KEEP" | grep -v '^$' | wc -l) assets"
-            
+
             if [ $FAILED_COUNT -gt 0 ]; then
               echo "⚠️  Some assets failed to delete. Please check the logs above."
               exit 1

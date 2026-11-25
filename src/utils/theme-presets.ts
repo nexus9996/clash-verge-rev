@@ -1,4 +1,4 @@
-import { defaultDarkTheme, defaultTheme } from '@/pages/_theme'
+import { defaultDarkTheme, defaultTheme } from '@/config/theme'
 
 export type ThemeColorKey =
   | 'primary_color'

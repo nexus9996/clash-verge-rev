@@ -12,9 +12,13 @@
       "process": "进程",
       "time": "连接时间",
       "source": "源地址",
+      "sourceIp": "源 IP",
+      "sourcePort": "源端口",
       "destination": "目标地址",
+      "destinationIp": "目标 IP",
       "destinationPort": "目标端口",
-      "type": "类型"
+      "type": "类型",
+      "network": "网络"
     },
     "order": {
       "default": "默认",
@@ -29,6 +33,12 @@
     "columnManager": {
       "title": "列设置",
       "dragHandle": "拖拽控件"
+    },
+    "filters": {
+      "placeholder": "筛选连接",
+      "noOptions": "无匹配选项",
+      "searchValue": "搜索值",
+      "clear": "清除筛选"
     }
   }
 }

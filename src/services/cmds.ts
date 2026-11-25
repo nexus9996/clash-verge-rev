@@ -12,6 +12,8 @@ import type {
   ProxyPortSettings,
   UnlockItem,
   ProxyViewV1_Serialize as ProxyViewV1,
+  RuleDisableRequest,
+  UpdateInfo,
   ProfileSelection,
   ProfilePatch,
   ProfileCreate,
@@ -27,6 +29,9 @@ export type {
   ProxyPortSettings,
   ListenerTransport,
   ListenerProbe,
+  RuleExtraInfo,
+  UpdateInfo,
+  CoreVersionCatalog,
   UnlockItem,
 } from './bindings'
 
@@ -298,6 +303,14 @@ export async function upgradeClashCore(force = false) {
   return commands.upgradeClashCore(force)
 }
 
+export async function getCoreVersions() {
+  return commands.getCoreVersions()
+}
+
+export async function installCoreVersion(version: string) {
+  return commands.installCoreVersion(version)
+}
+
 export async function restartApp() {
   return commands.restartApp()
 }
@@ -339,6 +352,18 @@ export async function syncRuntimeProviders() {
 
 export async function cmdTestDelay(url: string) {
   return commands.testDelay(url)
+}
+
+export async function getRulesExtra() {
+  return commands.getRulesExtra()
+}
+
+export async function updateRulesDisable(requests: RuleDisableRequest[]) {
+  return commands.updateRulesDisable(requests)
+}
+
+export async function checkUpdateAvailable(): Promise<UpdateInfo | null> {
+  return commands.checkUpdateAvailable()
 }
 
 export async function invoke_uwp_tool() {

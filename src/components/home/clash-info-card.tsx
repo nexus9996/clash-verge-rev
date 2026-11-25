@@ -3,14 +3,10 @@ import { Divider, Stack, Typography } from '@mui/material'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { useClashConfigData, useRulesData, useSystemData } from '@/hooks/data'
 import { useClash } from '@/hooks/use-clash'
 import { useDisplayedMixedPort } from '@/hooks/use-displayed-mixed-port'
 import { useAppUptime } from '@/hooks/use-system-state'
-import {
-  useClashConfigData,
-  useRulesData,
-  useSystemData,
-} from '@/providers/app-data-context'
 
 import { EnhancedCard } from './enhanced-card'
 

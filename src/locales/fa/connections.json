@@ -12,9 +12,13 @@
       "process": "فرآیند",
       "time": "زمان",
       "source": "منبع",
+      "sourceIp": "IP مبدأ",
+      "sourcePort": "پورت مبدأ",
       "destination": "آدرس IP مقصد",
+      "destinationIp": "IP مقصد",
       "destinationPort": "بندر هدف",
-      "type": "نوع"
+      "type": "نوع",
+      "network": "شبکه"
     },
     "order": {
       "default": "Default",
@@ -29,6 +33,12 @@
     "columnManager": {
       "title": "ستون‌ها",
       "dragHandle": "Drag handle"
+    },
+    "filters": {
+      "placeholder": "فیلتر اتصالات",
+      "noOptions": "گزینه‌ای مطابق نیست",
+      "searchValue": "جستجوی مقدار",
+      "clear": "پاک کردن فیلترها"
     }
   }
 }
